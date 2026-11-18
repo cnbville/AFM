@@ -339,6 +339,22 @@ struct Pass {
     /// Out of the pocket with his eyes still downfield (the scramble
     /// drill): the side he broke to and when (minor bug 138).
     extend: Option<(f64, f64)>,
+    /// The play fake (scheme-fit item 3), when there is a back to fake to.
+    fake: Option<Fake>,
+}
+
+/// A play fake (scheme-fit item 3): the back meets the quarterback at the
+/// mesh on the run's path, carries out the fake, then takes his job in the
+/// pass (his block or his release).
+struct Fake {
+    /// Where the quarterback meets him, and when he pulls the ball out.
+    mesh: V2,
+    at: f64,
+    /// His job in the pass once he has carried out the fake.
+    route: Route,
+    /// His man in the protection when he is in it (`pa_protection`): the
+    /// rusher he blocks if that man comes.
+    man: Option<usize>,
 }
 
 /// Debug counts of how throws were chosen: on reads 1-4+, any open man
@@ -506,6 +522,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         help_on: None,
         chip: None,
         gap_run: None,
+        fake: None,
         stunt: None,
         level: s.rules.level,
         mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
@@ -582,12 +599,24 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 
     // Reading the play (topic 2.1): each defender knows run or pass at his
     // own moment; smart ones sooner. Fakes hold the rest a little longer.
+    // A play fake needs a back in the backfield to fake to (scheme-fit
+    // item 3): the back (or the fullback, with no back there) meets the
+    // quarterback at the mesh. From an empty set it is a straight drop.
+    let pa_call = s.call.play_action();
+    let fake_back = if pa_call {
+        [ORole::RB, ORole::FB].into_iter().filter_map(find).find(|&k| {
+            let p = sim.agents[k].pos;
+            p.x < los - 2.0 && (p.y - by).abs() < 4.5
+        })
+    } else {
+        None
+    };
     let fake = match s.call.kind {
-        PlayKind::Pass(c) => pass_concept(c).play_action,
+        PlayKind::Pass(_) => fake_back.is_some(),
         PlayKind::Run(RunConcept::Draw) => true,
         _ => false,
     };
-    res.play_action = fake && matches!(s.call.kind, PlayKind::Pass(_));
+    res.play_action = fake_back.is_some();
     // What he expects from this look (topics 7.2, 2.1): a tell he was
     // taught from film and has seen this game lets him read the play a beat
     // sooner, and the wrong lean (play action from a run look) holds him
@@ -601,8 +630,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let jet = matches!(f.motion, Motion::Jet | Motion::Orbit);
     let cov_fam = s.dcall.coverage.family();
     // A quarterback who sells the fake holds them longer (ball handling); a
-    // disciplined defender keeps his eyes where they belong.
-    let sell = clamp(1.0 + 0.01 * (sim.agents[qb].a(Attr::BallHandling) - 60.0), 0.6, 1.4);
+    // disciplined defender keeps his eyes where they belong. His hands are
+    // read against his level's typical starter, about a tenth longer for 10
+    // points, and never capped (scheme-fit item 3: it sat at 60 between
+    // fixed bounds, so nearly every college and pro starter sold it alike;
+    // proposed, not confirmed).
+    let typ_hands = super::synthetic::typical_starter(sim.level, Position::QB, Attr::BallHandling);
+    let sell = (SELL_PER_POINT * (sim.agents[qb].a(Attr::BallHandling) - typ_hands)).exp();
     // Recognition is read against the level, as the offense's timing is
     // (trial 9 finding 2): on the raw scale an average NFL defender read a
     // run 0.14 s sooner than an average FBS one while the blocking and the
@@ -795,6 +829,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         PlayKind::Pass(ci) => {
             let c = pass_concept(ci);
             res.passer = Some(sim.agents[qb].id);
+            let side = if f.strength > 0.0 { 1.0 } else { -1.0 };
+            let boot = c.drop == Drop::Boot;
+            let mut fake_route = Route::Block;
             for i in 0..off_n {
                 let r = role_of[i].unwrap();
                 if r == ORole::QB {
@@ -810,13 +847,22 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 {
                     route = if r.is_back() { Route::Flat } else { Route::Sit(6.0) };
                 }
-                sim.agents[i].job = route_job(&sim.agents[i], route, los, by, s.hurry);
+                if Some(i) == fake_back {
+                    fake_route = route;
+                }
+                // On the boot a back lined up on the ball runs his route to
+                // the side the quarterback rolls to (scheme-fit item 3: a
+                // back behind the ball always broke to the offense's left,
+                // so half the boots sent the fullback's flat away from the
+                // throw). The back who fakes the run away from the roll
+                // takes his route later, from where the fake left him.
+                let out = (boot && r.is_back() && (sim.agents[i].pos.y - by).abs() < 0.5).then_some(side);
+                sim.agents[i].job = route_job_to(&sim.agents[i], route, los, by, s.hurry, out);
                 let late = silent_late(&sim, s, i);
                 if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
                     *release_delay += late;
                 }
             }
-            let side = if f.strength > 0.0 { 1.0 } else { -1.0 };
             let (dx, dy) = match (c.drop, f.backfield) {
                 (Drop::Quick, Backfield::UnderCenter) => (-4.0, 0.0),
                 (Drop::Quick, _) => (-6.0, 0.0),
@@ -839,7 +885,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 Drop::Boot => 2.2,
                 Drop::Screen => 1.4,
                 Drop::Bubble => 0.75,
-            } + if c.play_action { 0.35 } else { 0.0 };
+            } + if fake_back.is_some() { PA_TIME } else { 0.0 };
             // Clean feet get him to the top of the drop and set sooner, a
             // few hundredths either way at the extremes. Footwork, release
             // and anticipation were first read at twice these sizes: NFL
@@ -882,15 +928,79 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 ball_h: 0.0,
                 give_up: false,
                 extend: None,
+                fake: None,
             });
             if c.drop == Drop::Screen {
                 sim.screen = pass.as_ref().and_then(|ps| ps.reads.first().copied());
             }
+            // The play fake (scheme-fit item 3): the back takes the run's
+            // path through the mesh, where the quarterback rides the fake
+            // and pulls it, then carries out the fake into the line's run
+            // action. The boot fakes away from the side it rolls to. The
+            // mesh comes sooner than a handoff's, so the drop can follow
+            // (proposed, not confirmed: 0.8 s under center, 0.7 in the
+            // pistol, 0.6 in the shotgun).
+            if let Some(b) = fake_back {
+                let fdir = if boot { -side } else { side };
+                let (mesh, at) = match f.backfield {
+                    Backfield::UnderCenter => (v2(los - 4.0, by + 0.6 * fdir), PA_MESH_UC),
+                    Backfield::Pistol => (v2(los - 4.6, by + 0.5 * fdir), PA_MESH_PISTOL),
+                    Backfield::Shotgun => (v2(los - 5.2, by + 0.4 * fdir), PA_MESH_GUN),
+                };
+                sim.agents[b].job = Job::Handoff { aim: v2(los + 1.0, by + PA_AIM * fdir), mesh, at };
+                if let Some(ps) = pass.as_mut() {
+                    ps.fake = Some(Fake { mesh, at, route: fake_route, man: None });
+                    // He finishes his drop past the mesh: a quick drop under
+                    // center went no deeper than the mesh, four yards back,
+                    // so he set where he rode the fake.
+                    if !boot {
+                        ps.drop_to.x = ps.drop_to.x.min(mesh.x - PA_PAST_MESH);
+                    }
+                }
+                sim.fake = Some(b);
+            }
             assign_defense(&mut sim, s, off_n, &slot_of, &role_of, true);
-            pass_protection(&mut sim, off_n);
+            // Who the fake holds, and for how long: everyone who keys the
+            // backfield plays the run he is shown until he reads the pass
+            // (his own read, which the fake has already made later): the
+            // rushers, who read the line's run action, the zone defenders,
+            // and a man on a tight end or a back, who keys the run with him.
+            // A man on a wide receiver has his eyes on his man. (A rusher
+            // was held only for the fake's own hold, about a third of a
+            // second, and came on as if it were a straight drop.)
+            if fake_back.is_some() {
+                for i in off_n..sim.agents.len() {
+                    sim.agents[i].fooled_until = match sim.agents[i].job {
+                        Job::Rush { .. } | Job::Zone { .. } => sim.agents[i].read_at,
+                        Job::Man { target, .. } if sim.agents[target].label != "WR" => sim.agents[i].read_at,
+                        _ => 0.0,
+                    };
+                }
+            }
+            // The protection: a half-slide built around the back's fake
+            // path when he stays in, the standard one when he releases or
+            // on the boot (whose own rules come next).
+            let fdir = if boot { -side } else { side };
+            let in_pro = fake_back.is_some() && matches!(fake_route, Route::Block | Route::CheckRelease);
+            if in_pro && !boot {
+                let man = pa_protection(&mut sim, off_n, &role_of, &slot_of, fdir, by);
+                if let Some(fk) = pass.as_mut().and_then(|ps| ps.fake.as_mut()) {
+                    fk.man = man;
+                }
+            } else {
+                pass_protection(&mut sim, off_n);
+            }
+            if boot && fake_back.is_some() {
+                boot_protection(&mut sim, off_n, &role_of, side, by);
+            }
             stunt_pickup(&mut sim, s.tac.chem);
             slide_to(&mut sim, s, off_n);
-            chart_rush(&mut sim, off_n, &slot_of, by);
+            // A back who blocks once he has carried out the fake is in the
+            // protection the chart keeps, with the man the half-slide gave
+            // him (`Job::Handoff` until then).
+            let fake_block =
+                pass.as_ref().and_then(|ps| ps.fake.as_ref()).filter(|fk| fk.route == Route::Block).map(|fk| fk.man);
+            chart_rush(&mut sim, off_n, &slot_of, by, fake_block);
             // The matchup plan (topic 5.4): the quarterback looks first at
             // the receiver on the corner the staff wants to attack, when that
             // man is in the progression.
@@ -1210,6 +1320,48 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                         sim.go_to(i, to, 0.8);
                     }
                 }
+                Job::Handoff { mesh, at, aim: hole } if sim.fake == Some(i) => {
+                    // The play fake (scheme-fit item 3): he takes the mesh as
+                    // he would a handoff and carries out the fake into the
+                    // line's run action, then takes his job in the pass (his
+                    // block, or his release from where the fake left him).
+                    let me = sim.agents[i].pos;
+                    let d = me.dist(mesh);
+                    // Protection before the fake (real backs are coached to
+                    // drop the fake only when somebody is coming): in the
+                    // protection, he blocks a free rusher who comes into him
+                    // on his path, and from the mesh on his own man if that
+                    // man comes and he sees him (`picks_up`). He used to fake
+                    // and release whatever came.
+                    let fk = pass.as_ref().and_then(|p| p.fake.as_ref());
+                    let in_pro = fk.is_some_and(|fk| matches!(fk.route, Route::Block | Route::CheckRelease));
+                    let free = |sim: &Sim, k: usize| {
+                        let a = &sim.agents[k];
+                        a.up(t) && a.engaged.is_none() && matches!(a.job, Job::Rush { .. })
+                    };
+                    let fill = if in_pro {
+                        (off_n..sim.agents.len())
+                            .find(|&k| free(&sim, k) && sim.agents[k].pos.dist(me) < PA_FILL)
+                            .or(fk.and_then(|fk| fk.man).filter(|&k| t >= at && free(&sim, k) && picks_up(&sim, i, k)))
+                    } else {
+                        None
+                    };
+                    if let Some(k) = fill {
+                        sim.agents[i].job = Job::PassBlock { target: Some(k) };
+                    } else if t < at && d > 0.3 {
+                        let speed = (d / (at - t).max(DT)).min(sim.agents[i].vmax * 0.7);
+                        sim.steer(i, (mesh - me).norm().scale(speed));
+                    } else if t < at + PA_CARRY {
+                        sim.steer(i, (hole - me).norm().scale(sim.agents[i].vmax * 0.55));
+                    } else {
+                        let route = pass.as_ref().and_then(|p| p.fake.as_ref()).map_or(Route::Block, |fk| fk.route);
+                        let mut job = route_job(&sim.agents[i], route, los, by, s.hurry);
+                        if let Job::Route { release_delay, .. } = &mut job {
+                            *release_delay = 0.0;
+                        }
+                        sim.agents[i].job = job;
+                    }
+                }
                 Job::Handoff { mesh, at, aim: hole } => {
                     // He times his path through the mesh and keeps moving.
                     let me = sim.agents[i].pos;
@@ -1269,6 +1421,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     ball_h: 0.0,
                                     give_up: false,
                                     extend: None,
+                                    fake: None,
                                 });
                                 sim.agents[qb].job = Job::Passer;
                                 continue;
@@ -2205,6 +2358,12 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
 // ------------------------------------------------------------- jobs
 
 fn route_job(a: &Agent, route: Route, los: f64, by: f64, hurry: bool) -> Job {
+    route_job_to(a, route, los, by, hurry, None)
+}
+
+/// A route job with its outside named (+1 the offense's left), else the
+/// side of the ball he lines up on.
+fn route_job_to(a: &Agent, route: Route, los: f64, by: f64, hurry: bool, out: Option<f64>) -> Job {
     if route.blocks() {
         return if matches!(a.label, "WR") {
             Job::RunBlock { target: None, pull: false }
@@ -2212,7 +2371,7 @@ fn route_job(a: &Agent, route: Route, los: f64, by: f64, hurry: bool) -> Job {
             Job::PassBlock { target: None }
         };
     }
-    let out = if a.pos.y >= by { 1.0 } else { -1.0 };
+    let out = out.unwrap_or(if a.pos.y >= by { 1.0 } else { -1.0 });
     let mut route = route;
     if hurry {
         // In the two-minute drill, routes break to the sideline.
@@ -2812,13 +2971,17 @@ fn pass_protection(sim: &mut Sim, off_n: usize) {
             .filter(|&r| !taken[r])
             .min_by(|&x, &y| (sim.agents[x].pos.y - by).abs().total_cmp(&(sim.agents[y].pos.y - by).abs()));
         if let Some(r) = best
-            && (sim.agents[r].pos.y - by).abs() < 3.2
+            && (sim.agents[r].pos.y - by).abs() < PRO_REACH
         {
             taken[r] = true;
             sim.agents[b].job = Job::PassBlock { target: Some(r) };
         }
     }
-    // Backs and tight ends in protection take what's left, inside first.
+    protect_rest(sim, off_n, &rushers, &mut taken);
+}
+
+/// Backs and tight ends in protection take what's left, inside first.
+fn protect_rest(sim: &mut Sim, off_n: usize, rushers: &[usize], taken: &mut [bool]) {
     let others: Vec<usize> = (0..off_n)
         .filter(|&i| matches!(sim.agents[i].job, Job::PassBlock { target: None }) && !is_line(sim.agents[i].label))
         .collect();
@@ -2833,6 +2996,148 @@ fn pass_protection(sim: &mut Sim, off_n: usize) {
         {
             taken[r] = true;
             sim.agents[b].job = Job::PassBlock { target: Some(r) };
+        }
+    }
+}
+
+/// How far across a pass blocker reaches for his man at the snap, yards.
+const PRO_REACH: f64 = 3.2;
+
+/// The play fake's protection when the back stays in (scheme-fit item 3):
+/// a half-slide, the way real staffs build it so that the back's fake path
+/// leads to his block. The guard and tackle on the side he fakes to block
+/// the down linemen over them, each man taken by the nearer of the two
+/// from the outside in, so the tackle has the end and the back never does;
+/// the center and the far guard and tackle slide a gap away from the fake
+/// and take the rushers there. The back has the first rusher left on his
+/// side from the center out (`Fake::man`), and blocks him if he comes.
+/// Tight ends kept in take what is left, and anyone left after that is the
+/// quarterback's hot. The standard protection never counted the back, who
+/// was faking: every six- and seven-man play-action call was a blocker
+/// short, and 29% of play-action dropbacks against five or more rushers
+/// were sacks (real NFL 2021-25: 9.7%).
+fn pa_protection(
+    sim: &mut Sim,
+    off_n: usize,
+    roles: &[Option<ORole>],
+    slots: &[Option<DSlot>],
+    fdir: f64,
+    ball_y: f64,
+) -> Option<usize> {
+    let n = sim.agents.len();
+    let side = |sim: &Sim, k: usize| (sim.agents[k].pos.y - ball_y) * fdir;
+    let rushers: Vec<usize> = (off_n..n).filter(|&i| matches!(sim.agents[i].job, Job::Rush { .. })).collect();
+    let line: Vec<usize> = (0..off_n)
+        .filter(|&i| {
+            roles[i].is_some_and(|r| r.is_line())
+                && matches!(sim.agents[i].job, Job::PassBlock { .. })
+                && !sim.agents[i].bust
+        })
+        .collect();
+    let mut taken = vec![false; n];
+    let mut has = vec![false; off_n];
+    let give = |sim: &mut Sim, taken: &mut [bool], has: &mut [bool], b: usize, r: usize| {
+        taken[r] = true;
+        has[b] = true;
+        sim.agents[b].job = Job::PassBlock { target: Some(r) };
+    };
+    // The man side: the down linemen over the guard and tackle, outside in.
+    let mut down: Vec<usize> =
+        rushers.iter().copied().filter(|&r| slots[r].is_some_and(|d| d.is_line()) && side(sim, r) > MAN_SIDE).collect();
+    down.sort_by(|&a, &b| side(sim, b).total_cmp(&side(sim, a)));
+    for r in down {
+        let ry = sim.agents[r].pos.y;
+        if let Some(b) = line
+            .iter()
+            .copied()
+            .filter(|&b| side(sim, b) > MAN_SIDE && !has[b] && (sim.agents[b].pos.y - ry).abs() < PRO_REACH)
+            .min_by(|&a, &b| (sim.agents[a].pos.y - ry).abs().total_cmp(&(sim.agents[b].pos.y - ry).abs()))
+        {
+            give(sim, &mut taken, &mut has, b, r);
+        }
+    }
+    // The slide side: from the center out, each takes the man a gap away
+    // from the fake.
+    let mut slide: Vec<usize> = line.iter().copied().filter(|&b| side(sim, b) <= MAN_SIDE).collect();
+    slide.sort_by(|&a, &b| side(sim, b).total_cmp(&side(sim, a)));
+    for b in slide {
+        let aim = sim.agents[b].pos.y - SLIDE_GAP * fdir;
+        if let Some(r) = rushers
+            .iter()
+            .copied()
+            .filter(|&r| !taken[r] && side(sim, r) <= MAN_SIDE && (sim.agents[r].pos.y - aim).abs() < PRO_REACH)
+            .min_by(|&x, &y| (sim.agents[x].pos.y - aim).abs().total_cmp(&(sim.agents[y].pos.y - aim).abs()))
+        {
+            give(sim, &mut taken, &mut has, b, r);
+        }
+    }
+    // The back: the first man left on his side, from the center out.
+    let man = rushers
+        .iter()
+        .copied()
+        .filter(|&r| !taken[r] && side(sim, r) >= 0.0)
+        .min_by(|&a, &b| side(sim, a).total_cmp(&side(sim, b)));
+    if let Some(r) = man {
+        taken[r] = true;
+    }
+    protect_rest(sim, off_n, &rushers, &mut taken);
+    man
+}
+
+/// The half-slide's split: a lineman or rusher more than this far to the
+/// fake side of the ball is on the man side (the guards stand 1.4 yards
+/// out, a shade on the center 0.7), and how far the slide side's linemen
+/// look for their men, one gap (half the 1.4-yard split; proposed, not
+/// confirmed).
+const MAN_SIDE: f64 = 0.5;
+const SLIDE_GAP: f64 = 0.7;
+
+/// The boot's protection (scheme-fit item 3): the line shows the run away
+/// from the boot, and the guard on the boot side pulls to the end man on
+/// that side, the first threat to a quarterback rolling out; the blocker
+/// who had the end takes the guard's man. Rushers inside chase the roll
+/// from behind. It was the standard five-man protection, and the
+/// quarterback rolled into the end his tackle held: 48% of the audit's NFL
+/// boots were sacks, real 5.7% on boots and rollouts.
+fn boot_protection(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], side: f64, by: f64) {
+    let want = if side > 0.0 { ORole::LG } else { ORole::RG };
+    let Some(g) = roles.iter().position(|r| *r == Some(want)).filter(|&g| !sim.agents[g].bust) else {
+        return;
+    };
+    let out = |sim: &Sim, d: usize| (sim.agents[d].pos.y - by) * side;
+    let Some(end) = (off_n..sim.agents.len())
+        .filter(|&d| matches!(sim.agents[d].job, Job::Rush { .. }) && out(sim, d) > 2.0)
+        .max_by(|&a, &b| out(sim, a).total_cmp(&out(sim, b)))
+    else {
+        return;
+    };
+    let man = |sim: &Sim, b: usize| match sim.agents[b].job {
+        Job::PassBlock { target } => target,
+        _ => None,
+    };
+    let gm = man(sim, g);
+    if gm == Some(end) {
+        return;
+    }
+    let on = (0..off_n).find(|&b| b != g && man(sim, b) == Some(end));
+    sim.agents[g].job = Job::PassBlock { target: Some(end) };
+    if let Some(o) = on {
+        sim.agents[o].job = Job::PassBlock { target: gm };
+    } else if let Some(r) = gm {
+        // Nobody had the end: a lineman with no man of his own blocks back
+        // on the guard's man, as the center does behind a pulling guard.
+        // (The guard's man was dropped and came free.)
+        let ry = sim.agents[r].pos.y;
+        if let Some(o) = (0..off_n)
+            .filter(|&b| {
+                b != g
+                    && roles[b].is_some_and(|x| x.is_line())
+                    && matches!(sim.agents[b].job, Job::PassBlock { target: None })
+                    && !sim.agents[b].bust
+            })
+            .min_by(|&a, &b| (sim.agents[a].pos.y - ry).abs().total_cmp(&(sim.agents[b].pos.y - ry).abs()))
+        {
+            sim.agents[o].job = Job::PassBlock { target: Some(r) };
         }
     }
 }
@@ -2888,8 +3193,10 @@ fn slide_to(sim: &mut Sim, s: &Snap, off_n: usize) {
 
 /// The rush and the protection for the line chart (lane 9), when the snap
 /// keeps one: the gap each rusher aimed at from the line's spots, whether a
-/// blocker took him, and the protection the offense used.
-fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64) {
+/// blocker took him, and the protection the offense used. `fake_block` is
+/// the play fake's back when he blocks after it, with his man if he has
+/// one (scheme-fit item 3).
+fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64, fake_block: Option<Option<usize>>) {
     if sim.notes.chart.is_none() {
         return;
     }
@@ -2905,7 +3212,7 @@ fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64)
         if slots.get(i).copied().flatten().is_some_and(|d| d.is_line()) {
             flags |= Rusher::LINEMAN;
         }
-        if taken(sim, i) {
+        if taken(sim, i) || fake_block.flatten() == Some(i) {
             flags |= Rusher::PICKED;
         }
         if sim.stunt.is_some_and(|(a, b)| a == i || b == i) {
@@ -2913,7 +3220,8 @@ fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64)
         }
         rush.push(Rusher { id: sim.agents[i].id, gap: gap_at(lane, &ol), flags });
     }
-    let blockers = (0..off_n).filter(|&i| matches!(sim.agents[i].job, Job::PassBlock { .. })).count();
+    let blockers = (0..off_n).filter(|&i| matches!(sim.agents[i].job, Job::PassBlock { .. })).count()
+        + usize::from(fake_block.is_some());
     let protection = if blockers >= 7 {
         Protection::Max
     } else if let Some(star) = sim.help_on {
@@ -2932,6 +3240,41 @@ fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64)
 /// much ground it costs the rusher in his block (block-win units).
 const CHIP_TIME: f64 = 0.6;
 const CHIP_W: f64 = 0.25;
+
+/// The play fake (scheme-fit item 3; proposed, not confirmed): the time it
+/// adds to the drop, when the quarterback pulls the ball out of the mesh
+/// under center, in the pistol and in the shotgun, how far outside the ball
+/// the back's run path aims, how long he carries out the fake after the
+/// mesh, and how much longer a quarterback with 1 point more ball handling
+/// than his level's typical starter holds the defense (a factor `exp`).
+/// Real play-action throws come 0.49 s after straight drops' (FTN 2024,
+/// 3.15 s against 2.66); with 0.35 s for the fake the engine's came 0.34 s
+/// after, with 0.45 s 0.40 s.
+const PA_TIME: f64 = 0.45;
+const PA_MESH_UC: f64 = 0.8;
+const PA_MESH_PISTOL: f64 = 0.7;
+const PA_MESH_GUN: f64 = 0.6;
+const PA_AIM: f64 = 3.0;
+const PA_CARRY: f64 = 0.45;
+const SELL_PER_POINT: f64 = 0.01;
+/// After the fake (proposed, not confirmed): how far past the mesh the
+/// quarterback sets, yards; how close a free rusher comes before a back in
+/// the protection drops the fake to block him, yards; and how long after
+/// the mesh a quarterback under center has his eyes back on the defense
+/// (he turned his back to hand off; in the shotgun and the pistol he faces
+/// the line through the ride), seconds.
+const PA_PAST_MESH: f64 = 2.0;
+const PA_FILL: f64 = 2.0;
+const PA_EYES_UC: f64 = 0.2;
+/// The boot's roll after the top of it: yards upfield for each two across;
+/// the pace, of his top speed (proposed, not confirmed: about 4.8 yd/s,
+/// 10.7 mph, for the NFL's typical starter, the 4.7 every passer rolled at
+/// before; 4.4 for a 5.2 forty and 5.1 for a 4.5; Next Gen Stats put a
+/// 15.6 mph touchdown throw on the run second fastest of the 2021 season);
+/// and how many of those steps ahead he aims, so easing in doesn't set it.
+const BOOT_UP: f64 = 0.8;
+const BOOT_PACE: f64 = 0.48;
+const BOOT_AHEAD: f64 = 3.0;
 
 /// The plan keeping a usage promise (`roster::Keep`; proposed, not
 /// confirmed): the quarterback looks first to the man promised shots on 6
@@ -3784,6 +4127,12 @@ const READ_NEED: f64 = 0.3;
 /// sacks a third short; proposed, not confirmed).
 const READ_START: f64 = 0.1;
 
+/// The hot read: a free blitzer this early, seconds from the snap, makes
+/// the hot man his first read (on play action as much later as the fake
+/// takes, `PA_TIME`: the fake's first read came at 2.05 s on a five-step
+/// drop, so its hot read never came).
+const HOT_BY: f64 = 2.0;
+
 // Minor bugs batch 9 (the A/B tests, 2026-11-07; sizes proposed, not
 // confirmed, each fitted so `ab_check` lands in the real band or spread).
 // Each new read is taken about the level's typical player at the position
@@ -4093,10 +4442,12 @@ fn quarterback(
         }
     }
     // Footwork: drop, then hang in the pocket or slide away from pressure.
+    // On a play fake (scheme-fit item 3) he meets the back at the mesh and
+    // rides the fake before he gets to the top of his drop; he went three
+    // and a half yards straight back while the back stood still.
     if t < ps.set_at {
-        let fake = ps.concept.play_action && t < 0.45;
-        let to = if fake { v2(los - 3.5, me.y) } else { ps.drop_to };
-        sim.go_to(qb, to, if fake { 0.6 } else { 0.95 });
+        let mesh = ps.fake.as_ref().filter(|fk| t < fk.at).map(|fk| fk.mesh);
+        sim.go_to(qb, mesh.unwrap_or(ps.drop_to), if mesh.is_some() { 0.8 } else { 0.95 });
     } else if matches!(ps.concept.drop, Drop::Screen) {
         // The back screen: he drifts back and away to draw the rush past
         // the back, as real quarterbacks are coached to.
@@ -4109,16 +4460,63 @@ fn quarterback(
     } else if pressure > 0.2 {
         let step = threat.norm().scale(1.0 + 0.01 * feel) + v2(0.6, 0.0);
         sim.go_to(qb, me + step.scale(2.0), 0.6 + 0.004 * feel);
+    } else if ps.concept.drop == Drop::Boot {
+        // On the boot he keeps rolling (scheme-fit item 3): outside and
+        // working back toward the line, eyes downfield, short of the
+        // sideline and behind the line, so he throws on the move. He used
+        // to stop at the top of the roll. He heads for a spot far enough
+        // ahead that easing in never sets his pace (a spot 2.15 yards
+        // away held every passer to about 4.7 yd/s, so a quick one rolled
+        // no faster than a slow one); he slows only as the line or the
+        // sideline stops him.
+        let side = if ps.drop_to.y >= s.ball_y { 1.0 } else { -1.0 };
+        let to = me + v2(BOOT_UP, 2.0 * side).scale(BOOT_AHEAD);
+        sim.go_to(qb, v2(to.x.min(los - 1.5), clamp(to.y, 5.0, width() - 5.0)), BOOT_PACE);
     } else {
         let spot = v2(ps.drop_to.x + 0.8, ps.drop_to.y);
         sim.go_to(qb, spot, 0.3);
     }
-    if t < ps.set_at + READ_START || ps.reads.is_empty() {
+    let screen = matches!(ps.concept.drop, Drop::Screen | Drop::Bubble);
+    let lv = sim.level;
+    // His level's typical starter, the man a new within-level slope sits
+    // about (minor bug 283).
+    let ts = |a: Attr| super::synthetic::typical_starter(lv, Position::QB, a);
+    let typ = |a: Attr| super::synthetic::typical(lv, Position::QB, a);
+    let poise = sim.agents[qb].a(Attr::Composure);
+    let legs = (sim.agents[qb].a(Attr::Speed) - typ(Attr::Speed)) / 10.0;
+    // A free man coming at him (the beaten block, the blitzer nobody
+    // picked up): he is done going through his reads and takes the best
+    // he has now, the hot or check-down man included, rather than eat it
+    // (proposed, not confirmed: about 0.85 of a second away, a little
+    // sooner for a poised passer who trusts his pocket; the world's FBS
+    // rosters then take a sack on about 6% of dropbacks, real 6.0%).
+    // Seeing the blitz coming (minor bug 283): a passer who knows the
+    // pressure (Football IQ, and Play Recognition for the look) sees the
+    // free man sooner and gets rid of it before he arrives.
+    let blitz_id = BLITZ_ID
+        * ((1.0 - BLITZ_ID_LOOK) * (aw - ts(Attr::FootballIq))
+            + BLITZ_ID_LOOK * (sim.agents[qb].a(Attr::PlayRecognition) - ts(Attr::PlayRecognition)))
+        / 10.0;
+    let urgent = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_WAIT * legs + blitz_id && !screen;
+    let urgent_run = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_RUN * LEGS_WAIT * legs + blitz_id && !screen;
+    // Hot off the fake (scheme-fit item 3): once his eyes are back from
+    // the mesh he can throw before he sets, to beat a free man (`urgent`).
+    // He was blind from the mesh to the top of his drop, so a blitzer
+    // nobody picked up was a sure sack.
+    let eyes = if s.call.formation.backfield == Backfield::UnderCenter { PA_EYES_UC } else { 0.0 };
+    let hot_off_fake = urgent && ps.fake.as_ref().is_some_and(|fk| t >= fk.at + eyes);
+    // Before he sets, outside that window, only a throw he decided on in it
+    // is live: it goes as any other does, even if the free man is picked up
+    // before it comes out (it used to wait for the set and go then to
+    // wherever its man had got to). He reads nothing new until he sets.
+    let early = t < ps.set_at + READ_START && !hot_off_fake;
+    if (early && ps.commit.is_none()) || ps.reads.is_empty() {
         return None;
     }
-    // Hot read: an unblocked blitzer gets the ball thrown early.
-    let screen = matches!(ps.concept.drop, Drop::Screen | Drop::Bubble);
-    if pressure > 0.6 && t < 2.0 && !ps.hot && !screen {
+    // Hot read: an unblocked blitzer gets the ball thrown early (by
+    // `HOT_BY`, later by the fake's own time on play action).
+    let pa = if ps.fake.is_some() { PA_TIME } else { 0.0 };
+    if pressure > 0.6 && t < HOT_BY + pa && !ps.hot && !screen && !early {
         ps.hot = true;
         if aw > 45.0 || sim.rng.chance(0.4) {
             ps.read = 0;
@@ -4129,10 +4527,6 @@ fn quarterback(
     // the first comes as much later as the flaw takes off his decisions.
     let locked = if ps.read >= 1 { 0.5 * sim.craft_at(qb, crate::craft::Craft::FirstRead) } else { 0.0 };
     let iq = 0.5 * sim.agents[qb].a(Attr::PlayRecognition) + 0.5 * sim.agents[qb].a(Attr::Decisions) + locked;
-    let lv = sim.level;
-    // His level's typical starter, the man a new within-level slope sits
-    // about (minor bug 283).
-    let ts = |a: Attr| super::synthetic::typical_starter(lv, Position::QB, a);
     // What he saw before the snap (topic 3.5): a shell he read cleanly
     // speeds every read; a disguise that fooled him slows them.
     // Measured against a typical read (0.45): the engine's reads were
@@ -4152,7 +4546,6 @@ fn quarterback(
         ps.read_since = t;
     }
     let decide = sim.agents[qb].a(Attr::Decisions);
-    let poise = sim.agents[qb].a(Attr::Composure);
     // His internal clock (topic 1): even in a clean pocket he gets the ball
     // out by a little over three seconds, to the checkdown if nothing else.
     // A quick mind gets rid of it sooner; a slow one hangs on, as lower
@@ -4164,8 +4557,6 @@ fn quarterback(
     // longer or shorter, and early on he wants more than an open man
     // underneath (or takes him at once).
     let hold = sim.lean(qb, Tend::Hold);
-    let typ = |a: Attr| super::synthetic::typical(sim.level, Position::QB, a);
-    let legs = (sim.agents[qb].a(Attr::Speed) - typ(Attr::Speed)) / 10.0;
     // Within a level his clock sits at the typical starter's (minor bug
     // 283): a better decider already gets through his reads sooner, and a
     // shorter clock on top sent him to the checkdown early.
@@ -4181,21 +4572,6 @@ fn quarterback(
     // His legs buy time for the throw more than for the run: when he takes
     // off he waits only part of the extra time (`LEGS_RUN`).
     let late_run = t > clock - (1.0 - LEGS_RUN) * LEGS_HOLD * legs;
-    // A free man coming at him (the beaten block, the blitzer nobody
-    // picked up): he is done going through his reads and takes the best
-    // he has now, the hot or check-down man included, rather than eat it
-    // (proposed, not confirmed: about 0.85 of a second away, a little
-    // sooner for a poised passer who trusts his pocket; the world's FBS
-    // rosters then take a sack on about 6% of dropbacks, real 6.0%).
-    // Seeing the blitz coming (minor bug 283): a passer who knows the
-    // pressure (Football IQ, and Play Recognition for the look) sees the
-    // free man sooner and gets rid of it before he arrives.
-    let blitz_id = BLITZ_ID
-        * ((1.0 - BLITZ_ID_LOOK) * (aw - ts(Attr::FootballIq))
-            + BLITZ_ID_LOOK * (sim.agents[qb].a(Attr::PlayRecognition) - ts(Attr::PlayRecognition)))
-        / 10.0;
-    let urgent = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_WAIT * legs + blitz_id && !screen;
-    let urgent_run = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_RUN * LEGS_WAIT * legs + blitz_id && !screen;
     // Off schedule out of the pocket, the progression is gone: he takes
     // whoever comes open.
     let over = ps.read >= ps.reads.len() || late || urgent || ps.extend.is_some();
@@ -4248,9 +4624,13 @@ fn quarterback(
     // the random stream and the pass's notes change, and `window` reads
     // neither), so they reuse it instead of playing the route forward again.
     let mut wins: [Option<(f64, V2, f64)>; 8] = [None; 8];
-    let looked: &[usize] = if screen { &[] } else { cand };
+    let looked: &[usize] = if screen || early { &[] } else { cand };
     for (k, &r) in looked.iter().enumerate() {
-        if !sim.agents[r].up(t) || matches!(sim.agents[r].job, Job::PassBlock { .. } | Job::RunBlock { .. }) {
+        // A back still carrying out the play fake (`Job::Handoff`) is no
+        // target until he takes his job in the pass (scheme-fit item 3).
+        if !sim.agents[r].up(t)
+            || matches!(sim.agents[r].job, Job::PassBlock { .. } | Job::RunBlock { .. } | Job::Handoff { .. })
+        {
             continue;
         }
         if let Job::Route { release_delay, .. } = sim.agents[r].job
@@ -4326,6 +4706,9 @@ fn quarterback(
             // The bubble: throw it now, to the side with the numbers.
             best = None;
             for &r in &ps.reads {
+                if matches!(sim.agents[r].job, Job::Handoff { .. }) {
+                    continue;
+                }
                 let (w, p, flight) = window(sim, qb, r);
                 let w = w + noise * 0.5 * gauss(sim.rng);
                 if best.is_none_or(|b| w > b.1) {
@@ -4352,7 +4735,7 @@ fn quarterback(
     // away. The catch point then decides: a contested catch, a breakup or
     // a pick.
     let ck_at = clock + 0.7 * sling.min(0.0);
-    if best.is_none() && (t > ck_at || urgent) && !screen {
+    if best.is_none() && (t > ck_at || urgent) && !screen && !early {
         let force = t > clock + 0.5 - 0.4 * sling.max(0.0) || urgent && soon < 0.5;
         let mut ck: Option<(usize, f64, V2, f64)> = None;
         for (k, &r) in cand.iter().enumerate() {
@@ -4465,6 +4848,10 @@ fn quarterback(
             return Some(throw(sim, ps, qb, r, p, flight, pressure, s));
         }
         ps.commit = None;
+    }
+    // That throw called off before he sets: he finishes his drop.
+    if early {
+        return None;
     }
     if let Some((r, _, p, flight)) = best {
         return Some(throw(sim, ps, qb, r, p, flight, pressure, s));
@@ -5424,8 +5811,15 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
     if carrier == Some(i) {
         return;
     }
-    let pass_play = pass.is_some();
-    let knows = t >= sim.agents[i].read_at;
+    // Still fooled by a play fake (scheme-fit item 3): until he reads the
+    // pass he plays the run he is shown, with the back carrying out the
+    // fake as the runner (the rush, the fill and the alley below).
+    let fooled = t < sim.agents[i].fooled_until
+        && sim.fake.is_some()
+        && carrier == Some(qb)
+        && pass.as_ref().is_some_and(|p| p.thrown.is_none() && !p.scramble);
+    let (carrier, pass_play, knows) =
+        if fooled { (sim.fake, false, true) } else { (carrier, pass.is_some(), t >= sim.agents[i].read_at) };
     if let Some(spot) = bitten(sim, i) {
         let (me, vm) = (sim.agents[i].pos, sim.agents[i].vmax);
         sim.steer(i, (spot - me).norm().scale(vm));
@@ -5695,8 +6089,8 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                 }
                 return;
             }
-            let fake = pass.as_ref().is_some_and(|p| p.concept.play_action);
-            if !knows && sim.agents[i].label == "LB" && !fake {
+            let rpo = pass.as_ref().is_some_and(|p| is_rpo_half(p.concept));
+            if !knows && sim.agents[i].label == "LB" && !rpo {
                 // A linebacker reads before he commits, run or pass alike: a
                 // read step at his own depth, shuffling with the back he keys
                 // (or the ball), rather than dropping or running to the back.
@@ -5711,14 +6105,12 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                 return;
             }
             if pass_play && !knows {
-                // Fooled for now: a play fake pulls him toward the line.
-                // A man defender on a wide receiver has his eyes on his man.
+                // Not yet sure after the run action of an RPO the
+                // quarterback pulled: it pulls him toward the line. A man
+                // defender on a wide receiver has his eyes on his man.
                 let on_wide =
                     matches!(job, Job::Man { target, .. } if (sim.agents[target].pos.y - s.ball_y).abs() > 8.0);
-                if pass.as_ref().is_some_and(|p| p.concept.play_action)
-                    && !matches!(job, Job::Zone { deep: true, .. })
-                    && !on_wide
-                {
+                if rpo && !matches!(job, Job::Zone { deep: true, .. }) && !on_wide {
                     let me = sim.agents[i].pos;
                     let spot = v2(me.x - 1.5, me.y + (sim.agents[qb].pos.y - me.y) * 0.2);
                     sim.go_to(i, spot, 0.6);
@@ -5798,8 +6190,9 @@ fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>,
     let stare = if short { -sim.craft_at(qb, crate::craft::Craft::StaresDown) } else { 0.0 };
     let bait = sim.craft_at(i, crate::craft::Craft::Bait) + sim.craft_at(i, crate::craft::Craft::RobberBait);
     // Peeks into the backfield (a corner's man coverage against double
-    // moves and play action).
-    let fooled_by = s.tac.double_moves > 0.0 || p.concept.play_action;
+    // moves and play action, and the run action of an RPO the quarterback
+    // pulled).
+    let fooled_by = s.tac.double_moves > 0.0 || sim.fake.is_some() || is_rpo_half(p.concept);
     let peeks = if fooled_by { sim.craft_at(i, crate::craft::Craft::Peeks) } else { 0.0 };
     let antic = antic + stare + bait + peeks;
     let p_right = clamp(0.35 + 0.012 * (antic - 60.0) + 0.006 * (pr - 60.0) - 0.25 * s.tac.double_moves, 0.1, 0.9);

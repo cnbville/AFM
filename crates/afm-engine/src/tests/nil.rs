@@ -742,3 +742,101 @@ fn the_school_spreads_its_whole_share_by_role_and_position() {
     assert!(w(R::Backup, P::WR) >= 0.25 * w(R::Starter, P::WR));
     assert_eq!(rec::share_weight(None, P::WR), w(R::Backup, P::WR));
 }
+
+/// Cain 2026-11-17 ("go"): the roster you inherit at a new job keeps each
+/// player's market price, not the payroll split. A star paid $4.2M last
+/// July keeps at least that, a deal signed for the coming year stands as
+/// written, the rest stay on the split, the old staff's deals are marked
+/// until you set your own, and a star feels paid, not cheated.
+#[test]
+fn the_roster_you_inherit_keeps_its_market_price() {
+    use crate::world::front_office::college::{deals_year, market_prices, ready};
+    use crate::world::nil_bid::{DealKind, NilDeal};
+    let (mut w, j) = college(true);
+    // The sandbox's NIL Go switch, so every dollar clears and the sums read
+    // plainly.
+    w.set_sandbox_switch(crate::world::sandbox::Switch::NilGo, true);
+    // And no budget limit: fitting a short pot is its own test below.
+    w.set_sandbox_switch(crate::world::sandbox::Switch::NilBudget, true);
+    let usual: Vec<(u32, f64)> = usual_deals(&w, j);
+    let coll: std::collections::HashMap<u32, f64> = collective_deals(&w, j).into_iter().map(|x| (x.0, x.1)).collect();
+    let split = |id: u32| usual.iter().find(|x| x.0 == id).unwrap().1 + coll.get(&id).copied().unwrap_or(0.0);
+    let at = |w: &World, id: u32| w.people.iter().position(|p| p.player.id == id).unwrap();
+    // Three men staying with seasons left (a man leaving keeps the split;
+    // the seat's roster is filled with former pros, whose clock has run).
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    let ids: Vec<u32> = usual.iter().map(|x| x.0).take(3).collect();
+    for &id in &ids {
+        let x = at(&w, id);
+        let p = &mut w.people[x];
+        p.class_of = label - 1;
+        p.college_seasons = 1;
+        p.cal.count_pending = false;
+        p.cal.declare_plan = None;
+        p.cal.portal = None;
+        p.cal.nil_school = 0.0;
+        let div = w.programs[j].division;
+        assert!(!crate::world::college::no_season_left(&w.people[x], div, label), "a season left");
+        assert!(w.people[x].cut_here().is_none());
+    }
+    let (star, signed, rest) = (ids[0], ids[1], ids[2]);
+    // No season's play to read: no rival bids, so the sums are plain.
+    for id in [star, signed, rest] {
+        let x = at(&w, id);
+        w.people[x].last_performance = None;
+        w.people[x].cal.nil_deal = None;
+        w.people[x].cal.nil_paid = 0.0;
+        w.people[x].nil_income = 0.0;
+    }
+    // The star: $4.2M from the school and collective last July.
+    let i = at(&w, star);
+    w.people[i].cal.nil_paid = 4.2e6;
+    w.people[i].brand = 300_000.0;
+    w.people[i].nil_income = 4.5e6;
+    // A transfer who signed for the coming money year.
+    let k = at(&w, signed);
+    let year = deals_year(&w);
+    w.people[k].cal.nil_deal = Some(NilDeal { year, amount: 123_000.0, kind: DealKind::Transfer, through: 0 });
+    assert!(w.front_office.college.deals.is_empty() && !w.front_office.college.seeded);
+    ready(&mut w);
+    let pay = |w: &World, id: u32| deal_of(w, id).map(|d| d.0 + d.1).unwrap();
+    assert!((pay(&w, star) - 4.2e6).abs() <= 1_000.0, "his pay last July, brand apart: {}", pay(&w, star));
+    assert!((pay(&w, signed) - 123_000.0).abs() <= 1_000.0, "what he signed for: {}", pay(&w, signed));
+    let r = pay(&w, rest);
+    assert!(r <= split(rest) + 1_000.0, "the rest keep at most the split: {r} against {}", split(rest));
+    // The market price never reads a player without a season's play.
+    assert!(market_prices(&w, j).values().all(|&x| x > 0.0));
+    let desk = &w.front_office.college;
+    assert!(desk.inherited.contains(&star) && desk.inherited.contains(&rest), "marked as the old staff's");
+    // He feels paid at the old staff's number, not cheated: last July's pay
+    // is his bar, without his own brand money.
+    let (s, c) = deal_of(&w, star).unwrap();
+    let now = (w.today, w.played);
+    set_deal(&mut w, star, Some(s), Some(c)).unwrap();
+    to_next_section(&mut w);
+    let r = reaction(&w, star, MoneyKind::Deal).unwrap();
+    assert!(!matches!(r.mood, Mood::Insulted | Mood::WantsMore), "{:?}: {}", r.mood, r.text);
+    assert!(!w.front_office.college.inherited.contains(&star), "your number now");
+    // A cut from it is heard as one.
+    (w.today, w.played) = now;
+    set_deal(&mut w, star, Some(s / 4.0), Some(c / 4.0)).unwrap();
+    to_next_section(&mut w);
+    let r = reaction(&w, star, MoneyKind::Deal).unwrap();
+    assert!(r.text.contains("cut from"), "{}", r.text);
+}
+
+/// The inherited deals fitted to a pot (Codex's review of #544): signed
+/// deals stand, the market raises shrink first, then every split.
+#[test]
+fn inherited_deals_fit_the_pot_raises_first() {
+    use crate::world::front_office::college::{Priced, fit};
+    let rows = [(Priced::Signed, 100.0, 10.0), (Priced::Market, 300.0, 100.0), (Priced::Split, 50.0, 50.0)];
+    assert_eq!(fit(1_000.0, false, &rows), vec![100.0, 300.0, 50.0], "room for all");
+    assert_eq!(fit(10.0, true, &rows), vec![100.0, 300.0, 50.0], "no limit");
+    // 350 left: the raise of 200 halves to 100.
+    assert_eq!(fit(350.0, false, &rows), vec![100.0, 200.0, 50.0]);
+    // 175 left: raises gone, the splits (100 + 50) take half.
+    assert_eq!(fit(175.0, false, &rows), vec![100.0, 50.0, 25.0]);
+    // Less than the signed deal: only it stands.
+    assert_eq!(fit(50.0, false, &rows), vec![100.0, 0.0, 0.0]);
+}

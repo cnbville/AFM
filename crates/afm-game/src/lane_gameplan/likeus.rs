@@ -4,7 +4,7 @@
 //! against them, what changed after halftime, and your coordinator's
 //! suggestion for the sheet.
 
-use afm_engine::game::playbook::{Coverage, PASS_CONCEPTS, RUN_CONCEPTS};
+use afm_engine::game::playbook::{Coverage, Motion, PASS_CONCEPTS, RUN_CONCEPTS, takes_fake};
 use afm_engine::game::sheet;
 use afm_engine::training::seat::{SheetKind, SheetPlay};
 use afm_engine::world::World;
@@ -217,7 +217,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
         let mut by: Vec<(String, String, u32, f64, f64)> = Vec::new(); // play, look, n, yards, epa
         for (_, t, them) in &like {
             for x in tape_snaps(t, 1 - *them) {
-                let name = x.play.trim_end_matches(" left").trim_end_matches(" right").to_string();
+                let name = sheet_name(&x.play).to_string();
                 if name.is_empty() {
                     continue;
                 }
@@ -311,6 +311,27 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     }))
 }
 
+/// A tape's play as the sheet names it: no motion in front ("jet motion,
+/// flood"), no run's side, and no run fake on a concept that can carry one
+/// ("play-action flood", scheme-fit item 3: a sheet names the play and the
+/// caller decides the fake), so a play's faked and straight snaps count as
+/// one. The play-action concepts keep their names.
+fn sheet_name(play: &str) -> &str {
+    let moved = [Motion::Jet, Motion::Orbit, Motion::Across, Motion::Shift]
+        .iter()
+        .find_map(|m| play.strip_prefix(m.name()).and_then(|r| r.strip_prefix(", ")));
+    let play = moved.unwrap_or(play).trim_end_matches(" left").trim_end_matches(" right");
+    match play.strip_prefix("play-action ") {
+        Some(rest)
+            if !PASS_CONCEPTS.iter().any(|c| c.name == play)
+                && PASS_CONCEPTS.iter().any(|c| c.name == rest && takes_fake(c)) =>
+        {
+            rest
+        }
+        _ => play,
+    }
+}
+
 /// A tape's play and look as a sheet play (a library run or pass).
 fn sheet_play_of(name: &str, look: &str) -> Option<SheetPlay> {
     let play = if let Some(r) = RUN_CONCEPTS.iter().copied().find(|r| name.starts_with(r.name())) {
@@ -344,4 +365,21 @@ pub(super) fn add(w: &mut World, a: &Value) -> Result<(), String> {
     let look = a.get("look").and_then(Value::as_str).unwrap_or("11 gun doubles");
     let p = sheet_play_of(name, look).ok_or("That play isn't in your playbook.")?;
     plans::add_to_box(w, 0, sheet::key(sheet::FIRST, 0), 0, Play::Off(p))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sheet_name;
+
+    #[test]
+    fn a_tape_play_reads_as_the_sheet_names_it() {
+        assert_eq!(sheet_name("flood"), "flood");
+        assert_eq!(sheet_name("play-action flood"), "flood");
+        assert_eq!(sheet_name("jet motion, play-action flood"), "flood");
+        assert_eq!(sheet_name("play-action RB screen"), "RB screen");
+        assert_eq!(sheet_name("play-action dig"), "play-action dig");
+        assert_eq!(sheet_name("shift, play-action boot"), "play-action boot");
+        assert_eq!(sheet_name("orbit motion, inside zone left"), "inside zone");
+        assert_eq!(sheet_name("inside zone with RPO slant"), "inside zone with RPO slant");
+    }
 }

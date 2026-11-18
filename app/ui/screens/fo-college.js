@@ -896,21 +896,22 @@ screens.nil_desk = async () => {
   const setBtn = (r) => `<button class="st-btn small primary" data-fc="dealset" data-id="${r.id}" data-fcsave hidden>Set</button>`;
   const going = (v) => (v ? `<span class="muted">${money(v)}</span>` : '<span class="muted">-</span>');
   const cols = [
-    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.inherited ? ' <span class="st-pill" title="The old staff\'s deal: it stands until you set your own number">Old staff\'s</span>' : ""}` },
     { k: "pos", t: "Pos", l: true },
     { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
     { k: "left", t: "Yrs left" },
     { k: "role", t: "Role", l: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
     { k: "read", t: "Read", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
-    { k: "now", t: "Paid last year", div: true, f: (r) => (r.now ? money(r.now) : '<span class="muted">-</span>') },
+    { k: "now", t: "Paid last year", div: true, tip: "What his school and collective paid him last July 1, his own deals apart", f: (r) => (r.now ? money(r.now) : '<span class="muted">-</span>') },
     { k: "brand", t: "His own deals", tip: "Brand and ad money he earns himself, apart from yours (a public estimate for the year)", v: (r) => r.brand || 0, f: (r) => (r.brand ? money(r.brand) : '<span class="muted">-</span>') },
     { k: "followers", t: "Followers", tip: "Social media followers, every platform", v: (r) => r.followers || 0, f: (r) => (r.followers ? fcFollow(r.followers) : '<span class="muted">-</span>') },
     { k: "camera", t: "On camera", l: true, hide: true, tip: "His position coach's word for how he comes across in front of a camera", f: (r) => `<span class="sub">${esc(r.camera || "")}</span>` },
-    { k: "usual", t: "Going rate", div: true, tip: "What players in his role usually get from the school's revenue share: only a guide", f: (r) => going(r.usual) },
+    { k: "market", t: "Market price", tip: "What a rival would pay a year to take him, both pots: the best top bid from a school where he would start or rotate, never past yours. Blank where no rival would play him", v: (r) => r.market || 0, f: (r) => (r.market ? `<b>${money(r.market)}</b>` : '<span class="muted">-</span>') },
+    { k: "usual", t: "Roster split", div: true, tip: "The going rate: his share of your revenue share by role, play, stars and position, the split schools pay their rosters on July 1. A star's market price can be far above it. Only a guide", f: (r) => going(r.usual) },
     { k: "deal", t: two ? "Your share" : "Yours", v: (r) => r.deal || 0, f: (r) => box(r, "deal", r.deal) + setBtn(r) },
     ...(two
       ? [
-          { k: "coll_usual", t: "Going rate", div: true, tip: "What players in his role usually get from the collective, as NIL Go clears it: only a guide", f: (r) => going(r.coll_usual) },
+          { k: "coll_usual", t: "Roster split", div: true, tip: "The going rate: his share of the collective's money by role, play, stars and position, as NIL Go clears it. Only a guide", f: (r) => going(r.coll_usual) },
           { k: "coll", t: "Your collective", v: (r) => r.coll || 0, f: (r) => box(r, "dcoll", r.coll) + setBtn(r) },
           { k: "cleared", t: "NIL Go", l: true, tip: "What NIL Go clears of your collective deal: past the top of his range it holds the rest back, and it isn't paid this year", v: (r) => r.cleared || 0, f: (r) => (!r.coll ? '<span class="muted">-</span>' : r.cleared + 1 < r.coll ? `<span class="st-pill gold" title="${esc(`NIL Go clears ${money(r.cleared)} of your ${money(r.coll)}; ${money(r.coll - r.cleared)} isn't paid`)}">${money(r.cleared)}</span>` : '<span class="st-pill good">Cleared</span>') },
         ]
@@ -922,7 +923,7 @@ screens.nil_desk = async () => {
   ];
   const groups = [
     { t: "Him", span: 6 },
-    { t: "For reference", span: 4, div: true },
+    { t: "For reference", span: 5, div: true },
     { t: two ? "Revenue share" : "Your deal", who: two ? "you set it, the school pays" : "you set it, the collective pays", span: 2, div: true },
     ...(two ? [{ t: "Collective deal", who: "you set it, boosters pay, NIL Go reviews", span: 3, div: true }] : []),
     ...(two ? [{ t: "Term", span: 1, div: true }] : []),
@@ -944,8 +945,9 @@ screens.nil_desk = async () => {
       <div class="fc-nilcard"><b>His own deals · for reference</b><span>Brand and ad money he earns himself. Not money you pay.</span></div></div>`
     : `<div class="fc-nilcards"><div class="fc-nilcard"><b>Your deal · you set it</b><span>The collective pays it. Your number is his number.</span></div>
       <div class="fc-nilcard"><b>His own deals · for reference</b><span>Brand and ad money he earns himself. Not money you pay.</span></div></div>`;
-  const buttons = `<div class="fc-acts"><button class="st-btn small glass" data-fc="nilusual">Fill blanks with the going rate</button><button class="st-btn small glass" data-fc="nilclear">Clear every deal</button></div>`;
-  const deal = `<p class="sub">A blank box pays nothing, and nothing is ever filled in for you. The going rate beside each box is only a guide: what players in his role usually get. Type a number and press Set or Enter. Every deal stands from one money year to the next until you change it, in thousands a year. A player paid well under his worth hears about it, and the portal is a phone call away; each answers when you set his number. ${m(set)} set in all.</p>`;
+  const buttons = `<div class="fc-acts"><button class="st-btn small glass" data-fc="nilusual">Fill blanks with the roster split</button><button class="st-btn small glass" data-fc="nilclear">Clear every deal</button></div>`;
+  const old = x.rows.filter((r) => r.inherited).length;
+  const deal = `<p class="sub">${old ? `${fcPlural(old, "deal")} marked Old staff's ${old === 1 ? "is" : "are"} the old staff's: each player kept his market price or last year's pay, the higher, where it tops the roster split, and the rest are on the split. ` : ""}Every deal stands from one money year to the next until you change it, in thousands a year. A blank box pays nothing, and nobody who joins later gets money you didn't set. The roster split beside each box is only a guide; the market price is what a rival would pay to take him. Type a number and press Set or Enter. A player paid well under his worth hears about it, and the portal is a phone call away; each answers when you set his number. ${m(set)} set in all.</p>`;
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: `<span>${two ? "Revenue sharing and the collective" : "The collective"}${x.big_booster ? " · a big booster behind it" : ""}</span>`, sub: esc(x.trend_line), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar"><div class="st-label">The roster's deals</div>${fcGoto([["roster", "Squad"], ["portal_desk", "Transfer portal"], ["recruit_board", "Recruiting board"], ["depth", "Depth chart"]])}</div>
