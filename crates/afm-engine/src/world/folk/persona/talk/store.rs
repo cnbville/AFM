@@ -67,6 +67,10 @@ pub struct Open {
     /// (`wrap::decides`): no more lines, the meeting's picks decide it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub over: bool,
+    /// In a room, how the last line landed with each man (group talks:
+    /// his tag in the room list): signed, with the way it hit him hardest.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub takes: Vec<(Them, f32, How)>,
 }
 
 impl Open {
@@ -85,6 +89,7 @@ impl Open {
             refused: Vec::new(),
             raised_at: 0,
             over: false,
+            takes: Vec::new(),
         }
     }
 
@@ -197,6 +202,17 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
         o.raised_at = o.lines;
     }
     o.hits.extend(t.hits.iter().map(|h| (h.hit.on, h.hit.item.clone(), h.hit.how)));
+    if t.crowd.is_some() {
+        o.takes = o
+            .room
+            .present
+            .iter()
+            .filter_map(|p| {
+                let (tr, md, how) = super::super::crowd::take(&t.hits, p.who);
+                how.map(|h| (p.who, tr + md, h))
+            })
+            .collect();
+    }
     for act in &said.reading.acts {
         if let Act::Question { topic, about, .. } = act {
             o.asked.push(*about);

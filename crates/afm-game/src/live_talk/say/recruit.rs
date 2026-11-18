@@ -49,6 +49,11 @@ pub fn flag(g: &Game, _cmd: &str, v: &mut Value) {
     // boss meeting's chips came back as ideas, and the confirm cards and the
     // talk's end were lost). It is merged over what the page already holds.
     use afm_engine::world::folk::persona::talk::{hs_call, recruit as facet};
+    // A room has its own list, each man with how your last line landed
+    // (`persona::view`, group talks).
+    if afm_engine::world::folk::persona::gameday::group::is_group(s) {
+        return;
+    }
     let whole = facet::is_recruit(s.kind) || hs_call::is_call(s.kind);
     let Some(Value::Object(mut t)) = talk_block(w, s) else { return };
     if !whole {

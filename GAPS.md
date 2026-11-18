@@ -20,8 +20,15 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
 - **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
 
+- **The position coach in a position room doesn't speak** (medium). He sits in the room as your staff (`group::room`), but `crowd::voices` picks only players, so he never backs you up or pushes back in front of his men. Found in thread "Make group talks feel like a room".
+- **Staff rooms still answer as one man** (medium). `crowd::plays` leaves `Group::Staff` out on purpose: each coach speaking for himself is item 8 of thread "Make coaches answer with real specifics". Until it lands, a staff meeting runs the old way. Same thread.
+- **A man who held back asks for a scene, not through the people-coming store** (low). `crowd::held` adds a one-on-one for the next day directly, because `coming::comes` isn't wired into the game yet. When it is, he should come through it like everyone else. Same thread.
+- **The room's groups at the NFL read seasons, not real seniority** (low). `Bloc::Seniors` is four or more pro seasons and newcomers are rookies; a veteran's standing in the room (captain votes, money, Pro Bowls) doesn't shape who counts as a veteran. Same thread.
+
 ## UI
 
 - **The holdover meeting shows no numbers for his unit** (medium). Without last season's points, yards and third downs on the narration you can't judge whether to keep him. Same cause as the first Logic gap.
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
 - **No pecking order for high school or NFL seats** (medium). The tab row reads "Your seat" for them (CS6), but nothing ranks a district's or an owner's rooms. Same thread.
+
+- **A position room meeting is only a link on the People screen** (low). It isn't on the calendar or the week, so nobody holds one on his own and the AI's position coaches don't meet. Found in thread "Make group talks feel like a room".

@@ -11,7 +11,6 @@
 //! unhappiest men by lane N1's rules (straight, partly, or not at all).
 
 use super::super::Them;
-use super::super::ear::{Hit, Item, Reading, Sized};
 use super::super::knows::{Answer, Knows, TellParts, Tells, Topic};
 use super::super::people::People;
 use super::super::room::{Channel, Group, Present, Room, Seat};
@@ -34,7 +33,8 @@ pub const ASK_ABOUT: usize = 3;
 
 /// Whether a scene is a group talk.
 pub fn is_group(s: &Scene) -> bool {
-    matches!(s.kind, Kind::TeamTalk | Kind::TeamMeeting | Kind::Council) || super::super::meetings::is_group(s)
+    matches!(s.kind, Kind::TeamTalk | Kind::TeamMeeting | Kind::Council | Kind::PositionRoom)
+        || super::super::meetings::is_group(s)
 }
 
 /// The council's members on the roster: your leadership council, else the
@@ -46,11 +46,35 @@ pub fn council(w: &World, team: Team) -> Vec<usize> {
     if named.is_empty() { takeover::captains_of(w, team) } else { named }
 }
 
-/// The men who lead a group scene's room: the council, or the captains.
+/// The men who lead a group scene's room: the council, or the captains (in
+/// a position room, the captains in it, else the man in it with the most
+/// leadership).
 pub fn leads(w: &World, s: &Scene) -> Vec<Them> {
     let Some(team) = s.team.or(Team::seat(w)) else { return Vec::new() };
-    let l = if s.kind == Kind::Council { council(w, team) } else { takeover::captains_of(w, team) };
+    let l = match (s.kind, super::super::crowd::position_of(s)) {
+        (Kind::Council, _) => council(w, team),
+        (_, Some(g)) => {
+            let men = super::super::crowd::position_men(w, team, g);
+            let caps: Vec<usize> = takeover::captains_of(w, team).into_iter().filter(|i| men.contains(i)).collect();
+            if caps.is_empty() {
+                let lead = |i: usize| w.people[i].player.personality.traits.get(Trait::Leadership);
+                men.iter().copied().max_by(|a, b| lead(*a).total_cmp(&lead(*b))).into_iter().collect()
+            } else {
+                caps
+            }
+        }
+        _ => takeover::captains_of(w, team),
+    };
     l.into_iter().map(|i| Them::Player(w.people[i].player.id)).collect()
+}
+
+/// The men on the team who sit in its room: not a man whose college career
+/// is over (his last season played, or declared), off getting ready for the
+/// draft (the talks audit, 2026-11-16: "this is a player with no
+/// eligibility left"). The team meeting's count and its room are both this.
+pub fn in_room(w: &World, team: Team) -> Vec<usize> {
+    use super::super::talk::standing::{Road, road};
+    team.roster(w).into_iter().filter(|&i| road(w, i) != Road::DraftBound).collect()
 }
 
 /// The room for a group scene: a captain first, then the rest.
@@ -63,80 +87,35 @@ pub fn room(w: &World, s: &Scene) -> Option<Room> {
         return super::super::meetings::room(w, s);
     }
     let team = s.team.or(Team::seat(w))?;
-    let (group, lead, rest) = match s.kind {
-        Kind::Council => (Group::Council, council(w, team), Vec::new()),
-        _ => (Group::Team, takeover::captains_of(w, team), team.roster(w)),
+    let room_men = in_room(w, team);
+    let lead: Vec<usize> = leads(w, s)
+        .into_iter()
+        .filter_map(|x| match x {
+            Them::Player(id) => folk::person(w, id),
+            _ => None,
+        })
+        .collect();
+    let (group, rest) = match (s.kind, super::super::crowd::position_of(s)) {
+        (Kind::Council, _) => (Group::Council, Vec::new()),
+        (_, Some(g)) => (Group::Position(g as u8), super::super::crowd::position_men(w, team, g)),
+        _ => (Group::Team, room_men.clone()),
     };
-    // The room is the men still on the team: a man whose college career is
-    // over (his last season played, or declared) is off getting ready for
-    // the draft, never the one who answers for the room (the talks audit,
-    // 2026-11-16: "this is a player with no eligibility left").
-    let gone = |i: usize| super::super::talk::standing::road(w, i) == super::super::talk::standing::Road::DraftBound;
     let mut present: Vec<Present> = Vec::new();
-    for i in lead.into_iter().chain(rest).filter(|&i| !gone(i)) {
+    for i in lead.into_iter().chain(rest).filter(|i| room_men.contains(i)) {
         let who = Them::Player(w.people[i].player.id);
         if !present.iter().any(|p| p.who == who) {
             present.push(Present { who, seat: Seat::Listener, speaks: false });
         }
     }
+    // The room's position coach at the board (item 9): he hears it all and
+    // answers nothing for the players.
+    if let Some(g) = super::super::crowd::position_of(s)
+        && !present.is_empty()
+        && let Some(c) = super::super::crowd::position_coach(w, team, g)
+    {
+        present.push(Present { who: Them::Coach(c), seat: Seat::YourStaff, speaks: false });
+    }
     (!present.is_empty()).then_some(Room { channel: Channel::Group(group), present })
-}
-
-/// Every hit on the whole room becomes one hit on each man in it, on
-/// `Item::Room`.
-pub fn expand(room: &Room, mut r: Reading) -> Reading {
-    let mut out: Vec<Hit> = Vec::new();
-    for h in r.hits.drain(..) {
-        if h.on == ROOM {
-            for p in &room.present {
-                if !out.iter().any(|x| x.on == p.who && x.item == Item::Room && x.how == h.how) {
-                    out.push(Hit { on: p.who, item: Item::Room, how: h.how });
-                }
-            }
-        } else {
-            out.push(h);
-        }
-    }
-    r.hits = out;
-    r
-}
-
-/// How a group line went over: the man it moved most each way, by name,
-/// past 0.02 (the team talk's own `MOVED`).
-pub fn landed(w: &World, hits: &[Sized], speaker: Option<Them>) -> Option<String> {
-    let mut by: Vec<(u32, f32)> = Vec::new();
-    for h in hits {
-        let Them::Player(id) = h.hit.on else { continue };
-        match by.iter_mut().find(|x| x.0 == id) {
-            Some(x) => x.1 += h.trust + h.mood,
-            None => by.push((id, h.trust + h.mood)),
-        }
-    }
-    if by.is_empty() {
-        return None;
-    }
-    let name = |id: u32| folk::person(w, id).map(|i| folk::player_link(w, i)).unwrap_or_default();
-    let best = by.iter().copied().max_by(|a, b| a.1.total_cmp(&b.1)).filter(|x| x.1 > 0.02);
-    let worst = by.iter().copied().min_by(|a, b| a.1.total_cmp(&b.1)).filter(|x| x.1 < -0.02);
-    let up = by.iter().filter(|x| x.1 > 0.01).count();
-    let down = by.iter().filter(|x| x.1 < -0.01).count();
-    // The man who answers for the room is about to speak: he's never the
-    // one who "doesn't look up at all" (the talks audit, 2026-11-16).
-    let speaks = |id: u32| speaker == Some(Them::Player(id));
-    Some(match (best, worst) {
-        (Some(b), Some(x)) if speaks(x.0) => {
-            format!("{} nods along; {} stares at the floor before he answers.", name(b.0), name(x.0))
-        }
-        (Some(b), Some(x)) => format!("{} nods along; {} stares at the floor.", name(b.0), name(x.0)),
-        (Some(b), None) if up > 2 * down => format!("It lands with the room. {} is the first to answer it.", name(b.0)),
-        (Some(b), None) => format!("{} takes it best.", name(b.0)),
-        (None, Some(x)) if down > 2 * up && speaks(x.0) => {
-            format!("The room goes quiet. {} answers for them without looking up.", name(x.0))
-        }
-        (None, Some(x)) if down > 2 * up => format!("The room goes quiet. {} doesn't look up at all.", name(x.0)),
-        (None, Some(x)) => format!("{} takes it worst.", name(x.0)),
-        (None, None) => "They take it in.".into(),
-    })
 }
 
 /// Opens a meeting with your leadership council (or your captains when you
@@ -206,15 +185,25 @@ pub fn council_answer(w: &mut World, s: &mut Scene, code: u32) {
 /// `ASK_ABOUT`): for each, the member who sees him best answers by lane
 /// N1's rules, in front of the others (a group, so the room weighs on it).
 pub fn room_read(w: &World, team: Team) -> Vec<(Option<String>, String)> {
-    let members = council(w, team);
-    let mut low: Vec<usize> =
-        team.roster(w).into_iter().filter(|i| !members.contains(i) && w.people[*i].mood < -0.1).collect();
+    read_of(w, &council(w, team), &team.roster(w))
+}
+
+/// What `members` tell you of the unhappiest men in `pool` (up to
+/// `ASK_ABOUT`), each answered by the member who sees him best (a
+/// position room tells of its own men, item 9).
+pub fn read_of(w: &World, members: &[usize], pool: &[usize]) -> Vec<(Option<String>, String)> {
+    let mut low: Vec<usize> = pool
+        .iter()
+        .copied()
+        .filter(|i| (pool.len() == members.len() || !members.contains(i)) && w.people[*i].mood < -0.1)
+        .collect();
     low.sort_by(|a, b| w.people[*a].mood.total_cmp(&w.people[*b].mood));
     let mut out = Vec::new();
     for i in low.into_iter().take(ASK_ABOUT) {
         let man = Them::Player(w.people[i].player.id);
         let best = members
             .iter()
+            .filter(|&&m| m != i)
             .map(|&m| {
                 let who = Them::Player(w.people[m].player.id);
                 (m, People.knows(w, who, Topic::Mood, Some(man)))

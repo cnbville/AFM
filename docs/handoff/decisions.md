@@ -435,6 +435,12 @@ Cain, 2026-11-17 19:58 UTC: "I want the players to have a more real life connect
 - **Agreed:** the bond design as written (closeness beside the built trust, a bond with every coach who works with him, the stages in words, growth from time, fit, what they share, need and hard moments, what it does through built channels, favoritism, betrayal and leaving costs), and its seven questions: 1 the age gap sets the kind (big brother under 12 years, father figure 12 to 40, grandfather past 40); 2 need up to 1.5 times as fast, a close father at home tops out at "Like family"; 3 no flat bonus on the field (instructions, talks and pregame fire only); 4 at most +3 coachability points with that coach; 5 a room that loved its old coach starts up to 0.15 colder with the new one, fading over a season; 6 AI coaches on the same rules (measured on a small world); 7 shared heritage as one small part of what they share.
 - **Proposed, not confirmed:** every other size (the weekly growth rule, contact shares, fit range, moment sizes, the read multipliers, the favoritism costs, fading) and the build order (two world lanes after the world rebuild).
 
+## 29. Group talks as a room (thread "Make group talks feel like a room", 2026-11-17)
+
+Cain, 2026-11-17 23:35 UTC: "the game understands groups talks better, right now it treats group talks a bit individually". Nine items proposed at 23:39 UTC, Cain "yes" at 23:40 UTC.
+- **Agreed:** 1 each man takes a room line his own way (by his group, role, class and what he wants); 2 leaders pull the room (up to 30% of the way); 3 a promise to the room is a promise to every man it covers; 4 calling a man out in front of the room (1.5 times, his friends take a share); 5 who speaks depends on the room (few in a team meeting, each for himself in a small room, up to two replies); 6 the room has its own patience (one hothead walks out alone); 7 asking the room (a big room stays quiet, a man who held back may come to your office); 8 the room's read by groups; 9 position room meetings (weekly, half an hour, the position coach there).
+- **Proposed, not confirmed:** every other size (`crowd.rs`: the group weight for ambition, closeness and sway, the speaking bars, boldness, the drift line, the worry bar). Built 2026-11-18 (`docs/reference/how-it-works/live-talks.md`, "Group talks as a room").
+
 ## Superseded decisions
 
 | Old | Replaced by | When |

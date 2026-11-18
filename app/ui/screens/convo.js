@@ -107,7 +107,11 @@ function cvLeft(s, lead, pp, cast, peek, head, T) {
   const bio = peek
     ? `<p class="cv-bio">${[peek["class"], peek.ht && `${peek.ht}, ${peek.wt}`, peek.where].filter(Boolean).map(esc).join(" · ")}</p>`
     : lead.pos ? `<p class="cv-bio">${esc(lead.pos)}</p>` : "";
-  const pic = head
+  // A room (a team meeting, a position room) shows your team's mark, not a
+  // face: nobody in it is the one man across.
+  const pic = T.team && T.room
+    ? `<div class="cv-photo cv-photo-sil">${mark(T.team, 120)}</div>`
+    : head
     ? `<div class="cv-photo">${num}${head}<span class="cv-tags"><b>${tagText}</b>${prime && prime.stars ? `<b>${esc(prime.stars)}</b>` : ""}</span></div>`
     : lead.kind === "cast" ? "" : `<div class="cv-photo cv-photo-sil">${face({ name: plainText(lead.link), id: lead.id }, 120)}</div>`;
   const nameRow = `<div class="cv-namerow"><h2 class="cv-name">${cvT(lead.link)}</h2>${prime && prime.tag ? `<em class="cv-tag ${esc(prime.tagKind || "")}">${esc(prime.tag)}</em>` : ""}</div>`;
@@ -150,7 +154,9 @@ function cvSideTab(tab, pp, lead) {
 // Who is in the room (a home visit, a group): everyone hears you.
 function cvRoom(s, T, pic, nameRow, bio, prime) {
   const others = T.room.filter((p) => !p.lead);
-  const n = T.room.length;
+  // The men in the room as the talk counts them (a room's own list leads with
+  // the room itself).
+  const n = T.roomN != null ? T.roomN : T.room.length;
   const people = others.map((p) => `<div class="cv-who"><span class="cv-ini ${esc(p.tone || "")}">${esc(p.ini || cvIni(p.name))}</span><div><div class="cv-whoh"><b>${esc(p.name)}</b>${p.tag ? `<em class="cv-tag ${esc(p.tagKind || "")}">${esc(p.tag)}</em>` : ""}</div><p>${esc(p.line || "")}</p></div></div>`).join("");
   const acts = (T.roomActs || []).length
     ? `<div class="cv-sec"><div class="cv-h">Change who's in the room</div>${T.roomActs.map((a) => `<button type="button" class="cv-pill" data-act="cvdo" data-cmd="${esc(a.cmd)}" data-args='${esc(JSON.stringify(a.args || {}))}'>${esc(a.text)}</button>`).join("")}</div>` : "";

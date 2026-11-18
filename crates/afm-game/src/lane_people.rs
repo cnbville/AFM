@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 36] = [
+const COMMANDS: [&str; 37] = [
     "people_agenda",
     "people_sitdown",
     "people_reference",
@@ -47,6 +47,7 @@ const COMMANDS: [&str; 36] = [
     "people_rules_set",
     "people_council",
     "people_council_meet",
+    "people_position_meet",
     "people_boss",
     "people_boss_meeting",
     "people_staff",
@@ -228,6 +229,14 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_council_meet" => {
             afm_engine::world::folk::persona::gameday::group::start_council(w).map(|sid| json!({ "scene": sid }))
         }
+        // A position room's meeting (group talks, item 9): `group` is the
+        // room, 0 quarterbacks to 7 specialists.
+        "people_position_meet" => (|| {
+            use afm_engine::world::coach::Group;
+            let g = num(args, "group")? as usize;
+            let g = *Group::ALL.get(g).ok_or("No such position room.")?;
+            afm_engine::world::folk::persona::crowd::start_position_room(w, g).map(|sid| json!({ "scene": sid }))
+        })(),
         "people_boss" => Ok(boss_page(w)),
         "people_boss_meeting" => boss::request_meeting(w).map(|sid| json!({ "scene": sid })),
         "people_staff" => Ok(staff(w)),

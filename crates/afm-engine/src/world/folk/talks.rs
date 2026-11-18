@@ -4440,6 +4440,7 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
         Kind::ParentCall => parent_open(w, s),
         Kind::StaffLine => staff_line_open(w, s),
         Kind::Council => super::persona::gameday::group::council_open(w, s),
+        Kind::PositionRoom => super::persona::crowd::position_open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -4451,6 +4452,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::ParentCall => parent_answer(w, s, code, picked),
         Kind::StaffLine => staff_line_answer(w, s, code),
         Kind::Council => super::persona::gameday::group::council_answer(w, s, code),
+        Kind::PositionRoom => super::persona::crowd::position_answer(w, s, code),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }

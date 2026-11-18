@@ -51,6 +51,44 @@ fn wait(g: &mut Game, ticket: u64) -> Value {
     }
 }
 
+/// A real room for a team talk: `n` more men on your roster, a position
+/// group each in turn, a third of them starting, two captains (one a side).
+fn fill_room(w: &mut afm_engine::world::World, n: usize) {
+    use afm_engine::player::PlayingTime;
+    use afm_engine::positions::Position;
+    use afm_engine::world::Stage;
+    let p = w.seat.and_then(|s| s.program).unwrap();
+    w.add_class_aged(19);
+    let year = w.year;
+    let spots = [
+        Position::QB,
+        Position::RB,
+        Position::WR,
+        Position::TE,
+        Position::OT,
+        Position::IOL,
+        Position::IOL,
+        Position::EDGE,
+        Position::DT,
+        Position::LB,
+        Position::CB,
+        Position::S,
+    ];
+    let v: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::HighSchool).take(n).collect();
+    for (k, &i) in v.iter().enumerate() {
+        let q = &mut w.people[i];
+        q.stage = Stage::College;
+        q.college = Some(p);
+        q.class_of = year - 1 + (k % 4) as i32;
+        q.college_seasons = (3 - (k % 4)) as u32;
+        q.last_role = Some(if k % 3 == 0 { PlayingTime::Starter } else { PlayingTime::Backup });
+        q.player.position = spots[k % spots.len()];
+        q.trust = 0.5;
+        w.programs[p].roster.push(i);
+    }
+    w.programs[p].captains = vec![v[0], v[7]];
+}
+
 /// The scripts: what a coach would really say, in order.
 fn script(facet: &str) -> &'static str {
     match facet {
@@ -147,6 +185,7 @@ fn open(facet: &str) -> Option<(Game, u32)> {
         }
         "team" => {
             let (mut g, _, _) = game("replay-team", true);
+            fill_room(g.world.as_mut().unwrap(), 44);
             let sid = ok(&mut g, "people_team_talk", json!({}))["scene"].as_u64().unwrap() as u32;
             ok(&mut g, "people_scene", json!({ "id": sid }));
             Some((g, sid))

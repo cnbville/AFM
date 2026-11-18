@@ -713,6 +713,8 @@ impl Tags {
                 condition: condition(&a.value).to_string(),
                 condition_words: text(&a.value),
                 against: self.player(keys, a.about.as_deref()),
+                // In a room, who it's made to (group talks, item 3).
+                to: self.who(keys, a.about.as_deref()),
                 claim: None,
                 // A season term is never a promise (it pays or moves a pick).
                 usage: self.terms(a, keys).into_iter().find(|u| !u.season),
