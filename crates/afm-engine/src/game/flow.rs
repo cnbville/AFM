@@ -3964,7 +3964,7 @@ impl<'a> Game<'a> {
             };
             let side = &self.sides[o];
             let again = |rng: &mut Rng| calling::call_offense(&staff_o, &side.mem, &sit, &ctx, rng);
-            let fake = calling::throw_fake_chance(&staff_o, &side.mem, &sit, &ctx);
+            let fake = |f: &Formation, i: usize| calling::sheet_fake_chance(&staff_o, &side.mem, &sit, &ctx, f, i);
             if let Some((c, _)) = super::sheet::off_call(&side.card, &sit, &call, fake, sctx, &mut self.rng, again) {
                 call = c;
             }

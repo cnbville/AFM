@@ -3,11 +3,12 @@
 //! never forces the call, and the tight ends past the first run real routes
 //! the quarterback reads.
 
-use crate::game::calling::{CallMemo, Memory, OffCtx, Situation, call_offense, call_offense_memo};
+use crate::game::calling::{CallMemo, Memory, OffCtx, Situation, call_offense, call_offense_memo, sheet_fake_chance};
+use crate::game::geom::width;
 use crate::game::guide::{Firm, Want};
 use crate::game::playbook::{
-    Backfield, Formation, LIBRARY_ALL, ORole, PASS_CONCEPTS, Personnel, PlayKind, Route, Set, concept, pass_concept,
-    readable, readable_library, reads_in, route_for, route_in,
+    Backfield, Formation, LIBRARY_ALL, ORole, PASS_CONCEPTS, Personnel, PlayKind, Route, Set, align, concept,
+    pass_concept, readable, readable_library, reads_in, route_for, route_in, stand_in, takes_fake,
 };
 use crate::game::{OffScheme, Staff};
 use crate::player::Level;
@@ -349,14 +350,15 @@ fn the_extra_tight_ends_take_the_missing_receivers_jobs() {
     // Curl-flat reads the Z, the X, the slot, the tight end and the back,
     // and draws the second tight end a 5-yard out. In 12 the second tight
     // end takes the slot's place in the reads and runs his own out; in 13
-    // the second takes the Z's place and his curl, and the third the
-    // slot's place and the second's out.
+    // the second takes the Z's place, but from the wing the Z's curl would
+    // come back to the tight end's sit, so he runs the out too, and the
+    // third the slot's place and the second's out.
     let c = pass_concept(concept("curl-flat"));
     assert_eq!(route_for(c, TE2), Route::Out(5.0));
     assert_eq!(reads_in(c, &f12), vec![Z, X, TE2, TE, RB]);
     assert_eq!(route_in(c, &f12, TE2), Route::Out(5.0));
     assert_eq!(reads_in(c, &f13), vec![TE2, X, TE3, TE, RB]);
-    assert_eq!(route_in(c, &f13, TE2), route_for(c, Z));
+    assert_eq!(route_in(c, &f13, TE2), Route::Out(5.0));
     assert_eq!(route_in(c, &f13, TE3), Route::Out(5.0));
     // Texas draws no route for him: he runs the slot's 10-yard out. In
     // smash he keeps the slot's corner, a tight end's own route.
@@ -364,6 +366,11 @@ fn the_extra_tight_ends_take_the_missing_receivers_jobs() {
     assert_eq!(route_in(t, &f12, TE2), route_for(t, Slot));
     let smash = pass_concept(concept("smash"));
     assert_eq!(route_in(smash, &f12, TE2), Route::Corner(11.0));
+    // Snag's corner belongs to the triangle on the slot's side: 12's
+    // second tight end, inline across the ball, runs his own sit instead.
+    let snag = pass_concept(concept("snag"));
+    assert_eq!(stand_in(snag, Personnel::P12, TE2), Some(Slot));
+    assert_eq!(route_in(snag, &f12, TE2), Route::Sit(5.0));
     for c in PASS_CONCEPTS {
         for f in [&f12, &f13] {
             let reads = reads_in(c, f);
@@ -475,4 +482,216 @@ fn the_runnable_concepts_table_matches_the_reads() {
     assert_eq!(readable_library(P11), LIBRARY_ALL);
     assert_ne!(readable_library(P13), LIBRARY_ALL);
     assert_eq!(LIBRARY_ALL.count_ones() as usize, PASS_CONCEPTS.len());
+}
+
+/// The sets each heavy group lines up in (`pick_set`), either strength.
+fn heavy_sets() -> Vec<Formation> {
+    let mut v = Vec::new();
+    for (p, sets) in [
+        (Personnel::P12, &[Set::Doubles, Set::Stack, Set::Wing][..]),
+        (Personnel::P13, &[Set::Doubles][..]),
+        (Personnel::P22, &[Set::Doubles, Set::Wing][..]),
+    ] {
+        for &set in sets {
+            for strength in [1.0, -1.0] {
+                v.push(Formation { set, strength, ..Formation::plain(p, Backfield::UnderCenter, 1.0) });
+            }
+        }
+    }
+    v
+}
+
+#[test]
+fn a_borrowed_route_never_finishes_on_another_receivers() {
+    // The designer's rule (`designer::review`): two routes that finish
+    // within three yards of each other are covered by one defender. A tight
+    // end who runs a missing receiver's route never finishes there. 13's
+    // second tight end, on the wing beside the first, ran the flanker's
+    // slant a yard and a half from the tight end's slant and the flanker's
+    // hitch on top of his sit; now he runs his own job there.
+    use ORole::*;
+    let mid = width() / 2.0;
+    let end = |f: &Formation, o: ORole, r: Route| {
+        let s = align(f, o, 0.0, mid);
+        r.end(s, 0.0, if s.y >= mid { 1.0 } else { -1.0 })
+    };
+    let mut borrowed = 0;
+    for f in heavy_sets() {
+        for c in PASS_CONCEPTS {
+            for e in [TE2, TE3] {
+                let Some(place) = stand_in(c, f.personnel, e) else { continue };
+                let route = route_in(c, &f, e);
+                if route != route_for(c, place) {
+                    continue;
+                }
+                borrowed += 1;
+                let mine = end(&f, e, route);
+                for &o in f.personnel.roles() {
+                    let theirs = route_for(c, o);
+                    if !matches!(o, X | Z | Slot | Slot2 | TE)
+                        || matches!(theirs, Route::Block | Route::CheckRelease | Route::Screen)
+                    {
+                        continue;
+                    }
+                    let d = end(&f, o, theirs).dist(mine);
+                    assert!(
+                        d >= 3.0,
+                        "{} in {} {}: {e:?} on the {place:?}'s {route:?} finishes {d:.1} yards from the {o:?}'s {theirs:?}",
+                        c.name,
+                        f.personnel.name(),
+                        f.set.name()
+                    );
+                }
+            }
+        }
+    }
+    assert!(borrowed > 40, "{borrowed} borrowed routes");
+}
+
+#[test]
+fn every_man_who_runs_a_route_is_eligible() {
+    // Only the end men of the line and the backs are eligible
+    // (`designer::legal`). With a tight end attached on his side the split
+    // end lines up off the ball, as in real two-tight-end sets, so the
+    // second tight end inline beside the tackle is the end man. Before, 12
+    // and 22's second tight end and 13's third ran routes from a covered
+    // spot, and so did the tight end inside the flanker atop a stack.
+    use crate::game::designer::{Design, Issue, legal};
+    for f in heavy_sets().into_iter().chain([
+        Formation { set: Set::Stack, ..Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0) },
+        Formation { set: Set::Stack, ..Formation::plain(Personnel::P21, Backfield::UnderCenter, -1.0) },
+    ]) {
+        for c in PASS_CONCEPTS {
+            let routes: Vec<(ORole, Route)> =
+                f.personnel.roles().iter().map(|&o| (o, route_in(c, &f, o))).filter(|x| !x.1.blocks()).collect();
+            let d = Design {
+                name: c.name.to_string(),
+                formation: f,
+                routes,
+                reads: reads_in(c, &f),
+                protection: c.protection,
+                drop: c.drop,
+                play_action: c.play_action,
+            };
+            let bad: Vec<Issue> = legal(&d, Level::NFL)
+                .into_iter()
+                .filter(|i| matches!(i, Issue::Ineligible(_) | Issue::FewOnLine(_) | Issue::ManyBacks(_)))
+                .collect();
+            assert!(bad.is_empty(), "{} in {} {}: {bad:?}", c.name, f.personnel.name(), f.set.name());
+        }
+    }
+}
+
+#[test]
+fn a_sheet_throw_fakes_as_often_as_the_calls_that_draw_its_look() {
+    // A sheet line keeps a throw's group, backfield, set and concept but
+    // not its run fake, so the game reads the fake back from them
+    // (`sheet_fake_chance`): it is the share of the call's own throws from
+    // that look and concept that come off a fake, look by look and over
+    // each group, backfield and set. A power caller set to 12, whose looks
+    // lean hard to the call, and a West Coast caller with no preference,
+    // whose drops go to empty at times.
+    use std::collections::HashMap;
+    for (staff, seed) in
+        [(wanting(OffScheme::PowerGap, Personnel::P12, 14.0), 21), (Staff::average(OffScheme::WestCoast), 22)]
+    {
+        let mem = Memory::default();
+        let ctx = ctx();
+        let s = sit(1, 10.0, 70.0);
+        let mut rng = Rng::new(seed);
+        // Each look and concept: throws, fakes, the read-back. Each group,
+        // backfield and set: throws, fakes, the read-backs summed.
+        let mut looks: HashMap<(Personnel, Backfield, Set, usize), (f64, f64, f64)> = HashMap::new();
+        let mut sets: HashMap<(Personnel, Backfield, Set), (f64, f64, f64)> = HashMap::new();
+        for _ in 0..100_000 {
+            let c = call_offense(&staff, &mem, &s, &ctx, &mut rng);
+            let PlayKind::Pass(i) = c.kind else { continue };
+            if !takes_fake(pass_concept(i)) || c.formation.set == Set::Empty {
+                continue;
+            }
+            let f = c.formation;
+            let fake = f64::from(u8::from(c.fake));
+            let e = looks
+                .entry((f.personnel, f.backfield, f.set, i))
+                .or_insert_with(|| (0.0, 0.0, sheet_fake_chance(&staff, &mem, &s, &ctx, &f, i)));
+            e.0 += 1.0;
+            e.1 += fake;
+            let p = e.2;
+            let g = sets.entry((f.personnel, f.backfield, f.set)).or_insert((0.0, 0.0, 0.0));
+            g.0 += 1.0;
+            g.1 += fake;
+            g.2 += p;
+        }
+        let close = |n: f64, seen: f64, p: f64| (seen - p).abs() < 4.0 * (p * (1.0 - p) / n).sqrt() + 0.01;
+        let mut checked = 0;
+        for (k, &(n, fakes, p)) in &looks {
+            if n >= 200.0 {
+                let seen = fakes / n;
+                assert!(
+                    close(n, seen, p),
+                    "{} {:?} {} {}: {seen:.3} of {n} faked, read back {p:.3}",
+                    k.0.name(),
+                    k.1,
+                    k.2.name(),
+                    pass_concept(k.3).name
+                );
+                checked += 1;
+            }
+        }
+        let (mut groups, mut lo, mut hi) = (0, 1.0_f64, 0.0_f64);
+        for (k, &(n, fakes, sum)) in &sets {
+            if n >= 400.0 {
+                let (seen, p) = (fakes / n, sum / n);
+                assert!(
+                    close(n, seen, p),
+                    "{} {:?} {}: {seen:.3} of {n} faked, read back {p:.3}",
+                    k.0.name(),
+                    k.1,
+                    k.2.name()
+                );
+                groups += 1;
+                lo = lo.min(p);
+                hi = hi.max(p);
+            }
+        }
+        println!("{:?}: {checked} looks, {groups} groups and sets, read back {lo:.2} to {hi:.2}", staff.off_scheme);
+        assert!(checked >= 6 && groups >= 4, "{checked} looks and {groups} groups checked");
+        assert!(hi > lo + 0.2, "the look tells: {lo:.2} to {hi:.2}");
+    }
+}
+
+#[test]
+fn an_rpo_throws_to_a_man_on_the_field() {
+    // 12 and 21 personnel have no slots: their RPOs throw the glance or the
+    // slant, never the bubble, whose reads are the slots. Before, a third
+    // of their RPOs drew the bubble and played as a plain run. 11 still
+    // throws all three.
+    let mem = Memory::default();
+    for (group, seed) in [(Personnel::P12, 31), (Personnel::P21, 32), (Personnel::P11, 33)] {
+        let staff = wanting(OffScheme::SpreadOption, group, 14.0);
+        let mut rng = Rng::new(seed);
+        let (mut rpos, mut bubbles) = (0, 0);
+        for i in 0..20_000 {
+            let (d, t, y) = NORMAL[i % NORMAL.len()];
+            let c = call_offense(&staff, &mem, &sit(d, t, y), &ctx(), &mut rng);
+            let PlayKind::Rpo(_, k) = c.kind else { continue };
+            assert!(
+                readable(pass_concept(k), &c.formation),
+                "{} from {}",
+                pass_concept(k).name,
+                c.formation.personnel.name()
+            );
+            if c.formation.personnel == group {
+                rpos += 1;
+                bubbles += usize::from(pass_concept(k).name == "RPO bubble");
+            }
+        }
+        println!("{}: {rpos} RPOs, {bubbles} bubbles", group.name());
+        assert!(rpos > 100, "{}: {rpos} RPOs", group.name());
+        if group == Personnel::P11 {
+            assert!(bubbles > 0);
+        } else {
+            assert_eq!(bubbles, 0, "{}", group.name());
+        }
+    }
 }
