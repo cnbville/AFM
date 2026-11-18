@@ -68,6 +68,34 @@ fn the_desk_files_answers_and_clears_its_mail() {
     assert!(keyed > 0, "{mail}");
     assert_eq!(ok(&mut g, "mail", json!({ "q": "zzzz-no-such-word" }))["rows"].as_array().unwrap().len(), 0);
 
+    // The ⌘K bar: nothing under two letters, a person by name whatever the
+    // case (twelve at most, the rest counted), a letter by its subject, and
+    // a plain empty answer when nothing matches.
+    let group = |v: &Value, name: &str| v["groups"].as_array().unwrap().iter().find(|x| x["name"] == name).cloned();
+    assert!(ok(&mut g, "find", json!({ "q": "a" }))["groups"].as_array().unwrap().is_empty());
+    assert!(ok(&mut g, "find", json!({ "q": "  " }))["groups"].as_array().unwrap().is_empty());
+    assert!(ok(&mut g, "find", json!({ "q": "zzzz-no-such-word" }))["groups"].as_array().unwrap().is_empty());
+    let who = g.world.as_ref().unwrap().people[g.world.as_ref().unwrap().people.len() / 2].name.clone();
+    let lower = ok(&mut g, "find", json!({ "q": who.to_lowercase() }));
+    let upper = ok(&mut g, "find", json!({ "q": who.to_uppercase() }));
+    assert_eq!(lower, upper, "case does not matter");
+    let players = group(&lower, "Players").unwrap_or_else(|| panic!("{who} is found: {lower}"));
+    let items = players["items"].as_array().unwrap();
+    assert!(items.len() <= 12 && players["more"].as_u64().is_some(), "{players}");
+    assert!(items.iter().any(|i| i["name"] == who.as_str()), "{who} is among {players}");
+    // A word that many names hold is counted past the twelve shown.
+    let many = ok(&mut g, "find", json!({ "q": "an" }));
+    let many = group(&many, "Players").unwrap();
+    assert_eq!(many["items"].as_array().unwrap().len(), 12, "{many}");
+    assert!(many["more"].as_u64().unwrap() > 0, "{many}");
+    let subject = rows.iter().find(|r| r["id"] == id.as_str()).map(|r| r["subject"].as_str().unwrap().to_string());
+    if let Some(subject) = subject.filter(|s| s.chars().count() >= 2 && !s.contains("[[")) {
+        let found = ok(&mut g, "find", json!({ "q": subject }));
+        let mails = group(&found, "Mail").unwrap_or_else(|| panic!("the letter is found by its subject: {found}"));
+        assert!(mails["items"].as_array().unwrap().len() <= 5);
+        assert!(mails["items"].as_array().unwrap().iter().any(|m| m["id"] == id.as_str()), "{mails}");
+    }
+
     // An answer does what it says once, and is kept.
     if let Some(r) = rows.iter().find(|r| r["answers"].as_u64().unwrap_or(0) > 0 && r["answered"].is_null()) {
         let a = ok(&mut g, "mail_answer", json!({ "id": r["id"], "pick": 0 }));
@@ -129,8 +157,23 @@ fn the_desk_files_answers_and_clears_its_mail() {
     photo.dedup();
     assert_eq!(photo.len(), all, "a player twice in the team photo: {c}");
     assert!(home["know"].as_array().is_some_and(|k| k.len() <= 3), "{}", home["know"]);
+    // The hover card names the season it shows by its year, and the season
+    // still being played (a college season is filed only when its title game
+    // finishes) is its own line, marked as so far.
+    let peek = ok(&mut g, "peek", json!({ "kind": "player", "id": pid }));
+    if let Some(label) = peek["last_label"].as_str() {
+        assert!(label.ends_with(" season") && label[..4].parse::<i32>().is_ok(), "{peek}");
+        assert!(peek["last"].as_str().is_some_and(|l| !l.starts_with("20")), "the year is in the label only: {peek}");
+    }
+    if let Some(label) = peek["now_label"].as_str() {
+        assert!(label.contains(", so far (") && peek["now"].is_string(), "{peek}");
+        if let Some(last) = peek["last_label"].as_str() {
+            assert!(last[..4] < label[..4], "the so-far season comes after the last filed one: {peek}");
+        }
+    }
+    let both = ok(&mut g, "compare", json!({ "ids": [pid] }));
+    assert_eq!(both["players"][0]["last_label"], peek["last_label"], "{both}");
     for (cmd, args) in [
-        ("peek", json!({ "kind": "player", "id": pid })),
         ("find", json!({ "q": "Te" })),
         ("leaders", json!({})),
         ("situations", json!({})),

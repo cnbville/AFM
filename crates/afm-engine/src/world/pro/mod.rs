@@ -1741,21 +1741,10 @@ fn camp(w: &mut World, d: Date) {
         }
         out
     };
-    // The league's typical staff and strength head (minor bug 302), so the
-    // strength staff's share moves growth around the league's average.
-    let heads: Vec<f64> =
-        w.clubs.iter().map(|c| 10.0 + 10.0 * super::people::Support::z(c.support.strength.rating)).collect();
-    let (t_coach, t_strength) = {
-        let live: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
-        let n = live.len().max(1) as f64;
-        (live.iter().map(|&t| w.nfl[t].coaching).sum::<f64>() / n, live.iter().map(|&t| heads[t]).sum::<f64>() / n)
-    };
-    for i in pros {
-        let (team, status, first, new_team, payday) = {
-            let c = w.people[i].pro.as_ref().unwrap();
-            (c.team, c.status, c.seasons.is_empty(), c.new_team, c.paid)
-        };
-        let role = match (team, status) {
+    // His role on the depth chart.
+    let role_of = |w: &World, i: usize| -> PlayingTime {
+        let c = w.people[i].pro.as_ref().unwrap();
+        match (c.team, c.status) {
             (None, _) | (_, Status::FreeAgent) | (_, Status::Other(_)) => PlayingTime::Unsigned,
             (_, Status::PracticeSquad) => PlayingTime::PracticeSquad,
             (Some(t), _) => {
@@ -1770,13 +1759,56 @@ fn camp(w: &mut World, d: Date) {
                     PlayingTime::Backup
                 }
             }
+        }
+    };
+    // Each club's support departments by priority tier (support
+    // departments): its players counted by role.
+    let reads: Vec<([f64; 3], [f64; 3], [f64; 3])> = {
+        use super::departments::{self as dp, Area};
+        let mut counts = vec![[0usize; 3]; w.clubs.len()];
+        for &i in &pros {
+            if let Some(t) = w.people[i].pro.as_ref().and_then(|c| c.team)
+                && t < counts.len()
+            {
+                counts[t][dp::tier_of(role_of(w, i))] += 1;
+            }
+        }
+        (0..w.clubs.len())
+            .map(|t| {
+                let who = super::people::Who::Club(t);
+                (
+                    dp::tiers(w, who, Area::Strength, counts[t]),
+                    dp::tiers(w, who, Area::Medical, counts[t]),
+                    dp::tiers(w, who, Area::Diet, counts[t]),
+                )
+            })
+            .collect()
+    };
+    // The league's typical staff and strength head (minor bug 302), so the
+    // strength staff's share moves growth around the league's average.
+    let (t_coach, t_strength) = {
+        let live: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
+        let n = live.len().max(1) as f64;
+        let heads = live.iter().map(|&t| 10.0 + 10.0 * super::people::Support::z(w.clubs[t].support.strength.rating));
+        let typ = live.first().and_then(|&t| {
+            super::departments::typical_head(w, super::people::Who::Club(t), super::departments::Area::Strength)
+        });
+        (live.iter().map(|&t| w.nfl[t].coaching).sum::<f64>() / n, typ.unwrap_or_else(|| heads.sum::<f64>() / n))
+    };
+    for i in pros {
+        let (team, first, new_team, payday) = {
+            let c = w.people[i].pro.as_ref().unwrap();
+            (c.team, c.seasons.is_empty(), c.new_team, c.paid)
         };
+        let role = role_of(w, i);
+        let tier = super::departments::tier_of(role);
         // Strength, speed and conditioning (minor bug 302): the strength
         // staff takes 0.4 of the staff's pull there, as a college position
-        // coach's share of technique.
+        // coach's share of technique. The strength department's read for
+        // him (support departments).
         let (physical_coaching, strength_dev) = match team {
             Some(t) => {
-                let dev = heads[t] - t_strength;
+                let dev = reads[t].0[tier] - t_strength;
                 // The body's rooms around the league's typical (Capital
                 // lane C6).
                 let rooms = crate::world::capital::nfl::physical_lift(&w.capital, t);
@@ -1818,8 +1850,8 @@ fn camp(w: &mut World, d: Date) {
         let (morale, physical, medical) = {
             let p = &w.people[i];
             let room = team.map_or(0.0, |t| w.clubs[t].team_mood);
-            let support = team.map(|t| &w.clubs[t].support);
-            let (ph, me) = super::people::support_ctx(support, &p.player.personality);
+            let dept = team.map(|t| (reads[t].0[tier], reads[t].1[tier]));
+            let (ph, me) = super::people::support_ctx(dept, -0.3, &p.player.personality);
             (super::people::morale(p, room), ph, me)
         };
         // Growth from results: last season's results close; a pro on a
@@ -1885,6 +1917,7 @@ fn camp(w: &mut World, d: Date) {
             morale,
             physical,
             medical,
+            diet: team.map_or(0.0, |t| reads[t].2[tier]),
             physical_coaching,
             strength_dev,
             focus: focus.get(&i).map(|x| x.0),
