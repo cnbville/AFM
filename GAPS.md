@@ -73,6 +73,10 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **A college player reads your points at a flat 0.5** (low). `points::skill` gives an agent's skill to a pro's side, but a college player answering for himself, his family decider or his handler all read a cherry-pick at a middling 0.5, whoever they are. Found 2026-11-18 (thread "Make negotiation respond to arguments").
 - **True points only in your college player's money talk** (low). A stat said to a pro's agent, a recruit or a GM counts nothing yet; lanes NG3 (recruits) and NG5 (the NFL) are agreed and not built. Same thread.
 
+- **A recruit's hard truth doesn't cost your case a playing-time point** (low). Item 7 says your case loses one when you tell a recruit he'd be behind; only his trust moves (`points::recruit_land`). The case's playing-time point already reads the depth chart, so the truth told changes nothing there. Found 2026-11-18 (thread "Make negotiation respond to arguments").
+- **Points are found by words** (low). A film or depth point to a recruit and a stat point to a player are matched on the words of the ear's claim (`points::recruit_read`, `stat_for`), so a point said in other words counts nothing. Same thread.
+- **A help promise's "new man" is this league year's** (low). `talks::help_kept` reads `ProCareer::new_team` and this year's first two rounds, not the day you made the promise, so a man signed before you said it counts. Same thread.
+
 ## UI
 
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).

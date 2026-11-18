@@ -598,6 +598,16 @@ Built 2026-11-18 on lane NG5, before it merged (`docs/design/negotiation-argumen
 - **Kept**: his trust in you moves as P1 settles any promise (`promise::kept_trust`: 0.1 to 0.2, more the more he doubted, in place of the design's flat 0.08), and his trust in the club rises 0.05 (`HELP_KEPT_CLUB`). **Broken**: his trust in you falls as P1's broken promise does, his trust in the club falls 0.3 (`HELP_BROKEN_CLUB`), and his next deal with your club carries a premium of 5% x his winning goal on his ideal (`HELP_PREMIUM`, `ProCareer::help_owed`, read in `ideal_argued` until he signs a new contract).
 - Tests: `crates/afm-engine/src/tests/negotiation_pro.rs`, `a_help_promise_lowers_a_winners_number_and_breaking_it_costs_his_next_deal`.
 
+## Negotiation overhaul, lane NG3: recruits' points
+
+Built 2026-11-18 on lane NG2, before it merged (`docs/design/negotiation-arguments.md`, item 7; every size proposed, not confirmed). For a high school recruit you're talking to (`talk/mod.rs`, `recruit_subject`).
+
+- **A point** (`points::recruit_read`): a fact you state about his film (words such as film, tape, star, rating or ranking) or his place (behind, ahead of, depth, in front of, wait your turn, redshirt). Film is true when his film (`recruiting::film_raw`) sits under the median film of his class's recruits at his stars (five or more of them, else no read). Place is true when at least one man on your roster at his spot within two years of him would still be ahead of him (`recruiting::ahead_of_recruit`, the count `recruit_top` reads).
+- **What it lowers** (`Deals::recruit`): his money ask is capped at the best top bid of the schools that want him; once a true point has landed (`points::recruit_landed`, kept a year) or is made in the line with the money (`Offer.argued`), your own top bid leaves that cap, so his ask can't sit above what his other offers bid. With no other offers, or when they already bid your number, it lowers nothing.
+- **A false film point** is checked against his film on the spot and costs what a false fact does (the claim's truth, `Truth::False`); a point about his place is heard as a promise, as built.
+- **How he takes it** (`points::recruit_land`): most take it badly, his trust in you falling 0.03 + 0.01 x ego z (0.02 to 0.04); a humble, coachable kid (ego z under -0.3, coachability over 12; `HUMBLE_EGO`, `HUMBLE_COACH`) takes it straight and trusts you 0.01 more (`STRAIGHT_TRUST`). Each kind counts once a year.
+- Tests: `crates/afm-engine/src/tests/negotiation_recruit.rs`.
+
 ## Live talks v3: the money desks
 
 Built over main e24d643 on 2026-11-15, before it merged. The last typed boxes on the old reader and writer were the three money desks' (`fo_say`), which answered "later update", with fact chips beside them. They now play on the v3 conversation (lane N4) with the deals of lane N3, on the calls lanes N5a and N5b built. The game side is `crates/afm-game/src/live_talk/say/money.rs`; the screens are `say.js` (`aiHand`), `fo-nfl.js` and `fo-college.js`. No world result changes and no size is new.

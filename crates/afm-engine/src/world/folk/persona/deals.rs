@@ -694,14 +694,19 @@ impl Deals<'_> {
         // pay him: the best top bid of the schools that want him, yours
         // included (the new NIL scheme, item 5: no going-rate top). Your
         // first number only ever raises what he asks: his number always
-        // closes the gap.
-        let top = p
+        // closes the gap. A true point about his film or his place
+        // (negotiation item 7) takes your own bid out of the cap: his
+        // other offers' read of him is the market's.
+        let theirs = p
             .cal
             .offers
             .iter()
-            .chain(std::iter::once(&j))
+            .filter(|&&k| k != j)
             .map(|&k| crate::world::recruiting::recruit_top(w, k, i))
             .fold(0.0, f64::max);
+        let own_top = crate::world::recruiting::recruit_top(w, j, i);
+        let landed = super::negotiate::points::recruit_landed(w, p.player.id) || offer.argued > 0.0;
+        let top = if landed && theirs > 0.0 { theirs } else { theirs.max(own_top) };
         let base = money.unwrap_or_else(|| crate::world::recruiting::offer_money(w, j, i)).min(top);
         let need = if yours(Some(top)) >= bar && money_care > 0.0 {
             let (mut lo, mut hi) = (base, top);

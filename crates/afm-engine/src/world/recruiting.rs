@@ -10650,18 +10650,26 @@ pub(crate) fn recruit_top(w: &World, j: usize, i: usize) -> f64 {
     let prog = &w.programs[j];
     let p = &w.people[i];
     let pos = p.player.position;
+    let ahead = ahead_of_recruit(w, j, i);
+    let chance = super::nil_bid::play_chance(ahead, crate::game::roster::starters(pos));
+    super::nil_bid::top_bid(prog.collective.budget, pos, super::nil_bid::star_bid(recruiting_stars(p)) * chance)
+        * super::legacy::college::split_q(w, j, 2)
+}
+
+/// The men on program `j` at recruit `i`'s spot within two years of him
+/// who'd still be ahead of him when he arrives (`recruit_top`'s count).
+pub(crate) fn ahead_of_recruit(w: &World, j: usize, i: usize) -> usize {
+    let p = &w.people[i];
+    let pos = p.player.position;
     let me = p.player.overall() + 6.0;
-    let ahead = prog
+    w.programs[j]
         .roster
         .iter()
         .filter(|&&x| {
             let q = &w.people[x];
             x != i && q.player.position == pos && q.college_seasons <= 2 && q.player.overall() + 2.0 > me
         })
-        .count();
-    let chance = super::nil_bid::play_chance(ahead, crate::game::roster::starters(pos));
-    super::nil_bid::top_bid(prog.collective.budget, pos, super::nil_bid::star_bid(recruiting_stars(p)) * chance)
-        * super::legacy::college::split_q(w, j, 2)
+        .count()
 }
 
 /// The NIL money a recruit weighs from program `j` today: from your own

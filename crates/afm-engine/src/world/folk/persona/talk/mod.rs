@@ -190,7 +190,24 @@ fn money_subject(w: &World, s: &Scene) -> Option<usize> {
 /// true one lands (a pull kept for the season, or a cherry-pick caught),
 /// and one that moved his number costs what his makeup makes of it: his
 /// trust in you, and his portal lean.
-fn keep_points(w: &mut World, s: &Scene, t: &Turn) {
+/// A high school recruit you're talking to, and your program (item 7).
+fn recruit_subject(w: &World, him: Them) -> Option<(usize, usize)> {
+    let Them::Player(id) = him else { return None };
+    let i = folk::person(w, id)?;
+    let Some(folk::Team::College(j)) = folk::Team::seat(w) else { return None };
+    (w.people[i].stage == crate::world::Stage::HighSchool && super::deals::is_recruit(w, him)).then_some((i, j))
+}
+
+fn keep_points(w: &mut World, s: &Scene, across: Them, t: &Turn) {
+    if !t.recruit_points.is_empty()
+        && let Some((i, _)) = recruit_subject(w, across)
+    {
+        let him = across;
+        for &rp in &t.recruit_points {
+            let dt = points::recruit_land(w, i, rp);
+            super::stores::nudge_trust(w, him, dt);
+        }
+    }
     let Some(i) = money_subject(w, s) else { return };
     let him = Them::Player(w.people[i].player.id);
     let side = points::side(w, i);
@@ -306,6 +323,25 @@ impl Resolving for Conversation<'_> {
                 t.points.push(rd);
             }
         }
+        // A high school recruit (negotiation item 7): a true point about
+        // his film or his place on your depth chart counts for the money
+        // in this line too (`Offer::argued`, read by `Deals::recruit`).
+        let recruit = recruit_subject(w, him);
+        if let Some((i, j)) = recruit {
+            let id = w.people[i].player.id;
+            for act in &reading.acts {
+                let Act::Claim(st) = act else { continue };
+                if st.about.is_some_and(|a| a != id) {
+                    continue;
+                }
+                if let Some((rp, true)) = points::recruit_read(w, i, j, st)
+                    && !t.recruit_points.contains(&rp)
+                {
+                    t.recruit_points.push(rp);
+                    argued = 1.0;
+                }
+            }
+        }
         for act in &reading.acts {
             match act {
                 // An open floor has nothing to look up: never "he doesn't
@@ -391,10 +427,16 @@ impl Resolving for Conversation<'_> {
                 Act::Claim(st) => {
                     // A stat point in a money talk is checked on his season.
                     let stat = money.filter(|_| st.kind == "stat").and_then(|i| points::read(w, i, st));
-                    let truth = match stat {
-                        Some(rd) if rd.true_ => Truth::True,
-                        Some(_) => Truth::False,
-                        None => s.map_or(Truth::Unknown, |s| claims::check::fact(w, s, st)),
+                    // A recruit's film is checked against his film now (item 7).
+                    let film = recruit
+                        .and_then(|(i, j)| points::recruit_read(w, i, j, st))
+                        .filter(|(rp, _)| *rp == points::RecruitPoint::Film);
+                    let truth = match (stat, film) {
+                        (Some(rd), _) if rd.true_ => Truth::True,
+                        (Some(_), _) => Truth::False,
+                        (None, Some((_, true))) => Truth::True,
+                        (None, Some((_, false))) => Truth::False,
+                        (None, None) => s.map_or(Truth::Unknown, |s| claims::check::fact(w, s, st)),
                     };
                     if truth == Truth::False {
                         // He knows it isn't so as you say it (lane 9's
@@ -963,7 +1005,7 @@ impl Resolving for Conversation<'_> {
         }
         // A money talk's points (negotiation items 3a and 3c), before what
         // its offers leave behind.
-        keep_points(w, &s, t);
+        keep_points(w, &s, him, t);
         // What an offer leaves behind (lane N3): your first number, an
         // answer he owes you.
         for (o, wd) in &t.weighed {

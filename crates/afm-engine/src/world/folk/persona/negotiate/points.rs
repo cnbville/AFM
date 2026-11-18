@@ -544,3 +544,97 @@ pub fn earn_back(w: &World, i: usize, s: &Stat) -> Option<crate::world::folk::us
     let target = if l.rate { target.min(1.0) } else { target.round().max(1.0) };
     terms::read(Some(w.people[i].player.position), key, Some(target as f32), most)
 }
+
+// --- Recruits' points (negotiation item 7, lane NG3) ---------------------------------
+
+/// What a point to a recruit is about: his film against his stars, or where
+/// he'd stand on your depth chart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RecruitPoint {
+    Film,
+    Depth,
+}
+
+impl RecruitPoint {
+    pub fn key(self) -> &'static str {
+        match self {
+            RecruitPoint::Film => "recruit_film",
+            RecruitPoint::Depth => "recruit_depth",
+        }
+    }
+}
+
+/// The words that make a point about his film, and about his place.
+const FILM_WORDS: &[&str] = &["film", "tape", "star", "rating", "ranking", "ranked"];
+const DEPTH_WORDS: &[&str] = &["behind", "ahead of", "depth", "in front of", "wait your turn", "redshirt"];
+
+/// A recruit's point read (item 7): which it is and whether it's true.
+/// Film: his film (`recruiting::film_raw`) under the median film of his
+/// class's recruits at his stars. Depth: at least one man on your roster
+/// at his spot within two years of him who'd still be ahead of him
+/// (`recruiting::ahead_of_recruit`). None when the words name neither.
+pub fn recruit_read(w: &World, i: usize, j: usize, stated: &Stated) -> Option<(RecruitPoint, bool)> {
+    let v = stated.value.to_lowercase();
+    let p = &w.people[i];
+    if FILM_WORDS.iter().any(|x| v.contains(x)) {
+        let stars = crate::world::recruiting::recruiting_stars(p);
+        let mut films: Vec<f64> = w
+            .people
+            .iter()
+            .filter(|q| {
+                q.stage == crate::world::Stage::HighSchool
+                    && q.class_of == p.class_of
+                    && crate::world::recruiting::recruiting_stars(q) == stars
+            })
+            .map(|q| crate::world::recruiting::film_raw(q, &[]))
+            .collect();
+        if films.len() < 5 {
+            return None;
+        }
+        films.sort_by(f64::total_cmp);
+        let mid = films[films.len() / 2];
+        return Some((RecruitPoint::Film, crate::world::recruiting::film_raw(p, &[]) < mid));
+    }
+    if DEPTH_WORDS.iter().any(|x| v.contains(x)) {
+        return Some((RecruitPoint::Depth, crate::world::recruiting::ahead_of_recruit(w, j, i) > 0));
+    }
+    None
+}
+
+/// Whether a true point to recruit `id` landed this recruiting year: his
+/// money ask is then capped at his other offers' top bids alone (item 7).
+pub fn recruit_landed(w: &World, id: u32) -> bool {
+    let today = w.today;
+    w.folk.live.persona.points.iter().any(|p| {
+        p.with == Them::Player(id)
+            && p.day.days_to(today) < 365
+            && (p.key == RecruitPoint::Film.key() || p.key == RecruitPoint::Depth.key())
+    })
+}
+
+/// A recruit's ego z under this with coachability over `HUMBLE_COACH`
+/// takes a hard truth straight (item 7).
+pub const HUMBLE_EGO: f64 = -0.3;
+pub const HUMBLE_COACH: f64 = 12.0;
+
+/// Keeps a true point to a recruit and returns what it costs his trust in
+/// you (item 7): most take it badly, 0.02 to 0.04 by ego; a humble,
+/// coachable kid takes it straight and trusts you a little more
+/// (`STRAIGHT_TRUST`). A point he heard already costs nothing more.
+pub fn recruit_land(w: &mut World, i: usize, point: RecruitPoint) -> f32 {
+    let id = w.people[i].player.id;
+    let today = w.today;
+    let him = Them::Player(id);
+    let m = &mut w.folk.live.persona.points;
+    if m.iter().any(|p| p.with == him && p.key == point.key() && p.day.days_to(today) < 365) {
+        return 0.0;
+    }
+    m.push(Point { with: him, day: today, key: point.key().into(), pull: 1.0 });
+    let pl = &w.people[i].player;
+    let ego = pl.personality.traits.z(crate::player::Trait::Ego);
+    if ego < HUMBLE_EGO && pl.personality.coachability > HUMBLE_COACH {
+        STRAIGHT_TRUST
+    } else {
+        -(0.03 + 0.01 * ego.clamp(-1.0, 1.0)) as f32
+    }
+}
