@@ -34,6 +34,7 @@ pub mod store;
 pub mod today;
 pub mod who;
 pub mod wrap;
+pub mod year;
 
 // Facet lanes (N5a-N5e): each plays its own talks on this conversation.
 pub mod hs_call;

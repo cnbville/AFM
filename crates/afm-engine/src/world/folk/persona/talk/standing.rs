@@ -271,6 +271,12 @@ fn player(w: &World, i: usize, v: Voice) -> Vec<String> {
             if p.cal.portal.is_some() && !road.college_ends() {
                 out.push(format!("{} in the transfer portal", v.are()));
             }
+            // The transfer window around it (`year::portal`).
+            out.extend(super::year::portal(
+                w,
+                i,
+                if v == Voice::You { super::year::Who::You } else { super::year::Who::Son },
+            ));
             if p.cal.opted_out {
                 out.push(format!("{} opted out of the bowl game to get ready for the draft", v.have()));
             }
@@ -313,7 +319,19 @@ fn player(w: &World, i: usize, v: Voice) -> Vec<String> {
     // games, else what he did last season (the talks audit, 2026-11-16: a
     // DT in the offseason asked where he stood on the depth chart, then "do
     // I have a real role?" right after "you're my first pick at DT").
-    if matches!(p.stage, Stage::College | Stage::Pro | Stage::HighSchool) && !matches!(road, Road::DraftBound) {
+    // Out of season his place is what he saw last, dated, and when it gets
+    // set again (`year::place_off`; Cain 2026-11-18: "he's asking for proof
+    // while we're in fucking january").
+    let who = if v == Voice::You { super::year::Who::You } else { super::year::Who::Son };
+    let off = if matches!(p.stage, Stage::College | Stage::Pro | Stage::HighSchool) && !matches!(road, Road::DraftBound)
+    {
+        super::year::place_off(w, i, who)
+    } else {
+        None
+    };
+    if let Some(words) = off {
+        out.extend(words);
+    } else if matches!(p.stage, Stage::College | Stage::Pro | Stage::HighSchool) && !matches!(road, Road::DraftBound) {
         match folk::seen::first_now(w, i) {
             Some(true) => out.push(format!("{} with the starters this season", v.are())),
             Some(false) => out.push(format!("{} not a starter right now", v.are())),
