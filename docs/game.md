@@ -279,6 +279,27 @@ What changed (how each works is in `docs/world-model.md`, "Memory compaction"):
 
 Same results: a small world (seed 2026, scale 0.05, the history and a season to come, `memory_check 2026 3 1 0.05`) built from main and from this build gives the same fingerprint, a hash of every person's season rows, ratings, stage and school, every alumnus, coach and news line (`memory_check` prints it). World files keep their shape: the new code opens the old world file, and writes the same bytes for every changed field (`tests/compact.rs`).
 
+## Memory diet, lane M1 (2026-11-17)
+
+The first lane of the memory diet (`docs/design/memory-diet.md`, items 1, 2, 4, 7 and 8; Cain agreed 2026-11-17). Measured with `memory_season` on the seed 181 world (January 2026 start, Iowa, Continue with staff to the first game; `AFM_TRIM=1`, so each stop is after the allocator hands back free pages), 4-core Linux:
+
+| Stop | Main (b8438f5) heap | resident | Lane M1 heap | resident |
+|---|---|---|---|---|
+| Open | 5.75 GB | 5.85 GB | 5.22 GB | 5.34 GB |
+| 1 February | 6.20 GB | 6.33 GB | 5.57 GB | 5.87 GB |
+| 1 August | 5.85 GB | 6.00 GB | 5.19 GB | 5.62 GB |
+| First game (4 September) | 6.44 GB | 6.43 GB | 5.19 GB | 5.61 GB |
+
+What changed:
+
+- **Item 1, the portal-lean list's room:** the season's reset hands the list back (`Vec::new()`) instead of `clear()`, which kept the room a portal window grew (`PersonCal::season_reset`).
+- **Items 2 and 4, parts kept only once used:** a person's college-and-later fields (`world::Later`: college seasons, snaps, path, college staff, walk-on, juco, the NIL income, the signing's dip and GPA, his roads) and the rest of his calendar (`world::CalMore`: offers, visits, commitment, signing, each school's case, the portal, the draft read, NIL deals, a cut, the lean to leave) sit behind a box that exists only once something in it is set (`world/stored.rs`, `Stored`). Code reads and writes them as before (`p.path`, `p.cal.portal`). A person is 1,576 bytes instead of 2,112; at the first game 39,113 of 986,000 high schoolers keep a calendar rest and 4,977 a college part. The fields high schoolers do use stay in the person: his high school role, last performance, reps, sit-out share, the services' read, his test score and commit timing.
+- **Item 7, the stat book's room:** a season's rows go in with exactly their room (`records::close_season`): 0.39 to 0.29 GB.
+- **Item 8, smaller numbers:** a person's last performance and the services' read are `OptF64` (8 bytes, written as before), his childhood team a `u16`. His high school, home state and college stay `usize`: about 2,100 places read them for about 0.03 GB.
+- **Writers that clear:** a reset or a take on a part that isn't kept goes through `stored_mut`, so it never makes one (the season's reset, the combine invites, the spring step, the first-year dip, an empty offer list); the development step also drops a college part that is blank again.
+
+Same results: `memory_season` now prints the world log's print of every store (`wlog::why::fingerprints`: people, alumni, coaches, programs, high schools, clubs, the league, news, stats, the NFL book, the market, scouting, folk, finance, voters, the calendar, the world's random stream), each a hash of the store's whole serde form. Main and this lane print the same 17 lines and the same fingerprint at the first game, in four runs of the lane's code. World files keep their shape: people and calendars are written field for field as before (`world/person_form.rs`), so files, the world log and the World Reader's tables are unchanged; `tests/compact.rs` checks the field names and order and that a person reads back to the same bytes.
+
 ## The screens' core (final build, lane 9)
 
 The shell and the core screens of section 10, on Showtime. The game side is `crates/afm-game/src/lane_core.rs` with `lane_core/` (`desk.rs` the inbox and your desk, `mail.rs` who writes what, `links.rs` the link markup, `pages.rs` the pages' data, `tables.rs` the big tables, `people.rs` the named people around you). The world side is `crates/afm-engine/src/world/desk.rs` (kept in the save: mail, notes, my players, watches, contacts, big moments). The page side is `app/ui/screens/core.js` and `core.css`, with the shell in `app.js`.

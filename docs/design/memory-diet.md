@@ -1,6 +1,6 @@
 # Memory diet: the season under about 4.25 GB
 
-Research thread "Find what makes the game memory heavy", 2026-11-17. Cain: "fresh thread to do bloated memory research ... It's starting to consistently lag behind on clicks". He agreed the same evening to items 1-11 and 13 (no to 12): "okay build a proposal but wait until all the engine changes are done. The coordinator or i will remind/wake you". **Not built. Wait until the engine lanes (scheme fit SF1-SF11, coach fire) are done**, then re-measure, since they change the stores.
+Research thread "Find what makes the game memory heavy", 2026-11-17. Cain: "fresh thread to do bloated memory research ... It's starting to consistently lag behind on clicks". He agreed the same evening to items 1-11 and 13 (no to 12): "okay build a proposal but wait until all the engine changes are done. The coordinator or i will remind/wake you". **Lane M1 (items 1, 2, 4, 7, 8) built 2026-11-17** beside the engine lanes, by Cain's "go ahead" the same evening: on the seed 181 world the heap at the first game went from 6.44 to 5.19 GB and resident memory from 6.43 to 5.61 GB, with every store's print the same as main (`docs/game.md`, "Memory diet, lane M1"). M2 comes after M1; M3 (item 13) waits for the engine lanes (scheme fit SF1-SF11).
 
 The measurements, raw output and tools are in the project folder at `afm/memory-research/` (`report.md`; `mem_weigh.rs`, a copy of `memory_season` that drops every store of the world, with modes `open`, `season`, `counts`, `lean`, `hs`, `sizes`; `mem_sizes.rs`, an engine test that prints every person, player, calendar and coach field's size).
 
@@ -47,7 +47,7 @@ Also from the research, proposed, not confirmed: keep only the newest day's port
 
 ## Lanes (after the engine lanes)
 
-1. **M1, same results, the biggest part:** items 1, 2, 4, 7, 8. Proof: `memory_season`'s fingerprint the same before and after on the newest world; `mem_weigh season` before and after.
+1. **M1, same results, the biggest part (built 2026-11-17):** items 1, 2, 4, 7, 8. Item 8 left the high school, home state and college indexes at 8 bytes (about 2,100 places read them, about 0.03 GB); item 2 kept in the person the fields high schoolers use (role, last performance, reps, sit-out share). Proof: `memory_season`'s fingerprint the same before and after on the newest world; `mem_weigh season` before and after.
 2. **M2, same results with reader checks:** items 3, 5, 6, 9, 10, 11. The same proof; each reader of a dropped part listed in the PR with what it reads.
 3. **M3, item 13:** on a new seed, the world's book checks against real data and the trial numbers before and after, within the run-to-run spread.
 
