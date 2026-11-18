@@ -291,6 +291,7 @@ impl Resolving for Conversation<'_> {
                         him,
                         &format!("{words} {}", self.said.words),
                         asked,
+                        said_before(s, &self.said.words),
                         &open,
                         &wants,
                         &reading.hits,
@@ -1183,6 +1184,14 @@ fn loyalty(w: &World, him: Them, about: Option<Them>) -> f64 {
     w.folk.ties.of_id(a).filter(|t| t.a == b || t.b == b).map(|t| f64::from(t.strength) / 100.0).fold(0.0, f64::max)
 }
 
+/// Whether you said this line before in the talk, in the same words
+/// (letters only, case aside). Your line enters the scene after the turn.
+fn said_before(s: Option<&Scene>, words: &str) -> bool {
+    let norm = |x: &str| x.chars().filter(|c| c.is_alphabetic()).flat_map(char::to_lowercase).collect::<String>();
+    let now = norm(words);
+    !now.is_empty() && s.is_some_and(|s| s.lines.iter().any(|l| l.by == 1 && norm(&l.text) == now))
+}
+
 /// A question's topic.
 fn act_topic(a: &Act) -> Topic {
     match a {
@@ -1212,6 +1221,7 @@ fn home_turn(
     him: Them,
     words: &str,
     asked: bool,
+    same: bool,
     open: &store::Open,
     wants: &[Want],
     heard: &[super::ear::Hit],
@@ -1221,7 +1231,7 @@ fn home_turn(
     let mut recent = store::told_since(w, him, super::home::AGAIN_DAYS);
     told.extend(t.shared.iter().map(|x| x.0));
     recent.extend(t.shared.iter().map(|x| x.0));
-    let q = super::home::Asked { told: &told, recent: &recent, asked, closed: open.closed || t.closed };
+    let q = super::home::Asked { told: &told, recent: &recent, asked, same, closed: open.closed || t.closed };
     let a = super::home::answer(w, him, words, q);
     t.say.released.extend(a.released);
     if a.again {

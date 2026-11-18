@@ -808,12 +808,14 @@ pub const AGAIN_DAYS: i32 = 14;
 /// What a question asks, and what he has told you: `told` all he has told
 /// you before, `recent` what he told you in the last `AGAIN_DAYS` or this
 /// talk, `asked` a general question about his life already asked in this
-/// talk, `closed` he went short earlier in this talk.
+/// talk, `same` in the same words as a line you said before, `closed` he
+/// went short earlier in this talk.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Asked<'a> {
     pub told: &'a [u16],
     pub recent: &'a [u16],
     pub asked: bool,
+    pub same: bool,
     pub closed: bool,
 }
 
@@ -842,12 +844,6 @@ pub fn answer(w: &World, him: Them, question: &str, q: Asked) -> Said {
         out.released.push(format!("As he told you before: {}", named_ok[0].words));
         return out;
     }
-    // The same general question twice in one talk.
-    if named.is_empty() && q.asked {
-        out.again = true;
-        out.released.push("He already told you how things are at home".into());
-        return out;
-    }
     let mut pick: Vec<&Bit> = named_ok.iter().copied().filter(|b| !told.contains(&b.key)).collect();
     // Nothing named he'd go into this far: he answers in general.
     if pick.is_empty() {
@@ -858,6 +854,14 @@ pub fn answer(w: &World, him: Them, question: &str, q: Asked) -> Said {
         pick.extend(rest);
     }
     pick.truncate(n);
+    // The same general question again in one talk, in the same words or
+    // with nothing left he'd tell you: you weren't listening. A new part of
+    // his life is never asking again (item 3).
+    if named.is_empty() && q.asked && (q.same || pick.is_empty()) {
+        out.again = true;
+        out.released.push("He already told you how things are at home".into());
+        return out;
+    }
     if pick.is_empty() {
         // Nothing he hasn't told you, nothing named he'd say: home is as it
         // was.
