@@ -57,6 +57,10 @@ pub fn flag(g: &Game, v: &mut Value) {
     if afm_engine::world::folk::persona::talk::store::is_over(w, s.id) {
         t["over"] = json!(true);
     }
+    // Your last line read as a goodbye: the page asks whether to wrap up.
+    if g.ai.persona.wrap_asked(s.id) && !s.done {
+        t["wrap_ask"] = json!(true);
+    }
     // What waits on your say-so stays on the page until you answer it.
     let pending = g.ai.persona.pending(s.id);
     if !pending.is_empty() {

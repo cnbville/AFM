@@ -904,6 +904,35 @@ pub(crate) fn current_footprints(w: &World) -> HashMap<u32, u16> {
     recs.into_iter().filter(|r| r.footprint != 0).map(|r| (r.id, r.footprint)).collect()
 }
 
+/// A season still being played, as a player's line so far.
+pub struct SeasonSoFar {
+    pub year: i32,
+    pub pos: Position,
+    /// The season's numbers, indexed by `Stat as usize`.
+    pub stats: [f32; STAT_COUNT],
+    /// An NFL season's regular-season line; false for a college season.
+    pub pro: bool,
+}
+
+/// A player's line from the season still being played. A college season
+/// is filed only when the title game finishes (`close_season`), so until
+/// then it is read from the in-season book; an NFL season's row is on his
+/// career from the first game, so it is open until the regular season is
+/// booked on Black Monday. `None` when no season is open or he has no
+/// games in it.
+pub fn season_so_far(w: &World, id: u32) -> Option<SeasonSoFar> {
+    if let Some(cs) = w.college.as_ref().filter(|c| c.started)
+        && let Some(l) = cs.book.get(&id).filter(|l| l.games > 0)
+        && let Some(pos) = l.pos
+    {
+        return Some(SeasonSoFar { year: cs.year, pos, stats: from_line(&l.line), pro: false });
+    }
+    let ns = w.nfl_season.as_ref().filter(|s| s.started && !s.booked)?;
+    let i = w.people.binary_search_by_key(&id, |p| p.player.id).ok()?;
+    let s = w.people[i].pro.as_ref()?.seasons.iter().rev().find(|s| s.year == ns.year && s.games > 0)?;
+    Some(SeasonSoFar { year: ns.year, pos: w.people[i].player.position, stats: from_line(&s.stats), pro: true })
+}
+
 /// The season is over: its lines go into the book for good, with norms,
 /// record books, and the Hall of Fame vote that follows the season.
 pub(crate) fn close_season(w: &mut World) {
