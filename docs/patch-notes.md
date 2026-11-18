@@ -8,6 +8,28 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.619 (18 Nov, shipped): capital lane CS5: the Pecking order screen (PR #539), coach and player bonds (PR #542), scheme-fit lane SF3: a blocked man is out of the play (PR #533)
+**TLDR:** 3 changes ship together. Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans. Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most. Plus 1 more below.
+- Capital lane CS5: the Pecking order screen (PR #539): Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.
+- Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there (PR #539)
+- The drive you know of for each rival: public with how far along it is, a building going up, or a rumor (PR #539)
+- Your own rank over the years as a line (PR #539)
+- A list of what your donors have heard about rivals' quiet campaigns (PR #539)
+- Coach and player bonds (PR #542): Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most.
+- Every player has a bond with you and with your staff that grows through the season, faster with the coaches he sees every day. (PR #542)
+- Being there after a death, an injury or a hard loss moves a bond more than months of practice. (PR #542)
+- Close players follow instructions more often, take your talks to heart, take coaching a little better and are slower to leave. (PR #542)
+- Bonds have a cost: favoritism the room notices, real hurt when a coach leaves, and a colder start for the coach who follows a beloved one. (PR #542)
+- Tell the game how you grew up in setup: a kid raised the same way finds something in common with you. (PR #542)
+- Scheme-fit lane SF3: a blocked man is out of the play (PR #533): Your offensive line now decides how far your backs get. A great line opens real lanes, a weak one leaves its backs meeting tacklers early, and a defender tied up on a block has to get free before he can make the tackle.
+- A defender locked on a block can no longer reach out and drag the runner down: only one who is beating his blocker gets an arm on him. (PR #533)
+- As the back comes, the defender winning his block comes off it fast, and the one losing it stays stuck. (PR #533)
+- Run blocking on your line and block shedding on your front now show in yards a carry. (PR #533)
+- Backs read blocks the same way, so a walled-off defender no longer scares them out of a lane. (PR #533)
+- Coaches pick their runs against each front from the new results. (PR #533)
+- Look at: Capital, then Pecking order, after the July ranking. (PR #539) a player's People tab, "His coaches", and a coach's profile, "Closest to him". (PR #542) your backs' yards before contact behind your best and worst lines, and a run defense with strong block-shedders up front. (PR #533)
+- Docs and tooling merged too, no game change: Negotiation that responds to arguments: the spec and lanes (PR #543); World additions: spec for the agreed items 1, 6 and 7 (docs) (PR #548).
+
 ## 0.2.616 (18 Nov, shipped): opening a save closes the open world before reading the file (PR #535)
 **TLDR:** Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.
 - Loading a save while a career or world is open no longer holds two worlds in memory. (PR #535)
