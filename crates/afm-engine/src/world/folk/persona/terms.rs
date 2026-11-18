@@ -80,7 +80,14 @@ pub enum Give {
     PickIf(PickIf),
     /// Revenue share a year (from 2025), beside a collective's NIL deal.
     RevenueShare(f64),
+    /// "Take less and I'll sign you help" (negotiation item 4): a starter
+    /// added at a position (its index; `HELP_ANY` for any) before next
+    /// season's opener.
+    Help(u8),
 }
+
+/// `Give::Help` at any position.
+pub const HELP_ANY: u8 = u8::MAX;
 
 /// A condition on a pick in a trade, as real deals word them (lane N5b):
 /// the player it reads is the first one you receive.
@@ -100,7 +107,7 @@ impl Give {
     /// It's a promise: logged through P1 and believed as one, not done at
     /// once.
     pub fn promised(&self) -> bool {
-        matches!(self, Give::Role(_) | Give::Position(_) | Give::NoRedshirt | Give::Stay)
+        matches!(self, Give::Role(_) | Give::Position(_) | Give::NoRedshirt | Give::Stay | Give::Help(_))
     }
 
     /// In words for the voice and the confirm card (no figure unless the
@@ -134,6 +141,7 @@ impl Give {
             Give::Outside(_) => "money outside the rules".into(),
             Give::Title => "a better title".into(),
             Give::Calling => "the play-calling for his side".into(),
+            Give::Help(p) => super::super::talks::PromiseKind::Help(*p).words(),
             Give::Bonus(_) => "a signing bonus".into(),
             Give::Incentives(_) => "incentives".into(),
             Give::VoidYears(n) => format!("{n} void years"),
@@ -197,6 +205,16 @@ pub struct Offer {
     /// Friday").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub until: Option<Date>,
+    /// The pull of the true points made in the line that carries it
+    /// (negotiation item 3a), so a point said with the offer counts for it;
+    /// points from earlier lines are kept for the season
+    /// (`negotiate::points::pull`). 0-1, an engine number.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub argued: f32,
+}
+
+fn is_zero(x: &f32) -> bool {
+    *x == 0.0
 }
 
 /// How he takes an offer, against his best option (11).

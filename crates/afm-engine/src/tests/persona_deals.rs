@@ -25,12 +25,12 @@ use crate::world::folk::persona::wants::{Acting, Want, WantKind, Willing};
 use crate::world::folk::{case, person, ties};
 use crate::world::{Stage, World};
 
-fn wants(kinds: &[WantKind]) -> Vec<Want> {
+pub(super) fn wants(kinds: &[WantKind]) -> Vec<Want> {
     kinds.iter().enumerate().map(|(k, &kind)| Want { kind, weight: 1.0 - 0.2 * k as f32, met: false }).collect()
 }
 
 /// A college world with your program, and a class to draw people from.
-fn college() -> (World, usize) {
+pub(super) fn college() -> (World, usize) {
     let mut w = seat("college");
     w.add_class_aged(19);
     w.add_class_aged(17);
@@ -39,7 +39,7 @@ fn college() -> (World, usize) {
 }
 
 /// The next high schooler not used yet.
-fn fresh(w: &World, skip: &[usize], age: u32) -> usize {
+pub(super) fn fresh(w: &World, skip: &[usize], age: u32) -> usize {
     (0..w.people.len())
         .find(|&i| w.people[i].stage == Stage::HighSchool && w.people[i].player.age == age && !skip.contains(&i))
         .or_else(|| (0..w.people.len()).find(|&i| w.people[i].stage == Stage::HighSchool && !skip.contains(&i)))
