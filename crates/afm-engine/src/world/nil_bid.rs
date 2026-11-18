@@ -457,7 +457,7 @@ impl Market {
         let pn = w.programs.len();
         let mut depth: Vec<[Vec<f64>; POSITION_COUNT]> = vec![Default::default(); pn];
         for p in w.people.iter().filter(|p| p.stage == Stage::College) {
-            if let (Some(j), Some(x)) = (p.college, p.last_performance.get()) {
+            if let (Some(j), Some(x)) = (p.college, season_read(w, p)) {
                 depth[j][p.player.position.index()].push(x);
             }
         }
@@ -504,7 +504,8 @@ impl Market {
         }
         let c = p.college?;
         let from = w.programs[c].division;
-        let perf = p.last_performance.get()?;
+        // His season as the market reads it, tape and all (item 6).
+        let perf = season_read(w, p)?;
         let pos = p.player.position;
         let k = pos.index();
         let stars = super::recruiting::recruiting_stars(p);
@@ -675,4 +676,53 @@ pub(crate) const NIL_REV: u8 = 2;
 pub(crate) fn read_book(w: &mut World, deals: Vec<(usize, f64)>) {
     let pots = pot_rates(w);
     w.nil_book = NilBook::read(w.today.year(), deals, pots);
+}
+
+/// How much of his tape the college market adds to his season's play
+/// (negotiation item 6), the NFL consensus's own share of production over
+/// his rating (`pro::market::consensus`). Proposed, not confirmed.
+pub const TAPE_W: f64 = 0.3;
+/// The most his tape can move the read, either way (rating points), as at
+/// the NFL. Proposed, not confirmed.
+pub const TAPE_CAP: f64 = 6.0;
+
+/// What his engine games showed of him this season over his ratings
+/// (negotiation item 6), on the rating scale: each read of the results
+/// ledger (`results::Ledger`), its season's shown level over his rating
+/// shrunk by what the season keeps of it (`Fit::weight` on his game
+/// trials, so a few snaps or a noisy read count little), averaged over
+/// the reads he was tried at. The ledger is his season's from fall camp
+/// to the next, so December's keep offers and the January window see the
+/// whole season. Practice trials sit in the same sums; their weight comes
+/// from his game trials alone, so a man who never played shows nothing.
+/// None with no ledger for this season (a season on the stand-in, or
+/// growth from results off).
+pub fn tape(w: &World, p: &Person) -> Option<f64> {
+    use crate::results::{self, Read};
+    let j = p.college.filter(|_| p.stage == Stage::College)?;
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    let l = w.results.ledgers.get(&p.player.id).filter(|l| l.year == label)?;
+    let level = super::division_level(w.programs[j].division);
+    let pos = p.player.position;
+    let (mut sum, mut reads) = (0.0, 0u32);
+    for e in l.reads.iter().filter(|e| e.n > e.np) {
+        let f = results::fit(level, Read::from_index(e.read as usize), pos);
+        let keep = f.weight((e.n - e.np) as f64, results::CHANGE, e.v as f64);
+        if keep <= 0.0 {
+            continue;
+        }
+        sum += keep * e.centred() / e.n as f64;
+        reads += 1;
+    }
+    (reads > 0).then(|| sum / reads as f64)
+}
+
+/// His season as the college market reads it for a price (negotiation
+/// item 6): his season's play (`last_performance`) moved by his tape
+/// (`tape`, `TAPE_W` of it, at most `TAPE_CAP` either way), so a season
+/// his games showed below his ratings lowers what other schools would pay.
+/// The stars, the draft and development keep reading `last_performance`.
+pub fn season_read(w: &World, p: &Person) -> Option<f64> {
+    let perf = p.last_performance.get()?;
+    Some(perf + TAPE_W * tape(w, p).unwrap_or(0.0).clamp(-TAPE_CAP, TAPE_CAP))
 }

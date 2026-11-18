@@ -194,6 +194,11 @@ pub struct ProCareer {
     /// person's index moves when the world is compacted.
     #[serde(default)]
     pub case: Option<super::people::PastCase>,
+    /// "I'll sign you help" broken (negotiation item 4): the league year it
+    /// broke and the premium his next deal with your club carries (5% x
+    /// his winning goal), until he signs again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub help_owed: Option<(i32, f32)>,
 }
 
 impl ProCareer {
@@ -239,6 +244,7 @@ impl ProCareer {
             exempt: 0,
             other: Vec::new(),
             case: None,
+            help_owed: None,
         }
     }
 
