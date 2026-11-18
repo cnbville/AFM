@@ -784,8 +784,9 @@ pub(crate) fn typical_strength(w: &World, d: Division) -> f64 {
 /// (`progression::Room`), by the head coach's lean and the position
 /// coach's eye. Your seat's team is left to you.
 fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec<crate::progression::Change>> {
-    use crate::progression::{Lean, Room, ai_room};
+    use crate::progression::{Lean, Room, StaffAt, ai_room, moved, staff_code};
     let mut rooms: HashMap<(bool, usize, Room), Vec<usize>> = HashMap::new();
+    let mut by: HashMap<usize, Vec<crate::progression::Change>> = HashMap::new();
     for (i, p) in w.people.iter().enumerate() {
         if role_of[i].is_none() {
             continue;
@@ -793,12 +794,23 @@ fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec
         let Some(room) = Room::of(p.player.position) else { continue };
         let key = match p.stage {
             Stage::College => match p.college {
-                Some(c) if !w.seat_program(c) => (true, c),
+                Some(c) => (true, c),
                 _ => continue,
             },
-            Stage::HighSchool if w.seat_school() != Some(p.hs) => (false, p.hs),
+            Stage::HighSchool => (false, p.hs),
             _ => continue,
         };
+        let yours = if key.0 { w.seat_program(key.1) } else { w.seat_school() == Some(key.1) };
+        if yours {
+            // Your rooms are yours to fill, but a project he brought from
+            // his last staff ends here as on any staff.
+            let staff = staff_code(if key.0 { StaffAt::College } else { StaffAt::HighSchool }, key.1);
+            let m = moved(&p.player, staff);
+            if !m.is_empty() {
+                by.insert(i, m);
+            }
+            continue;
+        }
         rooms.entry((key.0, key.1, room)).or_default().push(i);
     }
     let mut keys: Vec<(bool, usize, Room)> = rooms.keys().copied().collect();
@@ -824,10 +836,10 @@ fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec
                 Lean::of_coach(c, clamp((left - 2.5) / 2.5, -1.0, 1.0))
             });
             let seed = (w.year as u32).wrapping_mul(0x9E37) ^ (k.1 as u32).wrapping_mul(0x85EB) ^ (k.2 as u32) << 24;
-            ai_room(&members, k.2, lean, eye, scale, seed).into_iter().map(|(m, c)| (ids[m], c)).collect()
+            let staff = staff_code(if k.0 { StaffAt::College } else { StaffAt::HighSchool }, k.1);
+            ai_room(&members, k.2, lean, eye, scale, staff, seed).into_iter().map(|(m, c)| (ids[m], c)).collect()
         })
         .collect();
-    let mut by: HashMap<usize, Vec<crate::progression::Change>> = HashMap::new();
     for (i, c) in out.into_iter().flatten() {
         by.entry(i).or_default().push(c);
     }
