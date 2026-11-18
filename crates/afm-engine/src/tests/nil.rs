@@ -761,9 +761,23 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     let usual: Vec<(u32, f64)> = usual_deals(&w, j);
     let coll: std::collections::HashMap<u32, f64> = collective_deals(&w, j).into_iter().map(|x| (x.0, x.1)).collect();
     let split = |id: u32| usual.iter().find(|x| x.0 == id).unwrap().1 + coll.get(&id).copied().unwrap_or(0.0);
-    let ids: Vec<u32> = usual.iter().map(|x| x.0).collect();
-    let (star, signed, rest) = (ids[0], ids[1], ids[2]);
     let at = |w: &World, id: u32| w.people.iter().position(|p| p.player.id == id).unwrap();
+    // Three men staying with a season left (a man leaving keeps the split).
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    let div = w.programs[j].division;
+    let ids: Vec<u32> = usual
+        .iter()
+        .map(|x| x.0)
+        .filter(|&id| {
+            let p = &w.people[at(&w, id)];
+            !crate::world::college::no_season_left(p, div, label)
+                && p.cal.portal.is_none()
+                && p.cut_here().is_none()
+                && p.cal.declare_plan != Some(true)
+        })
+        .collect();
+    assert!(ids.len() >= 3, "three staying: {}", ids.len());
+    let (star, signed, rest) = (ids[0], ids[1], ids[2]);
     // No season's play to read: no rival bids, so the sums are plain.
     for id in [star, signed, rest] {
         let x = at(&w, id);
