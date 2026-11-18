@@ -504,7 +504,7 @@ pub struct OffCtx {
 pub struct Lean {
     /// Added to the pass rate (throws for the quarterback promised them).
     pub pass: f64,
-    /// Play action concepts weigh 1 + this.
+    /// The run fake's odds weigh 1 + this (`fake_chance`).
     pub play_action: f64,
     /// Added to the gun lean: more shotgun (+) or under center (-).
     pub gun: f64,

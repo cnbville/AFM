@@ -3259,10 +3259,15 @@ const SELL_PER_POINT: f64 = 0.01;
 const PA_PAST_MESH: f64 = 2.0;
 const PA_FILL: f64 = 2.0;
 const PA_EYES_UC: f64 = 0.2;
-/// The boot's roll after the top of it: yards upfield for each two across,
-/// and the pace (of his top speed).
+/// The boot's roll after the top of it: yards upfield for each two across;
+/// the pace, of his top speed (proposed, not confirmed: about 4.8 yd/s,
+/// 10.7 mph, for the NFL's typical starter, the 4.7 every passer rolled at
+/// before; 4.4 for a 5.2 forty and 5.1 for a 4.5; Next Gen Stats put a
+/// 15.6 mph touchdown throw on the run second fastest of the 2021 season);
+/// and how many of those steps ahead he aims, so easing in doesn't set it.
 const BOOT_UP: f64 = 0.8;
-const BOOT_PACE: f64 = 0.75;
+const BOOT_PACE: f64 = 0.48;
+const BOOT_AHEAD: f64 = 3.0;
 
 /// The plan keeping a usage promise (`roster::Keep`; proposed, not
 /// confirmed): the quarterback looks first to the man promised shots on 6
@@ -4452,9 +4457,13 @@ fn quarterback(
         // On the boot he keeps rolling (scheme-fit item 3): outside and
         // working back toward the line, eyes downfield, short of the
         // sideline and behind the line, so he throws on the move. He used
-        // to stop at the top of the roll.
+        // to stop at the top of the roll. He heads for a spot far enough
+        // ahead that easing in never sets his pace (a spot 2.15 yards
+        // away held every passer to about 4.7 yd/s, so a quick one rolled
+        // no faster than a slow one); he slows only as the line or the
+        // sideline stops him.
         let side = if ps.drop_to.y >= s.ball_y { 1.0 } else { -1.0 };
-        let to = me + v2(BOOT_UP, 2.0 * side);
+        let to = me + v2(BOOT_UP, 2.0 * side).scale(BOOT_AHEAD);
         sim.go_to(qb, v2(to.x.min(los - 1.5), clamp(to.y, 5.0, width() - 5.0)), BOOT_PACE);
     } else {
         let spot = v2(ps.drop_to.x + 0.8, ps.drop_to.y);
