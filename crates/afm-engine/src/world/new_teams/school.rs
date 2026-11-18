@@ -137,6 +137,7 @@ pub fn open(w: &mut World, parent: usize, opens: i32, rng: &mut Rng) -> usize {
         seasons: Vec::new(),
         state_titles: 0,
         chain: crate::world::high_school::Chain::new(prestige),
+        trainer: None,
     });
     w.high_schools[parent].enrollment = p.enrollment - enrollment;
     w.states[p.state].schools.push(id);

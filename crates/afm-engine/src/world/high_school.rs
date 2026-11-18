@@ -116,6 +116,10 @@ pub struct HighSchool {
     /// `chain_after_load` fills its start.
     #[serde(default)]
     pub chain: Chain,
+    /// Its athletic trainer (support departments): full-time (share 1),
+    /// part-time (a half) or none.
+    #[serde(default)]
+    pub trainer: Option<super::departments::Aide>,
 }
 
 impl HighSchool {
@@ -392,6 +396,7 @@ pub fn generate_state_schools(
             seasons: Vec::new(),
             state_titles: 0,
             chain: Chain::new(prestige),
+            trainer: None,
         });
     }
     // Classifications by enrollment, biggest first, as in most states.

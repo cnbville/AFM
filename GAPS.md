@@ -6,6 +6,43 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 
 - **The engine's instructions read a freelance trust, not his trust in the coach** (medium). `GamePlayer.trust` is 0.5 for every player the world sends to a game, so `tendencies::obey_chance` never sees how much he believes his own coach; only the new bond part (`GamePlayer.bond`, `obey_trust`) reaches it. The built `Person::trust` could feed it directly. Found 2026-11-17 (thread "Build coach and player bonds").
 - **The press ranks only finished rooms** (low). `race::press_score` reads `Campus.level` and `since`, so a building that has broken ground adds nothing until it opens, and the Pecking order screen can't say "read as 10th since the groundbreaking" as board 5 draws it. Recruits' groundbreaking pull (facilities lane #281) is separate. Found 2026-11-17 (thread "Build Capital screen CS5"); needs Cain's call on whether a building under way counts for the press.
+- **Projects follow the player, not the staff that set them** (high). A skill or body project is stored on the player and nothing ends it when he changes team: a high school project rides into college, a portal transfer or a drafted man carries his old staff's project to the new one. Rooms then run past their slots (a scale 0.03 test world: your new college's rooms held 16 skill projects on 14 slots, RB 2 of 1, D-line 3 of 2, S 3 of 1, and a QB in year 5 of his). The AI's own rooms are hit the same way (`ai_room` counts them as running, so it only stops starting new ones). Real staffs decide their own projects, so the fix is to end a project when he moves to a new staff and let that staff pick at its next checkpoint. It changes world results. Found 2026-11-17 (thread "Let me start development projects").
+- **A project's minutes don't come out of the room's week** (medium). Design item 8 says a project takes the position coach's one-on-one minutes, so the rest of the room gets a little less. Today the 60 minutes only set the project's pace (`development.rs`, `GrowthCtx::rate`); nobody else's individual time shrinks, for you or the AI. Same thread.
+
+### The engine gaps audit (agreed)
+
+Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lane is in `docs/design/engine-gaps.md` (lanes EG1-EG7, item 10 in SF10, items 29 and 30 as small fixes); each lane removes its entries here when it merges. The audit (thread "Find engine gaps beyond scheme fit") checked real NFL play-by-play (nflverse 2021-25) and the repo's college targets against `match_check` on main, each code claim checked twice. Numbers, sources and code lines are in the project folder at `afm/engine-gaps/report.md` (items 1-30).
+
+- **Injuries only in tackles and sacks** (high). Blocks, the hit at the catch point and the hit on a throwing quarterback never roll one, so backs take 35% of game injuries (real about 8%) and offensive linemen 0.2% (real about 18%). Item 1.
+- **No non-contact injuries** (high). About 70% of NFL ACL tears come without contact, and hamstrings are sprinting injuries; the engine draws every injury at a hit. Item 2.
+- **Nobody comes back in the same game** (medium). A hurt man plays on hurt or is out; most real in-game injuries cost a few snaps, and a bruise sends about half its men out for good. Item 3.
+- **Fumbles are dead where they're fallen on** (high). No fumble is ever returned (real 0.032 return touchdowns a team game, a third of the defense's touchdowns from scrimmage), a defensive recovery in the end zone is first and goal at the 1 instead of a touchdown, and none goes out of bounds (real 8.5%). Item 4.
+- **No fumbled snaps** (high). Real 0.185 a team game, 16% of all fumbles; a bad shotgun snap only costs time (`run_snap`). Item 5.
+- **Strip sacks at a third of real** (high). 4.1% of sacks fumble, real 12.4%. Item 6.
+- **Backs fumble about twice as often as real** (medium). 1.4% of designed runs, real 0.75%. Item 7.
+- **The red zone plays loose** (high). NFL red zone completion 65.9% (real 53.0%), a touchdown on 26.5% of red zone throws (19.0%), 2.37 points a drive (2.00). Item 8.
+- **Quarterbacks extend few plays** (high). The scramble drill is built but gets few passers out before the play is dead: 2.5% of throws come after 3.94 s (real 10%), sacks 5.5% of dropbacks (6.8%), scrambles 1.60 a team game (1.97). Item 9.
+- **Few designed quarterback runs** (medium). 0.54 a team game (real 1.69); the test league's passers are typical, so SF10 measures it on world rosters. Item 10.
+- **Long field goals made too often** (medium). NFL 55+ made 70.9% (real 59.7%) and tried twice as often; FBS 40-49 75.2% (65.2%), 50+ 65.9% (50.6%). Item 11.
+- **Blocked kicks at a third of real, and never returned** (medium). Field goals 0.58% (real 1.89%), punts 0.18% (0.48%), extra points 0.26% (0.70%); a kick's block is a formula, not a tracked play, and real blocked punts go back for a touchdown a third of the time. Item 12.
+- **Few long returns** (medium). Kickoff returns of 40+ 1.8% (real 5.0%), punt returns of 20+ 2.8% (8.0%). Item 13.
+- **The kicking range ignores the weather** (low-medium). The engine tries 8% more kicks of 50+ in a 17 mph wind; real teams try 13% fewer in 15+ mph wind and 26% fewer at 32 F or colder. Item 14.
+- **A half's last snaps are ordinary calls** (medium). No Hail Mary, and a tied team never kneels. Of the second quarter's snaps with 5 s or less, field goals are 31% (real 51%) and kneels 2% (18%); and it almost never spikes (0.1% of those late snaps, real 5.2%). The screens' win chance credits a shot no play throws. Item 15.
+- **No laterals on the last play** (low). Item 16.
+- **The clock before halftime** (low-medium). Real defenses call 1.35 timeouts a game in the last 4:00 of the second quarter; the staff's timeout needs the fourth quarter (`after_snap_clock`), and every offense hurries in the half's last 2:00 whatever its spot or score. Item 17.
+- **Nobody protects a late lead** (medium). The carrier's sideline choice never reads the score or clock; real runs by the team ahead in the last 5:00 end out of bounds 2.3% of the time (5.8% earlier). Goes with S6.2. Item 18.
+- **Two-point tries short** (low-medium). 5.0% of tries (real 9.8%), made at the real rate. Item 19.
+- **Fourth-down sums mostly use the NFL's numbers** (low-medium). The expected points and the go habit are the level's, but the conversion chance reads yards to go only, a punt is always 41 net and a miss goes at the NFL's spot at every level (`fourth_down`, `fourth_ev`). Item 20.
+- **AI staffs never fake a kick** (low). Real 0.036 fake punts a team game; no fake field goal exists. Item 21.
+- **No untimed down or 10-second runoff** (low). Item 22.
+- **Penalties mark the NFL's yards at every level** (medium). College defensive holding is 10 yards; in high school (the NFHS states; Texas plays college rules), pass interference, holding, face masks and roughness carry no automatic first down (only roughing the passer, kicker, holder or snapper do). Item 23.
+- **Penalties near the goal lines** (low-medium). Defensive fouls halve only when they'd reach the goal line, from the line of scrimmage; a foul in the offense's own end zone is never a safety (real 12 of 65 safeties in 2021-25). Item 24.
+- **Kick rules by level** (low). A missed field goal goes over at the NFL's spot and a kickoff out of bounds at the 40 at every level (college: the line of scrimmage, and a kickoff out of bounds by era from the kick). Item 25.
+- **Ineligible man downfield called about four times too often** (medium, a bug). 0.383 a team game (real 0.106), all on RPOs; minor bug 406. Item 26.
+- **Pass interference short** (medium). 0.352 a team game at 12.5 yards (real 0.507 at 15.8). Item 27.
+- **Fouls missing or off** (low). The defense's too many men, illegal contact, illegal use of hands and live-ball offside don't exist; kickoffs out of bounds or short of the landing zone are played but never flagged; grounding 0.015 a team game (real 0.080); false starts and delay of game short, the formation group long, and illegal blocks in the back about ten times real on scrimmage plays. Item 28.
+- **Interior linemen rotate too little** (low-medium). The top two DTs play 78% of snaps (real 68% and 50%). Item 29.
+- **Rain and wind a little small** (low). Rain costs 1.9 points a team (real 3.4), 17 mph wind 2.0 (2.8). Item 30.
 
 ## Logic
 
@@ -19,9 +56,13 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **The returns are not built** (low). A former player's summer visits, his hall of fame asking you to present him, naming a son after you, and a hometown discount in NFL free agency beyond the built "guys follow you" (design section 7). Same thread.
 - **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
 - **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
+- **No word when a project clicks, stalls or is dropped** (medium). A click, a dead end your staff would see, or a project dropped because he moved to a position that doesn't work the skill (`progression::project_year`) sends no note to the inbox or the staff notes. Same thread ("Let me start development projects").
+- **The knack clues in Reports** (medium). The progression design puts the knack's vague clues on the Reports sub-tab; only the one-word read on the projects block exists. Same thread.
+- **Projects a player brings from his last staff run until you end them** (low). The AI's dead-end rule (`ai_keeps`) doesn't run on your team, so an inherited project keeps costing his other technique a quarter of its growth. The screens mark it as his last staff's and a room past its slots, but no note tells you. Same thread.
 
 ## UI
 
 - **The holdover meeting shows no numbers for his unit** (medium). Without last season's points, yards and third downs on the narration you can't judge whether to keep him. Same cause as the first Logic gap.
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
 - **No pecking order for high school or NFL seats** (medium). The tab row reads "Your seat" for them (CS6), but nothing ranks a district's or an owner's rooms. Same thread.
+- **No project column on the Squad's Development view** (low). You see who is on a project only on the Training screen's room count or each player's own tab. Same thread ("Let me start development projects").
