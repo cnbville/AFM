@@ -10,7 +10,7 @@
 //! What a deal is worth comes from the systems that already price him:
 //!
 //! - **A pro** (`ProCareer`): his market price (`people::pay_and_worth`),
-//!   asked up by greed and ego, down by loyalty when he's already yours.
+//!   asked up by greed and ego, down by his own discount for your club.
 //!   His agent takes a day or two unless he negotiates alone (`goals`).
 //! - **A recruit** (a high school player, or a transfer you recruit): each
 //!   school's appeal on his own signing-day sums (`recruiting::appeal`),
@@ -48,11 +48,10 @@ pub const STAY_LEAN: f64 = 0.25;
 /// A deal takes at most this share off his lean: three quarters (one
 /// promise at most halves it, as built). Proposed, not confirmed.
 pub const DEAL_CUT: f64 = 0.75;
-/// A pro asks his price up by greed and ego, down by loyalty to a club
-/// that's already his. Proposed, not confirmed.
+/// A pro asks his price up by greed and ego, down by his own discount
+/// for your club (`pro::market::discount`). Proposed, not confirmed.
 pub const ASK_GREED: f64 = 0.12;
 pub const ASK_EGO: f64 = 0.05;
-pub const HOME_DISCOUNT: f64 = 0.06;
 /// A pro calls an offer under this share of his ask a lowball.
 /// Proposed, not confirmed.
 pub const LOWBALL: f64 = 0.75;
@@ -494,7 +493,12 @@ impl Deals<'_> {
     /// A pro: your money against his ask.
     fn pro(&self, w: &World, him: Them, i: usize, mine: bool, wants: &[Want], offer: &Offer) -> Weighed {
         let worth = money_bar(w, Who::Pro(i, mine));
-        let home = if mine { HOME_DISCOUNT * z(w, i, Trait::Loyalty) } else { 0.0 };
+        // His own discount for your club (the negotiation overhaul, item
+        // 1): the market's lowest number, the same the desk signs on.
+        let home = match Team::seat(w) {
+            Some(Team::Nfl(t)) => crate::world::pro::market::discount(w, i, t, mine).total,
+            _ => 0.0,
+        };
         let ask = worth * (1.0 + ASK_GREED * z(w, i, Trait::Greed) + ASK_EGO * z(w, i, Trait::Ego) - home);
         let ask = anchored(w, him, ask) * deadline_factor(w, Some(i), offer);
         let Some(apy) = offer_money(offer) else {
