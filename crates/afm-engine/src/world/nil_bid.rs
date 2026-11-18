@@ -457,7 +457,7 @@ impl Market {
         let pn = w.programs.len();
         let mut depth: Vec<[Vec<f64>; POSITION_COUNT]> = vec![Default::default(); pn];
         for p in w.people.iter().filter(|p| p.stage == Stage::College) {
-            if let (Some(j), Some(x)) = (p.college, p.last_performance) {
+            if let (Some(j), Some(x)) = (p.college, season_read(w, p)) {
                 depth[j][p.player.position.index()].push(x);
             }
         }
@@ -504,7 +504,8 @@ impl Market {
         }
         let c = p.college?;
         let from = w.programs[c].division;
-        let perf = p.last_performance?;
+        // His season as the market reads it, tape and all (item 6).
+        let perf = season_read(w, p)?;
         let pos = p.player.position;
         let k = pos.index();
         let stars = super::recruiting::recruiting_stars(p);

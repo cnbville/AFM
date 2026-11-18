@@ -345,10 +345,9 @@ fn centre(v: &[f64]) -> Option<(f64, f64)> {
 fn on_him(s: &Stat, l: &StatLine) -> (f64, Option<&'static str>) {
     let (share, back) = match s.key {
         // A pick off a good throw (tipped, a receiver's slip) isn't his.
-        "interceptions" if l.int > 0 => (
-            l.turnover_worthy as f64 / l.int as f64,
-            Some("a lot of those came off throws that weren't bad decisions"),
-        ),
+        "interceptions" if l.int > 0 => {
+            (l.turnover_worthy as f64 / l.int as f64, Some("a lot of those came off throws that weren't bad decisions"))
+        }
         // Under his expected completions, the misses are his; at them, his
         // receivers' and the throws he was asked to make.
         "completion" if l.att > 0 => {

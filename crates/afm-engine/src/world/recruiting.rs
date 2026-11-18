@@ -9288,7 +9288,8 @@ fn place_at(
     let pos = p.player.position;
     let k = pos.index();
     let d = w.programs[j].division;
-    let perf = super::nil_bid::season_read(w, p).unwrap_or(p.player.overall()) - competition_discount(from) + competition_discount(d);
+    let perf = super::nil_bid::season_read(w, p).unwrap_or(p.player.overall()) - competition_discount(from)
+        + competition_discount(d);
     let ahead = mk.depth[j][k].iter().take_while(|&&v| v >= perf).count();
     let role = role_at(ahead, crate::league::depth_slots(pos).starters);
     let edge = perf - mk.medians[d as usize][k];

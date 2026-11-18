@@ -334,10 +334,11 @@ fn money_bar(w: &World, who: Who) -> f64 {
     }
 }
 
-/// His closeness to you (coach and player bonds). 0 until the bonds build
-/// is on main.
-fn bond_with_you(_w: &World, _i: usize) -> f64 {
-    0.0
+/// His closeness to you (coach and player bonds, `folk::bonds::close`); 0
+/// without a career or a bond.
+fn bond_with_you(w: &World, i: usize) -> f64 {
+    let you = w.career.as_ref().map(|c| c.coach);
+    crate::world::folk::bonds::close(w, w.people[i].player.id, you) as f64
 }
 
 /// How much your program wins, as a college player who wants to win reads
