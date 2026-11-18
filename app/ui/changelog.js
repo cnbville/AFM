@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.635", date: "18 Nov", title: "Ground lane G9: the race and the AI on Ground and 2 more",
+    notes: [
+      "Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do.",
+      "Any pass play can now come off a run fake, so you'll see play-action crossers, floods and even screens, not just three special plays.",
+      "Defenders who read the backfield bite for a moment, longer for an undisciplined one and against a quarterback who hides the ball well.",
+      "Play-action passes are no longer sacked one time in five: the back and the line protect the fake, and bootlegs get a pulling guard while the quarterback rolls away from the rush.",
+      "Play callers fake most on early downs, in run-first systems like wide zone, and against defenses that keep biting.",
+      "Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help.",
+    ],
+  },
+  {
     v: "0.2.632", date: "18 Nov", title: "Talks: \"Heard as\" says how a line really went (the landing read) and 5 more",
     notes: [
       "Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots.",

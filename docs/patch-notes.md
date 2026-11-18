@@ -8,6 +8,27 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.635 (18 Nov, shipped): SF1: play action that works (scheme-fit item 3) (PR #545), negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL (PR #567), ground lane G9: the race and the AI on Ground (PR #517)
+**TLDR:** 3 changes ship together. Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do. Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help. Plus 1 more below.
+- SF1: play action that works (scheme-fit item 3) (PR #545): Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do.
+- Any pass play can now come off a run fake, so you'll see play-action crossers, floods and even screens, not just three special plays. (PR #545)
+- Defenders who read the backfield bite for a moment, longer for an undisciplined one and against a quarterback who hides the ball well. (PR #545)
+- Play-action passes are no longer sacked one time in five: the back and the line protect the fake, and bootlegs get a pulling guard while the quarterback rolls away from the rush. (PR #545)
+- Play callers fake most on early downs, in run-first systems like wide zone, and against defenses that keep biting. (PR #545)
+- Negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL (PR #567): Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help.
+- Tell a player or his agent what his season really was, and his ask comes down toward his market. Stretch the truth and he trusts you less. (PR #567)
+- A recruit weighs what you say about his film and who's ahead of him against the truth, and an honest hard answer earns his respect. (PR #567)
+- A short offer to a pro can come back as a one-year prove-it deal with incentives. (PR #567)
+- Promise a veteran help and he'll take a little less, but he'll remember if you don't sign anyone. (PR #567)
+- College prices now read each player's last season on the field. (PR #567)
+- Ground lane G9: the race and the AI on Ground (PR #517): Every rival staff now recruits the way you do, on the ground, and you can see the race for each kid. Watch for the signs when a commit starts to waver, and make your call.
+- Rival recruiters are people with their own styles, areas and favorite schools. (PR #517)
+- You hear about rival visits from the schools and coaches who trust you. (PR #517)
+- A wavering commit comes with a warning and one call from you. (PR #517)
+- What you say about a rival gets checked, and a lie costs you. (PR #517)
+- Other staffs find kids through the people they know, not by magic. (PR #517)
+- Look at: a game's play-by-play for "play-action" calls, and how your quarterback does off the fake. (PR #545) a contract talk with a veteran after you quote his real numbers, then promise him help. (PR #567) the rival recruiters working your areas. (PR #517)
+
 ## 0.2.632 (18 Nov, shipped): end a development project when he moves to a new staff (PR #557), talks know the time of year (PR #558), a moved man isn't picked for either project at his first checkpoint (PR #562), and 4 more
 **TLDR:** 7 changes ship together. Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots. The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game. Plus 5 more below.
 - End a development project when he moves to a new staff (PR #557): Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots.

@@ -1550,6 +1550,21 @@
   "title": "Capital lane C2: the rooms and the campus",
   "tldr": "Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer."
  },
+ "517": {
+  "auto": false,
+  "bullets": [
+   "Rival recruiters are people with their own styles, areas and favorite schools.",
+   "You hear about rival visits from the schools and coaches who trust you.",
+   "A wavering commit comes with a warning and one call from you.",
+   "What you say about a rival gets checked, and a lie costs you.",
+   "Other staffs find kids through the people they know, not by magic."
+  ],
+  "h": "68ea6d655401",
+  "look": "the rival recruiters working your areas.",
+  "players": true,
+  "title": "Ground lane G9: the race and the AI on Ground",
+  "tldr": "Every rival staff now recruits the way you do, on the ground, and you can see the race for each kid. Watch for the signs when a commit starts to waver, and make your call."
+ },
  "518": {
   "auto": false,
   "bullets": [],
@@ -1889,6 +1904,20 @@
   "title": "NIL at market price: inherited deals, bids read at the school's level, Group of 5 money fitted to real pay",
   "tldr": "College money now looks like the real market: your inherited stars keep what the market pays them, and every school pays at its own level."
  },
+ "545": {
+  "auto": false,
+  "bullets": [
+   "Any pass play can now come off a run fake, so you'll see play-action crossers, floods and even screens, not just three special plays.",
+   "Defenders who read the backfield bite for a moment, longer for an undisciplined one and against a quarterback who hides the ball well.",
+   "Play-action passes are no longer sacked one time in five: the back and the line protect the fake, and bootlegs get a pulling guard while the quarterback rolls away from the rush.",
+   "Play callers fake most on early downs, in run-first systems like wide zone, and against defenses that keep biting."
+  ],
+  "h": "7f6a50138efc",
+  "look": "a game's play-by-play for \"play-action\" calls, and how your quarterback does off the fake.",
+  "players": true,
+  "title": "SF1: play action that works (scheme-fit item 3)",
+  "tldr": "Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do."
+ },
  "546": {
   "auto": false,
   "bullets": [
@@ -2042,5 +2071,20 @@
   "players": true,
   "title": "Coach bonds: the world measure and its two fixes",
   "tldr": "Players now come to trust the position coach who works with them every day, and more of them follow a coach they were close to when he moves."
+ },
+ "567": {
+  "auto": false,
+  "bullets": [
+   "Tell a player or his agent what his season really was, and his ask comes down toward his market. Stretch the truth and he trusts you less.",
+   "A recruit weighs what you say about his film and who's ahead of him against the truth, and an honest hard answer earns his respect.",
+   "A short offer to a pro can come back as a one-year prove-it deal with incentives.",
+   "Promise a veteran help and he'll take a little less, but he'll remember if you don't sign anyone.",
+   "College prices now read each player's last season on the field."
+  ],
+  "h": "4ed649966648",
+  "look": "a contract talk with a veteran after you quote his real numbers, then promise him help.",
+  "players": true,
+  "title": "Negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL",
+  "tldr": "Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help."
  }
 }
