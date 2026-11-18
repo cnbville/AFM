@@ -53,6 +53,10 @@ pub fn ear(w: &World, s: &Scene, room: &Room, line: &str) -> (EarCard, EarKeys) 
         line: quoted(line),
         ..EarCard::default()
     };
+    // The room's calendar is your team's (`talk::year`).
+    if let Some(p) = room.present.first() {
+        c.year = afm_engine::world::folk::persona::talk::year::words(w, p.who);
+    }
     c.people.push(Tagged { tag: "p0".into(), text: "the whole room".into() });
     keys.people.push(("p0".into(), ROOM));
     c.items.push(Tagged { tag: "c0".into(), text: meetings::whole_words(s).into() });

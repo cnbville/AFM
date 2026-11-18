@@ -93,6 +93,7 @@ impl SetVoice {
     pub fn card(&self, line: &str) -> VoiceCard {
         VoiceCard {
             setting: self.setting.clone(),
+            year: String::new(),
             coach: self.coach.clone(),
             them: self.them.clone(),
             background: self.background.clone(),

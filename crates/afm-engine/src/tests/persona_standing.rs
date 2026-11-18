@@ -251,14 +251,15 @@ fn he_knows_his_place_from_last_season_until_this_one_shows_it() {
     let (mut w, i) = player(2);
     let id = w.people[i].player.id;
     assert_eq!(crate::world::folk::seen::first_now(&w, i), None, "nothing seen yet this season");
+    // Out of season it's dated, with when it gets set again (the time of
+    // year, Cain 2026-11-18).
+    let last = w.dates.season - 1;
     let words = standing::words(&w, Them::Player(id)).join(". ");
-    assert!(
-        words.contains("Last season you started. Nobody's place for this season is set until practice starts"),
-        "{words}"
-    );
+    assert!(words.contains(&format!("In the {last} season you started")), "{words}");
+    assert!(words.contains(&format!("Nobody's place for the {} season is set yet", w.dates.season)), "{words}");
     w.people[i].last_role = Some(PlayingTime::Backup);
     let words = standing::words(&w, Them::Player(id)).join(". ");
-    assert!(words.contains("Last season you were a backup"), "{words}");
+    assert!(words.contains(&format!("In the {last} season you were a backup")), "{words}");
     // A freshman has no college season to go on.
     w.people[i].college_seasons = 0;
     let words = standing::words(&w, Them::Player(id)).join(". ");
