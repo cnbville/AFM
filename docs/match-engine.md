@@ -1435,6 +1435,19 @@ What changed (`game/flow.rs`, `game/scrimmage.rs`):
 - `match_check nfl 2000` takes 14.8 s (main 14.5 s) on 4 cores.
 - The coaches' call table and `decide_fit` were not rerun: in the default games the change is inside noise (points +0.11, yards an attempt +0.05), and the weather moves only bad-weather games, which the tables don't model.
 
+Measured again over main ea85aad (with scheme-fit lane SF1's play action), the same seeds:
+
+| NFL | main | after | real |
+|---|---|---|---|
+| points a team game, default | 25.49 | 25.80 | 22.51 |
+| yards an attempt / a carry, default | 7.29 / 4.28 | 7.40 / 4.33 | 7.05 / 4.52 |
+| rain against default: points / yards an attempt | -1.85 / -0.40 | -2.89 / -0.70 | -3.45 / -0.75 |
+| wind 17 against none: points / yards an attempt | -2.79 / -0.58 | -3.13 / -0.72 | -3.03 / -0.65 |
+| sacks a team game | 1.65 | 1.64 | 2.41 |
+
+- Tackles by rank are the same as before (71%, 63%, 48%, 14%); FBS top two 77% to 66%, high school 82% to 68%.
+- Over this main the rotation costs the defense more than before: points +0.31 at the NFL, +0.32 at FBS and +0.43 in high school, yards a carry +0.03 to +0.07. The backups play more snaps, and the rest the starters get doesn't yet win it back (`GAPS.md`).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), and `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread).
