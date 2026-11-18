@@ -34,6 +34,7 @@ pub mod acts;
 pub mod contract;
 pub mod day;
 pub mod knows;
+pub mod points;
 pub mod rush;
 pub mod trade;
 
@@ -537,6 +538,11 @@ pub fn make_real(w: &mut World, f: Facet, him: Them, offer: &Offer) -> Option<Ve
     if let Some(with) = with {
         let rest = Offer { gives: offer.gives.iter().filter(|g| !is_money(g)).cloned().collect(), ..offer.clone() };
         let a = super::deals::agree(w, &super::talk::DEALS, with, &rest);
+        // The deal is kept whole, its money too (July reads it as his own
+        // yes, negotiation item 5).
+        if let Some(last) = w.folk.live.persona.agreed.last_mut().filter(|x| x.with == with) {
+            last.offer = offer.clone();
+        }
         let mut lines = lines;
         lines.extend(a.done);
         return Some(lines);

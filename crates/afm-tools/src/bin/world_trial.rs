@@ -1770,6 +1770,72 @@ fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_
     std::fs::write(path, serde_json::to_string(&out).unwrap()).unwrap();
 }
 
+/// Class strength by prestige tier (the G9 world check): FBS programs ranked
+/// by prestige at the end of the year before each class signs, and what
+/// their signees became (draft picks, overall at exit), with how many came
+/// from out of state or from where the program's name draws little.
+fn class_by_tier(w: &World) {
+    let tiers = [(0usize, 10usize, "top 10"), (10, 25, "11-25"), (25, 65, "26-65"), (65, 999, "66+")];
+    let first = w.year - 22;
+    let last = w.year - 5;
+    // [signees, blue chips, picks, round 1-2, sum overall, out of state, far]
+    let mut acc = [[0.0f64; 7]; 4];
+    let mut years = 0.0;
+    for y in first..=last {
+        let mut ranked: Vec<(f64, usize)> = w
+            .programs
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| fbs_in(p, y))
+            .map(|(j, p)| (p.prestige_history.iter().find(|x| x.0 == y - 1).map_or(p.prestige, |x| x.1), j))
+            .collect();
+        ranked.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        let mut tier = vec![usize::MAX; w.programs.len()];
+        for (r, &(_, j)) in ranked.iter().enumerate() {
+            tier[j] = tiers.iter().position(|t| r >= t.0 && r < t.1).unwrap_or(3);
+        }
+        years += 1.0;
+        for a in w.alumni.iter().filter(|a| a.class_of == y) {
+            let Some(&j) = a.colleges.first() else { continue };
+            let t = tier.get(j).copied().unwrap_or(usize::MAX);
+            if t == usize::MAX {
+                continue;
+            }
+            let p = &w.programs[j];
+            let x = &mut acc[t];
+            x[0] += 1.0;
+            x[1] += (a.stars >= 4) as u8 as f64;
+            x[2] += a.pick.is_some() as u8 as f64;
+            x[3] += a.pick.is_some_and(|k| k <= 64) as u8 as f64;
+            x[4] += a.overall;
+            x[5] += (a.home_state != p.state) as u8 as f64;
+            x[6] += (p.footprint[a.home_state.min(50)] < 0.15) as u8 as f64;
+        }
+    }
+    println!("  class strength by prestige tier, classes {first}-{last}, per program a year:");
+    for (t, x) in acc.iter().enumerate() {
+        let (lo, hi, name) = tiers[t];
+        let n = ranked_len(w, first, last, lo, hi);
+        let per = |v: f64| v / n.max(1.0);
+        println!(
+            "    {name}: {:.1} signees, {:.2} blue chips, {:.2} drafted ({:.2} in rounds 1-2), exit overall {:.1}, out of state {:.0}%, far {:.0}%",
+            per(x[0]),
+            per(x[1]),
+            per(x[2]),
+            per(x[3]),
+            x[4] / x[0].max(1.0),
+            100.0 * x[5] / x[0].max(1.0),
+            100.0 * x[6] / x[0].max(1.0)
+        );
+    }
+    let _ = years;
+}
+
+/// Program-years in a prestige tier over the classes (for per-program rates).
+fn ranked_len(w: &World, first: i32, last: i32, lo: usize, hi: usize) -> f64 {
+    (first..=last).map(|y| w.programs.iter().filter(|p| fbs_in(p, y)).count().min(hi).saturating_sub(lo) as f64).sum()
+}
+
 /// The coaching market (dynasty item 11.11-11.15): head coach moves per year,
 /// NFL hires, early exits, and how long title-winning coaches stay.
 /// Dynasty item 11 checks: how 5-stars spread over FBS programs, who enters
@@ -1777,6 +1843,7 @@ fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_
 fn recruiting_spread(w: &World) {
     use afm_engine::player::PlayingTime;
     println!("\n## Recruiting spread and the portal (dynasty items 11.1-11.3, 11.16-11.18)");
+    class_by_tier(w);
     let log = &w.recruiting_log;
     let mut by_year: BTreeMap<i32, BTreeMap<usize, u32>> = BTreeMap::new();
     for &(y, j) in &log.five_stars {

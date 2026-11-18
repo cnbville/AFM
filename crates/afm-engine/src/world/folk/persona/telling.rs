@@ -42,7 +42,8 @@ pub fn touchy(t: Topic) -> f64 {
         Topic::Money | Topic::Club | Topic::ScoutFile | Topic::Goals => 0.35,
         Topic::Jobs | Topic::Grapevine | Topic::Opponent => 0.2,
         Topic::HisWord => 0.5,
-        Topic::Rules | Topic::Football | Topic::Nothing => 0.0,
+        Topic::Rules | Topic::Football | Topic::Scheme | Topic::Nothing => 0.0,
+        Topic::Recruiting => 0.1,
         Topic::Job => 0.1,
         Topic::Effort => 0.2,
     }
@@ -119,6 +120,7 @@ pub fn parts(w: &World, him: Them, topic: Topic, about: Option<Them>, room: Opti
         interest: interest(w, him, topic, about),
         room: room.map_or(0.0, room_weight),
         pushed,
+        stung: false,
     }
 }
 
@@ -151,7 +153,7 @@ pub fn odds(m: &Makeup, topic: Topic, about_other: bool, parts: &TellParts) -> [
 
 /// The tell your read catches when he holds back or lies (3.2,
 /// `talks::sharpness`): a sharp read sees it, a weak one a sign at best.
-pub fn tell_words(w: &World, m: &Makeup, answer: Answer, salt: u64) -> String {
+pub fn tell_words(w: &World, m: &Makeup, answer: Answer, salt: u64, stung: bool) -> String {
     let sharp = crate::world::folk::talks::sharpness(w);
     let caught = crate::world::folk::roll(w, 0x9E60 ^ salt, w.today.0 as u64) < (sharp * 0.9).clamp(0.05, 0.95);
     if !caught {
@@ -164,7 +166,10 @@ pub fn tell_words(w: &World, m: &Makeup, answer: Answer, salt: u64) -> String {
         Answer::Lies if m.temper >= 13.0 => "He gets loud about it, louder than it needs.".into(),
         Answer::Lies => "He holds your eye a little too long.".into(),
         _ if weak => "He shifts in his chair.".into(),
-        _ if m.ego >= 13.0 => "He cuts it short. He doesn't like the question.".into(),
+        // A proud man cuts short a question that stung him, never a fair
+        // one: "respected on his pride" and "he doesn't like the question"
+        // came on the same line (Cain 2026-11-17).
+        _ if m.ego >= 13.0 && stung => "He cuts it short. He doesn't like the question.".into(),
         _ if m.loyalty >= 13.0 => "He looks away. He's protecting someone.".into(),
         _ => "He's choosing his words.".into(),
     }
@@ -204,6 +209,13 @@ pub fn lie_words(topic: Topic, about_other: bool, k: Option<&Known>) -> String {
     }
 }
 
+/// A coach on your staff, or one you're interviewing for a job on it: he
+/// answers to you on his football.
+pub fn works_for_you(w: &World, him: Them) -> bool {
+    let Them::Coach(c) = him else { return false };
+    makeup::kind(w, him) == super::wants::Kind::Staff || super::coaching::interviewing(w, c)
+}
+
 /// His answer to one question (3.2).
 pub fn tell(w: &World, him: Them, known: &[Known], parts: &TellParts) -> Told {
     let m = makeup::makeup(w, him);
@@ -234,8 +246,13 @@ pub fn tell(w: &World, him: Them, known: &[Known], parts: &TellParts) -> Told {
         Answer::Deflects
     };
     // Football and what he saw on the tape, a man tells straight unless
-    // it's touchy; nothing about football is a secret worth a lie.
-    let answer = if topic == Topic::Football && answer == Answer::Lies { Answer::Partly } else { answer };
+    // it's touchy; nothing about football is a secret worth a lie, nor his
+    // scheme or his recruiting.
+    let answer = if matches!(topic, Topic::Football | Topic::Scheme | Topic::Recruiting) && answer == Answer::Lies {
+        Answer::Partly
+    } else {
+        answer
+    };
     // Asked about his own game, he talks about it, if only the safe half
     // (the talks audit, 2026-11-16: a recruit asked "how was your game
     // Friday?" would rather not get into it).
@@ -248,12 +265,28 @@ pub fn tell(w: &World, him: Them, known: &[Known], parts: &TellParts) -> Told {
     // (the talks audit, 2026-11-16: asked "what are you looking for from
     // us this year?" in his goals meeting, he'd rather not get into it).
     let boss = super::makeup::kind(w, him) == super::wants::Kind::Boss;
-    let answer =
-        if boss && matches!(topic, Topic::Goals | Topic::Money | Topic::Wants | Topic::Football) && !about_other {
-            Answer::Straight
-        } else {
-            answer
-        };
+    let answer = if boss
+        && matches!(topic, Topic::Goals | Topic::Money | Topic::Wants | Topic::Football | Topic::Scheme)
+        && !about_other
+    {
+        Answer::Straight
+    } else {
+        answer
+    };
+    // A coach of yours, or a coach you're interviewing, asked by you about
+    // his own football: his unit, his scheme, his recruiting, the next
+    // opponent. It's his job to tell his head coach, and a candidate came
+    // to show you: neither holds it back (Cain 2026-11-17: a coordinator
+    // wouldn't hand over his scheme "on a napkin", then threatened to walk
+    // when pressed).
+    let answer = if works_for_you(w, him)
+        && matches!(topic, Topic::Football | Topic::Scheme | Topic::Recruiting | Topic::Opponent)
+        && !about_other
+    {
+        Answer::Straight
+    } else {
+        answer
+    };
     let mut told = Told { answer, cost, ..Told::default() };
     match answer {
         Answer::Straight => told.released = known.iter().map(|k| k.words.clone()).collect(),
@@ -281,6 +314,6 @@ pub fn tell(w: &World, him: Them, known: &[Known], parts: &TellParts) -> Told {
             });
         }
     }
-    told.tell = tell_words(w, &m, answer, salt);
+    told.tell = tell_words(w, &m, answer, salt, parts.stung);
     told
 }

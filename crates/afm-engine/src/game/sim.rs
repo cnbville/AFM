@@ -260,6 +260,10 @@ pub struct Agent {
     pub work: f64,
     /// When he knows what the play is (run or pass).
     pub read_at: f64,
+    /// On a play fake (scheme-fit item 3): until this time he plays it as
+    /// the run it shows, with the back carrying out the fake as the runner.
+    #[serde(default)]
+    pub fooled_until: f64,
     /// When he reacts to a thrown ball.
     pub ball_react: f64,
     /// He keeps his eyes where he chose (a backpedal facing the quarterback)
@@ -377,6 +381,7 @@ impl Agent {
             engaged: None,
             work: 0.0,
             read_at: 0.5,
+            fooled_until: 0.0,
             ball_react: f64::INFINITY,
             face_lock: 0.0,
             bust: false,
@@ -459,6 +464,7 @@ impl Agent {
             engaged: self.engaged,
             work: self.work,
             read_at: self.read_at,
+            fooled_until: self.fooled_until,
             ball_react: self.ball_react,
             face_lock: self.face_lock,
             bust: self.bust,
@@ -1226,6 +1232,9 @@ pub struct Sim<'a> {
     pub gap_run: Option<bool>,
     /// A stunt this snap: the penetrator and the looper (topic 1).
     pub stunt: Option<(usize, usize)>,
+    /// A play fake this snap (scheme-fit item 3): the back carrying out the
+    /// fake, the runner for every defender still fooled by it.
+    pub fake: Option<usize>,
     /// The level being played: trait-like ratings are read against it.
     pub level: Level,
     /// What the game does to habits this snap (tendencies).
@@ -2636,9 +2645,16 @@ impl<'a> Sim<'a> {
                     edge
                 }
             };
+            // A rusher still fooled by a play fake (scheme-fit item 3) plays
+            // the block as the run it shows: he holds his ground and gets no
+            // nearer the passer until he reads the pass, and his rush starts
+            // from wherever the block stands then. The fake ends for him, as
+            // for every man in `defend`, once the quarterback throws or
+            // leaves the pocket (`qb` is his only while he holds it there).
+            let fooled = e.pass && qb.is_some() && self.fake.is_some() && t < self.agents[d].fooled_until;
             // A stalled rush: once a rep, the rusher goes to his counter
             // when his plan says it beats the set better (topic 1).
-            if e.pass && !e.countered && e.w < -0.2 && t - e.start > 0.8 {
+            if e.pass && !fooled && !e.countered && e.w < -0.2 && t - e.start > 0.8 {
                 self.eng[k].countered = true;
                 let plan = clamp(
                     0.45 + 0.008 * (self.agents[d].a(Attr::FootballIq) - 60.0)
@@ -2677,7 +2693,18 @@ impl<'a> Sim<'a> {
             } else {
                 0.0
             };
-            let mut mu = base + if e.pass { 0.032 } else { RUN_EDGE } * edge;
+            // A fooled rusher plays the block as the run he is shown: neither
+            // man drives the other, so the block stands about where it is
+            // until he reads the pass (scheme-fit item 3; proposed, not
+            // confirmed).
+            let mut mu = base
+                + if fooled {
+                    0.0
+                } else if e.pass {
+                    0.032
+                } else {
+                    RUN_EDGE
+                } * edge;
             // Re-fits his hands (individual practice): a pass rep that
             // started to go wrong, won back with the hands.
             if e.pass && e.w > 0.3 {
@@ -2855,7 +2882,9 @@ impl<'a> Sim<'a> {
             } else {
                 1.6 * w
             };
-            let v = if e.pass {
+            let v = if fooled {
+                V2::default()
+            } else if e.pass {
                 dir.scale(drive.max(-2.0))
             } else {
                 // The surge fades (`RUN_PUSH_BACK`, `RUN_PUSH_UP`): the push
