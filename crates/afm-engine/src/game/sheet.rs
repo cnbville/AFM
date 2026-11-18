@@ -283,10 +283,10 @@ fn same_play(x: PlayKind, k: PlayKind) -> bool {
 /// sheet names the play, and the fake is the play caller's on the snap, as
 /// on any throw. His own call's when it was a throw; else, for a throw that
 /// can carry it, his habit here (`fake`, his chance of a fake on a throw,
-/// `calling::throw_fake_chance`). A scripted throw used to take the fake of
-/// the call it replaced, which a run never has, so the opening script's
-/// throws faked half as often as his own: NFL play action came to 16.3% of
-/// dropbacks (real 21.2%), 20.6% with no sheets; 19.8% with this
+/// `calling::throw_fake_chance`). Taking the fake of the call it replaced,
+/// which a run never has, made the opening script's throws fake half as
+/// often as his own (this lane's first build): NFL play action came to
+/// 16.3% of dropbacks (real 21.2%), 20.6% with no sheets; 19.8% with this
 /// (`match_check nfl 2000`).
 fn faked(own: &OffCall, x: &SheetCall, fake: f64, rng: &mut Rng) -> bool {
     match (own.kind, x.3) {
