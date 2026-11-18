@@ -380,3 +380,96 @@ pub(crate) fn covered(c: &Case) -> Vec<Group> {
     v.sort_by(|a, b| c.groups[*b as usize].total_cmp(&c.groups[*a as usize]).then(a.cmp(b)));
     v
 }
+
+/// How far your backing in a group must beat the school he's committed to
+/// (0-1, `backing`) for your staff to say you beat them there (else it is
+/// "your best ground"). Proposed, not confirmed.
+pub const UNSETTLE_EDGE: f64 = 0.1;
+/// The ways in your staff names at most.
+pub const UNSETTLE_MOST: usize = 2;
+/// How far your staff's read of how firmly he holds strays, in appeal
+/// points, times `read_noise` (a good recruiter's read about 0.01, a poor
+/// one's about 0.04). Proposed, not confirmed.
+pub const UNSETTLE_READ: f64 = 0.06;
+
+/// Your staff's read of what might unsettle a recruit who is firm with
+/// another school (Cain 2026-11-18: "if you wanna unsettle a player who is
+/// firm, this might unsettle it"; not a big flipper, a real try). It names
+/// the groups your proof can carry (`backing` better than weak), that you
+/// haven't made a point on yet and that his file doesn't say leave him
+/// cold: what his file says he weighs first, then where you beat school
+/// `c` by most (`backing`, the staff's own read of both). Nothing here moves him: a point
+/// that lands in a talk adds to your case (`Case::add`, under `CASE_TOP`),
+/// your case adds to your pull on him, and he stays firm until your pull
+/// comes within half his commitment's hold (`college::firm_with`). So the
+/// try is real and its size is the battle's: how much he cares, how well
+/// you can prove it, how good your recruiter is, and how hard he holds.
+/// When your staff reads him past anything your case could still add
+/// (`firm_gap` against the case's room, read with your noise), it says he's
+/// locked in instead.
+pub fn unsettle(w: &World, i: usize, j: usize, c: usize) -> String {
+    let theirs = w.program_name(c).to_string();
+    let mine = backing(w, i, j);
+    let other = backing(w, i, c);
+    let file = super::pulls::file(w, i);
+    let read = |g: Group| file.iter().find(|r| r.group == g);
+    let case = of(&w.people[i], j);
+    let mut ways: Vec<(usize, bool, f64, Group)> = Group::ALL
+        .iter()
+        .enumerate()
+        .filter_map(|(k, &g)| {
+            let edge = mine[k] - other[k];
+            let cold = read(g).is_some_and(|r| r.rows > 0 && r.score < 0.0 && !r.under);
+            let made = case.is_some_and(|x| x.has(g));
+            (Tier::of(mine[k] as f32) != Tier::Weak && !cold && !made).then(|| {
+                let place = file.iter().position(|r| r.group == g && r.rows > 0 && r.score > 0.0).unwrap_or(99);
+                (place, read(g).is_some_and(|r| r.rows > 0 && r.score > 0.0), edge, g)
+            })
+        })
+        .collect();
+    ways.sort_by(|a, b| a.0.cmp(&b.0).then(b.2.total_cmp(&a.2)).then(a.3.cmp(&b.3)));
+    ways.truncate(UNSETTLE_MOST);
+    // What your case could still add at its best (each new point at most
+    // the top of a point's range, the whole case under its cap), against
+    // your staff's read of how far he is past your reach: when no point
+    // could close it, the staff says he's locked in rather than hold out
+    // a try that isn't there.
+    let room = (CASE_TOP - case.map_or(0.0, |x| x.total())).max(0.0) as f64;
+    let best = room.min(ways.len() as f64 * POINT_RANGE.1 as f64);
+    let coach = w.programs[j].head_coach;
+    let seed = w.options.seed as u64 ^ 0x0E5E ^ (c as u64) << 32;
+    let read = crate::world::front_office::college::firm_gap(w, i, j, c)
+        + UNSETTLE_READ * read_noise(w, coach) * crate::game::talk::normal(seed, w.people[i].player.id as u64);
+    if !ways.is_empty() && read > best {
+        return format!(
+            "Your staff: he's locked in with {theirs}. Nothing you can say closes that now; it would take something changing there."
+        );
+    }
+    let words: Vec<&str> = ways.iter().map(|x| super::pulls::word(x.3)).collect();
+    let shown = ways.iter().any(|x| x.1);
+    let beat = ways.iter().all(|x| x.2 >= UNSETTLE_EDGE);
+    let made_any = case.is_some_and(|x| !x.is_empty());
+    match words.len() {
+        0 if made_any => format!(
+            "Your staff: you've made your case where you beat {theirs}. He's firm; it would take something changing there."
+        ),
+        0 => format!("Your staff: nothing you can show him beats {theirs} on what he weighs. He's firm."),
+        _ => {
+            let list = words.join(" and ");
+            let it = if words.len() > 1 { "them" } else { "it" };
+            let weighs = if shown {
+                format!("and he's shown you he weighs {it}")
+            } else {
+                format!("though you don't know yet how much he weighs {it}: ask him")
+            };
+            let ground = if beat {
+                format!("You beat {theirs} on {list}")
+            } else {
+                format!("Your best ground against {theirs} is {list}")
+            };
+            format!(
+                "Your staff: firm isn't signed. {ground}, {weighs}. A point that lands there might unsettle him; then ask again."
+            )
+        }
+    }
+}

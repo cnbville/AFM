@@ -380,6 +380,9 @@ pub struct Turn {
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
     /// How each man in the room took your manner (coach voice), sized.
     pub manner: Vec<(Them, super::manner::Took)>,
+    /// Your staff's notes under his line, never his words (a recruit firm
+    /// with another school: what might unsettle him).
+    pub notes: Vec<String>,
 }
 
 /// The game's side of a line (lane N4).

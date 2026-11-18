@@ -1628,8 +1628,7 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
     let ahead: Vec<usize> = ranked.iter().filter(|r| r.0 > mine).map(|r| r.1).collect();
     let draw = key(w, 0x1515 ^ kind as u64, p.player.id as u64 ^ (d.0 as u64) << 32);
     let committed_elsewhere = p.cal.commit.filter(|c| c.0 != j);
-    let firm = committed_elsewhere
-        .is_some_and(|c| rec::appeal(w, i, c.0, None) > mine + 0.5 * rec::commitment_hold(w, i) && draw > 0.25);
+    let firm = firm_with(w, i, j, kind, d).is_some();
     let name = |x: usize| w.program_name(x).to_string();
     let first = p.name.split_whitespace().next().unwrap_or("He").to_string();
     match kind {
@@ -1649,7 +1648,7 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
             let unvisited_ahead =
                 ahead.iter().filter(|&&x| !p.cal.visits.iter().any(|v| v.0 == x && v.2 == Visit::Official)).count();
             if unvisited_ahead < left || (unvisited_ahead == left && draw < 0.4) {
-                Ok(format!("{first} accepted: the weekend of {} is set.", d.pretty()))
+                Ok(yes_words(&first, kind, d))
             } else {
                 let keep: Vec<String> = ahead.iter().take(2).map(|&x| name(x)).collect();
                 Err(format!(
@@ -1670,7 +1669,7 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
             let money = p.bg.money;
             let far = (miles / 700.0) * (1.2 - money);
             if !firm && ahead.len() <= 5 && draw > far.min(0.95) {
-                Ok(format!("{first} and his family will come on {}, at their own cost.", d.pretty()))
+                Ok(yes_words(&first, kind, d))
             } else if firm {
                 Err(format!("{first} is firm with {} and won't make the trip.", name(committed_elsewhere.unwrap().0)))
             } else {
@@ -1687,22 +1686,94 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
                     name(committed_elsewhere.unwrap().0)
                 ))
             } else {
-                Ok(format!("{first}'s family will host you on {}.", d.pretty()))
+                Ok(yes_words(&first, kind, d))
             }
         }
-        VisitKind::DropIn => Ok(format!("Your coaches will watch {first} practice on {}.", d.pretty())),
+        VisitKind::DropIn => Ok(yes_words(&first, kind, d)),
     }
 }
 
-/// Sets a visit, if the rules allow it and he says yes.
-pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
-    // A visit you set stands while your staff plans the rest (SC6).
+/// His yes to a visit, in the desk's words.
+fn yes_words(first: &str, kind: VisitKind, d: Date) -> String {
+    match kind {
+        VisitKind::Official => format!("{first} accepted: the weekend of {} is set.", d.pretty()),
+        VisitKind::Unofficial => format!("{first} and his family will come on {}, at their own cost.", d.pretty()),
+        VisitKind::Home => format!("{first}'s family will host you on {}.", d.pretty()),
+        VisitKind::DropIn => format!("Your coaches will watch {first} practice on {}.", d.pretty()),
+    }
+}
+
+/// The school he is committed to, when he is firm enough with it to turn a
+/// visit to you down: its pull on him beats yours (with your offer, or
+/// without one) by more than half his commitment's hold, on the day's own
+/// draw (a quarter of the days he hears you out anyway). Your case moves
+/// your side of it: a point that lands in a talk can unsettle him.
+pub fn firm_with(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Option<usize> {
+    let p = &w.people[i];
+    let c = p.cal.commit.filter(|c| c.0 != j)?.0;
+    let draw = key(w, 0x1515 ^ kind as u64, p.player.id as u64 ^ (d.0 as u64) << 32);
+    (firm_gap(w, i, j, c) > 0.0 && draw > 0.25).then_some(c)
+}
+
+/// How far school `c`'s pull on him beats yours (with your offer, or less
+/// without one) past half his commitment's hold, in appeal points: above 0
+/// he is firm with it on most days (`firm_with`).
+pub fn firm_gap(w: &World, i: usize, j: usize, c: usize) -> f64 {
+    let mine = rec::appeal(w, i, j, None) - if offered_here(w, w.people[i].player.id) { 0.0 } else { 0.12 };
+    rec::appeal(w, i, c, None) - mine - 0.5 * rec::commitment_hold(w, i)
+}
+
+/// The rules of a visit you'd set, and who it's with: (his index, your
+/// program).
+fn visit_check(w: &World, id: u32, kind: VisitKind, d: Date) -> Result<(usize, usize), String> {
     let j = super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such recruit.")?;
-    if let Some(why) = visit_rule(w, i, kind, d) {
-        return Err(why);
+    match visit_rule(w, i, kind, d) {
+        Some(why) => Err(why),
+        None => Ok((i, j)),
     }
+}
+
+/// What he'd answer if you asked him to a visit on `d` now, without
+/// setting it: the rules, then his yes or no (`set_visit`'s own). A talk
+/// asks this when you invite him, so his words and the desk agree.
+pub fn visit_reply(w: &World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    let (i, j) = visit_check(w, id, kind, d)?;
+    answer(w, i, j, kind, d)
+}
+
+/// Sets a visit, if the rules allow it and he says yes. A no he gave
+/// because he is firm with another school comes with your staff's read of
+/// what might unsettle him (`case::unsettle`).
+pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    // A visit you set stands while your staff plans the rest (SC6).
+    let (i, j) = visit_check(w, id, kind, d)?;
     let reply = answer(w, i, j, kind, d);
+    let reply = match (reply, firm_with(w, i, j, kind, d)) {
+        (Err(no), Some(c)) => Err(format!("{no} {}", crate::world::folk::case::unsettle(w, i, j, c))),
+        (r, _) => r,
+    };
+    record_visit(w, id, i, j, kind, d, reply)
+}
+
+/// Sets a visit he already said yes to in a talk: the rules checked again
+/// (a date gone since), his word kept rather than asked again.
+pub fn take_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    let (i, j) = visit_check(w, id, kind, d)?;
+    let first = w.people[i].name.split_whitespace().next().unwrap_or("He").to_string();
+    record_visit(w, id, i, j, kind, d, Ok(yes_words(&first, kind, d)))
+}
+
+/// A visit's answer on the desk: set or declined, with its note.
+fn record_visit(
+    w: &mut World,
+    id: u32,
+    i: usize,
+    j: usize,
+    kind: VisitKind,
+    d: Date,
+    reply: Result<String, String>,
+) -> Result<String, String> {
     let (state, text) = match &reply {
         Ok(t) => (VisitState::Set, t.clone()),
         Err(t) => (VisitState::Declined, t.clone()),
