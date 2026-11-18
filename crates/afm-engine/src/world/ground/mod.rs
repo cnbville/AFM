@@ -23,13 +23,19 @@
 //! Lane G10: your staff's ground and the assistant seat (`staff`): your
 //! men's areas on the map, each man's ground and mood, losing a man,
 //! hiring for ground, and the assistant's desk.
+//! Lane G9: the race (`ai`, `race`): every other program works its ground
+//! by the same rules (areas, road days, calls, standing that builds and
+//! fades) and its board reads what its people know; your seat sees the
+//! race in signs (sheets, polos, what coaches tell you), rival recruiters
+//! as people, wavering commits, claims that settle, rumors.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
 //! with. Every other program's ground is read from its pipelines, its
-//! footprint and its coaches' ties when asked (`standing::derived`), so
-//! until lane G9 the world's recruiting is unchanged.
+//! footprint and its coaches' ties when asked (`standing::derived`); since
+//! lane G9 the AI's own work sits on top of that in `Ground.ai`.
 
+pub mod ai;
 pub mod areas;
 pub mod campaign;
 pub mod card;
@@ -40,6 +46,7 @@ pub mod leads;
 pub mod memory;
 pub mod news;
 pub mod people;
+pub mod race;
 pub mod scenes;
 pub mod staff;
 pub mod standing;
@@ -111,6 +118,10 @@ pub struct Ground {
     pub scenes: scenes::Book,
     /// Your staff's ground and the assistant seat (lane G10).
     pub staff: staff::StaffGround,
+    /// Lane G9: the AI's ground, every other program's ties and areas.
+    pub ai: ai::Ai,
+    /// Lane G9: your side of the race (signs, wavering commits, claims).
+    pub race: race::Race,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
@@ -205,6 +216,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: crate::calendar::Date) {
     favors::day(w, d);
     stores::sync(w);
     campaign::day(w, d);
+    race::day(w, d);
     let cut = d.add(-60);
     w.ground.ups.retain(|u| u.0 >= cut);
 }

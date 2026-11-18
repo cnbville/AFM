@@ -473,13 +473,14 @@ pub(crate) fn before_matching(w: &mut World, recruits: &[usize]) {
         let Some(pot) = w.programs[j].era.rogue.as_ref().map(|r| r.pot) else { continue };
         let mut targets: Vec<(usize, f64)> = Vec::new();
         if !nil_era(year) {
-            let prog = &w.programs[j];
             let pseed = seed ^ (j as u64).wrapping_mul(0x1000_0001);
+            // Lane G9: the kids whose coaches its staff knows.
+            let gindex = super::ground::ai::index(w);
             let mut cands: Vec<(f64, usize)> = ranked
                 .iter()
                 .filter_map(|&i| {
                     let p = &w.people[i];
-                    let reach = prog.footprint[p.home_state];
+                    let reach = super::ground::ai::knows(w, &gindex, j, p.hs);
                     (reach >= 0.3).then(|| (p.stars as f64 + reach + 0.5 * key_uniform(pseed, p.player.id as u64), i))
                 })
                 .collect();
