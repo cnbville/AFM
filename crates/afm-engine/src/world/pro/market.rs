@@ -919,6 +919,30 @@ pub fn market_apy(w: &World, i: usize, ideal: &Ideal) -> f64 {
     read.min(ideal.best.unwrap_or(f64::INFINITY)).max(money::minimum(w.year, credited))
 }
 
+/// Before the market, the sure thing (NG4's re-sign fix, a proxy call for
+/// Cain on 2026-11-18): at his own club he takes up to this much under
+/// what his agent reads the other clubs would pay, for a deal now over
+/// the market's risks (an injury, a dry market, a move). Proposed, not
+/// confirmed.
+pub const SURE_THING: f64 = 0.05;
+
+/// His agent's read of the market before it opens, for talks with club `t`
+/// (his own): the best offer any other club would make him today
+/// (`make_offer` at a month in, so the climb is done), less the sure thing;
+/// the minimum when no other club would bid. Put in `Ideal::best`, so his
+/// market at his own club is never above what the others would really
+/// pay. Before, his market read his ideal alone, and a club that valued
+/// him under it could never re-sign him, however little the rest of the
+/// league offered.
+pub(crate) fn agent_read(w: &World, i: usize, t: usize, ideal: &Ideal, cap_year: i32) -> f64 {
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let best = (0..w.nfl.len())
+        .filter(|&o| o != t)
+        .filter_map(|o| make_offer(w, o, i, ideal, 30, 0.0, cap_year).map(|x| x.apy))
+        .max_by(f64::total_cmp);
+    best.map_or(money::minimum(w.year, credited), |b| b * (1.0 - SURE_THING))
+}
+
 /// His lowest number for club `t`, a year: his market less his discount
 /// there (item 1), never under the minimum.
 pub fn lowest(w: &World, i: usize, t: usize, ideal: &Ideal, own: bool) -> f64 {
@@ -1535,8 +1559,9 @@ pub(crate) fn resign_talks(w: &mut World, d: Date, deadline: bool) {
         if market_grade(w, w.people[i].player.position, view) < 68.0 {
             continue;
         }
-        let id = ideal(w, i, d);
+        let mut id = ideal(w, i, d);
         let Some(o) = make_offer(w, t, i, &id, 30, 0.0, year) else { continue };
+        id.best = Some(agent_read(w, i, t, &id, year));
         let s = score(w, i, &o, &id, Some(t));
         // A money-minded player with no tie to the team wants to see what
         // the market pays (proposed, not confirmed size).
@@ -2103,6 +2128,7 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
             continue;
         }
         o.apy = o.apy.min(walk);
+        id.best = Some(agent_read(w, i, t, &id, year + 1));
         let s = score(w, i, &o, &id, Some(t));
         let bar = if deadline { 0.82 } else { 0.87 };
         if s < bar {
