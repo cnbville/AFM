@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.625", date: "18 Nov", title: "Coaches walk you through the season from the world's records",
+    notes: [
+      "Your coaches now really break down a season when you ask them, with the numbers, the games that slipped away and the players who struggled.",
+      "Ask a coordinator how the year went and he walks you through it: points and yards against the conference, third downs, red zone, big plays, takeaways.",
+      "He names the games that got away and the starters who struggled or stood out at their spot.",
+      "A coach hired after last season tells you it wasn't his season, then gives what he saw on the tape.",
+      "Push for more and he gives you the rest; sharper coaches see more.",
+      "Ask a coach about one of his players and he knows how the player's numbers rank against the conference's starters.",
+    ],
+  },
+  {
     v: "0.2.624", date: "18 Nov", title: "Make the search bar fast and 4 more",
     notes: [
       "A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake.",

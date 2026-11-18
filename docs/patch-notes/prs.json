@@ -1823,6 +1823,21 @@
   "title": "Capital lane CS5: the Pecking order screen",
   "tldr": "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans."
  },
+ "540": {
+  "auto": false,
+  "bullets": [
+   "Ask a coordinator how the year went and he walks you through it: points and yards against the conference, third downs, red zone, big plays, takeaways.",
+   "He names the games that got away and the starters who struggled or stood out at their spot.",
+   "A coach hired after last season tells you it wasn't his season, then gives what he saw on the tape.",
+   "Push for more and he gives you the rest; sharper coaches see more.",
+   "Ask a coach about one of his players and he knows how the player's numbers rank against the conference's starters."
+  ],
+  "h": "94214c03c857",
+  "look": "a staff meeting with a new coordinator at the start of a career.",
+  "players": true,
+  "title": "Coaches walk you through the season from the world's records",
+  "tldr": "Your coaches now really break down a season when you ask them, with the numbers, the games that slipped away and the players who struggled."
+ },
  "541": {
   "auto": false,
   "bullets": [],
