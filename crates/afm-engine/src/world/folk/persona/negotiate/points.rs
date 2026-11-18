@@ -427,6 +427,12 @@ pub fn named(w: &World, id: u32) -> Option<&'static Stat> {
         .and_then(|p| STATS.iter().find(|s| s.key == p.key))
 }
 
+/// Who answers for him in a money talk: a pro's agent when he has one,
+/// else himself.
+pub fn side(w: &World, i: usize) -> Them {
+    w.people[i].pro.as_ref().and_then(|c| c.agent).map_or(Them::Player(w.people[i].player.id), Them::Agent)
+}
+
 /// How well his side reads a season for context (0-1): an agent's skill
 /// (1-20, read over 20);
 /// a college player answering for himself, a middling read. Proposed, not

@@ -177,6 +177,11 @@ pub(crate) fn z(w: &World, who: Them, t: Trait) -> f32 {
 fn money_subject(w: &World, s: &Scene) -> Option<usize> {
     match super::negotiate::facet(w, s) {
         super::negotiate::Facet::Nil { i } => Some(i),
+        // Your pro's contract, with his agent or in a one-on-one (lane
+        // NG5): only while his deal is one you can talk.
+        super::negotiate::Facet::Agent { client, .. } | super::negotiate::Facet::Pro { i: client } => {
+            crate::world::front_office::nfl::negotiable(w, client).map(|_| client)
+        }
         _ => None,
     }
 }
@@ -188,15 +193,20 @@ fn money_subject(w: &World, s: &Scene) -> Option<usize> {
 fn keep_points(w: &mut World, s: &Scene, t: &Turn) {
     let Some(i) = money_subject(w, s) else { return };
     let him = Them::Player(w.people[i].player.id);
-    let skill = points::skill(w, i, him);
+    let side = points::side(w, i);
+    let skill = points::skill(w, i, side);
     for rd in &t.points {
-        if points::land(w, i, him, rd, skill) <= 0.0 {
+        if points::land(w, i, side, rd, skill) <= 0.0 {
             continue;
         }
         let (trust, lean) = points::makeup_cost(w, i, rd);
         super::stores::nudge_trust(w, him, trust);
+        // A pro's lean is his bar to re-sign (`front_office::nfl`,
+        // `proud_test`); a college player's is his portal lean.
         let p = &mut w.people[i];
-        p.cal.lean = (p.cal.lean + lean).min(1.0);
+        if p.stage == crate::world::Stage::College {
+            p.cal.lean = (p.cal.lean + lean).min(1.0);
+        }
     }
 }
 
@@ -279,7 +289,7 @@ impl Resolving for Conversation<'_> {
         let mut argued = 0.0f64;
         if let Some(i) = money {
             let id = w.people[i].player.id;
-            let skill = points::skill(w, i, Them::Player(id));
+            let skill = points::skill(w, i, points::side(w, i));
             for act in &reading.acts {
                 let Act::Claim(st) = act else { continue };
                 if st.kind != "stat" || st.about.is_some_and(|a| a != id) {

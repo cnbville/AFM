@@ -122,7 +122,7 @@ pub fn weigh(w: &World, i: usize, offer: &Offer) -> (Weighed, Option<nfl::Judged
         return (if restructure_ok(w, i) { Weighed::Yes } else { Weighed::No }, None);
     }
     let Some(p) = proposal(w, i, offer) else { return (Weighed::No, None) };
-    let Ok(j) = nfl::judge(w, id(w, i), &p) else { return (Weighed::No, None) };
+    let Ok(j) = nfl::judge_argued(w, id(w, i), &p, offer.argued as f64) else { return (Weighed::No, None) };
     let wd = match j.verdict {
         nfl::Verdict::Signed | nfl::Verdict::Agreed | nfl::Verdict::Standing => Weighed::Yes,
         nfl::Verdict::Broken => Weighed::No,
@@ -130,7 +130,7 @@ pub fn weigh(w: &World, i: usize, offer: &Offer) -> (Weighed, Option<nfl::Judged
         nfl::Verdict::Counter => Weighed::Counter(Counter {
             asks: j.ask.iter().map(|a| ask_line(a, w.year)).collect(),
             gives: j.ask.as_ref().map(gives_of).unwrap_or_default(),
-            terms: Vec::new(),
+            terms: j.prove_it.into_iter().collect(),
             why: Some(Want { kind: WantKind::Money, weight: 1.0, met: false }),
         }),
     };
@@ -172,7 +172,7 @@ pub fn words(w: &World, i: usize, o: &Offer, t: &mut Turn, notes: &mut Vec<Strin
         }];
     }
     let Some(p) = proposal(w, i, o) else { return vec!["\"Put a number on it and we'll talk.\"".into()] };
-    let j = match nfl::judge(w, id(w, i), &p) {
+    let j = match nfl::judge_argued(w, id(w, i), &p, o.argued as f64) {
         Ok(j) => j,
         Err(e) => {
             notes.push(format!("Your cap manager: {e}"));

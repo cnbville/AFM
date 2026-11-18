@@ -694,6 +694,11 @@ pub struct Ideal {
     /// pays him. None before any offer.
     #[serde(default)]
     pub best: Option<f64>,
+    /// His market pinned for a talk where your true points moved his ideal
+    /// (negotiation item 3a, `front_office::nfl::ideal_of`): the points
+    /// lower his ask toward his market, never his market itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market: Option<f64>,
 }
 
 /// An offer on the table.
@@ -764,6 +769,7 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
         start: g.role > 0.45 && view >= 70.0 && slots.starters > 0,
         opened: d,
         best: None,
+        market: None,
     }
 }
 
@@ -915,6 +921,9 @@ pub const MARKET_SLACK: f64 = 0.95;
 pub fn market_apy(w: &World, i: usize, ideal: &Ideal) -> f64 {
     let g = goals(w, i);
     let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    if let Some(m) = ideal.market {
+        return m.max(money::minimum(w.year, credited));
+    }
     let read = ideal.apy * MARKET_SLACK / (1.0 + 0.2 * (g.money - 0.5));
     read.min(ideal.best.unwrap_or(f64::INFINITY)).max(money::minimum(w.year, credited))
 }
