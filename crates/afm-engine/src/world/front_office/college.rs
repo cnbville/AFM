@@ -2691,14 +2691,15 @@ pub fn splits_for(w: &World, j: usize, year: i32) -> Vec<(u32, f64, f64, f64)> {
 /// 0.6 of it, the room kept for your offers, so a starter's roster split
 /// read well under what the same man earned at a rival). The deals that
 /// stand take their room first, the way an AI school's do (`your_holds`):
-/// a deal he signed or landed on, a multi-year deal, the deal an arrival
-/// of yours came on, and the signees not on the roster yet. Ahead of July
-/// 1 (`ahead`) at your program, a class and transfers still to come keep
-/// their room too: the share of the year's money AI schools at your money
-/// level paid their arrivals last July (`NilBook::new_share`), less what
-/// your arrivals and signees already hold. Each man's going rate is his own
-/// split of what is left, a deal holder's too, so a number you set never
-/// moves his own going rate.
+/// a deal on his file (signed, landed on, multi-year) and the signees not
+/// on the roster yet. Ahead of July 1 (`ahead`) at your program, a class
+/// and transfers still to come keep their room: the share of the year's
+/// money AI schools at your money level paid their arrivals last July
+/// (`NilBook::new_share`), less what your signees and arrivals hold on
+/// file. July 1 itself (`ahead` false) reads the deals your arrivals came
+/// on as an AI school reads its own. Each man's going rate is his own
+/// split of what is left, a deal holder's too, and no number you set on
+/// the desk moves anyone's going rate ahead of July 1.
 fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64, f64)> {
     let prog = &w.programs[j];
     let two = ncaa::two_pots(w.today);
@@ -2714,9 +2715,9 @@ fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64
     } else {
         0.0
     };
-    let (holds, held_new, waiting) = your_holds(w, j, &roster, year);
+    let (holds, held_new, waiting) = your_holds(w, j, &roster, year, !ahead);
     let year_money = prog.collective.budget * crate::world::legacy::college::split_q(w, j, 0) + prog.collective.buyouts;
-    let to_come = if ahead && deals_now(w, j).is_some() {
+    let to_come = if ahead && super::program(w) == Some(j) {
         let share = w.nil_book.new_share[crate::world::nil_bid::level(prog)];
         (share * year_money - held_new - waiting).max(0.0)
     } else {
@@ -2750,11 +2751,17 @@ fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64
 /// what your arrivals' deals hold of it, and what the signees not on the
 /// roster yet take of the year's money:
 /// a deal he holds on his file (`rec::ai_held`: signed, landed on, a
-/// multi-year deal, an old staff's keep-him offer), else the deal you gave
-/// an arrival who hasn't played a season here (a recruit who signed with
-/// you, a transfer you took), where it pays him something. Everyone else
-/// is on his split.
-fn your_holds(w: &World, j: usize, roster: &[usize], year: i32) -> (HashMap<usize, rec::NilHeld>, f64, f64) {
+/// multi-year deal, an old staff's keep-him offer), else, with `desk`, the
+/// deal you gave an arrival who hasn't played a season here (a recruit who
+/// signed with you, a transfer you took), where it pays him something.
+/// Everyone else is on his split.
+fn your_holds(
+    w: &World,
+    j: usize,
+    roster: &[usize],
+    year: i32,
+    desk: bool,
+) -> (HashMap<usize, rec::NilHeld>, f64, f64) {
     let div = w.programs[j].division;
     let medians = rec::nil_medians(w);
     let two = ncaa::two_pots(w.today);
@@ -2770,7 +2777,7 @@ fn your_holds(w: &World, j: usize, roster: &[usize], year: i32) -> (HashMap<usiz
         let p = &w.people[i];
         let arrival = rec::arrival(p, div, &medians);
         let h = match rec::ai_held(p, year) {
-            rec::NilHeld::None if arrival => {
+            rec::NilHeld::None if arrival && desk => {
                 let x = at(p.player.id);
                 if x > 0.5 { rec::NilHeld::Fixed(x) } else { rec::NilHeld::None }
             }

@@ -303,6 +303,8 @@ fn a_player_answers_your_deal_at_your_next_section_and_nothing_moves_yet() {
 
 fn deal_answers(house: bool) {
     let (mut w, j) = college(house);
+    // His answers, not the pot: no budget limit.
+    w.set_sandbox_switch(crate::world::sandbox::Switch::NilBudget, true);
     let (id, usual) = usual_deals(&w, j).into_iter().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
     assert!(usual > 25_000.0, "{usual}");
     let i = w.people.iter().position(|p| p.player.id == id).unwrap();

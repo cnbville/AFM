@@ -372,7 +372,9 @@ fn his_money_is_next_years_deal_and_never_his_own_brand() {
     let ctx = Ctx::new(&w, w.year);
     let parts = stay_read::read(&w, &ctx, i);
     assert!(underpaid(&parts), "his own brand money isn't pay: {parts:?}");
-    // A raise on your desk for next year holds him now.
+    // A raise on your desk for next year holds him now (no budget limit:
+    // the read, not the pot).
+    w.set_sandbox_switch(crate::world::sandbox::Switch::NilBudget, true);
     crate::world::front_office::college::fill_deals(&mut w);
     let id = w.people[i].player.id;
     crate::world::front_office::college::set_deal(&mut w, id, Some(150_000.0), None).unwrap();
