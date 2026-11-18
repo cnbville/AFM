@@ -8,6 +8,62 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.619 (18 Nov, shipped): capital lane CS5: the Pecking order screen (PR #539), coach and player bonds (PR #542), scheme-fit lane SF3: a blocked man is out of the play (PR #533)
+**TLDR:** 3 changes ship together. Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans. Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most. Plus 1 more below.
+- Capital lane CS5: the Pecking order screen (PR #539): Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.
+- Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there (PR #539)
+- The drive you know of for each rival: public with how far along it is, a building going up, or a rumor (PR #539)
+- Your own rank over the years as a line (PR #539)
+- A list of what your donors have heard about rivals' quiet campaigns (PR #539)
+- Coach and player bonds (PR #542): Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most.
+- Every player has a bond with you and with your staff that grows through the season, faster with the coaches he sees every day. (PR #542)
+- Being there after a death, an injury or a hard loss moves a bond more than months of practice. (PR #542)
+- Close players follow instructions more often, take your talks to heart, take coaching a little better and are slower to leave. (PR #542)
+- Bonds have a cost: favoritism the room notices, real hurt when a coach leaves, and a colder start for the coach who follows a beloved one. (PR #542)
+- Tell the game how you grew up in setup: a kid raised the same way finds something in common with you. (PR #542)
+- Scheme-fit lane SF3: a blocked man is out of the play (PR #533): Your offensive line now decides how far your backs get. A great line opens real lanes, a weak one leaves its backs meeting tacklers early, and a defender tied up on a block has to get free before he can make the tackle.
+- A defender locked on a block can no longer reach out and drag the runner down: only one who is beating his blocker gets an arm on him. (PR #533)
+- As the back comes, the defender winning his block comes off it fast, and the one losing it stays stuck. (PR #533)
+- Run blocking on your line and block shedding on your front now show in yards a carry. (PR #533)
+- Backs read blocks the same way, so a walled-off defender no longer scares them out of a lane. (PR #533)
+- Coaches pick their runs against each front from the new results. (PR #533)
+- Look at: Capital, then Pecking order, after the July ranking. (PR #539) a player's People tab, "His coaches", and a coach's profile, "Closest to him". (PR #542) your backs' yards before contact behind your best and worst lines, and a run defense with strong block-shedders up front. (PR #533)
+- Docs and tooling merged too, no game change: Negotiation that responds to arguments: the spec and lanes (PR #543); World additions: spec for the agreed items 1, 6 and 7 (docs) (PR #548).
+
+## 0.2.616 (18 Nov, shipped): opening a save closes the open world before reading the file (PR #535)
+**TLDR:** Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.
+- Loading a save while a career or world is open no longer holds two worlds in memory. (PR #535)
+- Big worlds' saves and autosaves load again on 8 GB Macs. (PR #535)
+- If a file can't be opened, you land back on the start page instead of a broken career. (PR #535)
+- Look at: load your latest save from the Load page. (PR #535)
+- Docs and tooling merged too, no game change: Design: coach and player bonds (proposed, not confirmed) (PR #537); Coach bonds: Cain agreed to the design and all 7 questions (PR #538).
+
+## 0.2.615 (17 Nov, shipped): capital lane CS3: the drive screen (PR #526), capital lane CS2: the Donors screen (PR #525), coach fire: fire by the kind of work, targeting and the spark (PR #530), and 1 more
+**TLDR:** 4 changes ship together. Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours. Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one. Plus 2 more below.
+- Capital lane CS3: the drive screen (PR #526): Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.
+- The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign. (PR #526)
+- Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title. (PR #526)
+- The lead donors who are waiting for you are named, with what they'd give to. (PR #526)
+- Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow. (PR #526)
+- Capital lane CS2: the Donors screen (PR #525): Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one.
+- A new Donors screen under Capital lists your donors with what the development office thinks they could give, how close each is to you and when you last met. (PR #525)
+- A fever bar shows how hot donors are after your big moments and when it will fade. (PR #525)
+- Each donor has a page: what drives them, what they remember of you, who they talk to and your development director's read. (PR #525)
+- Book a weekday lunch or dinner from the page, or call one off. (PR #525)
+- Coach fire: fire by the kind of work, targeting and the spark (PR #530): Your pregame and halftime words now reach the field the way real emotion does: a fired-up hitter hits harder and goes for the ball, but a pocket passer pushed past his best pitch gets jumpy and misses throws.
+- Every player has his own best pitch: a hot-tempered hitter plays best fired up, a calm pocket passer plays best calm. (PR #530)
+- Fire adds strength, effort and hitting power up to that pitch; past it he loses accuracy, reads and discipline, and takes more chances. (PR #530)
+- Big hits, forced fumbles and fourth-down stops lift the teammates on the field for a few snaps, and the man who got hit can hear footsteps over the middle. (PR #530)
+- College targeting is called by its era's rule, with ejections and the next game's first half; the NFL fines its hits from what happened in the games. (PR #530)
+- The play log shows it: big hits, players who came in hot, a receiver who heard footsteps, ejections. (PR #530)
+- Capital lane CS4: the project screen (PR #532): The Capital section now has a Project page for the building going up, with the rooms it holds, its timeline and the strings donors put on it. When costs run over, you see what each answer would do before you choose.
+- See the rooms a new building adds or moves, and what each one gives you (PR #532)
+- Answer a cost overrun by cutting rooms, waiting a year or borrowing, with a preview first (PR #532)
+- Grant or turn down a donor's call about his gift (PR #532)
+- See how the team practices while the building goes up (PR #532)
+- Look at: the Capital section's The drive, once your program has a campaign under way. (PR #526) Capital, Donors, in the sidebar when you coach a college program. (PR #525) give a fiery talk before a playoff game and read the play log for your hitters, then try a calm talk with your pocket passer. (PR #530)
+- Docs and tooling merged too, no game change: Design: support staff as full departments (proposed, not confirmed) (PR #528); Support departments: Cain agreed to all seven questions (PR #529); Memory diet: the research and the agreed items (docs) (PR #534); GAPS.md: start the gaps list with the coach-depth findings (PR #536).
+
 ## 0.2.611 (17 Nov, shipped): capital lane C5: the facilities race and the press (PR #521), ground lane S3: the school visit screen (PR #514), capital lane C6: high school and NFL facilities (PR #523), and 1 more
 **TLDR:** 4 changes ship together. The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities. A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go. Plus 2 more below.
 - Capital lane C5: the facilities race and the press (PR #521): The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities.

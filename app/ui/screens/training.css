@@ -435,6 +435,18 @@
 .dv-sure { font-size: 18px; }
 .dv-acts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; padding-top: 12px; border-top: 1px solid var(--hair); }
 .dv-acts > .muted:first-child { flex: 1; }
+.dv-pj { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; padding: 16px 20px; }
+.dv-pj .dv-card .kv { margin: 0; }
+.dv-pj .dv-two { align-items: start; }
+.dv-pj .dv-card { display: flex; flex-direction: column; align-content: start; }
+.dv-pj .dv-cand { grid-template-columns: minmax(0, 1fr) auto; }
+.dv-pj .dv-gain { white-space: nowrap; font-size: 19px; }
+.dv-pj .amber { color: var(--tw-amber, #f0a35e); }
+.tr-pj { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; padding: 14px 18px; }
+.tr-pjrooms { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; }
+.tr-pjroom { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); min-width: 0; }
+.tr-pjroom b { font-size: 18px; font-weight: 850; font-stretch: 80%; }
+.tr-pjwho { font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 .dv-rep { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
 
 @media (max-width: 1100px) {
@@ -442,4 +454,5 @@
   .dv-pb { padding-left: 0; border-left: 0; }
   .dv-focus, .dv-two, .dv-rep { grid-template-columns: 1fr; }
   .dv-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tr-pjrooms { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

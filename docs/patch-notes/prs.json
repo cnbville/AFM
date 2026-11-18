@@ -1640,6 +1640,34 @@
   "title": "CLAUDE.md: small fixes and docs merge on green (docs)",
   "tldr": ""
  },
+ "525": {
+  "auto": false,
+  "bullets": [
+   "A new Donors screen under Capital lists your donors with what the development office thinks they could give, how close each is to you and when you last met.",
+   "A fever bar shows how hot donors are after your big moments and when it will fade.",
+   "Each donor has a page: what drives them, what they remember of you, who they talk to and your development director's read.",
+   "Book a weekday lunch or dinner from the page, or call one off."
+  ],
+  "h": "175f9df660fd",
+  "look": "Capital, Donors, in the sidebar when you coach a college program.",
+  "players": true,
+  "title": "Capital lane CS2: the Donors screen",
+  "tldr": "Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one."
+ },
+ "526": {
+  "auto": false,
+  "bullets": [
+   "The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign.",
+   "Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title.",
+   "The lead donors who are waiting for you are named, with what they'd give to.",
+   "Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow."
+  ],
+  "h": "fe71d424881b",
+  "look": "the Capital section's The drive, once your program has a campaign under way.",
+  "players": true,
+  "title": "Capital lane CS3: the drive screen",
+  "tldr": "Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours."
+ },
  "527": {
   "auto": false,
   "bullets": [
@@ -1654,5 +1682,169 @@
   "players": true,
   "title": "Capital lane CS1: the Campus screen",
   "tldr": "Your campus now has its own screen: a map of your buildings and rooms, how each one stacks up against your conference, and a button to ask your athletic director for a renovation."
+ },
+ "528": {
+  "auto": true,
+  "bullets": [],
+  "h": "850e9e946e23",
+  "look": "",
+  "players": true,
+  "title": "Design: support staff as full departments (proposed, not confirmed)",
+  "tldr": "Adds docs/design/support-departments.md: world additions item 4."
+ },
+ "529": {
+  "auto": true,
+  "bullets": [],
+  "h": "20f2365aaa4f",
+  "look": "",
+  "players": true,
+  "title": "Support departments: Cain agreed to all seven questions",
+  "tldr": "Records Cain's \"agree on all\" (2026-11-17) on the seven questions in docs/design/support-departments.md, and updates its CLAUDE.md line."
+ },
+ "530": {
+  "auto": false,
+  "bullets": [
+   "Every player has his own best pitch: a hot-tempered hitter plays best fired up, a calm pocket passer plays best calm.",
+   "Fire adds strength, effort and hitting power up to that pitch; past it he loses accuracy, reads and discipline, and takes more chances.",
+   "Big hits, forced fumbles and fourth-down stops lift the teammates on the field for a few snaps, and the man who got hit can hear footsteps over the middle.",
+   "College targeting is called by its era's rule, with ejections and the next game's first half; the NFL fines its hits from what happened in the games.",
+   "The play log shows it: big hits, players who came in hot, a receiver who heard footsteps, ejections."
+  ],
+  "h": "ac41daa0309e",
+  "look": "give a fiery talk before a playoff game and read the play log for your hitters, then try a calm talk with your pocket passer.",
+  "players": true,
+  "title": "Coach fire: fire by the kind of work, targeting and the spark",
+  "tldr": "Your pregame and halftime words now reach the field the way real emotion does: a fired-up hitter hits harder and goes for the ball, but a pocket passer pushed past his best pitch gets jumpy and misses throws."
+ },
+ "532": {
+  "auto": false,
+  "bullets": [
+   "See the rooms a new building adds or moves, and what each one gives you",
+   "Answer a cost overrun by cutting rooms, waiting a year or borrowing, with a preview first",
+   "Grant or turn down a donor's call about his gift",
+   "See how the team practices while the building goes up"
+  ],
+  "h": "fe34f36c7049",
+  "look": "Capital, Project",
+  "players": true,
+  "title": "Capital lane CS4: the project screen",
+  "tldr": "The Capital section now has a Project page for the building going up, with the rooms it holds, its timeline and the strings donors put on it. When costs run over, you see what each answer would do before you choose."
+ },
+ "533": {
+  "auto": false,
+  "bullets": [
+   "A defender locked on a block can no longer reach out and drag the runner down: only one who is beating his blocker gets an arm on him.",
+   "As the back comes, the defender winning his block comes off it fast, and the one losing it stays stuck.",
+   "Run blocking on your line and block shedding on your front now show in yards a carry.",
+   "Backs read blocks the same way, so a walled-off defender no longer scares them out of a lane.",
+   "Coaches pick their runs against each front from the new results."
+  ],
+  "h": "4e1974385813",
+  "look": "your backs' yards before contact behind your best and worst lines, and a run defense with strong block-shedders up front.",
+  "players": true,
+  "title": "Scheme-fit lane SF3: a blocked man is out of the play",
+  "tldr": "Your offensive line now decides how far your backs get. A great line opens real lanes, a weak one leaves its backs meeting tacklers early, and a defender tied up on a block has to get free before he can make the tackle."
+ },
+ "534": {
+  "auto": true,
+  "bullets": [],
+  "h": "173379028160",
+  "look": "",
+  "players": true,
+  "title": "Memory diet: the research and the agreed items (docs)",
+  "tldr": "The memory research's spec, docs/design/memory-diet.md, plus its line in CLAUDE.md's read-first list."
+ },
+ "535": {
+  "auto": false,
+  "bullets": [
+   "Loading a save while a career or world is open no longer holds two worlds in memory.",
+   "Big worlds' saves and autosaves load again on 8 GB Macs.",
+   "If a file can't be opened, you land back on the start page instead of a broken career."
+  ],
+  "h": "178efe66412b",
+  "look": "load your latest save from the Load page.",
+  "players": true,
+  "title": "Opening a save closes the open world before reading the file",
+  "tldr": "Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac."
+ },
+ "536": {
+  "auto": false,
+  "bullets": [],
+  "h": "17c69692cb3b",
+  "look": "",
+  "players": false,
+  "title": "GAPS.md: start the gaps list with the coach-depth findings",
+  "tldr": ""
+ },
+ "537": {
+  "auto": true,
+  "bullets": [],
+  "h": "e12974fbbd92",
+  "look": "",
+  "players": true,
+  "title": "Design: coach and player bonds (proposed, not confirmed)",
+  "tldr": "A design spec, docs/design/coach-bonds.md, for Cain's ask: players build real bonds with their coaches, up to a father figure, with everything counting (age gap, matching personalities, background, need, time, promises, recruiting, hard moments)."
+ },
+ "538": {
+  "auto": true,
+  "bullets": [],
+  "h": "3a9fde8e91c0",
+  "look": "",
+  "players": true,
+  "title": "Coach bonds: Cain agreed to the design and all 7 questions",
+  "tldr": "Cain said \"yes to all\" on 2026-11-17 at 20:13 UTC."
+ },
+ "539": {
+  "auto": false,
+  "bullets": [
+   "Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there",
+   "The drive you know of for each rival: public with how far along it is, a building going up, or a rumor",
+   "Your own rank over the years as a line",
+   "A list of what your donors have heard about rivals' quiet campaigns"
+  ],
+  "h": "633e84048b0b",
+  "look": "Capital, then Pecking order, after the July ranking.",
+  "players": true,
+  "title": "Capital lane CS5: the Pecking order screen",
+  "tldr": "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans."
+ },
+ "542": {
+  "auto": false,
+  "bullets": [
+   "Every player has a bond with you and with your staff that grows through the season, faster with the coaches he sees every day.",
+   "Being there after a death, an injury or a hard loss moves a bond more than months of practice.",
+   "Close players follow instructions more often, take your talks to heart, take coaching a little better and are slower to leave.",
+   "Bonds have a cost: favoritism the room notices, real hurt when a coach leaves, and a colder start for the coach who follows a beloved one.",
+   "Tell the game how you grew up in setup: a kid raised the same way finds something in common with you."
+  ],
+  "h": "c1f21234ed6e",
+  "look": "a player's People tab, \"His coaches\", and a coach's profile, \"Closest to him\".",
+  "players": true,
+  "title": "Coach and player bonds",
+  "tldr": "Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most."
+ },
+ "543": {
+  "auto": true,
+  "bullets": [
+   "What happens today on main, with the root cause: a flat money cap in the contract score, two separate trusts, a college price that reads neither the season nor your words.",
+   "Three numbers in every money talk: his market, his ask, his lowest number. True points talk him down to his market and never below; the relationship takes him below it."
+  ],
+  "h": "e0f7a1937d8a",
+  "look": "",
+  "players": true,
+  "title": "Negotiation that responds to arguments: the spec and lanes",
+  "tldr": "The spec for Cain's agreed negotiation overhaul (items 1, 2, 3a-c, 4, 5, 6, 7; college first): docs/design/negotiation-arguments.md, and its entry in CLAUDE.md's read-first list."
+ },
+ "548": {
+  "auto": true,
+  "bullets": [
+   "NFL assistants are people: position coaches, a special teams coordinator and an assistant head coach, with NFL growth reading the position coach (from people topic 10).",
+   "High schoolers' NIL deals in the states that allow them. A short design round settles the details before any build."
+  ],
+  "h": "3778df1cec1d",
+  "look": "",
+  "players": true,
+  "title": "World additions: spec for the agreed items 1, 6 and 7 (docs)",
+  "tldr": "Docs only."
  }
 }

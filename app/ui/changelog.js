@@ -17,6 +17,37 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.619", date: "18 Nov", title: "Scheme-fit lane SF3: a blocked man is out of the play and 2 more",
+    notes: [
+      "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.",
+      "Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there",
+      "The drive you know of for each rival: public with how far along it is, a building going up, or a rumor",
+      "Your own rank over the years as a line",
+      "A list of what your donors have heard about rivals' quiet campaigns",
+      "Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most.",
+    ],
+  },
+  {
+    v: "0.2.616", date: "18 Nov", title: "Opening a save closes the open world before reading the file",
+    notes: [
+      "Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.",
+      "Loading a save while a career or world is open no longer holds two worlds in memory.",
+      "Big worlds' saves and autosaves load again on 8 GB Macs.",
+      "If a file can't be opened, you land back on the start page instead of a broken career.",
+    ],
+  },
+  {
+    v: "0.2.615", date: "17 Nov", title: "Capital lane CS4: the project screen and 3 more",
+    notes: [
+      "Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.",
+      "The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign.",
+      "Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title.",
+      "The lead donors who are waiting for you are named, with what they'd give to.",
+      "Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow.",
+      "Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one.",
+    ],
+  },
+  {
     v: "0.2.611", date: "17 Nov", title: "Capital lane CS1: the Campus screen and 3 more",
     notes: [
       "The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities.",
