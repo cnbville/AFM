@@ -1640,6 +1640,34 @@
   "title": "CLAUDE.md: small fixes and docs merge on green (docs)",
   "tldr": ""
  },
+ "525": {
+  "auto": false,
+  "bullets": [
+   "A new Donors screen under Capital lists your donors with what the development office thinks they could give, how close each is to you and when you last met.",
+   "A fever bar shows how hot donors are after your big moments and when it will fade.",
+   "Each donor has a page: what drives them, what they remember of you, who they talk to and your development director's read.",
+   "Book a weekday lunch or dinner from the page, or call one off."
+  ],
+  "h": "175f9df660fd",
+  "look": "Capital, Donors, in the sidebar when you coach a college program.",
+  "players": true,
+  "title": "Capital lane CS2: the Donors screen",
+  "tldr": "Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one."
+ },
+ "526": {
+  "auto": false,
+  "bullets": [
+   "The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign.",
+   "Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title.",
+   "The lead donors who are waiting for you are named, with what they'd give to.",
+   "Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow."
+  ],
+  "h": "fe71d424881b",
+  "look": "the Capital section's The drive, once your program has a campaign under way.",
+  "players": true,
+  "title": "Capital lane CS3: the drive screen",
+  "tldr": "Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours."
+ },
  "527": {
   "auto": false,
   "bullets": [
@@ -1654,5 +1682,70 @@
   "players": true,
   "title": "Capital lane CS1: the Campus screen",
   "tldr": "Your campus now has its own screen: a map of your buildings and rooms, how each one stacks up against your conference, and a button to ask your athletic director for a renovation."
+ },
+ "528": {
+  "auto": true,
+  "bullets": [],
+  "h": "850e9e946e23",
+  "look": "",
+  "players": true,
+  "title": "Design: support staff as full departments (proposed, not confirmed)",
+  "tldr": "Adds docs/design/support-departments.md: world additions item 4."
+ },
+ "529": {
+  "auto": true,
+  "bullets": [],
+  "h": "20f2365aaa4f",
+  "look": "",
+  "players": true,
+  "title": "Support departments: Cain agreed to all seven questions",
+  "tldr": "Records Cain's \"agree on all\" (2026-11-17) on the seven questions in docs/design/support-departments.md, and updates its CLAUDE.md line."
+ },
+ "530": {
+  "auto": false,
+  "bullets": [
+   "Every player has his own best pitch: a hot-tempered hitter plays best fired up, a calm pocket passer plays best calm.",
+   "Fire adds strength, effort and hitting power up to that pitch; past it he loses accuracy, reads and discipline, and takes more chances.",
+   "Big hits, forced fumbles and fourth-down stops lift the teammates on the field for a few snaps, and the man who got hit can hear footsteps over the middle.",
+   "College targeting is called by its era's rule, with ejections and the next game's first half; the NFL fines its hits from what happened in the games.",
+   "The play log shows it: big hits, players who came in hot, a receiver who heard footsteps, ejections."
+  ],
+  "h": "ac41daa0309e",
+  "look": "give a fiery talk before a playoff game and read the play log for your hitters, then try a calm talk with your pocket passer.",
+  "players": true,
+  "title": "Coach fire: fire by the kind of work, targeting and the spark",
+  "tldr": "Your pregame and halftime words now reach the field the way real emotion does: a fired-up hitter hits harder and goes for the ball, but a pocket passer pushed past his best pitch gets jumpy and misses throws."
+ },
+ "532": {
+  "auto": false,
+  "bullets": [
+   "See the rooms a new building adds or moves, and what each one gives you",
+   "Answer a cost overrun by cutting rooms, waiting a year or borrowing, with a preview first",
+   "Grant or turn down a donor's call about his gift",
+   "See how the team practices while the building goes up"
+  ],
+  "h": "fe34f36c7049",
+  "look": "Capital, Project",
+  "players": true,
+  "title": "Capital lane CS4: the project screen",
+  "tldr": "The Capital section now has a Project page for the building going up, with the rooms it holds, its timeline and the strings donors put on it. When costs run over, you see what each answer would do before you choose."
+ },
+ "534": {
+  "auto": true,
+  "bullets": [],
+  "h": "173379028160",
+  "look": "",
+  "players": true,
+  "title": "Memory diet: the research and the agreed items (docs)",
+  "tldr": "The memory research's spec, docs/design/memory-diet.md, plus its line in CLAUDE.md's read-first list."
+ },
+ "536": {
+  "auto": false,
+  "bullets": [],
+  "h": "17c69692cb3b",
+  "look": "",
+  "players": false,
+  "title": "GAPS.md: start the gaps list with the coach-depth findings",
+  "tldr": ""
  }
 }
