@@ -6,8 +6,8 @@
 use crate::game::calling::{CallMemo, Memory, OffCtx, Situation, call_offense, call_offense_memo};
 use crate::game::guide::{Firm, Want};
 use crate::game::playbook::{
-    Backfield, Formation, ORole, PASS_CONCEPTS, Personnel, PlayKind, Route, Set, concept, pass_concept, readable,
-    readable_library, reads_in, route_for, route_in,
+    Backfield, Formation, LIBRARY_ALL, ORole, PASS_CONCEPTS, Personnel, PlayKind, Route, Set, concept, pass_concept,
+    readable, readable_library, reads_in, route_for, route_in,
 };
 use crate::game::{OffScheme, Staff};
 use crate::player::Level;
@@ -366,4 +366,9 @@ fn the_runnable_concepts_table_matches_the_reads() {
             }
         }
     }
+    // 11 personnel runs the whole library, so its calls take the plain
+    // draw; 13 doesn't (no flanker for the tunnel screen).
+    assert_eq!(readable_library(P11), LIBRARY_ALL);
+    assert_ne!(readable_library(P13), LIBRARY_ALL);
+    assert_eq!(LIBRARY_ALL.count_ones() as usize, PASS_CONCEPTS.len());
 }

@@ -1357,8 +1357,7 @@ fn reads_sticks(sit: &Situation) -> bool {
 /// is read where he stands and runs his own route (lane SF2, `reads_in`,
 /// `route_in`).
 pub(crate) fn sticks_depth(c: &PassConcept, f: &Formation) -> f64 {
-    reads_in(c, f)
-        .into_iter()
+    reads_of(c, f.personnel)
         .take(2)
         .map(|r| {
             let rt = route_in(c, f, r);
@@ -1395,7 +1394,13 @@ fn pick_concept(
     let fits = |i: usize| {
         if i < PASS_CONCEPTS.len() { (library >> i) & 1 == 1 } else { readable(pass_concept(i), &fielded) }
     };
-    let draw = |rng: &mut Rng, w: &[(usize, f64)]| weigh_where(rng, w, fits).unwrap_or_else(|| weigh(rng, w));
+    // Most groups can run every concept and design: then the draw is the
+    // plain one, the same draw without asking each concept.
+    let every =
+        library == LIBRARY_ALL && ctx.designs.iter().flatten().all(|d| readable(pass_concept(d.0 as usize), &fielded));
+    let draw = |rng: &mut Rng, w: &[(usize, f64)]| {
+        if every { weigh(rng, w) } else { weigh_where(rng, w, fits).unwrap_or_else(|| weigh(rng, w)) }
+    };
     let Some((m, slot)) = memo else {
         return draw(rng, &concept_weights(staff, mem, sit, f, ctx, fake));
     };

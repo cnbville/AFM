@@ -973,7 +973,9 @@ fn extra_ends(p: Personnel) -> &'static [ORole] {
 /// men, and a receiver who blocks or runs a receiver's screen (the bubble,
 /// the tunnel) leaves no place to take.
 fn stand_in(c: &PassConcept, p: Personnel, te: ORole) -> Option<ORole> {
-    if c.protection == Protection::Max || c.depth == PassDepth::Screen {
+    // Only the group's extra tight ends take a place (every call asks this
+    // of all eleven men, so the others leave at once).
+    if c.protection == Protection::Max || c.depth == PassDepth::Screen || !extra_ends(p).contains(&te) {
         return None;
     }
     let mut ends = extra_ends(p).iter().filter(|e| !c.reads.contains(e));
@@ -1047,17 +1049,20 @@ pub fn route_in(c: &PassConcept, f: &Formation, role: ORole) -> Route {
 /// whose place he takes would be. Before, no concept read the second or
 /// third tight end.
 pub fn reads_in(c: &PassConcept, f: &Formation) -> Vec<ORole> {
-    let p = f.personnel;
-    let mut out = Vec::with_capacity(c.reads.len());
-    for &r in c.reads {
-        if p.has(r) {
-            out.push(r);
-        } else if let Some(&e) = extra_ends(p).iter().find(|e| stand_in(c, p, **e) == Some(r)) {
-            out.push(e);
-        }
-    }
-    out
+    reads_of(c, f.personnel).collect()
 }
+
+/// `reads_in` one read at a time, for a caller who wants only the first
+/// few (third down's check of the routes that reach the sticks).
+pub(crate) fn reads_of(c: &PassConcept, p: Personnel) -> impl Iterator<Item = ORole> + '_ {
+    c.reads.iter().filter_map(move |&r| {
+        if p.has(r) { Some(r) } else { extra_ends(p).iter().copied().find(|&e| stand_in(c, p, e) == Some(r)) }
+    })
+}
+
+/// Every library concept's bit in `readable_library`: a group whose mask
+/// is this can run them all.
+pub const LIBRARY_ALL: u64 = u64::MAX >> (64 - PASS_CONCEPTS.len());
 
 /// The group can run the concept: one of its reads is on the field
 /// (`reads_in`).
