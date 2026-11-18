@@ -116,13 +116,20 @@ fn restructure_ok(w: &World, i: usize) -> bool {
     w.people[i].pro.as_ref().is_some_and(|c| c.team.is_some() && c.team == me && c.contract.is_some())
 }
 
+/// What a talk's offer says beside the desk's boxes: the line's points and
+/// a help promise (`nfl::Said`).
+fn said(o: &Offer) -> nfl::Said {
+    let help = o.gives.iter().find_map(|g| if let Give::Help(p) = g { Some(*p) } else { None });
+    nfl::Said { argued: o.argued as f64, help }
+}
+
 /// How the agent takes an offer, and his full answer: the desk's own.
 pub fn weigh(w: &World, i: usize, offer: &Offer) -> (Weighed, Option<nfl::Judged>) {
     if offer.kind == DealKind::Restructure {
         return (if restructure_ok(w, i) { Weighed::Yes } else { Weighed::No }, None);
     }
     let Some(p) = proposal(w, i, offer) else { return (Weighed::No, None) };
-    let Ok(j) = nfl::judge_argued(w, id(w, i), &p, offer.argued as f64) else { return (Weighed::No, None) };
+    let Ok(j) = nfl::judge_said(w, id(w, i), &p, said(offer)) else { return (Weighed::No, None) };
     let wd = match j.verdict {
         nfl::Verdict::Signed | nfl::Verdict::Agreed | nfl::Verdict::Standing => Weighed::Yes,
         nfl::Verdict::Broken => Weighed::No,
@@ -172,7 +179,7 @@ pub fn words(w: &World, i: usize, o: &Offer, t: &mut Turn, notes: &mut Vec<Strin
         }];
     }
     let Some(p) = proposal(w, i, o) else { return vec!["\"Put a number on it and we'll talk.\"".into()] };
-    let j = match nfl::judge_argued(w, id(w, i), &p, o.argued as f64) {
+    let j = match nfl::judge_said(w, id(w, i), &p, said(o)) {
         Ok(j) => j,
         Err(e) => {
             notes.push(format!("Your cap manager: {e}"));

@@ -237,6 +237,9 @@ fn meets(w: &World, i: Option<usize>, give: &Give, money: f64) -> Vec<(WantKind,
         // say in the scheme.
         Give::Title => vec![(WantKind::Career, 0.3), (WantKind::Name, 0.1)],
         Give::Calling => vec![(WantKind::Career, 0.4), (WantKind::Scheme, 0.6)],
+        // NFL only (negotiation item 4): no college ask came with it.
+        Give::Help(_) if i.is_some_and(|i| w.people[i].stage == Stage::Pro) => vec![(WantKind::Winning, 0.4)],
+        Give::Help(_) => vec![],
     }
 }
 
@@ -253,6 +256,7 @@ fn promise_kind(g: &Give) -> Option<PromiseKind> {
         Give::Role(1) => Some(PromiseKind::Snaps),
         Give::Position(p) => Some(PromiseKind::Position(p)),
         Give::Stay => Some(PromiseKind::Stay),
+        Give::Help(p) => Some(PromiseKind::Help(p)),
         _ => None,
     }
 }

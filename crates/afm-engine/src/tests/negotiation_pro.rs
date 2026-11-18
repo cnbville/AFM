@@ -116,3 +116,46 @@ fn expiring_other(w: &mut World, t: usize, skip: usize) -> usize {
     c.contract = Some(money::build(t, money::Kind::Veteran, year - 3, &money::Terms::flat(3, 6.0e6)));
     j
 }
+
+/// Lane NG6 (item 4): "take less and I'll sign you help" lowers a winner's
+/// number as he believes it; broken, his trust in the club falls and his
+/// next deal with you costs more.
+#[test]
+fn a_help_promise_lowers_a_winners_number_and_breaking_it_costs_his_next_deal() {
+    use crate::world::folk::persona::terms::HELP_ANY;
+    use crate::world::folk::talks::{self, PromiseKind, PromiseTo};
+    let (mut w, t) = nfl_world();
+    let i = expiring(&mut w, t, true);
+    let id = w.people[i].player.id;
+    w.people[i].player.personality.competitiveness = 20.0;
+    assert!(market::goals(&w, i).winning > 0.5);
+    let part = nfl::help_part(&w, i, HELP_ANY);
+    assert!(part > 0.0 && part <= nfl::HELP_DISCOUNT, "{part}");
+    // His market as his ideal reads it (the tiny world's other clubs may
+    // not bid, which leaves the agent's read at the minimum).
+    let ideal = market::ideal(&w, i, w.today);
+    let plain = market::lowest_with(&w, i, t, &ideal, true, 0.0);
+    assert!(market::lowest_with(&w, i, t, &ideal, true, part) < plain);
+    // A man who doesn't care about winning gets nothing from it.
+    w.people[i].player.personality.competitiveness = 0.0;
+    if market::goals(&w, i).winning <= 0.5 {
+        assert_eq!(nfl::help_part(&w, i, HELP_ANY), 0.0);
+    }
+    w.people[i].player.personality.competitiveness = 20.0;
+    // Said and never kept: by the opener no new starter came.
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Help(HELP_ANY), 0);
+    let due = w.folk.promises.last().unwrap().due;
+    assert!(due > w.dates.nfl_kickoff.add(-365) && due.days_to(w.dates.nfl_kickoff.add(368)) >= 0);
+    let trust = w.people[i].pro.as_ref().unwrap().trust;
+    w.today = due;
+    talks::check_promises(&mut w, due);
+    let c = w.people[i].pro.as_ref().unwrap();
+    assert_eq!(w.folk.promises.last().unwrap().kept, Some(false));
+    assert!(c.trust < trust, "his trust in the club falls");
+    let (_, premium) = c.help_owed.expect("his next deal costs more");
+    assert!(premium > 0.0);
+    let with = nfl::ideal_argued(&w, i, nfl::TalkKind::ReSign, 0.0).apy;
+    w.people[i].pro.as_mut().unwrap().help_owed = None;
+    let without = nfl::ideal_argued(&w, i, nfl::TalkKind::ReSign, 0.0).apy;
+    assert!((with / without - 1.0 - premium as f64).abs() < 1e-6, "{with} {without} {premium}");
+}

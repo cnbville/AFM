@@ -588,6 +588,16 @@ Built 2026-11-18 on lanes NG4 and NG2, before it merged (`docs/design/negotiatio
 - **The proud man** (`proud_test`, item 3c): while a point is kept, a man with an ego z over 0.5 has his bar to re-sign or extend raised by 0.03 x ego z (`own_bar`): he wants to see what others think. His trust in you takes lane NG2's cost (`points::makeup_cost`); his college portal lean is not touched.
 - Tests: `crates/afm-engine/src/tests/negotiation_pro.rs` (a true point talks his ask down to his market, never below; once a point lands his agent counters prove-it on that stat; a proud man wants to see the market after a point).
 
+## Negotiation overhaul, lane NG6: "take less and I'll sign you help"
+
+Built 2026-11-18 on lane NG5, before it merged (`docs/design/negotiation-arguments.md`, item 4; every size proposed, not confirmed). NFL only.
+
+- **The give.** `terms::Give::Help(pos)`: your word that your club adds a starter at a position (its index; `HELP_ANY` for any) before next season's opener. The ear hears it as the give `help`, with the position's number when you name one (`afm-game`, `live_talk/persona/mod.rs`, `GIVE_KEYS`). It is a promise (`Give::promised`), logged through P1 as `PromiseKind::Help` when the deal is agreed. It meets a pro's winning want (0.4) and nothing in college.
+- **What it's worth** (`front_office/nfl.rs`, `help_part`, through `Said` and `judge_said`): 0.05 (`HELP_DISCOUNT`) x his belief in it (`promise::belief_own`) x his winning goal over half ((winning - 0.5) / 0.5), added to his discount inside the 25% cap (`market::Offer::help`, `market::lowest_with`). A man whose winning goal is half or less gets nothing from it.
+- **Judged** the Monday after next season's opener (`talks::promise_due`): kept when your club has a man new this league year (signed or traded for, `ProCareer::new_team`) or drafted this year in rounds 1 or 2, at the position (any for `HELP_ANY`), who has a start for you this season (`talks::help_kept`).
+- **Kept**: his trust in you moves as P1 settles any promise (`promise::kept_trust`: 0.1 to 0.2, more the more he doubted, in place of the design's flat 0.08), and his trust in the club rises 0.05 (`HELP_KEPT_CLUB`). **Broken**: his trust in you falls as P1's broken promise does, his trust in the club falls 0.3 (`HELP_BROKEN_CLUB`), and his next deal with your club carries a premium of 5% x his winning goal on his ideal (`HELP_PREMIUM`, `ProCareer::help_owed`, read in `ideal_argued` until he signs a new contract).
+- Tests: `crates/afm-engine/src/tests/negotiation_pro.rs`, `a_help_promise_lowers_a_winners_number_and_breaking_it_costs_his_next_deal`.
+
 ## Live talks v3: the money desks
 
 Built over main e24d643 on 2026-11-15, before it merged. The last typed boxes on the old reader and writer were the three money desks' (`fo_say`), which answered "later update", with fact chips beside them. They now play on the v3 conversation (lane N4) with the deals of lane N3, on the calls lanes N5a and N5b built. The game side is `crates/afm-game/src/live_talk/say/money.rs`; the screens are `say.js` (`aiHand`), `fo-nfl.js` and `fo-college.js`. No world result changes and no size is new.

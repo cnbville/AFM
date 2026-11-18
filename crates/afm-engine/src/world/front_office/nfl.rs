@@ -86,7 +86,7 @@ impl Proposal {
     }
 
     fn offer(&self, team: usize) -> Offer {
-        Offer { team, apy: self.apy, years: self.years, gtd: self.gtd, start: self.start }
+        Offer { team, apy: self.apy, years: self.years, gtd: self.gtd, start: self.start, help: 0.0 }
     }
 
     /// The deal's layout, the way `terms_for` lays out the AI's (roster
@@ -326,6 +326,14 @@ fn ideal_of(w: &World, i: usize, kind: TalkKind) -> Ideal {
 /// (A - M) x (1 - pull)), his market pinned so the points never lower it.
 pub(crate) fn ideal_argued(w: &World, i: usize, kind: TalkKind, argued: f64) -> Ideal {
     let mut id = ideal_plain(w, i, kind);
+    // A help promise you broke (negotiation item 4): his next deal with
+    // you costs more, until he signs again.
+    if let Some(c) = w.people[i].pro.as_ref()
+        && let Some((year, premium)) = c.help_owed
+        && c.contract.as_ref().is_none_or(|k| k.signed <= year)
+    {
+        id.apy *= 1.0 + premium as f64;
+    }
     let pull =
         (crate::world::folk::persona::negotiate::points::pull(w, w.people[i].player.id) + argued).clamp(0.0, 1.0);
     if pull > 0.0 {
@@ -634,12 +642,41 @@ pub struct Judged {
 
 /// The agent's answer to an offer, without making it (`Judged`).
 pub fn judge(w: &World, id: u32, p: &Proposal) -> Result<Judged, String> {
-    judge_argued(w, id, p, 0.0)
+    judge_said(w, id, p, Said::default())
 }
 
-/// [`judge`], with the pull of the true points made in the line that
-/// carries the offer (`terms::Offer::argued`, negotiation item 3a).
-pub fn judge_argued(w: &World, id: u32, p: &Proposal, argued: f64) -> Result<Judged, String> {
+/// What a talk adds to a contract offer that the desk's boxes can't hold.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Said {
+    /// The pull of the true points made in the line that carries the offer
+    /// (`terms::Offer::argued`, negotiation item 3a).
+    pub argued: f64,
+    /// "Take less and I'll sign you help" (`terms::Give::Help`, item 4):
+    /// the position's index, `terms::HELP_ANY` for any.
+    pub help: Option<u8>,
+}
+
+/// The most your "I'll sign you help" adds to his discount: x his belief
+/// x his winning goal over half (negotiation item 4). Proposed, not
+/// confirmed.
+pub const HELP_DISCOUNT: f64 = 0.05;
+
+/// The part of his discount a help promise buys (item 4): `HELP_DISCOUNT`
+/// x his belief in it (P1's `belief_own`) x his winning goal over half.
+pub fn help_part(w: &World, i: usize, pos: u8) -> f64 {
+    let g = market::goals(w, i);
+    let want = ((g.winning - 0.5) / 0.5).clamp(0.0, 1.0);
+    if want <= 0.0 {
+        return 0.0;
+    }
+    let kind = crate::world::folk::talks::PromiseKind::Help(pos);
+    let belief = crate::world::folk::promise::belief_own(w, i, kind, &Default::default(), 0).clamp(0.0, 1.0);
+    HELP_DISCOUNT * belief * want
+}
+
+/// [`judge`], with what the talk said beside the offer (`Said`).
+pub fn judge_said(w: &World, id: u32, p: &Proposal, said: Said) -> Result<Judged, String> {
+    let argued = said.argued;
     let t = club(w)?;
     let i = person(w, id)?;
     let kind = negotiable(w, i).ok_or("He isn't someone you can talk terms with today.")?;
@@ -655,7 +692,8 @@ pub fn judge_argued(w: &World, id: u32, p: &Proposal, argued: f64) -> Result<Jud
         TalkKind::ReSign | TalkKind::Extension => Some(t),
         _ => w.people[i].pro.as_ref().and_then(|c| c.teams.last().copied()),
     };
-    let o = p.offer(t);
+    let mut o = p.offer(t);
+    o.help = said.help.map_or(0.0, |pos| help_part(w, i, pos)) as f32;
     let s = offer_score(w, i, &o, &ideal, own);
     let want = want_factor(w, i, t, kind);
     let ask = want_ask(w, i, t, kind, &ideal, own, want);

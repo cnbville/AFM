@@ -710,6 +710,15 @@ pub struct Offer {
     pub gtd: f64,
     /// A promised starting job (logged; topic 4 question 2).
     pub start: bool,
+    /// The part of his discount your "I'll sign you help" buys as he
+    /// believes it (negotiation item 4, `front_office::nfl`): 0 for every
+    /// AI offer.
+    #[serde(default, skip_serializing_if = "is_zero32")]
+    pub help: f32,
+}
+
+fn is_zero32(x: &f32) -> bool {
+    *x == 0.0
 }
 
 /// A deal agreed and not yet signed: the seven-day window after an offer
@@ -955,8 +964,15 @@ pub(crate) fn agent_read(w: &World, i: usize, t: usize, ideal: &Ideal, cap_year:
 /// His lowest number for club `t`, a year: his market less his discount
 /// there (item 1), never under the minimum.
 pub fn lowest(w: &World, i: usize, t: usize, ideal: &Ideal, own: bool) -> f64 {
+    lowest_with(w, i, t, ideal, own, 0.0)
+}
+
+/// [`lowest`], with a part `extra` added to his discount inside its cap
+/// (your "I'll sign you help", negotiation item 4).
+pub fn lowest_with(w: &World, i: usize, t: usize, ideal: &Ideal, own: bool, extra: f64) -> f64 {
     let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
-    (market_apy(w, i, ideal) * (1.0 - discount(w, i, t, own).total)).max(money::minimum(w.year, credited))
+    let d = (discount(w, i, t, own).total + extra).clamp(0.0, FLOOR_MAX);
+    (market_apy(w, i, ideal) * (1.0 - d)).max(money::minimum(w.year, credited))
 }
 
 /// How close an offer comes to his ideal, 0 to about 1.1: each part met
@@ -969,7 +985,7 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
     // isn't met, whatever the rest. Before, a flat 0.82 of his ideal after
     // tax for anyone whose money goal passed 0.3, and no floor at all
     // under it (a cliff).
-    let short = o.apy < lowest(w, i, o.team, ideal, own == Some(o.team));
+    let short = o.apy < lowest_with(w, i, o.team, ideal, own == Some(o.team), o.help as f64);
     if short || gtd_short { s.min(0.84) } else { s }
 }
 
@@ -1059,7 +1075,7 @@ pub(crate) fn make_offer(
         w.clubs[t].depth.get(pos.index()).map_or(0, |d| d.iter().filter(|&&j| j != i && grade(w, t, j) > view).count());
     let gtd = ideal.gtd.min(0.25 + 0.5 * o.owner.cash_will);
     let years = money::usual_years(pos, market_grade(w, pos, view), w.people[i].player.age);
-    Some(Offer { team: t, apy, years, gtd, start: ideal.start && better < slots.starters })
+    Some(Offer { team: t, apy, years, gtd, start: ideal.start && better < slots.starters, help: 0.0 })
 }
 
 /// A deal's terms (topic 4's term board, laid out the way real deals are):
@@ -1830,6 +1846,7 @@ pub(crate) fn open_league_year(w: &mut World, d: Date) {
                 years: id.years,
                 gtd: 0.0,
                 start: false,
+                help: 0.0,
             });
             sign_offer(w, i, &o, d, money::Kind::Veteran, "his team held his rights");
             w.market.year_mut(year).resigned += 1;
