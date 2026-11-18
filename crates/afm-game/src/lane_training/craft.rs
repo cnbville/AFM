@@ -27,7 +27,7 @@ fn lean(reader: u64, id: u32, k: u64) -> f64 {
 }
 
 /// How well his position coach spots flaws, in a word.
-fn eye_words(eye: f64) -> &'static str {
+pub(super) fn eye_words(eye: f64) -> &'static str {
     if eye >= 15.0 {
         "sharp"
     } else if eye >= 11.0 {
@@ -258,7 +258,7 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize, eye: f64) -> Value {
 }
 
 /// The seasons he has left with you, this one included (None for a pro).
-fn seasons_left(w: &World, i: usize) -> Option<u32> {
+pub(super) fn seasons_left(w: &World, i: usize) -> Option<u32> {
     use afm_engine::world::Stage as S;
     let p = &w.people[i];
     match p.stage {

@@ -276,3 +276,62 @@ fn a_strength_project_builds_a_big_responder_and_barely_moves_a_non_responder() 
     assert!(big.2 > 0.02 && big.2 < 0.09, "big responder's forty {:+.3}", big.2);
     assert!(none.0 < 1.5 && none.1 < 3.0, "non-responder {:.1} and {:.1} lb", none.0, none.1);
 }
+
+fn on(eye: f64, level: Level, years: u32) -> progression::ReadOn {
+    progression::ReadOn { eye, coaching: 12.0, level, years, seen_top: 60.0 }
+}
+
+#[test]
+fn your_staffs_project_read_is_a_range_on_its_own_view() {
+    // The screens' read (your development projects): the low end never
+    // tops the high end, the same stream gives the same read and
+    // staff_read still multiplies the two halves.
+    for id in 0..60u32 {
+        let mut p = boy(9_000 + id, Position::CB);
+        progression::ensure(&mut p);
+        let skills = progression::project_skills(&p);
+        assert!(skills.contains(&Attr::ManCoverage), "a corner's pool has man coverage: {skills:?}");
+        for &a in &skills {
+            let read = |eye: f64| progression::your_project_read(&p, a, on(eye, Level::FBS, 3), &mut Rng::new(id));
+            let (lo, hi, _) = read(10.0);
+            assert!(lo >= 0.0 && lo <= hi, "{a:?}: {lo} to {hi}");
+            assert_eq!(read(10.0), read(10.0));
+            let (room, seen) = progression::staff_view(&p, a, 1.0, 10.0, &mut Rng::new(id));
+            let r = progression::staff_read(&p, a, 1.0, 10.0, &mut Rng::new(id));
+            assert_eq!(r, room.max(0.0) * progression::pace(seen));
+        }
+        // A strength read narrows after years on it and never goes negative.
+        let (rows, lbs) = progression::your_body_read(&p, progression::BodyKind::Strength, 10.0, 10.0, 3);
+        assert!(rows.iter().all(|r| r.1 >= 0.0 && r.1 <= r.2 + 1e-9));
+        assert!(lbs.0 <= lbs.1 + 1e-9 && lbs.1 <= progression::BODY_LBS);
+    }
+    // A sharper eye sees his room with less noise.
+    assert!(progression::room_noise(20.0) < progression::room_noise(10.0));
+    // Past his fourth pro season a project reads nothing.
+    let mut p = boy(9_999, Position::WR);
+    progression::ensure(&mut p);
+    let mut rng = Rng::new(5);
+    for _ in 0..5 {
+        develop_season(&mut p, &SeasonContext::new(Level::NFL, 10.0, PlayingTime::Starter), &mut rng);
+    }
+    assert!(p.history.iter().filter(|h| h.level == Level::NFL).count() >= 4);
+    let (_, hi, _) = progression::your_project_read(&p, Attr::RouteRunning, on(10.0, Level::NFL, 4), &mut Rng::new(1));
+    assert_eq!(hi, 0.0);
+}
+
+#[test]
+fn an_ai_staff_adopts_a_project_your_staff_set() {
+    // A man who leaves your team with your project (a transfer, or you
+    // leave) is on an AI staff's rules from its next checkpoint: it adopts
+    // the project, and its dead-end rule judges it like its own.
+    let mut a = boy(9_500, Position::S);
+    progression::ensure(&mut a);
+    assert!(progression::start_project(&mut a, Attr::Tackling, true));
+    assert!(progression::start_body(&mut a, progression::BodyKind::Strength, true));
+    let out = progression::ai_room(&[&a], Room::S, progression::Lean::BALANCED, 10.0, 1.0, 3);
+    assert!(out.contains(&(0, progression::Change::Adopt)), "{out:?}");
+    for (_, c) in out {
+        progression::apply(&mut a, c);
+    }
+    assert!(!a.prog.yours && !a.prog.body_yours);
+}
