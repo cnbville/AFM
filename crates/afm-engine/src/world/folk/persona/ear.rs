@@ -409,6 +409,9 @@ impl Landing {
 /// The game's turn (5.3).
 #[derive(Clone, Debug, Default)]
 pub struct Turn {
+    /// Season review points a coach gave this turn (`talk::review_page`):
+    /// the talk keeps the count, so a push gives the next ones.
+    pub reviewed: u8,
     /// One answer per question, in order.
     pub told: Vec<Told>,
     /// Each claim and what checking it found.

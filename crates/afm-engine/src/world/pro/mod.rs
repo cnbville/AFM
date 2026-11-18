@@ -1718,24 +1718,33 @@ fn camp(w: &mut World, d: Date) {
     // yours to set. NFL staffs run them as balanced staffs (proposed, not
     // confirmed).
     let projects: std::collections::HashMap<usize, Vec<crate::progression::Change>> = {
-        use crate::progression::{Lean, Room, ai_room};
+        use crate::progression::{Lean, Room, StaffAt, ai_room, moved, staff_code};
         let mut rooms: std::collections::HashMap<(usize, Room), Vec<usize>> = Default::default();
+        let mut out = std::collections::HashMap::new();
         for &i in &pros {
             let p = &w.people[i];
             let Some(t) = p.pro.as_ref().and_then(|c| c.team) else { continue };
             let Some(room) = Room::of(p.player.position) else { continue };
             if !w.seat_club(t) {
                 rooms.entry((t, room)).or_default().push(i);
+            } else {
+                // Your club's rooms are yours, but what he brought from his
+                // last staff ends here as on any staff.
+                let m = moved(&p.player, staff_code(StaffAt::Nfl, t));
+                if !m.is_empty() {
+                    out.insert(i, m);
+                }
             }
         }
         let mut keys: Vec<(usize, Room)> = rooms.keys().copied().collect();
         keys.sort_by_key(|k| (k.0, k.1 as u8));
-        let mut out = std::collections::HashMap::new();
         for k in keys {
             let ids = &rooms[&k];
             let members: Vec<&crate::player::Player> = ids.iter().map(|&i| &w.people[i].player).collect();
             let seed = (year as u32).wrapping_mul(0x51_7CC1) ^ (k.0 as u32).wrapping_mul(0x2F0B) ^ (k.1 as u32) << 24;
-            for (m, c) in ai_room(&members, k.1, Lean::BALANCED, w.nfl[k.0].coaching, 1.0, seed) {
+            for (m, c) in
+                ai_room(&members, k.1, Lean::BALANCED, w.nfl[k.0].coaching, 1.0, staff_code(StaffAt::Nfl, k.0), seed)
+            {
                 out.entry(ids[m]).or_insert_with(Vec::new).push(c);
             }
         }

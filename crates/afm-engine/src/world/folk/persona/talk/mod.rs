@@ -41,7 +41,8 @@ pub mod recruit;
 
 use super::Them;
 use super::ear::{Act, ActKind, Confirm, Ends, HisAsk, Item, Reading, Resolving, Say, Sized, Turn};
-use super::knows::{Answer, Knows, TellParts, Tells, Topic};
+use super::knowing;
+use super::knows::{Answer, Known, Knows, TellParts, Tells, Topic};
 use super::memory::{HisLie, Line, Secret, Treated};
 use super::room::{Room, Seat};
 use super::terms::{Valuing, Weighed};
@@ -253,7 +254,7 @@ impl Resolving for Conversation<'_> {
                     answered = true;
                 }
                 Act::Question { topic, about, .. } => {
-                    let again = open.asked_before(*topic, *about) || asked_now.contains(&(*topic, *about));
+                    let mut again = open.asked_before(*topic, *about) || asked_now.contains(&(*topic, *about));
                     asked_now.push((*topic, *about));
                     let known = self.parts.knows.knows(w, him, *topic, *about);
                     let pushed = open.pushed(*about) + t.told.len() as u8;
@@ -266,6 +267,19 @@ impl Resolving for Conversation<'_> {
                         pushed,
                     };
                     let mut told = self.parts.tells.tell(w, him, &known, &parts);
+                    // A coach of yours on his own unit walks you through his
+                    // season review: the heaviest points first, the rest when
+                    // you push for more (Cain 2026-11-17: "I was hoping for
+                    // more analysis" got one general line).
+                    if knowing::is_unit_view(w, him, *topic, *about)
+                        && matches!(told.answer, Answer::Straight | Answer::Partly)
+                        && let Some((page, given)) =
+                            review_page(&known, told.answer == Answer::Straight, (open.reviewed + t.reviewed) as usize)
+                    {
+                        told.released = page;
+                        t.reviewed = t.reviewed.saturating_add(given as u8);
+                        again = false;
+                    }
                     // Asked about his own life and nothing's stored: there's
                     // no news, not a thing he doesn't know ("How's the
                     // family?" is never "I'd rather not guess").
@@ -1342,4 +1356,34 @@ fn asked_last(s: &Scene) -> bool {
         let t = l.text.replace('\u{2019}', "'").to_lowercase();
         l.by != 1 && (t.contains('?') || ASK_NOW.iter().any(|w| t.contains(w)))
     })
+}
+
+/// A coach's season review as he gives it (`review`), with how many of
+/// its points this gives: the first time, the header, his heaviest points
+/// (`review::FIRST_POINTS`, one when he holds back) and what he'd fix
+/// first; once he has given `given` points, the next ones (a push gets
+/// three more, one when he holds back). None when the answer isn't a
+/// review, or he has nothing left to give.
+pub(crate) fn review_page(known: &[Known], straight: bool, given: usize) -> Option<(Vec<String>, usize)> {
+    use super::review::{FIRST_POINTS, FIX, HEADER};
+    let (header, rest) = known.split_first()?;
+    if !header.words.starts_with(HEADER) {
+        return None;
+    }
+    let (fix, points) = match rest.split_last() {
+        Some((f, p)) if f.words.starts_with(FIX) => (Some(f.words.clone()), p),
+        _ => (None, rest),
+    };
+    let n = if straight { FIRST_POINTS } else { 1 };
+    let next: Vec<String> = points.iter().skip(given).take(n).map(|k| k.words.clone()).collect();
+    let count = next.len();
+    if given == 0 {
+        let mut v = vec![header.words.clone()];
+        v.extend(next);
+        if straight {
+            v.extend(fix);
+        }
+        return Some((v, count));
+    }
+    (count > 0).then_some((next, count))
 }
