@@ -302,7 +302,8 @@ pub fn board(w: &World, c: usize) -> Vec<usize> {
 }
 
 /// The recruits who signed with his program through him over the last
-/// `CLASSES` classes, best first: on the roster now or signed and coming.
+/// `CLASSES` classes, best first: on the roster now (this class's early
+/// enrollees too) or signed and coming.
 pub fn signed_through(w: &World, c: usize) -> Vec<usize> {
     let Some(p) = program_of(w, c) else { return Vec::new() };
     let class = crate::world::front_office::college::next_class(w);
@@ -310,7 +311,7 @@ pub fn signed_through(w: &World, c: usize) -> Vec<usize> {
     let mut v: Vec<usize> = Vec::new();
     for &i in &w.programs[p].roster {
         let x = &w.people[i];
-        if x.class_of >= first && x.class_of < class && x.transfers == 0 && !x.juco {
+        if x.class_of >= first && x.class_of <= class && x.transfers == 0 && !x.juco {
             v.push(i);
         }
     }
