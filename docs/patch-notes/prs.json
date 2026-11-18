@@ -1716,6 +1716,21 @@
   "title": "Coach fire: fire by the kind of work, targeting and the spark",
   "tldr": "Your pregame and halftime words now reach the field the way real emotion does: a fired-up hitter hits harder and goes for the ball, but a pocket passer pushed past his best pitch gets jumpy and misses throws."
  },
+ "531": {
+  "auto": false,
+  "bullets": [
+   "Trainers, dietitians, sports scientists, tutors and a behavioral health clinician are people on your staff page, each with their own track record.",
+   "A rich program with a deep staff finds injuries sooner and keeps its backups healthier; a thin one looks after its starters first.",
+   "A good dietitian gets a young lineman to his playing weight sooner, and a clinician helps a player through a death in the family or a benching.",
+   "Assistants step up to run departments, and other teams hire your best ones away.",
+   "High schools have a full-time athletic trainer, a part-time one or none."
+  ],
+  "h": "306e7731846f",
+  "look": "your staff page's Performance and Medical departments.",
+  "players": true,
+  "title": "Support staff as full departments",
+  "tldr": "Your support staff are now real departments, and how many good people you can afford changes how your players grow, heal and keep their grades."
+ },
  "532": {
   "auto": false,
   "bullets": [
@@ -1808,6 +1823,15 @@
   "title": "Capital lane CS5: the Pecking order screen",
   "tldr": "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans."
  },
+ "541": {
+  "auto": false,
+  "bullets": [],
+  "h": "906d5f48b227",
+  "look": "",
+  "players": false,
+  "title": "Engine gaps: the 30 agreed items, lanes EG1-EG7, match_check's counts and how-it-works corrections",
+  "tldr": ""
+ },
  "542": {
   "auto": false,
   "bullets": [
@@ -1846,5 +1870,69 @@
   "players": true,
   "title": "World additions: spec for the agreed items 1, 6 and 7 (docs)",
   "tldr": "Docs only."
+ },
+ "549": {
+  "auto": false,
+  "bullets": [
+   "The hover card and compare name the season (\"2024 season\") instead of \"Last season\".",
+   "Until a college season's title game is played, its numbers so far show on their own line.",
+   "NFL players show this year's numbers so far until the regular season ends.",
+   "A pro's card shows his pro seasons, not his old college year."
+  ],
+  "h": "9720a4a234bf",
+  "look": "hover a player in January, before the title game.",
+  "players": true,
+  "title": "Name a player's stat line by its year and show the season so far",
+  "tldr": "A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake."
+ },
+ "551": {
+  "auto": true,
+  "bullets": [],
+  "h": "ef2efa4195e2",
+  "look": "",
+  "players": true,
+  "title": "Revert world additions 1, 6 and 7 (docs)",
+  "tldr": "Docs only."
+ },
+ "552": {
+  "auto": false,
+  "bullets": [
+   "Start or end a skill project or a body project from a player's Development tab, under Focus.",
+   "Before you confirm, see your staff's read of what it could add as a range, the practice time, what it costs his other technique, and the extra wear.",
+   "Each position room keeps its real number of project slots, and the strength staff runs one body project a room.",
+   "The Training screen's Players tab shows every room's projects at a glance."
+  ],
+  "h": "b96e42030b57",
+  "look": "a young player's Development tab, Focus, then Development projects.",
+  "players": true,
+  "title": "Let you start development projects from the Development tab",
+  "tldr": "You can now start development projects for your own players: a skill project with his position coach, or a body project with the strength staff, with your staff's honest read before you commit."
+ },
+ "553": {
+  "auto": false,
+  "bullets": [
+   "When something you say sounds like you are wrapping up, a prompt asks if you want to continue.",
+   "Continue keeps the talk going, and what you said still counts.",
+   "End closes the talk the way it did before.",
+   "Typing \"end the talk\" still ends it straight away."
+  ],
+  "h": "f809656d2bbe",
+  "look": "say \"okay, that's all for now\" in any talk.",
+  "players": true,
+  "title": "Ask before a goodbye closes a live talk",
+  "tldr": "If a line of yours sounds like a goodbye, the talk no longer shuts on you. You get a quick choice to keep talking or end it."
+ },
+ "555": {
+  "auto": false,
+  "bullets": [
+   "Typing no longer queues up a search for every letter.",
+   "Players, coaches, teams, towns, records, notes and mail are found much faster in a big world.",
+   "Shows \"Searching…\" while it works, and a plain message if the game is busy."
+  ],
+  "h": "1dcc6c5f3ab3",
+  "look": "press ⌘K and type a name or two letters of one.",
+  "players": true,
+  "title": "Make the search bar fast",
+  "tldr": "The search bar (⌘K) now answers as you type instead of lagging behind, and tells you when it is still looking or could not finish."
  }
 }

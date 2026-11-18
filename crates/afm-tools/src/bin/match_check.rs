@@ -825,6 +825,123 @@ fn main() {
                 *m.entry("pr_sack").or_default() += (p.kind == PlayType::Sack) as u8 as f64;
                 *m.entry("pr_comp").or_default() += p.complete as u8 as f64;
             }
+            // Play action (scheme-fit item 3), as FTN charts it: dropbacks
+            // with screens and RPOs left out, the boot on its own.
+            if !p.nullified
+                && matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+                && !p.call.contains("screen")
+                && !p.call.contains("RPO")
+            {
+                let keys: [&'static str; 9] = if p.play_action {
+                    ["pa_db", "pa_epa", "pa_sack", "pa_prs", "pa_scr", "pa_att", "pa_ttt", "pa_pyds", "pa_air"]
+                } else {
+                    ["npa_db", "npa_epa", "npa_sack", "npa_prs", "npa_scr", "npa_att", "npa_ttt", "npa_pyds", "npa_air"]
+                };
+                let att = p.kind == PlayType::Pass && !p.throw_away;
+                let vals = [
+                    1.0,
+                    p.epa,
+                    (p.kind == PlayType::Sack) as u8 as f64,
+                    p.pressured as u8 as f64,
+                    (p.kind == PlayType::Scramble) as u8 as f64,
+                    att as u8 as f64,
+                    if att { p.time_to_throw } else { 0.0 },
+                    if att && p.complete { p.yards } else { 0.0 },
+                    if att { p.air_yards } else { 0.0 },
+                ];
+                for (k, x) in keys.into_iter().zip(vals) {
+                    *m.entry(k).or_default() += x;
+                }
+                // By where the quarterback lines up (real: under center
+                // 14.1% of dropbacks with 79.8% play action, the pistol 3.2%
+                // with 40.7%, the shotgun 81.4% with 10.4%).
+                let (bk, bpa): (&'static str, &'static str) = if p.call.contains(" under center ") {
+                    ("db_uc", "pa_uc")
+                } else if p.call.contains(" pistol ") {
+                    ("db_pi", "pa_pi")
+                } else {
+                    ("db_gun", "pa_gun")
+                };
+                *m.entry(bk).or_default() += 1.0;
+                *m.entry(bpa).or_default() += p.play_action as u8 as f64;
+                // By down (real 1st 36.6%, 2nd 20.8%, 3rd and 4th 4.2%).
+                let (dk, dpa): (&'static str, &'static str) = match p.down {
+                    1 => ("db_d1", "pa_d1"),
+                    2 => ("db_d2", "pa_d2"),
+                    _ => ("db_d3", "pa_d3"),
+                };
+                *m.entry(dk).or_default() += 1.0;
+                *m.entry(dpa).or_default() += p.play_action as u8 as f64;
+                // Throw depth on play action (real 2024: behind the line
+                // 14.8%, 0-9 44.8%, 10-19 26.5%, 20+ 13.9%).
+                if p.play_action && att {
+                    let b = if p.air_yards < 0.0 {
+                        "pa_ay0"
+                    } else if p.air_yards < 10.0 {
+                        "pa_ay1"
+                    } else if p.air_yards < 20.0 {
+                        "pa_ay2"
+                    } else {
+                        "pa_ay3"
+                    };
+                    *m.entry(b).or_default() += 1.0;
+                }
+                // Each play action concept on its own.
+                for (name, k) in [
+                    ("play-action shot", ["pas_db", "pas_epa", "pas_sack", "pas_prs", "pas_scr"]),
+                    ("play-action dig", ["pad_db", "pad_epa", "pad_sack", "pad_prs", "pad_scr"]),
+                    ("play-action boot", ["pab_db", "pab_epa", "pab_sack", "pab_prs", "pab_scr"]),
+                ] {
+                    if p.play_action && p.call.contains(name) {
+                        let v = [
+                            1.0,
+                            p.epa,
+                            (p.kind == PlayType::Sack) as u8 as f64,
+                            p.pressured as u8 as f64,
+                            (p.kind == PlayType::Scramble) as u8 as f64,
+                        ];
+                        for (k, x) in k.into_iter().zip(v) {
+                            *m.entry(k).or_default() += x;
+                        }
+                    }
+                }
+                if p.call.contains("boot") {
+                    *m.entry("boot_db").or_default() += 1.0;
+                    *m.entry("boot_sack").or_default() += (p.kind == PlayType::Sack) as u8 as f64;
+                    *m.entry("boot_epa").or_default() += p.epa;
+                }
+            }
+            // Where the quarterback lines up for each kind of play (FTN,
+            // NFL 2022-25: runs and play action 58% under center, straight
+            // drops 4%, screens 19%), and screens off a fake (27%).
+            if !p.nullified && !p.call.contains("RPO") {
+                let kind = match p.kind {
+                    PlayType::Run => Some(0),
+                    PlayType::Pass | PlayType::Sack | PlayType::Scramble if p.call.contains("screen") => Some(3),
+                    PlayType::Pass | PlayType::Sack | PlayType::Scramble => Some(if p.play_action { 1 } else { 2 }),
+                    _ => None,
+                };
+                if let Some(k) = kind {
+                    const SPOT: [[&str; 4]; 4] = [
+                        ["sp_run", "sp_run_u", "sp_run_p", "sp_run_s"],
+                        ["sp_pa", "sp_pa_u", "sp_pa_p", "sp_pa_s"],
+                        ["sp_drop", "sp_drop_u", "sp_drop_p", "sp_drop_s"],
+                        ["sp_scr", "sp_scr_u", "sp_scr_p", "sp_scr_s"],
+                    ];
+                    let at = if p.call.contains(" under center ") {
+                        1
+                    } else if p.call.contains(" pistol ") {
+                        2
+                    } else {
+                        3
+                    };
+                    *m.entry(SPOT[k][0]).or_default() += 1.0;
+                    *m.entry(SPOT[k][at]).or_default() += 1.0;
+                    if k == 3 {
+                        *m.entry("sp_scr_pa").or_default() += p.play_action as u8 as f64;
+                    }
+                }
+            }
             match p.kind {
                 PlayType::Pass => {
                     if p.complete {
@@ -1400,6 +1517,73 @@ fn main() {
     row("  thrown under 2.5 s", g("ttt_u25") / g("att"), Some(0.5));
     row("  thrown after 3.94 s", g("ttt_o39") / g("att"), Some(0.1));
     row("sacks per pressure", g("pr_sack") / g("pr_n"), Some(0.283));
+    // Play action (scheme-fit item 3; real 2024 NFL with FTN charting,
+    // screens and RPOs left out, `afm/scheme-fit/full-pass.md`): 21.2% of
+    // dropbacks, +0.149 EPA a dropback against +0.031, sacked 6.6% against
+    // 7.3%, boots and rollouts 5.7% (play action out of the pocket, 36% of
+    // play action, flushed passers too), 3.15 s to throw against 2.66, 8.60
+    // yards an attempt against 6.93. The
+    // pressure flag counts as PFR's does, a narrower one than the
+    // participation data's (36.9% against 30.9%), so only its rise is real.
+    let (pa, npa) = (g("pa_db").max(1.0), g("npa_db").max(1.0));
+    row("play action share", pa / (pa + npa), Some(0.212));
+    let dbs = pa + npa;
+    row("  dropbacks under center", g("db_uc") / dbs, Some(0.141));
+    row("    play action there", g("pa_uc") / g("db_uc").max(1.0), Some(0.798));
+    row("  dropbacks from the pistol", g("db_pi") / dbs, Some(0.032));
+    row("    play action there", g("pa_pi") / g("db_pi").max(1.0), Some(0.407));
+    row("  dropbacks from the shotgun", g("db_gun") / dbs, Some(0.814));
+    row("    play action there", g("pa_gun") / g("db_gun").max(1.0), Some(0.104));
+    row("  on 1st down", g("pa_d1") / g("db_d1").max(1.0), Some(0.366));
+    row("  on 2nd down", g("pa_d2") / g("db_d2").max(1.0), Some(0.208));
+    row("  on 3rd and 4th down", g("pa_d3") / g("db_d3").max(1.0), Some(0.042));
+    row("  EPA a dropback, play action", g("pa_epa") / pa, Some(0.149));
+    row("  EPA a dropback, no play action", g("npa_epa") / npa, Some(0.031));
+    row("  sack rate, play action", g("pa_sack") / pa, Some(0.066));
+    row("  sack rate, no play action", g("npa_sack") / npa, Some(0.073));
+    row("  sack rate, boots", g("boot_sack") / g("boot_db").max(1.0), Some(0.057));
+    row("  boots, share of play action", g("boot_db") / pa, None);
+    for (name, k) in [("shot", "pas"), ("dig", "pad"), ("boot", "pab")] {
+        let n = g(&format!("{k}_db")).max(1.0);
+        println!(
+            "  {name:5} share of play action {:.3}, EPA {:+.3}, sacked {:.3}, pressured {:.3}, scrambles {:.3}",
+            n / pa,
+            g(&format!("{k}_epa")) / n,
+            g(&format!("{k}_sack")) / n,
+            g(&format!("{k}_prs")) / n,
+            g(&format!("{k}_scr")) / n
+        );
+    }
+    row("  pressure, play action / none", (g("pa_prs") / pa) / (g("npa_prs") / npa).max(1e-9), Some(1.19));
+    row("  time to throw, play action", g("pa_ttt") / g("pa_att").max(1.0), Some(3.15));
+    row("  time to throw, no play action", g("npa_ttt") / g("npa_att").max(1.0), Some(2.66));
+    row("  yards an attempt, play action", g("pa_pyds") / g("pa_att").max(1.0), Some(8.60));
+    row("  yards an attempt, no play action", g("npa_pyds") / g("npa_att").max(1.0), Some(6.93));
+    row("  air yards an attempt, play action", g("pa_air") / g("pa_att").max(1.0), Some(9.2));
+    row("  air yards an attempt, no play action", g("npa_air") / g("npa_att").max(1.0), Some(8.9));
+    let pat = g("pa_att").max(1.0);
+    row("  play action throws behind the line", g("pa_ay0") / pat, Some(0.148));
+    row("  play action throws 0-9 air yards", g("pa_ay1") / pat, Some(0.448));
+    row("  play action throws 10-19 air yards", g("pa_ay2") / pat, Some(0.265));
+    row("  play action throws 20+ air yards", g("pa_ay3") / pat, Some(0.139));
+    row("  scrambles, play action", g("pa_scr") / pa, Some(0.070));
+    row("  scrambles, no play action", g("npa_scr") / npa, Some(0.054));
+    // Where the quarterback lines up (FTN, NFL 2022-25).
+    let all_snaps = ["sp_run", "sp_pa", "sp_drop", "sp_scr"].iter().map(|k| g(k)).sum::<f64>().max(1.0);
+    let uc_all = ["sp_run_u", "sp_pa_u", "sp_drop_u", "sp_scr_u"].iter().map(|k| g(k)).sum::<f64>();
+    row("snaps under center", uc_all / all_snaps, Some(0.319));
+    for (name, k, real) in [
+        ("runs", "sp_run", [0.580, 0.101, 0.314]),
+        ("play action", "sp_pa", [0.581, 0.048, 0.368]),
+        ("straight drops", "sp_drop", [0.040, 0.014, 0.941]),
+        ("screens", "sp_scr", [0.187, 0.030, 0.781]),
+    ] {
+        let n = g(k).max(1.0);
+        for (j, at) in ["under center", "pistol", "shotgun"].iter().enumerate() {
+            row(&format!("  {name}, {at}"), g(&format!("{k}_{}", ["u", "p", "s"][j])) / n, Some(real[j]));
+        }
+    }
+    row("  screens off a fake", g("sp_scr_pa") / g("sp_scr").max(1.0), Some(0.273));
     row("dropbacks with a rush win", g("rw_any") / g("rw_n"), None);
     row("completions per pressure", g("pr_comp") / g("pr_n"), None);
     row("air yards per att", g("air_yards") / g("att"), None);

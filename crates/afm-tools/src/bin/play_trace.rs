@@ -128,7 +128,15 @@ fn main() {
     };
     // AFM_BASE=1: 12 personnel under center against a base defense.
     let base = std::env::var("AFM_BASE").is_ok();
-    let (pers, bf) = if base { (Personnel::P12, Backfield::UnderCenter) } else { (Personnel::P11, Backfield::Shotgun) };
+    let (pers, mut bf) =
+        if base { (Personnel::P12, Backfield::UnderCenter) } else { (Personnel::P11, Backfield::Shotgun) };
+    // AFM_BF picks the backfield (uc, pistol, gun) whatever the personnel.
+    match std::env::var("AFM_BF").as_deref() {
+        Ok("uc") => bf = Backfield::UnderCenter,
+        Ok("pistol") => bf = Backfield::Pistol,
+        Ok("gun") => bf = Backfield::Shotgun,
+        _ => {}
+    }
     // AFM_SET picks the set (0 doubles .. 5 wing), AFM_MOTION the motion
     // (0 none, 1 jet, 2 orbit, 3 across, 4 shift).
     let env_n = |k: &str| std::env::var(k).ok().and_then(|v| v.parse::<usize>().ok());
@@ -141,10 +149,24 @@ fn main() {
             motions[k % motions.len()]
         });
     let dir = if kind == PlayKind::Run(RunConcept::JetSweep) { -1.0 } else { 1.0 };
-    let call = OffCall::new(formation, kind, dir, false);
+    let mut call = OffCall::new(formation, kind, dir, false);
+    // AFM_FAKE=1 fakes the run before the throw (play action).
+    call.fake = std::env::var("AFM_FAKE").is_ok_and(|v| v == "1");
     // AFM_COV picks the coverage (0 Cover 0 .. 9 Cover 3 match), default Cover 3.
     let cov = env_n("AFM_COV").map_or(Coverage::Cover3, |k| Coverage::ALL[k % COVERAGE_COUNT]);
-    let pressure = if cov == Coverage::Cover0 { Pressure::DoubleA } else { Pressure::Four };
+    // AFM_PRESSURE picks the pressure (0 four-man rush .. 5 fire zone).
+    let pressures = [
+        Pressure::Four,
+        Pressure::LbBlitz,
+        Pressure::DbBlitz,
+        Pressure::DoubleA,
+        Pressure::Simulated,
+        Pressure::FireZone,
+    ];
+    let pressure = env_n("AFM_PRESSURE")
+        .map_or(if cov == Coverage::Cover0 { Pressure::DoubleA } else { Pressure::Four }, |k| {
+            pressures[k % pressures.len()]
+        });
     let dcall = DefCall::new(if base { DefPersonnel::Base } else { DefPersonnel::Nickel }, cov, pressure);
     // A third argument sweeps that many seeds without the trace.
     if let Some(n) = args.get(3).and_then(|s| s.parse::<u64>().ok()) {
@@ -153,8 +175,16 @@ fn main() {
             let los = std::env::var("AFM_LOS").ok().and_then(|v| v.parse().ok()).unwrap_or(30.0);
             let r = trace_snap_opt(&a, &b, level, call, dcall, los, s, false);
             println!(
-                "{s:>4} {:?} {:+.1} air {:.0} sep {:.1} cmp {} | {}",
-                r.kind, r.yards, r.air_yards, r.separation, r.complete as u8, r.why
+                "{s:>4} {:?} {:+.1} air {:.0} sep {:.1} cmp {} sack {} prs {} ttt {:.2} | {}",
+                r.kind,
+                r.yards,
+                r.air_yards,
+                r.separation,
+                r.complete as u8,
+                !r.sackers.is_empty() as u8,
+                r.pressured as u8,
+                r.time_to_throw,
+                r.why
             );
             ys.push(r.yards);
         }
