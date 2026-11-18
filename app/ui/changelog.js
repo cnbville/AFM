@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.624", date: "18 Nov", title: "Make the search bar fast and 4 more",
+    notes: [
+      "A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake.",
+      "The hover card and compare name the season (\"2024 season\") instead of \"Last season\".",
+      "Until a college season's title game is played, its numbers so far show on their own line.",
+      "NFL players show this year's numbers so far until the regular season ends.",
+      "A pro's card shows his pro seasons, not his old college year.",
+      "You can now start development projects for your own players: a skill project with his position coach, or a body project with the strength staff, with your staff's honest read before you commit.",
+    ],
+  },
+  {
     v: "0.2.619", date: "18 Nov", title: "Scheme-fit lane SF3: a blocked man is out of the play and 2 more",
     notes: [
       "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.",
