@@ -41,6 +41,9 @@ pub mod voice;
 pub struct EarCard {
     /// The meeting: what, where, when, at what level, by what channel.
     pub setting: String,
+    /// The time of year on his team's calendar and the next dates
+    /// (`talk::year::words`).
+    pub year: String,
     /// You.
     pub coach: String,
     /// The man across: name, role, class year.
@@ -320,6 +323,10 @@ pub struct VoiceCard {
     /// The meeting, the place and the channel (the setting changes how he
     /// talks).
     pub setting: String,
+    /// The time of year on his team's calendar and the next dates
+    /// (`talk::year::words`): out of season there is no game to see
+    /// anything in.
+    pub year: String,
     pub coach: String,
     /// Him: name, role, class year.
     pub them: String,

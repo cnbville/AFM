@@ -162,6 +162,7 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     };
     let Some(him) = talk::across(room) else { return (c, keys) };
     c.them = person(w, him);
+    c.year = talk::year::words(w, him);
     let add = |c: &mut EarCard, keys: &mut EarKeys, who: Them, why: &str| {
         if keys.people.iter().any(|(_, x)| *x == who) {
             return;
@@ -376,6 +377,7 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
     }
     VoiceCard {
         setting: voice_setting(w, s, room),
+        year: talk::year::words(w, him),
         coach: coach(w),
         them: person(w, him),
         background,
@@ -465,7 +467,11 @@ impl EarCard {
     /// The ear's text: the card, the talk so far and your line.
     pub fn text(&self, today: &str) -> String {
         let mut out = String::from("<card>\n");
-        out.push_str(&format!("Setting: {}.\nToday: {today}.\nCoach: {}.\n", self.setting, self.coach));
+        out.push_str(&format!("Setting: {}.\nToday: {today}.\n", self.setting));
+        if !self.year.is_empty() {
+            out.push_str(&format!("Time of year: {}.\n", self.year));
+        }
+        out.push_str(&format!("Coach: {}.\n", self.coach));
         if !self.them.is_empty() {
             out.push_str(&format!("Across from him: {}.\n", self.them));
         }
@@ -509,6 +515,7 @@ impl VoiceCard {
             }
         };
         put("Setting", &self.setting);
+        put("Time of year (his team's calendar: talk in it)", &self.year);
         put("Coach", &self.coach);
         put("You are", &self.them);
         put("Background", &self.background);

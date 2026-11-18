@@ -138,7 +138,11 @@ fn a_pro_asks_his_market_price_moved_by_greed_and_your_first_number() {
     let f = Fake { wants: wants(&[WantKind::Money, WantKind::Role]), ..Default::default() };
     let d = Deals { wants: &f };
     let money = |x: f64| Offer { gives: vec![Give::Money(x)], ..Default::default() };
-    let ask = worth * (1.0 + deals::ASK_GREED);
+    // His ask comes down by his own discount for your club (the
+    // negotiation overhaul, item 1).
+    let club = w.seat.and_then(|s| s.nfl_team).unwrap();
+    let home = crate::world::pro::market::discount(&w, i, club, true).total;
+    let ask = worth * (1.0 + deals::ASK_GREED - home);
     // Over his ask: yes (his agent may take a day or two); with your
     // deadline this week, yes now.
     let rich = money(ask * 1.05);
