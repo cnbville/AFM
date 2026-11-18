@@ -84,6 +84,10 @@ pub struct EarAct {
     /// The person it's about, by tag.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub about: Option<String>,
+    /// Who a request is put to, by tag, when it isn't the man across (ear
+    /// audit item 4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub of: Option<String>,
     /// A claim's kind (`claims::truth::CLAIM_KINDS`) and value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim: Option<String>,
@@ -96,9 +100,12 @@ pub struct EarAct {
     /// schema.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub what: String,
-    /// A date in your words (a deadline).
+    /// By when (a promise's date, a goal every year).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub when: String,
+    /// A deadline's date, YYYY-MM-DD.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub date: String,
     /// The words of the act, short.
     #[serde(default)]
     pub words: String,

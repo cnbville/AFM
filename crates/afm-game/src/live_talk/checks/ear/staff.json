@@ -7,11 +7,13 @@
   "people": [
    {
     "tag": "p1",
-    "text": "Terrence Reyes, offensive coordinator (the man across from you)"
+    "text": "Terrence Reyes, offensive coordinator (the man across from you)",
+    "kind": "coach"
    },
    {
     "tag": "p2",
-    "text": "Marcus Hill, WR, sophomore (the player this is about)"
+    "text": "Marcus Hill, WR, sophomore (the player this is about)",
+    "kind": "player"
    }
   ],
   "items": [
@@ -119,6 +121,9 @@
      "act": "end"
     }
    ]
+  },
+  {
+   "text": "I wanted to say thanks for everything you do for this program."
   },
   {
    "text": "I want you to take a look at Hill, I want to decide if we should cut him",
