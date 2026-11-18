@@ -6,7 +6,7 @@
 use crate::calendar::Level as CalLevel;
 use crate::game::rules::{Rules, Targeting};
 use crate::game::sim::FoulKind;
-use crate::game::stats::HitFlag;
+use crate::game::stats::{HitFlag, PlayType};
 use crate::game::synthetic::synthetic_league;
 use crate::player::Level;
 use crate::positions::Position;
@@ -57,7 +57,21 @@ fn a_first_half_sitter_comes_back_at_halftime() {
             .count()
     };
     assert_eq!(on(false), 0, "he sits the first half");
-    assert!(on(true) > 10, "and starts the second: {} snaps", on(true));
+    // He starts the second half and plays it while his team has everyone
+    // in: a blowout sends a beaten team to its backups (garbage time), and
+    // this game became one when engine gaps lane EG2 changed its draws (his
+    // team down 3-38 late in the third quarter, after 7 snaps of his).
+    let snaps: Vec<_> = r
+        .stats
+        .plays
+        .iter()
+        .filter(|p| p.quarter >= 3 && p.offense == 1 && p.garbage[0] == 0)
+        .filter(|p| matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble))
+        .collect();
+    let played = snaps.iter().filter(|p| p.on_field[1].contains(&id)).count();
+    assert!(snaps.len() >= 5, "a second half to play: {} snaps before garbage time", snaps.len());
+    assert!(snaps[0].on_field[1].contains(&id), "he starts the second half");
+    assert!(played * 10 >= snaps.len() * 9, "and plays it: {played} of {} snaps", snaps.len());
 }
 
 fn flag(id: u32, kind: FoulKind, ejected: bool, second_half: bool) -> HitFlag {

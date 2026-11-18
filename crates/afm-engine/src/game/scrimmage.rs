@@ -1934,7 +1934,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     // snap.
     let aborted = !resumed && sim.notes.fumble.is_some_and(|f| f.how == super::sim::FumbleHow::Snap);
     if let Some(ps) = p {
-        res.time_to_throw = ps.thrown.unwrap_or(sim.t);
+        // Unthrown, he had it until it came out (a strip sack's loose ball
+        // plays on after it) or the play ended.
+        res.time_to_throw = ps.thrown.unwrap_or(sim.loose.map_or(sim.t, |l| l.since));
         res.pressured = ps.pressured_at.is_some();
         res.moving = ps.moving && ps.thrown.is_some();
         res.hit = ps.hit;
