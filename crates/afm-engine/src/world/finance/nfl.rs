@@ -597,6 +597,8 @@ pub(crate) fn year_start(w: &mut World) {
         open_projects(w, t, year);
         open_year(w, t, year);
     }
+    // Capital lane C6: the clubs' rooms age, owners renovate (CP22, CP27).
+    crate::world::capital::nfl::year(w);
     if year == franchise::PRESENT {
         for (t, name, seats, opens, cost, public, renovation) in data::PROJECTS_2026 {
             if t >= n {
@@ -671,6 +673,9 @@ fn open_projects(w: &mut World, t: usize, year: i32) {
                 c.facility = 1.0;
                 c.facility_year = year;
             }
+        }
+        if p.kind == ProjectKind::Facility {
+            crate::world::capital::nfl::opened_building(w, t);
         }
         // A club moving opens its new home in its new city.
         if let Some((city, state, when)) = moving
@@ -1251,21 +1256,40 @@ fn report_cards(w: &mut World, year: i32) {
         let c = &w.finance.nfl[t];
         let cl = &w.clubs[t];
         let o = &cl.office.owner;
-        let z = |r: u8| crate::world::people::Support::z(r);
-        let fac = c.facility as f64 * 0.7 + 0.3 * (1.0 - c.home.age(year) as f64 / 30.0).max(0.0);
+        // The weight room and the training room grade the departments
+        // (support departments), not the heads alone.
+        let dz = |a: crate::world::departments::Area| {
+            crate::world::people::Support::zf(crate::world::departments::team(w, crate::world::people::Who::Club(t), a))
+        };
+        let (dz_strength, dz_med) =
+            (dz(crate::world::departments::Area::Strength), dz(crate::world::departments::Area::Medical));
         let am = c.amenities as f64;
         let mood = cl.team_mood as f64;
         let hc = w.nfl[t].head_coach.and_then(|h| w.coaches.get(h));
         let coach = hc.map_or(0.0, |h| (h.ability().relationships - 10.0) / 10.0);
+        // The rooms move their own lines once they live (Capital lane C6,
+        // CP35); before that the lines read the one facility number.
+        let rooms = crate::world::capital::nfl::card_lines(
+            w,
+            t,
+            crate::world::capital::nfl::CardBase {
+                family: c.family as f64,
+                am,
+                strength: 0.5 + 0.5 * dz_strength,
+                med: 0.5 + 0.5 * dz_med,
+                newness: (1.0 - c.home.age(year) as f64 / 30.0).max(0.0),
+                facility: c.facility as f64,
+            },
+        );
         let raw = [
-            0.6 * c.family as f64 + 0.4 * am,
-            am,
-            0.6 * am + 0.4 * (0.5 + 0.5 * z(cl.support.strength.rating)),
-            fac,
-            0.6 * fac + 0.4 * (0.5 + 0.5 * z(cl.support.medical.rating)),
-            0.5 + 0.5 * z(cl.support.medical.rating),
-            fac,
-            0.5 + 0.5 * z(cl.support.strength.rating),
+            rooms[0],
+            rooms[1],
+            rooms[2],
+            rooms[3],
+            rooms[4],
+            0.5 + 0.5 * dz_med,
+            rooms[5],
+            0.5 + 0.5 * dz_strength,
             0.5 * am + 0.5 * o.cash_will,
             clamp(0.5 + 0.35 * coach + 0.3 * mood, 0.0, 1.0),
             clamp(
@@ -1338,6 +1362,11 @@ fn report_cards(w: &mut World, year: i32) {
         let building =
             w.finance.projects.iter().any(|p| p.owner == Owner::Nfl(t) && !p.done && p.kind == ProjectKind::Facility);
         if worst_fac <= 4 && !building && draw(w, 0xCA4F, t as u64, year) < shamed {
+            // Once the rooms live he redoes the rooms the card names, and
+            // builds new only when all three are poor (Capital lane C6).
+            if crate::world::capital::nfl::card_push(w, t, &g) {
+                continue;
+            }
             let grow = data::league_revenue(year) / data::league_revenue(2024);
             let cost = 160.0e6 * grow;
             w.finance.projects.push(Project {

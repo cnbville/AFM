@@ -2481,7 +2481,7 @@ Are there minimums, or does the number depend on the year? ~ nil
 How soon after signing does the first check arrive? ~ parent
 We've been told the money can be big. How big is it for him? ~ parent loud
 Can he keep his own money, or does part of it go somewhere else? ~ parent nil
-What are the expectations on his end for those dollars? ~ parent
+What would be expected of him for the NIL money? ~ parent
 What are the best deals your players have landed so far? ~ nil
 Can he do appearances or camps for extra money? ~ nil
 I want to be clear with my son about the money, so give me the real figures. ~ parent calm

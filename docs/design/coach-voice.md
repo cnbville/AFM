@@ -2,7 +2,7 @@
 
 Design for live talks v3, section 4 "Your style" (thread "Design coach talk styles and reactions", 2026-11-16/17). Cain, 2026-11-16 23:41 UTC: "I'm naturaly a very intense guy, cursing and intense. I don't want to show the league what we got... i want to fucking destroy the SEC conference. I feel like making that distinction with players and coaches, both OC and supporting staff an important step."
 
-Status: agreed. Cain said "yes to all" on 2026-11-17 00:44 UTC to the whole proposal and its three questions (section 9). Every size below (fades, weights, the 30 tokens, the rival's fire lift) is proposed, not confirmed, until the build measures it. Not built.
+Status: agreed. Cain said "yes to all" on 2026-11-17 00:44 UTC to the whole proposal and its three questions (section 9). Every size below (fades, weights, the 30 tokens, the rival's fire lift) is proposed, not confirmed, until the build measures it. Built 2026-11-17 (`world/folk/persona/manner.rs`; how it works and the small-world numbers in `docs/reference/how-it-works/live-talks.md`, "How you talk"); every size the build set is marked proposed, not confirmed, in the code.
 
 ## What already covers part of it (not re-asked)
 
@@ -92,6 +92,8 @@ Aim matters most. Heat and cursing aimed at the opponent and the job read as pas
 ## 5. What it moves (no new on-field bonus)
 
 Only things already built carry it: trust, mood (and through it up to 15% of growth), game-day fire, poise and focus, portal leans and who stays, staff loyalty and who leaves, the boss's trust, recruits' lean through your name. Real basis: pregame speeches move a team's confidence (Vargas-Tonsing and Bartholomew, 2006), but no study shows a reliable effect on results.
+
+Amended 2026-11-17 by `docs/design/coach-fire.md` (Cain's "yes"): the fire channel itself now works by the kind of work and through habits (big hits, strips, flags, a calm passer's accuracy), still with no flat bonus.
 
 ## 6. Wear
 

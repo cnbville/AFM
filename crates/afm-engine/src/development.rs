@@ -57,6 +57,11 @@ pub struct SeasonContext {
     /// Section 6 topic 10: the medical staff, -1 to 1: how fast he comes
     /// back from a minor or moderate injury (up to 15%).
     pub medical: f64,
+    /// His dietitians' work over the level's typical department, in rating
+    /// points (support departments, question 4; 0 none or typical): the
+    /// weight room's pace toward his weight, never a ceiling.
+    #[serde(default)]
+    pub diet: f64,
     /// Section 6b topic 5: his plan's main focus, set by you. The focus
     /// grows faster the more minutes he spends on it, his position's other
     /// key skills pay a quarter of the gain, and a veteran's decline in it
@@ -103,6 +108,11 @@ pub struct SeasonContext {
     /// class sim, a season on the stand-in): the yearly roll decides.
     #[serde(default)]
     pub hurt: Option<YearHurt>,
+    /// Coachability points his bond with the coach who teaches him adds to
+    /// how much of the coaching sticks (coach and player bonds, question
+    /// 4: up to 3, `world::folk::bonds::coachability_lift`).
+    #[serde(default)]
+    pub bond: f64,
 }
 
 /// The injuries a player really had since his last development step
@@ -218,6 +228,7 @@ impl SeasonContext {
             morale: 0.0,
             physical: 0.0,
             medical: 0.0,
+            diet: 0.0,
             focus: None,
             focus2: None,
             seat_plan: false,
@@ -227,6 +238,7 @@ impl SeasonContext {
             strength_dev: 0.0,
             results: None,
             hurt: None,
+            bond: 0.0,
         }
     }
 }
@@ -1289,6 +1301,17 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let coaching_p = ((physical_coaching - 10.0) / 10.0) * 0.35;
         // Grouped so equal mixes give exactly 0 (no strength staff: as before).
         let physical_extra = ((coachability_p - coachability) + (coaching_p - coaching)) * 1.7 * plasticity;
+        // Speed and burst read only the strength head's own part: the same
+        // drive at his staff's mix against the mix with a typical strength
+        // head in it, so the position coach and the room don't move them.
+        let staff_mix = |c: f64| {
+            ((personality.coachability - 10.0) / 10.0) * 0.25 * ((c - 10.0) / 10.0 + 0.5) + ((c - 10.0) / 10.0) * 0.35
+        };
+        let speed_staff = if ctx.physical_coaching.is_some() {
+            (staff_mix(physical_coaching) - staff_mix(physical_coaching - 0.4 * ctx.strength_dev)) * 1.7 * plasticity
+        } else {
+            0.0
+        };
         why.drive_physical = physical_extra;
         why.plasticity = plasticity;
         why.drive = drive;
@@ -1313,6 +1336,19 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             }
             if spurt && physical {
                 d += rng.range(2.0, 6.0) * if matches!(key, Attr::Strength | Attr::LowerBody) { 1.3 } else { 0.8 };
+            }
+            // Speed and burst are his body's (the speed lane, 2026-11-17):
+            // his work, his coaches, his snaps and the year's luck don't move
+            // what he can run. Measured on the class sim, this drive lifted a
+            // drafted man's speed ceiling 8.8 points from 14 (about 0.11 s of
+            // forty, sd 6), against real college forties that don't change
+            // over four years (Jacobson et al. 2013) and the weight room's
+            // 1-point speed leash. The strength head's own part over the
+            // level's typical one stays (minor bug 302), and so do a growth
+            // spurt and the year's own noise; the weight room and a speed
+            // project train them on their leashes. Proposed, not confirmed.
+            if matches!(key, Attr::Speed | Attr::Acceleration) {
+                d += speed_staff - shared - physical_extra;
             }
             if stalled && d > 0.0 && physical {
                 d = 0.0;
@@ -1385,7 +1421,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
 
     // --- Growth towards the ceiling --------------------------------------------
     let coaching_mult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
-    let coachability_lean = 0.6 + personality.coachability * 0.04; // how much of coaching sticks
+    // How much of coaching sticks, a close bond with his teacher adding up
+    // to 3 points of coachability (coach and player bonds, question 4).
+    let coachability_lean = 0.6 + (personality.coachability + ctx.bond.clamp(0.0, 3.0)) * 0.04;
     let work_mult = 0.75 + personality.work_ethic * 0.025;
     let snaps_mult =
         ctx.snaps.map_or(playing_time_growth(pt), snaps_growth) * (0.7 + 0.3 * snaps_factor) * level_growth(ctx.level);
@@ -1594,7 +1632,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // school, from 15 to 25).
     if (15.0..=25.0).contains(&age) && !position.is_specialist() {
         let room = weight_room_room(position, player.original_potential, player.body.frame_weight);
-        let pace = weight_room_pace(hs, personality.work_ethic, ctx.physical);
+        // The dietitians move the plan faster (support departments, Q4).
+        let pace =
+            weight_room_pace(hs, personality.work_ethic, ctx.physical) * crate::world::departments::diet_pace(ctx.diet);
         // A body project's pounds sit past this room (design item 2), so
         // they never count against it.
         let gap = room + player.prog.body_lbs as f64 - player.body.weight;

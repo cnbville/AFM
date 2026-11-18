@@ -190,15 +190,26 @@ fn a_school_visit_goes_stop_by_stop_and_the_road_knows_it() {
         who: None,
         school: None,
         line: None,
+        donor: None,
     };
     let id = scenes::start(&mut w, prog, Kind::SchoolVisit, &slot).expect("a school on your road");
     let s = fscene::open(&mut w, id).unwrap();
     let st = scenes::state(&s);
     let school = st.school.expect("the school") as usize;
+    // What the school visit page reads (lane S3): the hours, where the talk is, the eye in a word.
+    assert_eq!(st.minutes, scenes::VISIT_MINUTES);
+    assert!(st.at.is_empty());
+    assert!(scenes::is_you(&w, me as u32));
+    assert_eq!(
+        [18.0, 15.0, 12.0, 11.0, 8.0, 3.0].map(scenes::eye_words),
+        ["sharp", "sharp", "good", "good", "fair", "weak"]
+    );
     assert!(s.docs.iter().any(|d| d.title == "The sign-in sheet"), "the sign-in sheet");
     assert!(s.docs.iter().all(|d| !scenes::is_state(d) || d.rows.is_empty()));
     // The office, his list, then the weight room and the counselor.
-    let _ = fscene::answer(&mut w, id, 1).unwrap();
+    let s = fscene::answer(&mut w, id, 1).unwrap();
+    let st = scenes::state(&s);
+    assert_eq!((st.at.as_str(), st.minutes), ("office", scenes::VISIT_MINUTES - 60), "in his office, an hour gone");
     let _ = fscene::answer(&mut w, id, 101).unwrap();
     let s = fscene::answer(&mut w, id, 109).unwrap();
     if !s.done {

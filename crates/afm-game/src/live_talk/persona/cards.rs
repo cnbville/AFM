@@ -90,6 +90,42 @@ pub(crate) fn setting(w: &World, s: &Scene, room: &Room) -> String {
     out
 }
 
+/// The setting for the voice's card. The scene's words are the coach's
+/// ("Meeting with your boss", "your office"), and the man across read them
+/// as his own: a coordinator who came by your office said "come on in and
+/// sit down", and your athletic director read that he was meeting his boss
+/// (the talks audit, 2026-11-16). On his card they're the coach's, and a
+/// home visit is in his own home.
+pub(crate) fn voice_setting(w: &World, s: &Scene, room: &Room) -> String {
+    // He came to see the coach there: "Yeah, come on in, coach" to "got a
+    // minute?" (the talks audit, 2026-11-16).
+    let out = setting(w, s, room)
+        .replace("your office", "the coach's office, where you came to see him")
+        .replace("his home", "your home");
+    his_side(&out)
+}
+
+/// The coach's things in the scene's words, as the coach's: on his card
+/// "your" is his own. Proposed, not confirmed.
+pub const COACHS: [(&str, &str); 5] = [
+    ("your office", "the coach's office"),
+    ("your boss", "the coach's boss"),
+    ("your staff", "the coach's staff"),
+    ("your case", "the coach's case"),
+    ("your hire", "the coach's hire"),
+];
+
+/// Words told to the coach, from the side of the man across: a Scene line
+/// in the talk so far ("Lowell Biggerstaff comes by your office") read as
+/// his own office, and he said "come on in" though he was the one who came
+/// (the talks audit, 2026-11-16).
+pub(crate) fn his_side(words: &str) -> String {
+    COACHS.iter().fold(words.to_string(), |out, (from, to)| {
+        let cap = |x: &str| x[..1].to_uppercase() + &x[1..];
+        out.replace(from, to).replace(&cap(from), &cap(to))
+    })
+}
+
 pub(crate) fn coach(w: &World) -> String {
     let name = folk::scene::your_name(w);
     match Team::seat(w) {
@@ -126,6 +162,7 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     };
     let Some(him) = talk::across(room) else { return (c, keys) };
     c.them = person(w, him);
+    c.year = talk::year::words(w, him);
     let add = |c: &mut EarCard, keys: &mut EarKeys, who: Them, why: &str| {
         if keys.people.iter().any(|(_, x)| *x == who) {
             return;
@@ -255,12 +292,92 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         t.speaker.map(|(x, seat)| format!("{} ({}) answers this one for him", person(w, x), seat_words(seat)));
     // What the talk is to him: who you are to him, what rides on it, what
     // he wants from it (Cain 2026-11-15: "give the AI targets").
-    let stakes = talk::stakes::stakes(w, s, him, &parts.wanting.wants(w, him));
+    // In front of the team or a room he answers for them: his own wants stay
+    // off the card (the talks audit, 2026-11-16: the team's spokesman asked
+    // for a real role, his own want on the card beside the line that said
+    // never).
+    let group = matches!(room.channel, Channel::Group(_));
+    let wants = if group { Vec::new() } else { parts.wanting.wants(w, him) };
+    // The same for his history with you: in front of the room he answers
+    // for the team, so the card carries the team's history with you, not
+    // his own promises and talks.
+    let known_you = if group { talk::between::room(w).join(". ") } else { known_you };
+    let mut stakes = talk::stakes::stakes(w, s, him, &wants);
+    if group {
+        stakes.push(
+            "You're answering in front of the room, for the group: what the room feels and will do, never your own role, snaps, money or contract"
+                .into(),
+        );
+    }
     let mut room_words: Vec<String> =
         room.present.iter().skip(1).map(|p| format!("{} ({})", person(w, p.who), seat_words(p.seat))).collect();
     room_words.extend(speaker);
+    // His asks from earlier lines of this talk, never asked again; the one
+    // his last line raised he may press once (the talks audit, 2026-11-16:
+    // a coordinator asked where he stood on four lines of five).
+    let open = store::open(w, s.id);
+    let on_table = open.and_then(|o| o.asking());
+    // Taken up by the coach (the ear heard no dodge), the ask on the table
+    // is answered, and asked again it's the same question (the talks
+    // audit, 2026-11-16: "You're already my first pick at DT", then "do I
+    // have a real role on this D-line or not?").
+    let pressing = on_table.is_some() && t.dodged;
+    let asked_before: Vec<String> = open
+        .map(|o| {
+            o.raised
+                .iter()
+                .filter(|k| !pressing || Some(**k) != on_table)
+                .map(|k| talk::ask_words_of(w, him, *k))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut heard = say.heard;
+    if on_table.is_some() && !pressing {
+        heard.push(
+            "He answered the question you asked him on your last line: take his answer, doubt it, or ask about what he just said, and don't ask your question again"
+                .into(),
+        );
+    }
+    // The talk's last exchange (`Ends::Time`): he answers and says goodbye.
+    // On his card only, never the scene's own words.
+    let mut released = say.released;
+    // Someone else answers this line (his parents do the talking, his
+    // agent takes the money): first on the list, where the voice can't
+    // miss it. In the room list alone, the kid still answered for his
+    // parents (the talks audit, 2026-11-16).
+    if let Some((x, seat)) = t.speaker.filter(|(x, _)| *x != him) {
+        let who = person(w, x);
+        released.insert(
+            0,
+            format!(
+                "This line is answered by {who} ({}), not by you: write only what {who} says, in that voice, with no name in front (the screen shows who speaks)",
+                seat_words(seat)
+            ),
+        );
+    }
+    // Said for the room, the room's answer is "we": "They'll do it" on the
+    // scene, "we'll do it" from the man who answers for them (the talks
+    // audit, 2026-11-16: "Yes sir, we'll do it. He'll do it.").
+    if group {
+        for r in released.iter_mut() {
+            if let Some(rest) = r.strip_prefix("They") {
+                *r = format!("We{rest}");
+            }
+        }
+    }
+    if matches!(t.ends, Some(Ends::Time)) {
+        released.push(
+            match room.channel {
+                Channel::Phone => "The call is at its end: you answer, then say goodbye, with no new question",
+                Channel::Text => "That's your last text for now: you answer and sign off",
+                _ => "Time's up: you answer, then wrap it up and say goodbye, with no new question",
+            }
+            .into(),
+        );
+    }
     VoiceCard {
-        setting: setting(w, s, room),
+        setting: voice_setting(w, s, room),
+        year: talk::year::words(w, him),
         coach: coach(w),
         them: person(w, him),
         background,
@@ -268,26 +385,62 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         mood,
         football,
         known_you,
+        // In front of the room he answers for the group, never his own
+        // situation: no "Where you stand" of the man who speaks.
+        standing: if group { Vec::new() } else { talk::standing::words(w, him) },
         stakes,
         room: room_words,
         swears,
         care,
+        // Each with who he is: the coordinator named two of your coaches as
+        // his players ("get Jace and Travis more reps", the talks audit,
+        // 2026-11-16). The room as a whole has no name.
         may_name: keys
             .people
             .iter()
-            .map(|(tag, x)| Tagged { tag: tag.clone(), text: channels::name(w, *x) })
+            .filter(|(_, x)| channels::name(w, *x) != "He")
+            .map(|(tag, x)| Tagged { tag: tag.clone(), text: person(w, *x) })
             .chain(Team::seat(w).map(|t| Tagged { tag: "team".into(), text: t.name(w) }))
             .collect(),
-        released: say.released,
+        released,
+        heard,
         stance: say.stance.map(|x| x.key().replace('_', " ")).unwrap_or_default(),
         tell: say.tell,
         holding_back: say.holding_back,
         lie: say.lie.unwrap_or_default(),
         asks,
+        asked_by: t.speaker.filter(|(x, _)| *x != him).map(|(x, _)| person(w, x)).unwrap_or_default(),
+        asked_before,
+        pressing,
         heat,
+        manner: manner_words(w, room, t, him),
+        coach_read: coach_read(w, him),
         notebook: store::notebook(w, him),
         so_far: so_far(s),
         line: quoted(line),
+    }
+}
+
+/// How he took your manner on this line (coach voice, section 7), for him
+/// to answer in kind.
+fn manner_words(w: &World, room: &Room, t: &Turn, him: Them) -> String {
+    let family = afm_engine::world::folk::persona::manner::setting(w, room).family;
+    t.manner.iter().find(|x| x.0 == him).map(|x| x.1.as_.voice(family).to_string()).unwrap_or_default()
+}
+
+/// How you come across to him (coach voice, section 2): by what he has
+/// seen of you, or only by your reputation while that's thin.
+fn coach_read(w: &World, him: Them) -> String {
+    use afm_engine::world::folk::persona::manner;
+    let Some(s) = manner::seen_of(w, him) else { return String::new() };
+    if s.weight < 1.0 {
+        return String::new();
+    }
+    let words = manner::words_for(&s.manner, None);
+    if s.own < 2.0 {
+        format!("you know him mostly by reputation, as {words}")
+    } else {
+        format!("from what you've seen and heard of him, {words}")
     }
 }
 
@@ -295,7 +448,11 @@ impl EarCard {
     /// The ear's text: the card, the talk so far and your line.
     pub fn text(&self, today: &str) -> String {
         let mut out = String::from("<card>\n");
-        out.push_str(&format!("Setting: {}.\nToday: {today}.\nCoach: {}.\n", self.setting, self.coach));
+        out.push_str(&format!("Setting: {}.\nToday: {today}.\n", self.setting));
+        if !self.year.is_empty() {
+            out.push_str(&format!("Time of year: {}.\n", self.year));
+        }
+        out.push_str(&format!("Coach: {}.\n", self.coach));
         if !self.them.is_empty() {
             out.push_str(&format!("Across from him: {}.\n", self.them));
         }
@@ -330,19 +487,27 @@ impl VoiceCard {
     /// far and your line.
     pub fn text(&self) -> String {
         let mut out = String::from("<card>\n");
+        // One stop: "How you come across: He's choosing his words.." (the
+        // talks audit, 2026-11-16).
         let mut put = |k: &str, v: &str| {
+            let v = v.trim().trim_end_matches('.');
             if !v.is_empty() {
                 out.push_str(&format!("{k}: {v}.\n"));
             }
         };
         put("Setting", &self.setting);
+        put("Time of year (his team's calendar: talk in it)", &self.year);
         put("Coach", &self.coach);
         put("You are", &self.them);
         put("Background", &self.background);
         put("Who you are", &self.personality.join("; "));
         put("Your mood", &self.mood);
         put("Your football", &self.football);
-        put("You and the coach", &self.known_you);
+        put(
+            "You and the coach (true, and you know all of it already: this is all the history you have with him, so never invent more)",
+            &self.known_you,
+        );
+        put("Where you stand (true, and you know all of it already)", &self.standing.join(". "));
         put("What this talk is to you (play toward it)", &self.stakes.join(". "));
         put("Also in the room", &self.room.join("; "));
         put("Language", if self.swears { "you may swear, as you would here" } else { "no swearing here" });
@@ -351,25 +516,62 @@ impl VoiceCard {
         }
         let names: Vec<String> = self.may_name.iter().map(|t| t.text.clone()).collect();
         put("The only people and teams you may name", &names.join("; "));
+        put("How the coach comes across to you", &self.coach_read);
         put("Heat", &self.heat);
+        put("How you took the coach's manner on this line (answer in kind)", &self.manner);
         put("Your stance on the hard topic", &self.stance);
         put("How you come across", &self.tell);
         if self.holding_back {
             put("Holding back", "you are holding something back: let it show, never say what");
         }
         put("Say this, not the truth", &self.lie);
-        out.push_str("What the game decided you say this turn (say all of it, add nothing):\n");
+        if !self.heard.is_empty() {
+            out.push_str("What the coach just did (react to it first, in your own words):\n");
+            for h in &self.heard {
+                out.push_str(&format!("- {h}\n"));
+            }
+        }
+        // "He won't do that" came back as "but he won't do that, not for
+        // anybody", said by the doctor himself (the talks audit,
+        // 2026-11-16).
+        let he = if self.asked_by.is_empty() {
+            "a line that starts with \"He\" or \"His\" is about you: say it as yourself (\"He won't do that\" is \"I won't do that\")".to_string()
+        } else {
+            format!("a line that starts with \"He\" or \"His\" is about {}", self.them)
+        };
+        out.push_str(&format!("What the game decided you say this turn (say all of it, add nothing; {he}):\n"));
         if self.released.is_empty() {
             out.push_str("- nothing beyond a natural answer to the coach's words\n");
         }
         for r in &self.released {
             out.push_str(&format!("- {r}\n"));
         }
-        if !self.asks.is_empty() {
+        if !self.asks.is_empty() && self.asked_by.is_empty() {
             out.push_str(
-                "What you ask the coach yourself (after you answer his line, as a natural follow-on to it):\n",
+                "What you ask the coach yourself, after you answer the coach's line, as a natural follow-on to it (here \"he\" is you and \"you\" is the coach: \"he asks about his own next step\" is your own next step):\n",
             );
-            for a in &self.asks {
+        } else if !self.asks.is_empty() {
+            // His parents answer this line: they ask for him, in their own
+            // words (the talks audit, 2026-11-16: "he's going to want to
+            // hear what your plan is... then ask him").
+            let him = self.them.split(',').next().unwrap_or(&self.them);
+            let by = &self.asked_by;
+            out.push_str(&format!(
+                "Questions {by} put to the coach for {him}, after answering the coach's line, as a natural follow-on to it, in {by}'s own words (here \"he\" and \"his\" are {him}):\n"
+            ));
+        }
+        for a in &self.asks {
+            // Asked for him, the ask is its subject alone ("about his
+            // money"): "he asks about his money" came back word for word.
+            let a = if self.asked_by.is_empty() { a.as_str() } else { a.strip_prefix("he asks ").unwrap_or(a) };
+            out.push_str(&format!("- {a}\n"));
+        }
+        if !self.asked_before.is_empty() {
+            // "Let it show in how you sound" came back as "but I'd still like
+            // a straight answer on where I stand" on every line (the talks
+            // audit, 2026-11-16).
+            out.push_str("Already asked earlier in this talk (here \"he\" is you): never ask these again or bring them back up in other words (\"I'd still like an answer on that\" is asking again). If the coach answered, react to that and move on; if he didn't, you've let it go for this talk: answer what he says now:\n");
+            for a in &self.asked_before {
                 out.push_str(&format!("- {a}\n"));
             }
         }
@@ -379,9 +581,23 @@ impl VoiceCard {
                 out.push_str(&format!("- {n}\n"));
             }
         }
+        // The scene's words are the coach's ("Lowell Biggerstaff comes by
+        // your office"): the man across took them as his own and said
+        // "come on in" (the talks audit, 2026-11-16).
+        out.push_str(
+            "In the talk so far, Scene lines are told to the coach: there \"you\" and \"your\" mean the coach.\n",
+        );
+        // Last before the talk: with the list of what he's already asked
+        // above, a coordinator still said "I'd still like a straight answer
+        // on where I stand" on three lines running (the talks audit,
+        // 2026-11-16).
+        if !self.asked_before.is_empty() {
+            out.push_str("This turn: what you already asked earlier in this talk stays let go. Don't ask it, hint at it or say you're still waiting on it; answer what the coach just said.\n");
+        }
         out.push_str("</card>\n<talk_so_far>\n");
         for l in &self.so_far {
-            out.push_str(&format!("{}: {}\n", l.who, quoted(&l.text)));
+            let text = if l.who == "Scene" { his_side(&l.text) } else { l.text.clone() };
+            out.push_str(&format!("{}: {}\n", l.who, quoted(&text)));
         }
         out.push_str(&format!("</talk_so_far>\n<coach_line>{}</coach_line>", self.line));
         out

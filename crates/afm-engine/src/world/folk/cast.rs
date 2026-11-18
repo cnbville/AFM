@@ -400,7 +400,7 @@ pub(crate) fn person_name(eth: Ethnicity, born: i32, she: bool, rng: &mut Rng) -
 
 /// Heritage by role (sizes from the shares in the module comment and the
 /// real counts of each job; proposed, not confirmed where unpublished).
-fn heritage(role: Role, rng: &mut Rng) -> Ethnicity {
+pub(crate) fn heritage(role: Role, rng: &mut Rng) -> Ethnicity {
     let (w, b, h, a) = match role {
         Role::Principal | Role::SchoolAd | Role::Superintendent | Role::Academic | Role::Feeder | Role::Youth => {
             (0.74, 0.12, 0.11, 0.03)
@@ -590,7 +590,7 @@ pub fn get(w: &World, r: CastRef) -> Cast {
             };
             if !st.name.is_empty() {
                 kept(&st.name, st.since, &mut name, &mut since, &mut term);
-                she = false;
+                she = st.she;
             }
         }
         (Team::Nfl(t), Role::Gm) => {
@@ -604,7 +604,7 @@ pub fn get(w: &World, r: CastRef) -> Cast {
                 let st = if r.role == Role::Trainer { &c.support.medical } else { &c.support.strength };
                 if !st.name.is_empty() {
                     kept(&st.name, st.since, &mut name, &mut since, &mut term);
-                    she = false;
+                    she = st.she;
                 }
             }
         }

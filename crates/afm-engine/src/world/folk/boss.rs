@@ -764,6 +764,24 @@ fn add_ask_picks(w: &World, s: &mut Scene, team: Team) {
         if !k.at(level) || w.folk.asks.iter().any(|a| a.kind == k && a.date.days_to(w.today) < 300) {
             continue;
         }
+        // An NFL owner hears a room by name once the rooms live (Capital
+        // lane C6, CP35): the three furthest behind where he keeps them.
+        if k == AskKind::Facility
+            && let Team::Nfl(t) = team
+            && let Some(rooms) = crate::world::capital::nfl::rooms_to_ask(w, t)
+        {
+            let (_, lev) = crate::world::capital::nfl::leverage(w, t);
+            for r in rooms {
+                s.pick(
+                    ROOM_PICK + r as u32,
+                    format!("Ask for a new {}", crate::world::capital::nfl::words(r)),
+                    "Ask",
+                    "calm",
+                    &format!("{}. Your leverage: {}.", crate::world::capital::nfl::unlocks(r), lev.to_lowercase()),
+                );
+            }
+            continue;
+        }
         s.pick(
             40 + k.code(),
             format!("Ask for {}", k.words()),
@@ -934,6 +952,21 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             let line = reply(w, s, &b, key, &f, 2, line);
             s.them(&b.name, line, None);
         }
+        c if (ROOM_PICK..ROOM_PICK + crate::world::capital::rooms::ROOMS as u32).contains(&c) => {
+            let r = crate::world::capital::rooms::Room::from_index((c - ROOM_PICK) as u8);
+            let said = match r.map(|r| crate::world::capital::nfl::ask_room(w, r)) {
+                Some(Ok((_, words))) => words,
+                Some(Err(e)) => e,
+                None => "We've been over that one already.".into(),
+            };
+            s.them(&b.name, said.clone(), None);
+            s.outcome.push(format!("You asked for a room: {said}"));
+            add_ask_picks(w, s, team);
+            if s.picks.len() <= 1 || u64::from(s.step) >= 3 + s.a.min(2) {
+                s.end();
+            }
+            return;
+        }
         40..=45 => {
             let k = AskKind::from_code(code - 40);
             // A pick still on the table after you asked it in words (or on
@@ -987,6 +1020,10 @@ pub fn request_meeting(w: &mut World) -> Result<u32, String> {
     };
     Ok(scene::add(w, s))
 }
+
+/// The meeting's codes for asking an NFL owner for one room (60 plus the
+/// room's index; Capital lane C6).
+pub(crate) const ROOM_PICK: u32 = 60;
 
 /// One yes to a bigger recruiting budget: a tenth more for travel and
 /// visits, from today (proposed, not confirmed).
@@ -1092,7 +1129,37 @@ pub(crate) fn grant(w: &mut World, team: Team, k: AskKind) -> &'static str {
         }
         AskKind::Facility => {
             if let Team::College(pg) = team {
+                // Once the rooms live a yes opens a drive's study (Capital
+                // lane C3); before that the old lift.
+                if crate::world::capital::live(w) {
+                    if crate::world::capital::drive::ask_drive(w, pg).is_ok_and(|d| d.is_some()) {
+                        return "Yes. The development office opens a study this fall, and we set the drive's goal together.";
+                    }
+                    return "Not while a drive or a building is under way.";
+                }
                 w.programs[pg].facilities = (w.programs[pg].facilities + 0.03).min(1.0);
+            }
+            // Capital lane C6: a high school's yes puts a stadium bond on
+            // the ballot (CP32); an owner's redoes the room furthest behind
+            // (CP35).
+            if crate::world::capital::live(w) {
+                match team {
+                    Team::High(h) => {
+                        return match crate::world::capital::hs::call_for(w, h) {
+                            Ok(_) => {
+                                "Yes. The board will put a stadium bond on the next ballot. Now the town has to vote."
+                            }
+                            Err(_) => "Not now. Raise it with the booster club.",
+                        };
+                    }
+                    Team::Nfl(t) => {
+                        if crate::world::capital::nfl::grant_room(w, t) {
+                            return "Yes. We'll redo the room that needs it most this offseason.";
+                        }
+                        return "Not while a renovation is under way.";
+                    }
+                    _ => {}
+                }
             }
             "Yes. We'll break ground after the season."
         }

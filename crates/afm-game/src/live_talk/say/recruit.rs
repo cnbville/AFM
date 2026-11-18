@@ -196,10 +196,10 @@ pub fn writer(w: &World, s: &Scene, heard: &Heard, card: &mut Card) {
 /// His reaction in words: what he shows, never why.
 pub fn reaction(ev: Ev) -> &'static str {
     match ev {
-        Ev::TookWell => "He says that's what he came for.",
+        Ev::TookWell => "He says: \"That's exactly what I'm looking for.\"",
         Ev::Polite => "He's polite about it, no more.",
-        Ev::Cool => "He says it isn't his thing.",
-        Ev::Doubted => "It matters to him, and he doesn't believe you can back it up.",
+        Ev::Cool => "He says: \"That doesn't matter much to me.\"",
+        Ev::Doubted => "He says: \"That matters to me, but I don't believe you can back it up.\"",
         _ => "",
     }
 }

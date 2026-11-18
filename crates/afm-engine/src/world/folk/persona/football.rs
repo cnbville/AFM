@@ -36,7 +36,10 @@ pub fn iq_words(w: &World, i: usize) -> String {
         x if x >= 15.0 => "knows the whole call and why it was called",
         x if x >= 11.0 => "knows his job and the men around him",
         x if x >= 7.0 => "knows his own job",
-        _ => "still learning his own job",
+        // "who is still learning": "a high school player who still
+        // learning his own job" reached the voice (the talks audit,
+        // 2026-11-16).
+        _ => "is still learning his own job",
     };
     format!("{} who {band}", makeup::stage_words(w, i))
 }
@@ -321,8 +324,17 @@ pub fn knows(w: &World, him: Them, about: Option<Them>, m: &Makeup) -> Vec<Known
     if lines.is_empty() {
         return v;
     }
-    let words =
+    let mut words =
         format!("{} {}: {} games, {} starts; {}", year, spot(d, pos), season.games, season.starts, lines.join("; "));
+    // His coaches know where his numbers stand among the conference's
+    // starters at his spot (Cain 2026-11-17: "i want coaches to be aware
+    // of team stats and player stats too, for in depth conversations").
+    if s.coach
+        && matches!(him, Them::Coach(_))
+        && let Some(place) = super::review::player_place(w, i)
+    {
+        words.push_str(&format!("; {place}"));
+    }
     v.push(Known {
         topic: Topic::Football,
         about,

@@ -49,7 +49,7 @@ function rrBar(f, who, opts = {}) {
   const cls = weak ? "weak" : opts.on ? "gold" : "now";
   const start = opts.start !== undefined ? opts.start : f.start;
   const dn = !opts.noArrow && f.moved < 0 ? '<em title="Your read fell this season">↓</em>' : "";
-  return `<span class="rr-b"${rrAttrs({ s: who, k: f.key }, now[0], now[1])}><span class="rr-t"><u style="left:${p(10)}%"></u>${seg(start, "st")}${seg(now, cls)}</span><b>${now[0]}-${now[1]}${dn}</b></span>`;
+  return `<span class="rr-b"${rrAttrs({ s: who, k: f.key }, now[0], now[1])}><span class="rr-t"><u style="left:${p(10)}%"></u>${seg(start, "st")}${seg(now, cls)}</span><b>${rpair(now)}${dn}</b></span>`;
 }
 
 // ---------- the hover card (RR1-RR4) ----------
@@ -71,7 +71,7 @@ function rrPlayerHtml(x) {
   const m = x.marks;
   const lo0 = Math.max(1, Math.min(x.range[0], m.backup) - 8);
   const hi0 = Math.min(99, Math.max(x.range[1], m.elite) + 6);
-  return `<div class="rr-top"><span class="st-label">${esc(x.title)} · ${esc(x.who || (x.own ? "your read" : "your staff's read"))}</span><b>${x.range[0]}-${x.range[1]}</b></div>
+  return `<div class="rr-top"><span class="st-label">${esc(x.title)} · ${esc(x.who || (x.own ? "your read" : "your staff's read"))}</span><b>${rpair(x.range)}</b></div>
     <div class="rr-word">${esc(x.rank ? x.rank.word : x.band)}${x.rank ? `<small class="rr-sub">${esc(x.rank.sub)}</small>` : ""}</div>
     ${x.wline ? `<p class="rr-wt">${esc(x.wline)}</p>` : ""}
     ${rrScale(x.range, [{ v: m.backup }, { v: m.starter }, { v: m.elite, cls: "e" }], lo0, hi0, true)}
@@ -93,7 +93,7 @@ function rrChangeHtml(c, pid) {
 }
 function rrStaffHtml(x) {
   const m = x.marks;
-  return `<div class="rr-top"><span class="st-label">${esc(x.title)} · your read</span><b>${x.range[0]}-${x.range[1]}</b></div>
+  return `<div class="rr-top"><span class="st-label">${esc(x.title)} · your read</span><b>${rpair(x.range)}</b></div>
     <div class="rr-word">${esc(x.word)} <small>${esc(rrLower(x.sure))}</small></div>
     ${rrScale(x.range, m ? [{ v: m.q25 }, { v: m.q50 }, { v: m.q90, cls: "e" }] : [], 0.5, 20.5, true)}
     ${m ? `<div class="rr-marks"><span><small>Bottom quarter under</small><b>${m.q25}</b></span><span><small>Typical</small><b>${m.q50}</b></span><span><small>Best tenth from</small><b>${m.q90}</b></span></div><p>${esc(x.band)}</p>` : ""}

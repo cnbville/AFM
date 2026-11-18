@@ -1008,7 +1008,8 @@ impl You {
 }
 
 /// Your profile (people topics 13 and 15). Kept and shown on your page; the
-/// world reads none of it yet beyond your home state.
+/// world reads your home state, and your high school and how you grew up
+/// for what you share with a player (coach and player bonds).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct Profile {
@@ -1032,6 +1033,15 @@ pub struct Profile {
     pub facial_hair: String,
     /// Your own photo as a JPEG data URL, small (about 320 by 400).
     pub photo: Option<String>,
+    /// Your starting reputation for how you talk (coach voice, Cain's
+    /// answer 1): a prototype's key (`persona::manner::Prototype`), or
+    /// empty for a blank start. Your real lines take over within a season.
+    pub manner: String,
+    /// How you grew up (coach and player bonds, section 6): one of
+    /// `folk::bonds::RAISED`, ", poor" when money was tight; empty if
+    /// unsaid. A coach raised by his grandmother finds something with a kid
+    /// raised by his.
+    pub raised: String,
 }
 
 /// Where you start (section 8, topic 2).
@@ -1657,6 +1667,17 @@ impl World {
             c.family.mood = 0.62;
         }
         super::finance::after_load(self);
+        super::capital::rooms::after_load(self);
+        // A file from before the support departments staffs them once.
+        super::departments::ensure(self);
+        // A save from after an expansion club joined may hold agents who
+        // don't know it yet.
+        let clubs = self.nfl.len();
+        for a in self.market.agents.iter_mut() {
+            if a.rel.len() < clubs {
+                a.rel.resize(clubs, 0.0);
+            }
+        }
         // NIL is always yours (Cain 2026-11-07): a desk from before is
         // brought up to the new rules once, and every player of yours gets
         // a deal.

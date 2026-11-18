@@ -458,9 +458,40 @@ pub struct Prog {
     /// Your strength staff set it (an AI staff never ends it).
     #[serde(default)]
     pub body_yours: bool,
+    /// The staff his projects belong to (`staff_code`): a project is a
+    /// staff's own plan, so it ends when he moves to another (0: an older
+    /// save, taken as the staff he is with).
+    #[serde(default)]
+    pub staff: u32,
+}
+
+/// Which staff a project belongs to, by level (`staff_code`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StaffAt {
+    HighSchool,
+    College,
+    Nfl,
+}
+
+/// A staff's code for `Prog::staff`: its level and its index (a high
+/// school, a program or a club). Never 0.
+pub fn staff_code(at: StaffAt, index: usize) -> u32 {
+    let level = match at {
+        StaffAt::HighSchool => 1u32,
+        StaffAt::College => 2,
+        StaffAt::Nfl => 3,
+    };
+    level << 24 | (index as u32 + 1) & 0x00FF_FFFF
 }
 
 impl Prog {
+    /// Whether he carries a project another staff set: he has moved since
+    /// (a signing, a transfer, the draft, a trade or a cut), and it is no
+    /// longer anyone's plan.
+    pub fn left_behind(&self, staff: u32) -> bool {
+        self.staff != 0 && self.staff != staff && (self.project > 0 || self.body > 0)
+    }
+
     /// The skill his project works, if any.
     pub fn project(&self) -> Option<Attr> {
         (self.project > 0).then(|| LIMITED[(self.project as usize - 1).min(LIMITED_COUNT - 1)])
@@ -593,6 +624,39 @@ pub fn room(p: &Player, a: Attr) -> f64 {
 /// 1): a third of a project year's 0.30.
 pub const EVERYDAY: f64 = 0.10;
 
+/// Where closing starts to slow (see `near_top`): 55. A trial lever for
+/// `prog_check` (`AFM_SLOW_FROM`).
+static SLOW_FROM: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0x404B800000000000);
+
+pub fn set_slow_from(c: f64) {
+    SLOW_FROM.store(c.to_bits(), Ordering::Relaxed);
+}
+
+/// The span of the slowing past `SLOW_FROM`: 5 (0: no slowing). A trial
+/// lever for `prog_check` (`AFM_TOP_SLOW`).
+static TOP_SLOW: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0x4014000000000000);
+
+pub fn set_top_slow(span: f64) {
+    TOP_SLOW.store(span.to_bits(), Ordering::Relaxed);
+}
+
+/// How much of a year's closing a ceiling at `c` still gets (Cain's card
+/// 2026-11-17, "slow closing near the top"): the nearer the top, the harder
+/// each point, as in real skill learning. 1 up to `SLOW_FROM`, then 1 / (1 +
+/// past / span): a 60 closes at half pace, a 70 at a quarter, an 80 at a
+/// sixth. Never zero, so no one is capped. Everyday closing, breakouts and
+/// project years (clicks too) all take it; the weight room and natural
+/// rises don't. 55 and 5 are Claude's sizes from the class sim, proposed,
+/// not confirmed.
+pub fn near_top(c: f64) -> f64 {
+    let span = f64::from_bits(TOP_SLOW.load(Ordering::Relaxed));
+    if span <= 0.0 {
+        return 1.0;
+    }
+    let from = f64::from_bits(SLOW_FROM.load(Ordering::Relaxed));
+    1.0 / (1.0 + (c - from).max(0.0) / span)
+}
+
 /// How much the staff's coaching gets out of the room (design item 9):
 /// 0.5 + coaching / 20, so a 10 is 1.0 and a 20 is 1.5.
 pub fn coach_mult(coaching: f64) -> f64 {
@@ -660,7 +724,7 @@ pub(crate) fn everyday(p: &mut Player, coaching: f64, level: Level, pt: PlayingT
             continue;
         }
         let k = kind_of(a).unwrap();
-        let close = room * base * pace(knack(p, k));
+        let close = room * base * pace(knack(p, k)) * near_top(p.ceilings.get(a));
         p.ceilings.add(a, close);
         added += close;
     }
@@ -797,7 +861,7 @@ pub(crate) fn breakout(p: &mut Player, level: Level, hit: bool, mean: f64, teste
     } else {
         0.0
     };
-    let add = add.min(room(p, a));
+    let add = (add * near_top(p.ceilings.get(a))).min(room(p, a));
     if add > 0.0 {
         p.ceilings.add(a, add);
         return add;
@@ -934,6 +998,8 @@ pub(crate) fn project_year(p: &mut Player, coaching: f64, level: Level, trouble:
         click = r.range(CLICK.0, CLICK.1);
         lift += click;
     }
+    let slow = near_top(p.ceilings.get(a));
+    let (lift, click) = (lift * slow, click * slow);
     let lift = lift.min(room).max(0.0);
     let click = click.min(lift);
     p.ceilings.add(a, lift);
@@ -1012,13 +1078,93 @@ impl Lean {
 /// reads the knack clues (an AI staff a bit less than yours, so it picks
 /// more on tools); `eye` 1-20 its evaluators.
 pub fn staff_read(p: &Player, a: Attr, sharp: f64, eye: f64, r: &mut Rng) -> f64 {
-    let room = room(p, a) + r.normal(0.0, clamp(9.0 - 0.3 * eye, 2.0, 9.0));
+    let (room, seen) = staff_view(p, a, sharp, eye, r);
+    room.max(0.0) * pace(seen)
+}
+
+/// The two halves of a staff's read (`staff_read`): the room it sees (it
+/// can be under 0) and the knack z it reads, with the same draws in the
+/// same order.
+pub fn staff_view(p: &Player, a: Attr, sharp: f64, eye: f64, r: &mut Rng) -> (f64, f64) {
+    let room = room(p, a) + r.normal(0.0, room_noise(eye));
     let cz = clamp((p.personality.coachability - 10.0) / 3.5, -3.0, 3.0);
     let k = knack(p, kind_of(a).unwrap());
     // Before any work on it, coachability is the clue he gives; a sharper
     // staff reads more of the rest.
     let seen = 0.35 * cz + sharp * 0.5 * (k - 0.35 * cz) + r.normal(0.0, 0.6);
-    room.max(0.0) * pace(seen)
+    (room, seen)
+}
+
+/// The spread of a staff's read of his room, by its eye (1-20).
+pub fn room_noise(eye: f64) -> f64 {
+    clamp(9.0 - 0.3 * eye, 2.0, 9.0)
+}
+
+/// The skills a staff weighs a project on for him: the limited skills his
+/// position leans on at least half as much as its most-used one (the pool
+/// `best_bet` picks from), most-used first.
+pub fn project_skills(p: &Player) -> Vec<Attr> {
+    let top = LIMITED.iter().map(|&a| weight(p.position, a)).fold(0.0, f64::max);
+    if top <= 0.0 {
+        return Vec::new();
+    }
+    let mut v: Vec<Attr> = LIMITED.iter().copied().filter(|&a| weight(p.position, a) >= 0.5 * top).collect();
+    v.sort_by(|x, y| weight(p.position, *y).total_cmp(&weight(p.position, *x)));
+    v
+}
+
+/// What a read of a project stands on: the eye reading him (1-20), his
+/// teacher's coaching (1-20), his level, the years it runs, and the
+/// staff's read of the rating today.
+#[derive(Clone, Copy, Debug)]
+pub struct ReadOn {
+    pub eye: f64,
+    pub coaching: f64,
+    pub level: Level,
+    pub years: u32,
+    pub seen_top: f64,
+}
+
+/// Your staff's read of a skill project for the screens: what it would
+/// open on that skill over `years`, low and high, and the knack z it
+/// reads. It is built on the staff's own view (`staff_view` at your
+/// sharpness), never the true room or knack: the room it sees one spread
+/// either way, the knack 0.75 either way, each project year closing
+/// `PROJECT` of what's left by that knack, the coach and his stage, plus
+/// a click's mean. `seen_top` is the staff's read of the rating today, so
+/// the slowing near the top reads its own number, not his ceiling. The
+/// spreads are Claude's, proposed, not confirmed.
+pub fn your_project_read(p: &Player, a: Attr, on: ReadOn, r: &mut Rng) -> (f64, f64, f64) {
+    let ReadOn { eye, coaching, level, years, seen_top } = on;
+    let (room, seen) = staff_view(p, a, YOUR_SHARP, eye, r);
+    let sd = room_noise(eye);
+    let pro_seasons = p.history.iter().filter(|h| h.level == Level::NFL).count();
+    let stage = |k: u32| -> f64 {
+        if level != Level::NFL {
+            return 1.0;
+        }
+        match pro_seasons + 1 + k as usize {
+            1 | 2 => 0.5,
+            3 | 4 => 0.2,
+            _ => 0.0,
+        }
+    };
+    let slow = near_top(seen_top);
+    let run = |room: f64, z: f64| -> f64 {
+        let pace = pace(z);
+        let mut left = room.max(0.0);
+        let mut total = 0.0;
+        for k in 0..years {
+            let s = stage(k);
+            let mut lift = left * PROJECT * pace * coach_mult(coaching) * s;
+            lift += CLICK_CHANCE * pace * s * 0.5 * (CLICK.0 + CLICK.1);
+            let lift = (lift * slow).min(left);
+            left -= lift;
+            total += lift;
+        }
+        total
+    };
+    (run(room - sd, seen - 0.75), run(room + sd, seen + 0.75), seen)
 }
 
 /// How sharply AI staffs read the knack clues against your staff (design
@@ -1064,6 +1210,34 @@ pub enum Change {
     Start(Attr),
     EndBody,
     StartBody(BodyKind),
+    /// A project your staff set, on a man who is now on this staff: it
+    /// becomes the staff's own.
+    Adopt,
+    /// Marks his projects as this staff's (`Prog::staff`).
+    Staff(u32),
+}
+
+/// The changes for a man who has moved to `staff` (`Prog::left_behind`):
+/// his last staff's projects end, and his new staff picks at its next
+/// checkpoint like anyone else's. A project with no staff yet (an older
+/// save) is taken as this staff's. Empty when nothing changes.
+pub fn moved(p: &Player, staff: u32) -> Vec<Change> {
+    let pr = &p.prog;
+    if pr.left_behind(staff) {
+        let mut out = Vec::new();
+        if pr.project > 0 {
+            out.push(Change::End);
+        }
+        if pr.body > 0 {
+            out.push(Change::EndBody);
+        }
+        out.push(Change::Staff(staff));
+        out
+    } else if pr.staff == 0 && (pr.project > 0 || pr.body > 0) {
+        vec![Change::Staff(staff)]
+    } else {
+        Vec::new()
+    }
 }
 
 /// An AI staff's projects for one room at the checkpoint (design items 8,
@@ -1072,16 +1246,40 @@ pub enum Change {
 /// much of a full staff's time it has (a high school's smaller staff).
 /// Returns each change by its place in `members`. Nothing changes here:
 /// the caller applies them (`apply`) when his year opens.
-pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64, seed: u32) -> Vec<(usize, Change)> {
+pub fn ai_room(
+    members: &[&Player],
+    room: Room,
+    lean: Lean,
+    eye: f64,
+    scale: f64,
+    staff: u32,
+    seed: u32,
+) -> Vec<(usize, Change)> {
     let mut out = Vec::new();
     if !part(PART_PROJECTS) {
         return out;
     }
     let mut r = Rng::new(seed ^ 0x4F0E_C7A1);
     let mut running = 0;
+    // A man who brought his last staff's projects: they end, hold no slot,
+    // and he is this staff's to pick from the next checkpoint on.
+    let gone: Vec<bool> = members.iter().map(|p| p.prog.left_behind(staff)).collect();
     for (i, p) in members.iter().enumerate() {
+        let m = moved(p, staff);
+        if !m.is_empty() {
+            out.extend(m.into_iter().map(|c| (i, c)));
+        }
+        if gone[i] {
+            continue;
+        }
+        // A project your staff set on a man now on an AI staff (he moved, or
+        // you left) is that staff's to judge from here: it adopts it, and
+        // its own dead-end rule decides it like any other.
+        if p.prog.yours || p.prog.body_yours {
+            out.push((i, Change::Adopt));
+        }
         if p.prog.project().is_some() {
-            if p.prog.yours || ai_keeps(p) {
+            if ai_keeps(p) {
                 running += 1;
             } else {
                 out.push((i, Change::End));
@@ -1091,7 +1289,8 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
     // The strength staff's body projects (design items 7 and 8): its own
     // slot a room, on the men whose bodies trail the spot most.
     if part(PART_BODY) && scale >= 1.0 {
-        let body_running = members.iter().filter(|p| p.prog.body_project().is_some()).count();
+        let body_running =
+            members.iter().enumerate().filter(|(i, p)| !gone[*i] && p.prog.body_project().is_some()).count();
         if body_running < BODY_SLOTS {
             let best = members
                 .iter()
@@ -1104,6 +1303,7 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
                 && r.chance(lean.fill())
             {
                 out.push((i, Change::StartBody(BodyKind::Strength)));
+                out.push((i, Change::Staff(staff)));
             }
         }
     }
@@ -1129,6 +1329,7 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
     for c in cands.into_iter().take(open) {
         if r.chance(lean.fill() * clamp(scale, 0.0, 1.0)) {
             out.push((c.0, Change::Start(c.1)));
+            out.push((c.0, Change::Staff(staff)));
         }
     }
     out
@@ -1142,6 +1343,11 @@ pub fn apply(p: &mut Player, c: Change) {
             start_project(p, a, false);
         }
         Change::EndBody => end_body(p),
+        Change::Adopt => {
+            p.prog.yours = false;
+            p.prog.body_yours = false;
+        }
+        Change::Staff(s) => p.prog.staff = s,
         Change::StartBody(k) => {
             start_body(p, k, false);
         }
@@ -1151,11 +1357,20 @@ pub fn apply(p: &mut Player, c: Change) {
 /// A staff with no rooms to see (the class sim): one player's chance to be
 /// picked a year, set so a room's slots fill as `ai_room` fills them
 /// (design item 13: about 1.5 a 20-man room a year on the prototype).
-pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) {
+/// `staff` is the staff he is with (the class sim has one a level).
+pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64, staff: u32) {
     if !part(PART_PROJECTS) {
         return;
     }
     ensure(p);
+    // The class sim has no seat: nothing here is yours.
+    p.prog.yours = false;
+    p.prog.body_yours = false;
+    // A new level is a new staff: his last staff's projects end.
+    for c in moved(p, staff) {
+        apply(p, c);
+    }
+    p.prog.staff = staff;
     let mut r = stream(p.id, 0x5E1 ^ p.age.wrapping_mul(0x3B));
     // A college strength staff's body project: about one a room at a time
     // (`BODY_SLOTS`), so a man's chance a year is about a room's share.
@@ -1169,7 +1384,7 @@ pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) 
         start_body(p, BodyKind::Strength, false);
     }
     if p.prog.project().is_some() {
-        if !(p.prog.yours || ai_keeps(p)) {
+        if !ai_keeps(p) {
             end_project(p);
         }
         return;
@@ -1370,6 +1585,42 @@ pub fn body_bet(p: &Player, eye: f64, r: &mut Rng) -> f64 {
     ((gap + err) * frame_room(p)).max(0.0)
 }
 
+/// Your strength staff's read of a body project: each rating's gain (low,
+/// high) and the pounds (low, high).
+pub type BodyRead = (Vec<(Attr, f64, f64)>, (f64, f64));
+
+/// Your strength staff's read of a body project for the screens: for each
+/// rating it moves, what it could add over `years` (low, high), and the
+/// pounds a strength project would put on him. Nobody knows how a body
+/// responds until it is worked (design item 1), so before any years on it
+/// the read spans a body knack of -1 to 1; each year on it narrows the read
+/// toward how he has responded. The leash's share is `body_share`, the
+/// frame `frame_room`, a year closes `BODY_YEAR` of what's left by the
+/// staff. The spreads are Claude's, proposed, not confirmed.
+pub fn your_body_read(p: &Player, kind: BodyKind, eye: f64, staff: f64, years: u32) -> BodyRead {
+    let on = if p.prog.body_project() == Some(kind) { p.prog.body_years as f64 } else { 0.0 };
+    let z = body_knack(p);
+    let center = z * on / (on + 1.0);
+    let half = (1.0 + (10.0 - clamp(eye, 1.0, 20.0)) / 20.0) / (on + 1.0);
+    let frame = if kind == BodyKind::Strength { frame_room(p) } else { 1.0 };
+    let close = 1.0 - (1.0 - clamp(BODY_YEAR * coach_mult(staff), 0.0, 1.0)).powi(years as i32);
+    let mut out = Vec::new();
+    for (k, &(a, most)) in kind.ratings().iter().enumerate() {
+        let used = if on > 0.0 { p.prog.body_used[k] as f64 / 2.0 } else { 0.0 };
+        let left = |zz: f64| (most * body_share(zz) * frame - used).max(0.0) * close;
+        out.push((a, left(center - half), left(center + half)));
+    }
+    let lbs = if kind == BodyKind::Strength && out.len() >= 2 {
+        let done = if on > 0.0 { p.prog.body_lbs as f64 } else { 0.0 };
+        let built = if on > 0.0 { (p.prog.body_used[0] as f64 + p.prog.body_used[1] as f64) / 4.0 } else { 0.0 };
+        let to = |pts: f64| ((built + pts) * BODY_LBS_PER_POINT * p.body.frame_weight / 190.0).min(BODY_LBS) - done;
+        (to(0.5 * (out[0].1 + out[1].1)).max(0.0), to(0.5 * (out[0].2 + out[1].2)).max(0.0))
+    } else {
+        (0.0, 0.0)
+    };
+    (out, lbs)
+}
+
 /// A gap that's worth a strength project to an AI staff (proposed, not
 /// confirmed).
 pub const BODY_BET_FLOOR: f64 = 8.0;
@@ -1383,57 +1634,98 @@ pub const BODY_SLOTS: usize = 1;
 // The trims (everyday item 11)
 // ---------------------------------------------------------------------------
 
-/// The points a family's natural ceilings of 60+ give up, so the world
-/// keeps today's number of stars with everything on (everyday item 11).
-/// The limit keeps them, so investment can win them back. A family is one
-/// limited skill at one position, never lumped. Sized on the class sim
-/// with every part on (`prog_check fit`); the build sizes them again on a
-/// world. Indexed [position][limited skill].
-static TRIMS: [[f32; LIMITED_COUNT]; POSITION_COUNT] = TRIM_TABLE;
+/// What a family's natural ceilings of 60+ give up, so the world keeps
+/// today's number of stars with everything on (everyday item 11). A family
+/// is one limited skill at one position, never lumped. `[a, b]` takes a
+/// points for each point past 60 and b more (most often less) for each
+/// point past 75 (`trim_at`, never under 0): the middle band of natural
+/// 65-80s gives up the most, a natural 62 almost nothing, and most families'
+/// natural 85s little or nothing, since slower closing near the top
+/// (`near_top`, Cain's card 2026-11-17) already holds the 80+ count. With
+/// both, the 70+ and 80+ counts hold (Claude's shape, proposed, not
+/// confirmed). The limit keeps the trimmed points, so investment can win
+/// them back. Sized on the class sim with every part on (`prog_check fit`);
+/// the build sizes them again on a world. Indexed [position][limited
+/// skill].
+static TRIMS: [[[f32; 2]; LIMITED_COUNT]; POSITION_COUNT] = TRIM_TABLE;
 
-/// The class-sim values from the design (everyday item 11), before the fit.
-const TRIM_TABLE: [[f32; LIMITED_COUNT]; POSITION_COUNT] = {
-    let mut t = [[0.0f32; LIMITED_COUNT]; POSITION_COUNT];
+/// The fitted slopes (`prog_check fit`, see `TRIMS`).
+const TRIM_TABLE: [[[f32; 2]; LIMITED_COUNT]; POSITION_COUNT] = {
+    let mut t = [[[0.0f32; 2]; LIMITED_COUNT]; POSITION_COUNT];
     // Order of `LIMITED`: man, zone, press, tackling, shedding, contested
     // catch, routes, release, power rush, finesse rush, pass blocking, run
     // blocking, footwork, leg drive, pursuit, blitzing, throw on the move.
     // Order of `Position::ALL`: QB, RB, WR, TE, OT, IOL, EDGE, DT, LB, CB,
     // S, K, P, LS.
-    t[0][12] = 3.5; // QB footwork
-    t[1][10] = 3.5; // RB pass blocking
-    t[2][6] = 4.0; // WR routes
-    t[3][11] = 5.0; // TE run blocking
-    t[4][10] = 5.0; // OT pass blocking
-    t[5][10] = 5.0; // IOL pass blocking
-    t[6][9] = 3.5; // EDGE finesse rush
-    t[7][8] = 2.0; // DT power rush
-    t[8][1] = 3.5; // LB zone coverage
-    t[9][0] = 3.5; // CB man coverage
-    t[10][3] = 5.0; // S tackling
+    // FITTED_TRIMS_BEGIN
+    t[0][12] = [0.11, -0.16]; // QB footwork
+    t[0][16] = [0.17, -0.68]; // QB throw on the move
+    t[1][10] = [0.07, -0.26]; // RB pass blocking
+    t[1][13] = [0.53, -1.13]; // RB leg drive
+    t[2][6] = [0.32, -0.92]; // WR routes
+    t[2][7] = [0.13, -0.37]; // WR release
+    t[3][6] = [0.23, -0.60]; // TE routes
+    t[3][11] = [0.28, -0.88]; // TE run blocking
+    t[4][10] = [0.59, -0.72]; // OT pass blocking
+    t[4][11] = [0.14, -0.22]; // OT run blocking
+    t[5][10] = [0.18, -0.78]; // IOL pass blocking
+    t[5][11] = [0.06, -0.20]; // IOL run blocking
+    t[6][4] = [0.29, -0.73]; // EDGE shedding
+    t[6][8] = [0.16, -0.45]; // EDGE power rush
+    t[6][9] = [0.09, 0.01]; // EDGE finesse rush
+    t[7][4] = [0.25, -0.81]; // DT shedding
+    t[7][8] = [0.13, 0.02]; // DT power rush
+    t[8][1] = [0.07, -0.65]; // LB zone coverage
+    t[8][3] = [0.14, -0.74]; // LB tackling
+    t[8][14] = [0.01, -0.07]; // LB pursuit
+    t[9][0] = [0.21, -0.31]; // CB man coverage
+    t[9][1] = [0.23, -0.78]; // CB zone coverage
+    t[10][1] = [0.09, -0.69]; // S zone coverage
+    t[10][3] = [0.09, -0.27]; // S tackling
+    // FITTED_TRIMS_END
     t
 };
 
 /// A trial override of the trims (`prog_check fit`).
-static TRIM_OVERRIDE: std::sync::RwLock<Option<Vec<[f32; LIMITED_COUNT]>>> = std::sync::RwLock::new(None);
+static TRIM_OVERRIDE: std::sync::RwLock<Option<Vec<[[f32; 2]; LIMITED_COUNT]>>> = std::sync::RwLock::new(None);
 
-pub fn set_trims(t: Option<Vec<[f32; LIMITED_COUNT]>>) {
+pub fn set_trims(t: Option<Vec<[[f32; 2]; LIMITED_COUNT]>>) {
     *TRIM_OVERRIDE.write().unwrap() = t;
 }
 
-pub fn trims() -> Vec<[f32; LIMITED_COUNT]> {
+pub fn trims() -> Vec<[[f32; 2]; LIMITED_COUNT]> {
     TRIM_OVERRIDE.read().unwrap().clone().unwrap_or_else(|| TRIMS.to_vec())
 }
 
-pub fn trim(pos: Position, a: Attr) -> f64 {
-    let Some(li) = limited_index(a) else { return 0.0 };
-    if let Some(t) = TRIM_OVERRIDE.read().unwrap().as_ref() {
-        return t[pos.index()][li] as f64;
-    }
-    TRIMS[pos.index()][li] as f64
+/// A family's two slopes (see `TRIMS`).
+pub fn trim(pos: Position, a: Attr) -> [f64; 2] {
+    let Some(li) = limited_index(a) else { return [0.0; 2] };
+    let t = match TRIM_OVERRIDE.read().unwrap().as_ref() {
+        Some(t) => t[pos.index()][li],
+        None => TRIMS[pos.index()][li],
+    };
+    [t[0] as f64, t[1] as f64]
+}
+
+/// The points a natural ceiling `c` gives up in a family (see `TRIMS`).
+pub fn trim_at(pos: Position, a: Attr, c: f64) -> f64 {
+    let [k, top] = trim(pos, a);
+    (k * (c - TRIM_FROM).max(0.0) + top * (c - TRIM_STEEP).max(0.0)).max(0.0)
+}
+
+/// The share of a trim the limit gives up too (0: the limit keeps every
+/// trimmed point). A trial lever for `prog_check` (`AFM_TRIM_LIMIT`).
+static TRIM_LIMIT_SHARE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub fn set_trim_limit_share(f: f64) {
+    TRIM_LIMIT_SHARE.store(f.to_bits(), Ordering::Relaxed);
 }
 
 /// The natural ceiling a trim starts from.
 pub const TRIM_FROM: f64 = 60.0;
+
+/// Where a trim's second slope starts (see `TRIMS`).
+pub const TRIM_STEEP: f64 = 75.0;
 
 /// The last age a pending trim lands (his school years).
 pub const TRIM_UNTIL: u32 = 22;
@@ -1469,17 +1761,19 @@ pub(crate) fn land_trims(p: &mut Player) {
         if p.prog.pending >> li & 1 == 0 {
             continue;
         }
-        let t = trim(p.position, a);
-        if t <= 0.0 {
+        if trim(p.position, a) == [0.0; 2] {
             continue;
         }
         p.prog.pending &= !(1 << li);
         let c = p.ceilings.get(a);
-        if c < TRIM_FROM {
+        let t = trim_at(p.position, a, c);
+        if t <= 0.0 {
             continue;
         }
-        // The limit stays where it was before the trim.
-        let keep = (p.prog.over[li] as f64 / 2.0).max(c - mapped(p, a));
+        // The limit stays where it was before the trim, less the share of
+        // the trim it gives up too (`TRIM_LIMIT_SHARE`, a trial lever).
+        let f = f64::from_bits(TRIM_LIMIT_SHARE.load(Ordering::Relaxed));
+        let keep = ((p.prog.over[li] as f64 / 2.0).max(c - mapped(p, a)) - f * t).max(c - t - mapped(p, a)).max(0.0);
         p.prog.over[li] = (keep * 2.0).ceil().clamp(0.0, 255.0) as u8;
         p.ceilings.set(a, c - t);
         if p.attributes.get(a) > c - t {

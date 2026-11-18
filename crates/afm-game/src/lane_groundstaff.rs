@@ -35,52 +35,71 @@ use crate::{Game, Reply};
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let man = |k: &str| args.get(k).and_then(Value::as_u64).map(|x| x as usize);
     Some(match cmd {
-        "ground_staff" => game.wm().and_then(|w| {
-            staff::ready(w);
-            staff_view(w)
-        }),
-        "ground_staff_man" => game.w().and_then(|w| {
-            let c = man("man").ok_or("Missing the man.")?;
-            man_view(w, c)
-        }),
-        "ground_staff_areas" => game.wm().and_then(|w| {
-            let c = man("man").ok_or("Missing the man.")?;
-            let list: Vec<u16> = args
-                .get("areas")
-                .and_then(Value::as_array)
-                .map(|a| a.iter().filter_map(area_arg).collect())
-                .unwrap_or_default();
-            let said = beats::set_areas(w, c, &list)?;
-            said_with(staff_view(w)?, said)
-        }),
-        "ground_staff_ride" => game.wm().and_then(|w| {
-            let y = man("young").ok_or("Missing the young man.")?;
-            let v = man("veteran").ok_or("Missing the veteran.")?;
-            let weeks = args.get("weeks").and_then(Value::as_u64).unwrap_or(4) as u32;
-            let said = beats::ride(w, y, v, weeks)?;
-            said_with(staff_view(w)?, said)
-        }),
-        "ground_staff_ride_end" => game.wm().and_then(|w| {
-            let y = man("young").ok_or("Missing the young man.")?;
-            let said = beats::end_ride(w, y)?;
-            said_with(staff_view(w)?, said)
-        }),
-        "ground_carousel" => game.w().and_then(|w| carousel_view(w, man("man"))),
-        "ground_counter" => game.wm().and_then(|w| {
-            let c = man("man").ok_or("Missing the man.")?;
-            let kind = args
-                .get("kind")
-                .and_then(Value::as_str)
-                .and_then(carousel::Counter::from_key)
-                .ok_or("A raise, a title or a promise.")?;
-            let said = carousel::counter(w, c, kind)?;
-            said_with(staff_view(w)?, said)
-        }),
-        "ground_let_go" => game.wm().and_then(|w| {
-            let c = man("man").ok_or("Missing the man.")?;
-            let said = carousel::let_go(w, c)?;
-            said_with(staff_view(w)?, said)
-        }),
+        "ground_staff" => {
+            if let Ok(w) = game.wm() {
+                staff::ready(w);
+            }
+            let g: &Game = game;
+            g.w().and_then(|w| staff_view(g, w))
+        }
+        "ground_staff_man" => {
+            let g: &Game = game;
+            g.w().and_then(|w| {
+                let c = man("man").ok_or("Missing the man.")?;
+                man_view(g, w, c)
+            })
+        }
+        "ground_staff_areas" => {
+            let did = game.wm().and_then(|w| {
+                let c = man("man").ok_or("Missing the man.")?;
+                let list: Vec<u16> = args
+                    .get("areas")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(area_arg).collect())
+                    .unwrap_or_default();
+                beats::set_areas(w, c, &list)
+            });
+            then(game, did, staff_view)
+        }
+        "ground_staff_ride" => {
+            let did = game.wm().and_then(|w| {
+                let y = man("young").ok_or("Missing the young man.")?;
+                let v = man("veteran").ok_or("Missing the veteran.")?;
+                let weeks = args.get("weeks").and_then(Value::as_u64).unwrap_or(4) as u32;
+                beats::ride(w, y, v, weeks)
+            });
+            then(game, did, staff_view)
+        }
+        "ground_staff_ride_end" => {
+            let did = game.wm().and_then(|w| {
+                let y = man("young").ok_or("Missing the young man.")?;
+                beats::end_ride(w, y)
+            });
+            then(game, did, staff_view)
+        }
+        "ground_carousel" => {
+            let g: &Game = game;
+            g.w().and_then(|w| carousel_view(g, w, man("man")))
+        }
+        "ground_counter" => {
+            let did = game.wm().and_then(|w| {
+                let c = man("man").ok_or("Missing the man.")?;
+                let kind = args
+                    .get("kind")
+                    .and_then(Value::as_str)
+                    .and_then(carousel::Counter::from_key)
+                    .ok_or("A raise, a title or a promise.")?;
+                carousel::counter(w, c, kind)
+            });
+            then(game, did, staff_view)
+        }
+        "ground_let_go" => {
+            let did = game.wm().and_then(|w| {
+                let c = man("man").ok_or("Missing the man.")?;
+                carousel::let_go(w, c)
+            });
+            then(game, did, staff_view)
+        }
         "ground_waver_call" => game.wm().and_then(|w| {
             let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the kid.")? as u32;
             let said = carousel::call_commit(w, id)?;
@@ -94,37 +113,50 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             }
             Ok(json!({ "coach": c, "name": w.coaches[c].name, "signs": men::signs(w, prog, c) }))
         }),
-        "ground_desk" => game.w().and_then(desk_view),
-        "ground_push" => game.wm().and_then(|w| {
-            let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the kid.")? as u32;
-            let case = args.get("case").and_then(Value::as_str).unwrap_or("");
-            let said = desk::push(w, id, case)?;
-            said_with(desk_view(w)?, said)
-        }),
-        "ground_push_back" => game.wm().and_then(|w| {
-            let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the kid.")? as u32;
-            let said = desk::push_back(w, id)?;
-            said_with(desk_view(w)?, said)
-        }),
-        "ground_let_ride" => game.wm().and_then(|w| {
-            let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the kid.")? as u32;
-            let said = desk::let_ride(w, id)?;
-            said_with(desk_view(w)?, said)
-        }),
-        "ground_desk_goal" => game.wm().and_then(|w| {
-            let k = man("k").ok_or("Pick a goal.")?;
-            let said = desk::pick_goal(w, k)?;
-            said_with(desk_view(w)?, said)
-        }),
-        "ground_route" => game.wm().and_then(|w| {
-            let schools: Vec<u32> = args
-                .get("schools")
-                .and_then(Value::as_array)
-                .map(|a| a.iter().filter_map(Value::as_u64).map(|x| x as u32).collect())
-                .unwrap_or_default();
-            let said = desk::route(w, &schools)?;
-            said_with(desk_view(w)?, said)
-        }),
+        "ground_desk" => {
+            let g: &Game = game;
+            g.w().and_then(|w| desk_view(g, w))
+        }
+        "ground_push" => {
+            let did = game.wm().and_then(|w| {
+                let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the kid.")? as u32;
+                let case = args.get("case").and_then(Value::as_str).unwrap_or("");
+                desk::push(w, id, case)
+            });
+            then(game, did, desk_view)
+        }
+        "ground_push_back" => {
+            let did = game.wm().and_then(|w| {
+                let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the kid.")? as u32;
+                desk::push_back(w, id)
+            });
+            then(game, did, desk_view)
+        }
+        "ground_let_ride" => {
+            let did = game.wm().and_then(|w| {
+                let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the kid.")? as u32;
+                desk::let_ride(w, id)
+            });
+            then(game, did, desk_view)
+        }
+        "ground_desk_goal" => {
+            let did = game.wm().and_then(|w| {
+                let k = man("k").ok_or("Pick a goal.")?;
+                desk::pick_goal(w, k)
+            });
+            then(game, did, desk_view)
+        }
+        "ground_route" => {
+            let did = game.wm().and_then(|w| {
+                let schools: Vec<u32> = args
+                    .get("schools")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(Value::as_u64).map(|x| x as u32).collect())
+                    .unwrap_or_default();
+                desk::route(w, &schools)
+            });
+            then(game, did, desk_view)
+        }
         _ => return None,
     })
 }
@@ -137,6 +169,13 @@ fn said_with(mut v: Value, said: String) -> Reply {
     Ok(v)
 }
 
+/// After a change: the screen's view again, with what he said.
+fn then(game: &Game, did: Result<String, String>, view: fn(&Game, &World) -> Reply) -> Reply {
+    let said = did?;
+    let w = game.w()?;
+    said_with(view(game, w)?, said)
+}
+
 fn area_arg(v: &Value) -> Option<u16> {
     if let Some(n) = v.as_u64() {
         return (n < areas::table().len() as u64).then_some(n as u16);
@@ -144,20 +183,23 @@ fn area_arg(v: &Value) -> Option<u16> {
     areas::find(v.as_str()?)
 }
 
-fn face(w: &World, c: usize) -> Value {
+fn face(g: &Game, w: &World, c: usize) -> Value {
     let who = Who::Coach(c as u32);
-    json!({ "looks": people::looks(w, who).0, "heritage": format!("{:?}", people::heritage(w, who)) })
+    let mut v = crate::lane_ground_people::face_of(g, w, who);
+    v["looks"] = json!(people::looks(w, who).0);
+    v["heritage"] = json!(format!("{:?}", people::heritage(w, who)));
+    v
 }
 
 /// One man on the rail (GR76: his ground, mood and record).
-fn rail_row(w: &World, prog: usize, c: usize) -> Value {
+fn rail_row(gm: &Game, w: &World, prog: usize, c: usize) -> Value {
     let Some(g) = men::ground(w, prog, c) else { return Value::Null };
     json!({
         "man": c,
         "name": g.name,
         "role": g.role,
         "age": g.age,
-        "face": face(w, c),
+        "face": face(gm, w, c),
         "areas": g.areas.iter().map(|a| json!({
             "area": a.area, "code": a.code, "nickname": a.nickname, "level": a.level,
             "known": a.known, "trusted": a.trusted, "home": a.home, "heads": a.heads,
@@ -176,10 +218,10 @@ fn rail_row(w: &World, prog: usize, c: usize) -> Value {
     })
 }
 
-fn staff_view(w: &World) -> Reply {
+fn staff_view(g: &Game, w: &World) -> Reply {
     let prog = staff::seat_program(w).ok_or("Your staff's ground is for a college seat.")?;
     let s = &w.ground.staff;
-    let rail: Vec<Value> = staff::men(w, prog).into_iter().map(|c| rail_row(w, prog, c)).collect();
+    let rail: Vec<Value> = staff::men(w, prog).into_iter().map(|c| rail_row(g, w, prog, c)).collect();
     let empty: Vec<Value> = s
         .proposal
         .empty
@@ -233,30 +275,41 @@ fn staff_view(w: &World) -> Reply {
         "misses": misses,
         "courted": waiting,
         "february_meeting": staff::february_meeting(w, w.today).to_string(),
+        "today": w.today.to_string(),
     }))
 }
 
-fn man_view(w: &World, c: usize) -> Reply {
+fn man_view(g: &Game, w: &World, c: usize) -> Reply {
     let prog = staff::seat_program(w).ok_or("Your staff's ground is for a college seat.")?;
-    let g = men::ground(w, prog, c).ok_or("No such coach.")?;
-    let mut v = serde_json::to_value(&g).map_err(|e| e.to_string())?;
-    v["face"] = face(w, c);
+    let mg = men::ground(w, prog, c).ok_or("No such coach.")?;
+    let mut v = serde_json::to_value(&mg).map_err(|e| e.to_string())?;
+    v["face"] = face(g, w, c);
+    // Each person on his ground opens on the People page by his key.
+    if let Some(list) = v.get_mut("people").and_then(Value::as_array_mut) {
+        for (x, p) in list.iter_mut().zip(&mg.people) {
+            x["key"] = crate::lane_ground_people::key(p.who);
+        }
+    }
+    // Never the number: only the words and what moves them.
+    if let Some(m) = v.get_mut("mood").and_then(Value::as_object_mut) {
+        m.remove("value");
+    }
     v["signs"] = json!(men::signs(w, prog, c));
-    v["style_why"] = json!(g.style_why);
+    v["style_why"] = json!(mg.style_why);
     Ok(v)
 }
 
 /// The carousel screen (GR76, board 7b).
-fn carousel_view(w: &World, man: Option<usize>) -> Reply {
+fn carousel_view(g: &Game, w: &World, man: Option<usize>) -> Reply {
     let prog = staff::seat_program(w).ok_or("Your staff's ground is for a college seat.")?;
     let s = &w.ground.staff;
     let x = match man {
         Some(c) => s.courted.iter().rev().find(|x| x.man == c as u32),
         None => s.courted.iter().find(|x| x.state == 0),
     };
-    let rail: Vec<Value> = staff::men(w, prog).into_iter().map(|c| rail_row(w, prog, c)).collect();
+    let rail: Vec<Value> = staff::men(w, prog).into_iter().map(|c| rail_row(g, w, prog, c)).collect();
     let Some(x) = x else {
-        return Ok(json!({ "courted": Value::Null, "rail": rail }));
+        return Ok(json!({ "courted": Value::Null, "rail": rail, "today": w.today.to_string() }));
     };
     let c = x.man as usize;
     let co = &w.coaches[c];
@@ -304,7 +357,7 @@ fn carousel_view(w: &World, man: Option<usize>) -> Reply {
             "man": c,
             "name": co.name,
             "role": afm_engine::world::folk::facts::coach_role(w, c),
-            "face": face(w, c),
+            "face": face(g, w, c),
             "to": men::employer_name(w, x.employer),
             "job": x.role.name(),
             "why": x.why,
@@ -318,13 +371,14 @@ fn carousel_view(w: &World, man: Option<usize>) -> Reply {
             "mood": mood.words,
             "read": men::style(w, c).1,
             "counters": counters,
-            "counter": x.counter,
+            "counter": x.counter.and_then(|n| ["raise", "title", "promise"].get((n as usize).wrapping_sub(1)).copied()),
         },
         "takers": takers(w, prog, c),
         "leaves": leaves,
         "wavers": wavers,
         "shaken": shaken,
         "rail": rail,
+        "today": w.today.to_string(),
     }))
 }
 
@@ -380,10 +434,27 @@ fn takers(w: &World, prog: usize, c: usize) -> Vec<Value> {
     out
 }
 
-fn desk_view(w: &World) -> Reply {
+fn desk_view(g: &Game, w: &World) -> Reply {
     let v = desk::view(w).ok_or("The desk is the college assistant's.")?;
     let mut out = serde_json::to_value(&v).map_err(|e| e.to_string())?;
-    out["face"] = face(w, v.boss_id);
+    out["face"] = face(g, w, v.boss_id);
     out["memory_level"] = json!(v.level);
+    // Dates as ISO strings, never the day count.
+    out["memory"] = json!(
+        v.memory
+            .iter()
+            .map(|(d, words, good)| json!({ "date": d.to_string(), "words": words, "good": good }))
+            .collect::<Vec<_>>()
+    );
+    out["plan"] = match &v.plan {
+        Some((d, days, area)) => json!({ "date": d.to_string(), "days": days, "area": area }),
+        None => Value::Null,
+    };
+    if let Some(list) = out.get_mut("pushes").and_then(Value::as_array_mut) {
+        for (x, p) in list.iter_mut().zip(&v.pushes) {
+            x["date"] = json!(p.date.to_string());
+        }
+    }
+    out["today"] = json!(w.today.to_string());
     Ok(out)
 }

@@ -336,10 +336,13 @@ const FBS_TALENT_SHARE: f64 = 0.13;
 /// eight classes with the `positions` tool: a spot that reads speed picks
 /// its fastest on the way to the draft, so its boys start slower than its
 /// pros run. Kickers and punters run like real kickers and punters
-/// (4.91). Quarterbacks stay about 0.1 s slower than the combine: the
-/// fastest boys with an arm suit receiver or safety better. Order:
+/// (4.91). Quarterbacks stay about 0.05 s slower than the combine: the
+/// fastest boys with an arm suit receiver or safety better. Refit by the
+/// speed lane (2026-11-17, `speed_levels`, eight classes) so each
+/// position's drafted average held when speed stopped drifting with the
+/// yearly drive and the fast end thinned (`thin_roll`). Order:
 /// `Position::ALL`.
-const SPEED_MIX: [f64; 14] = [54.1, 28.6, 39.6, 35.4, 35.8, 32.2, 23.5, 34.4, 36.6, 34.8, 36.6, 46.3, 50.8, 45.0];
+const SPEED_MIX: [f64; 14] = [61.0, 44.0, 47.9, 42.2, 40.0, 37.7, 42.5, 38.0, 32.5, 35.1, 50.2, 46.3, 50.8, 45.0];
 
 /// How much his speed roll leans toward his talent at a spot whose overall
 /// counts speed and burst at `share`: enough that among FBS players, the
@@ -354,6 +357,25 @@ fn speed_lean(share: f64) -> f64 {
     let (a, v) = (share * SPEED_SD, FBS_TALENT_SHARE);
     let b = TALENT_SD * v;
     clamp((-b + (b * b + 4.0 * a * a * (1.0 - v)).sqrt()) / (2.0 * a * (1.0 - v)), 0.0, 0.95)
+}
+
+/// Where a speed roll starts to thin, in sds, how much each sd past it
+/// counts, and the least lean a spot needs for it (the speed lane,
+/// physical study item 2: real speed tails are thinner than a bell). At a
+/// spot that reads speed, football talent leans his roll up, and with no
+/// end to it the best receivers, corners and backs ran 4.2s far more often
+/// than real ones: drafted men at 4.30 or faster 4.0 a draft, real 1.27.
+/// Past the knee each further sd of roll counts for `SPEED_THIN` of one, with
+/// no top, so a freak still runs a 4.2. Quarterbacks and linemen, whose
+/// rolls are mostly their own explosiveness, keep the bell: their fast men
+/// were already as common as real ones (300+ lb at 4.95 or faster). Fitted
+/// with `speed_levels`. Proposed, not confirmed.
+const SPEED_KNEE: f64 = 2.5;
+const SPEED_THIN: f64 = 0.4;
+const THIN_LEAN: f64 = 0.6;
+
+fn thin_roll(r: f64, lean: f64) -> f64 {
+    if lean < THIN_LEAN || r <= SPEED_KNEE { r } else { SPEED_KNEE + SPEED_THIN * (r - SPEED_KNEE) }
 }
 
 fn speed_mix(pos: Position) -> f64 {
@@ -459,7 +481,7 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     // left between speed and skills among the players who make it.
     let speed_share = weight(natural, Attr::Speed) + weight(natural, Attr::Acceleration);
     let lean = speed_lean(speed_share);
-    let roll = lean * talent_z(talent) + (1.0 - lean * lean).sqrt() * explosive;
+    let roll = thin_roll(lean * talent_z(talent) + (1.0 - lean * lean).sqrt() * explosive, lean);
     let (mix, lead) = speed_base((fh, fw), natural);
     let speed = mix - 0.25 * lead + SPEED_SD * roll;
     let accel = mix + 0.75 * lead + SPEED_SD * roll;

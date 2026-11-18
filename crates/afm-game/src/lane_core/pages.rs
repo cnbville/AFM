@@ -19,6 +19,7 @@ use serde_json::{Value, json};
 
 use super::links::{self, Linker};
 use super::mail::{self, tidy};
+use super::textfind::{Best, has_ci, starts_ci};
 use super::{desk, people, tables};
 use crate::reads;
 use crate::views::{self, TeamRef};
@@ -831,6 +832,35 @@ pub fn profile(w: &World, id: u32) -> Result<Value, String> {
 
 // ---- Hover cards (L5) ----
 
+/// A player's stat lines for his hover card and the compare table: the last
+/// season filed, named by its year, and the season being played so far.
+/// A college season is filed only when its title game finishes, and an NFL
+/// season's regular season when it is booked on Black Monday, so in between
+/// the line so far is its own row (`records::season_so_far`), never passed
+/// off as last season's. A pro's own seasons come before his college ones.
+fn season_lines(w: &World, k: usize) -> Value {
+    let p = &w.people[k];
+    let id = p.player.id;
+    let open = afm_engine::world::records::season_so_far(w, id);
+    let college = || w.stats.career(id).last().map(|r| (r.year as i32, mail::stat_line(r.pos, |s| r.get(s))));
+    let pro = || {
+        let open_pro = open.as_ref().filter(|o| o.pro).map(|o| o.year);
+        p.pro.as_ref().and_then(|c| c.seasons.iter().rev().find(|s| s.games > 0 && Some(s.year) != open_pro)).map(|s| {
+            let line = afm_engine::world::records::from_line(&s.stats);
+            (s.year, mail::stat_line(p.player.position, |k| line[k as usize] as f64))
+        })
+    };
+    let last = if p.stage == Stage::Pro { pro().or_else(college) } else { college().or_else(pro) };
+    let now = open.map(|o| {
+        let tail = if o.pro { "the rest of the season and the playoffs to come" } else { "bowls and playoffs to come" };
+        (format!("{}, so far ({tail})", o.year), mail::stat_line(o.pos, |s| o.stats[s as usize] as f64))
+    });
+    json!({
+        "last": last.as_ref().map(|l| &l.1), "last_label": last.as_ref().map(|l| format!("{} season", l.0)),
+        "now": now.as_ref().map(|n| &n.1), "now_label": now.as_ref().map(|n| &n.0),
+    })
+}
+
 pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
     let kind = args.get("kind").and_then(Value::as_str).unwrap_or("");
     let num = args.get("id").and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok())));
@@ -841,20 +871,13 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
             let p = &w.people[k];
             let team = views::team_of(w, p);
             let own = team.is_some_and(|t| views::is_mine(w, t));
-            let last =
-                w.stats.career(id).last().map(|r| format!("{}: {}", r.year, mail::stat_line(r.pos, |s| r.get(s))));
-            let last = last.or_else(|| {
-                p.pro.as_ref().and_then(|c| c.seasons.iter().rev().find(|s| s.games > 0)).map(|s| {
-                    let line = afm_engine::world::records::from_line(&s.stats);
-                    format!("{}: {}", s.year, mail::stat_line(p.player.position, |k| line[k as usize] as f64))
-                })
-            });
+            let lines = season_lines(w, k);
             Ok(json!({
                 "kind": "player", "id": id, "name": p.name, "pos": p.player.position.name(), "age": p.age_on(w.today),
                 "class": views::class_text(w, p), "team": team.map(|t| views::team_brief(w, t)), "where": views::where_now(w, p),
                 "ht": views::ft_in(shown_body(w, p, own).0), "wt": shown_body(w, p, own).1.round(), "stars": p.stars,
                 "read": reads::overall(w, k).json(), "yours": reads::mine(w, k).json(),
-                "level_rating": level_rating(w, k), "level_marks": level_marks(w, k), "last": last, "status": views::status_text(w, p),
+                "level_rating": level_rating(w, k), "level_marks": level_marks(w, k), "last": lines["last"], "last_label": lines["last_label"], "now": lines["now"], "now_label": lines["now_label"], "status": views::status_text(w, p),
                 "listed": desk::is_listed(w, id), "noted": desk::has_note(w, id),
                 "jersey": team.and_then(|t| people::jersey(w, t, k)),
                 "initials": p.name.split_whitespace().filter_map(|s| s.chars().next()).take(2).collect::<String>(),
@@ -939,49 +962,51 @@ const SCREENS: &[(&str, &str)] = &[
     ("Settings", "settings"),
 ];
 
+/// How many players the bar lists, and how many matches it only counts.
+const FIND_PLAYERS: usize = 12;
+
 pub fn find(w: &World, q: &str) -> Value {
     let q = q.trim();
     if q.chars().count() < 2 {
         return json!({ "groups": [] });
     }
     let ql = q.to_lowercase();
-    let hit = |s: &str| s.to_lowercase().contains(&ql);
-    let starts = |s: &str| {
-        s.to_lowercase().split_whitespace().any(|wd| wd.starts_with(&ql)) || s.to_lowercase().starts_with(&ql)
-    };
+    let hit = |s: &str| has_ci(s, &ql);
     let mut groups = Vec::new();
-    // Players: active first, then by stars and age.
-    let mut ps: Vec<(i32, usize)> = w
-        .people
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| hit(&p.name))
-        .map(|(k, p)| {
-            let mut s = if p.stage == Stage::Done { 0 } else { 100 };
-            if starts(&p.name) {
-                s += 50;
-            }
-            if views::team_of(w, p).is_some_and(|t| views::is_mine(w, t)) {
-                s += 200;
-            }
-            if desk::is_listed(w, p.player.id) {
-                s += 150;
-            }
-            s += p.stars as i32 * 5;
-            (s, k)
-        })
-        .collect();
-    ps.sort_by_key(|x| std::cmp::Reverse(x.0));
-    let players: Vec<Value> = ps
-        .iter()
-        .take(12)
-        .map(|&(_, k)| {
+    // Players: active first, then by stars and age. Every person in the
+    // world is looked at on each keystroke (over a million in a full world),
+    // so nothing here allocates per person and only the best twelve are kept
+    // (`textfind`), where it once lower-cased every name three times and
+    // sorted every match.
+    let mut best = Best::new(FIND_PLAYERS);
+    for (k, p) in w.people.iter().enumerate() {
+        if !hit(&p.name) {
+            continue;
+        }
+        let mut s = if p.stage == Stage::Done { 0 } else { 100 };
+        if starts_ci(&p.name, &ql) {
+            s += 50;
+        }
+        if views::team_of(w, p).is_some_and(|t| views::is_mine(w, t)) {
+            s += 200;
+        }
+        if desk::is_listed(w, p.player.id) {
+            s += 150;
+        }
+        s += p.stars as i32 * 5;
+        best.offer(s, k);
+    }
+    let matched = best.seen();
+    let players: Vec<Value> = best
+        .into_items()
+        .into_iter()
+        .map(|k| {
             let p = &w.people[k];
             json!({ "kind": "player", "id": p.player.id, "name": p.name, "sub": format!("{} · {} · {}", p.player.position.name(), views::where_now(w, p), views::class_text(w, p)) })
         })
         .collect();
     if !players.is_empty() {
-        groups.push(json!({ "name": "Players", "items": players, "more": ps.len().saturating_sub(12) }));
+        groups.push(json!({ "name": "Players", "items": players, "more": matched.saturating_sub(FIND_PLAYERS) }));
     }
     let coaches: Vec<Value> = w
         .coaches
@@ -1053,8 +1078,9 @@ pub fn find(w: &World, q: &str) -> Value {
             break;
         }
         let Scope::Division(d) = scope else { continue };
+        let book_hit = hit(&book_name(*book));
         for e in list.iter().take(3) {
-            if hit(&e.name) || book_name(*book).to_lowercase().contains(&ql) {
+            if book_hit || hit(&e.name) {
                 records.push(json!({ "kind": "history", "name": format!("{} · {}", e.name, book_name(*book)), "sub": format!("{} record · {} in {}", d.name(), fmt_book(*book, e.value), e.year), "args": { "tab": "records", "division": d.name() } }));
                 break;
             }
@@ -1082,11 +1108,9 @@ pub fn find(w: &World, q: &str) -> Value {
     if !notes.is_empty() {
         groups.push(json!({ "name": "Your notes", "items": notes }));
     }
-    let mails: Vec<Value> = desk::list(w, &json!({ "q": q }))["rows"]
-        .as_array()
+    // Newest first, stopping at the fifth (not the whole inbox's list).
+    let mails: Vec<Value> = desk::find(w, q, 5)
         .into_iter()
-        .flatten()
-        .take(5)
         .map(|m| json!({ "kind": "mail", "id": m["id"], "name": m["subject"], "sub": format!("{} · {}", m["from"].as_str().unwrap_or(""), m["day"].as_str().unwrap_or("")) }))
         .collect();
     if !mails.is_empty() {
@@ -1140,11 +1164,12 @@ pub fn compare(w: &World, args: &Value) -> Value {
         .filter_map(|&id| {
             let v = views::player(w, id).ok()?;
             let k = views::person_index(w, id)?;
-            let last = w.stats.career(id).last().map(|r| format!("{}: {}", r.year, mail::stat_line(r.pos, |s| r.get(s))));
+            let lines = season_lines(w, k);
             Some(json!({
                 "id": id, "name": v["name"], "pos": v["pos"], "age": v["age"], "team": v["team"], "class": v["class"],
                 "ht": v["ht"], "wt": v["wt"], "stars": v["stars"], "ovr": v["ovr"], "groups": v["groups"], "mine": v["mine"], "yours": v["yours"],
-                "level_rating": level_rating(w, k), "level_marks": level_marks(w, k), "last": last,
+                "level_rating": level_rating(w, k), "level_marks": level_marks(w, k),
+                "last": lines["last"], "last_label": lines["last_label"], "now": lines["now"], "now_label": lines["now_label"],
             }))
         })
         .collect();
@@ -1616,7 +1641,31 @@ pub fn coach_page(w: &World, c: usize) -> Result<Value, String> {
     }));
     // Your read of him (update 2, Q2) comes with having him on your staff.
     v["your_staff"] = json!(afm_engine::world::staff_read::of_coach(w, c).is_some());
+    // His closest players today (coach and player bonds), as your staff
+    // sees them: for you and the men on your staff.
+    let yours = w.career.as_ref().is_some_and(|k| k.coach == c) || v["your_staff"] == json!(true);
+    v["closest"] = json!(if yours {
+        afm_engine::world::folk::bonds::closest(w, c, 8)
+            .into_iter()
+            .filter_map(|(id, step)| {
+                let k = views::person_index(w, id)?;
+                let p = &w.people[k];
+                Some(json!({ "id": id, "name": p.name, "pos": p.player.position.name(), "step": step }))
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    });
     v["mentor_line"] = json!(co.mentor.and_then(|m| w.coaches.get(m)).map(|m| links::coach(m.id, &m.name)));
+    // How you come across (coach voice): the words for your read, from your
+    // lines and the reputation you came in with. Yours only.
+    if w.career.as_ref().is_some_and(|k| k.coach == c) {
+        v["voice"] = json!(afm_engine::world::folk::persona::manner::your_read(w).map(|x| {
+            let mut words = x.1;
+            words[..1].make_ascii_uppercase();
+            words
+        }));
+    }
     v["record"] = rec_record(w, c);
     v["notes"] = json!(w.career.as_ref().map(|k| {
         k.desk

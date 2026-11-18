@@ -1518,10 +1518,17 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     c.wants_out = false;
     c.ideal = None;
     w.clubs[t].roster.retain(|&x| x != i);
-    if !expired && years_there >= 2.0 && !matches!(cause, DeadWhy::Retired) {
-        super::people::grudge(&mut w.people[i], t, (years_there / 4.0).min(1.0));
-    }
     let id = w.people[i].player.id;
+    if !expired && !matches!(cause, DeadWhy::Retired) {
+        // Cut by a head coach he was close to: it hurts more (coach and
+        // player bonds: x (1 + closeness)), and the bond takes the blow.
+        let head = w.nfl[t].head_coach;
+        if years_there >= 2.0 {
+            let hurt = (years_there / 4.0).min(1.0) * crate::world::folk::bonds::betrayal(w, id, head) as f64;
+            super::people::grudge(&mut w.people[i], t, hurt);
+        }
+        crate::world::folk::bonds::left_him(w, id, head, crate::world::folk::bonds::What::Cut);
+    }
     w.clubs[t].add_dead(year, dead.0.max(0.0), id, cause);
     w.clubs[t].add_dead(year + 1, dead.1, id, cause);
     let name = w.nfl[t].name;
@@ -1711,44 +1718,42 @@ fn camp(w: &mut World, d: Date) {
     // yours to set. NFL staffs run them as balanced staffs (proposed, not
     // confirmed).
     let projects: std::collections::HashMap<usize, Vec<crate::progression::Change>> = {
-        use crate::progression::{Lean, Room, ai_room};
+        use crate::progression::{Lean, Room, StaffAt, ai_room, moved, staff_code};
         let mut rooms: std::collections::HashMap<(usize, Room), Vec<usize>> = Default::default();
+        let mut out = std::collections::HashMap::new();
         for &i in &pros {
             let p = &w.people[i];
             let Some(t) = p.pro.as_ref().and_then(|c| c.team) else { continue };
             let Some(room) = Room::of(p.player.position) else { continue };
             if !w.seat_club(t) {
                 rooms.entry((t, room)).or_default().push(i);
+            } else {
+                // Your club's rooms are yours, but what he brought from his
+                // last staff ends here as on any staff.
+                let m = moved(&p.player, staff_code(StaffAt::Nfl, t));
+                if !m.is_empty() {
+                    out.insert(i, m);
+                }
             }
         }
         let mut keys: Vec<(usize, Room)> = rooms.keys().copied().collect();
         keys.sort_by_key(|k| (k.0, k.1 as u8));
-        let mut out = std::collections::HashMap::new();
         for k in keys {
             let ids = &rooms[&k];
             let members: Vec<&crate::player::Player> = ids.iter().map(|&i| &w.people[i].player).collect();
             let seed = (year as u32).wrapping_mul(0x51_7CC1) ^ (k.0 as u32).wrapping_mul(0x2F0B) ^ (k.1 as u32) << 24;
-            for (m, c) in ai_room(&members, k.1, Lean::BALANCED, w.nfl[k.0].coaching, 1.0, seed) {
+            for (m, c) in
+                ai_room(&members, k.1, Lean::BALANCED, w.nfl[k.0].coaching, 1.0, staff_code(StaffAt::Nfl, k.0), seed)
+            {
                 out.entry(ids[m]).or_insert_with(Vec::new).push(c);
             }
         }
         out
     };
-    // The league's typical staff and strength head (minor bug 302), so the
-    // strength staff's share moves growth around the league's average.
-    let heads: Vec<f64> =
-        w.clubs.iter().map(|c| 10.0 + 10.0 * super::people::Support::z(c.support.strength.rating)).collect();
-    let (t_coach, t_strength) = {
-        let live: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
-        let n = live.len().max(1) as f64;
-        (live.iter().map(|&t| w.nfl[t].coaching).sum::<f64>() / n, live.iter().map(|&t| heads[t]).sum::<f64>() / n)
-    };
-    for i in pros {
-        let (team, status, first, new_team, payday) = {
-            let c = w.people[i].pro.as_ref().unwrap();
-            (c.team, c.status, c.seasons.is_empty(), c.new_team, c.paid)
-        };
-        let role = match (team, status) {
+    // His role on the depth chart.
+    let role_of = |w: &World, i: usize| -> PlayingTime {
+        let c = w.people[i].pro.as_ref().unwrap();
+        match (c.team, c.status) {
             (None, _) | (_, Status::FreeAgent) | (_, Status::Other(_)) => PlayingTime::Unsigned,
             (_, Status::PracticeSquad) => PlayingTime::PracticeSquad,
             (Some(t), _) => {
@@ -1763,14 +1768,60 @@ fn camp(w: &mut World, d: Date) {
                     PlayingTime::Backup
                 }
             }
+        }
+    };
+    // Each club's support departments by priority tier (support
+    // departments): its players counted by role.
+    let reads: Vec<([f64; 3], [f64; 3], [f64; 3])> = {
+        use super::departments::{self as dp, Area};
+        let mut counts = vec![[0usize; 3]; w.clubs.len()];
+        for &i in &pros {
+            if let Some(t) = w.people[i].pro.as_ref().and_then(|c| c.team)
+                && t < counts.len()
+            {
+                counts[t][dp::tier_of(role_of(w, i))] += 1;
+            }
+        }
+        (0..w.clubs.len())
+            .map(|t| {
+                let who = super::people::Who::Club(t);
+                (
+                    dp::tiers(w, who, Area::Strength, counts[t]),
+                    dp::tiers(w, who, Area::Medical, counts[t]),
+                    dp::tiers(w, who, Area::Diet, counts[t]),
+                )
+            })
+            .collect()
+    };
+    // The league's typical staff and strength head (minor bug 302), so the
+    // strength staff's share moves growth around the league's average.
+    let (t_coach, t_strength) = {
+        let live: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
+        let n = live.len().max(1) as f64;
+        let heads = live.iter().map(|&t| 10.0 + 10.0 * super::people::Support::z(w.clubs[t].support.strength.rating));
+        let typ = live.first().and_then(|&t| {
+            super::departments::typical_head(w, super::people::Who::Club(t), super::departments::Area::Strength)
+        });
+        (live.iter().map(|&t| w.nfl[t].coaching).sum::<f64>() / n, typ.unwrap_or_else(|| heads.sum::<f64>() / n))
+    };
+    for i in pros {
+        let (team, first, new_team, payday) = {
+            let c = w.people[i].pro.as_ref().unwrap();
+            (c.team, c.seasons.is_empty(), c.new_team, c.paid)
         };
+        let role = role_of(w, i);
+        let tier = super::departments::tier_of(role);
         // Strength, speed and conditioning (minor bug 302): the strength
         // staff takes 0.4 of the staff's pull there, as a college position
-        // coach's share of technique.
+        // coach's share of technique. The strength department's read for
+        // him (support departments).
         let (physical_coaching, strength_dev) = match team {
             Some(t) => {
-                let dev = heads[t] - t_strength;
-                (Some(0.6 * w.nfl[t].coaching + 0.4 * (t_coach + dev)), dev)
+                let dev = reads[t].0[tier] - t_strength;
+                // The body's rooms around the league's typical (Capital
+                // lane C6).
+                let rooms = crate::world::capital::nfl::physical_lift(&w.capital, t);
+                (Some(0.6 * w.nfl[t].coaching + 0.4 * (t_coach + dev) + rooms), dev)
             }
             None => (None, 0.0),
         };
@@ -1808,8 +1859,8 @@ fn camp(w: &mut World, d: Date) {
         let (morale, physical, medical) = {
             let p = &w.people[i];
             let room = team.map_or(0.0, |t| w.clubs[t].team_mood);
-            let support = team.map(|t| &w.clubs[t].support);
-            let (ph, me) = super::people::support_ctx(support, &p.player.personality);
+            let dept = team.map(|t| (reads[t].0[tier], reads[t].1[tier]));
+            let (ph, me) = super::people::support_ctx(dept, -0.3, &p.player.personality);
             (super::people::morale(p, room), ph, me)
         };
         // Growth from results: last season's results close; a pro on a
@@ -1823,6 +1874,8 @@ fn camp(w: &mut World, d: Date) {
         // when last season played on the engine.
         let today = w.today;
         let hurt = crate::world::season::real_hurts(w, Stage::Pro).then(|| w.training.take_hurt(w.people[i].player.id));
+        // His bond with the coach who teaches him (coach and player bonds).
+        let bond = crate::world::folk::bonds::coachability_lift(w, i);
         let p = &mut w.people[i];
         let hurt = hurt.map(|h| crate::world::season::hurt_for_step(&mut p.player, h, today));
         let mut adjustment = 0.0;
@@ -1873,6 +1926,7 @@ fn camp(w: &mut World, d: Date) {
             morale,
             physical,
             medical,
+            diet: team.map_or(0.0, |t| reads[t].2[tier]),
             physical_coaching,
             strength_dev,
             focus: focus.get(&i).map(|x| x.0),
@@ -1882,6 +1936,7 @@ fn camp(w: &mut World, d: Date) {
             defer,
             results,
             hurt,
+            bond,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         if let Some(l) = &closing {

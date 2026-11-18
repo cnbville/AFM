@@ -86,16 +86,18 @@ jobs:
       # a world goes in the skips here and runs in full-tests.yml.
       - name: Quick tests
         run: >-
-          cargo test --workspace --lib --test national_class --test match_engine --test ab_direction --
+          cargo test --workspace --lib --test national_class --test match_engine --test ab_direction --test fit_check --
           --skip tests::world_log::
           --skip tests::tallies::
           --skip tests::split_build::
           --skip tests::jan1::
+          --skip tests::fresh_talks::
           --skip tests::cfl_draft::
           --skip lane_find::tests::
           --skip lane_leads::tests::
           --skip lane_campaign::tests::
           --skip lane_training::board_tests::
+          --skip lane_training::project_tests::
           --skip lane_logos::tests::your_own_logo_wins_and_stays_with_the_save
       - run: cargo test --workspace --doc
   # Every screen script and data file must parse, on every pull request. On

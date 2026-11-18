@@ -14,6 +14,9 @@ pub mod scout;
 pub mod source;
 pub mod squad;
 
+#[cfg(test)]
+mod schema_tests;
+
 use serde_json::Value;
 
 use crate::{Game, Reply};

@@ -9,18 +9,27 @@
 //! what the day already does to him (the stakes, the rival, the paper, the
 //! week of practice). It moves three things in him: how amped he is (fire),
 //! how settled (poise) and how locked in (focus). Each position plays best at
-//! its own pitch: a guard can use more fire than a quarterback, a kicker
-//! least of all. On the field the change reads as a small edge on all his
-//! ratings, a few points of focus (pre-snap fouls, busts, drops) and of
-//! composure (how hard the next mistake bites), and heat (late hits), all
-//! fading through the quarter: the young settle after the first hits, the
-//! veterans hold it longer. Every size here is Claude's (proposed, not
-//! confirmed).
+//! its own pitch, and each man his own about it (coach fire): a guard can
+//! use more fire than a quarterback, a kicker least of all, a hot-tempered
+//! hitter more than a calm pocket passer. On the field fire works by the
+//! kind of work (coach fire, `docs/design/coach-fire.md`): toward his pitch
+//! it lifts power and effort (strength, leg drive, pursuit, motor, his hit,
+//! a little burst), past it it costs fine and thinking work (the passer's
+//! accuracy and touch, decisions, reads, hands, discipline and
+//! concentration), and it moves how often he goes for the big hit, the
+//! strip, comes downhill, seeks contact, guesses the count or jumps a
+//! route; each at most 3 points. A talk also moves focus (pre-snap fouls,
+//! busts, drops), composure (how hard the next mistake bites) and heat
+//! (late hits), all fading through the quarter: the young settle after the
+//! first hits, the veterans hold it longer. Every size here is Claude's
+//! (proposed, not confirmed), except the caps of 3 (Cain, 2026-11-17).
 
 use super::roster::{GamePlayer, GameTeam};
+use super::rules::TRAIT_STEP;
 use crate::attributes::Attr;
 use crate::player::Level;
 use crate::positions::Position;
+use crate::tendencies::Tend;
 
 /// What you do with the room (the one-on-one's moves, and the captain).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -205,6 +214,18 @@ pub struct Day {
     pub captains: Vec<u32>,
     /// A starter out today (the room plays for him).
     pub hurt: Option<u32>,
+    /// The other side's head coach handed this room bulletin-board
+    /// material this week (coach voice: your fiery words about them at the
+    /// press conference).
+    pub provoked: bool,
+    /// Players who sit the first half (coach fire: a targeting ejection in
+    /// the second half of his last game, under the college rule).
+    pub first_half: Vec<u32>,
+    /// The talk the head coach gives his room today, pregame and at
+    /// halftime, whatever his read, and the tone his sideline words keep
+    /// to; None, he reads the room. The world never sets it: the measuring
+    /// tools play a prototype's room with it (`fire_check`).
+    pub room: Option<Pick>,
 }
 
 /// The groups a room splits into on the screens.
@@ -315,8 +336,27 @@ pub struct Landing {
     pub id: u32,
     pub before: Mind,
     pub after: Mind,
-    /// Rating points on everything (the momentum edge's own scale).
+    /// What it is worth on the field for him, in rating points: the power
+    /// and fine work it moves, weighed by how much of his job each is, and
+    /// how much it settled him (the screens' and the head coach's read;
+    /// coach fire: no longer a lift on every rating).
     pub lift: f32,
+    /// Rating points of power and effort (Strength, Lower Body, Pursuit,
+    /// Motor, his hit, a little burst): fire toward his own pitch.
+    #[serde(default)]
+    pub power: f32,
+    /// Rating points of fine and thinking work (the accuracies, Touch,
+    /// Decisions, Play Recognition, Anticipation, hands, Discipline,
+    /// Concentration): fire past his pitch costs them, cooling him back
+    /// toward it gives them back.
+    #[serde(default)]
+    pub fine: f32,
+    /// Tendency points on the fire habits (`Tend::fiery`).
+    #[serde(default)]
+    pub habits: f32,
+    /// His own best pitch of fire (`spot`).
+    #[serde(default)]
+    pub spot: f32,
     /// Discipline and Concentration, in 1-20 trait points.
     pub focus: f32,
     /// Composure, in 1-20 trait points: how hard a mistake bites.
@@ -334,10 +374,31 @@ pub struct Landing {
 /// engine's running copy of his landing, fading snap by snap.
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Pulse {
-    pub lift: f64,
+    /// Rating points of power and effort, and of fine and thinking work.
+    #[serde(default)]
+    pub power: f64,
+    #[serde(default)]
+    pub fine: f64,
+    /// Tendency points on the fire habits.
+    #[serde(default)]
+    pub habits: f64,
     pub focus: f64,
     pub poise: f64,
     pub heat: f64,
+    /// His fire before the talk, and what the talks added to it (fading):
+    /// how much of a teammate's spark reaches him (coach fire, item 5).
+    #[serde(default)]
+    pub base: f64,
+    #[serde(default)]
+    pub fire: f64,
+    /// Contact tendency points a big hit took from him: he hears
+    /// footsteps for a stretch (coach fire, item 5). It fades at its own
+    /// pace (`FLINCH_KEEP`), and a talk doesn't take it away.
+    #[serde(default)]
+    pub flinch: f64,
+    /// His own best pitch of fire (`spot`).
+    #[serde(default)]
+    pub spot: f64,
     /// The share kept each snap.
     pub keep: f64,
 }
@@ -345,29 +406,95 @@ pub struct Pulse {
 impl Pulse {
     pub fn of(l: &Landing) -> Pulse {
         Pulse {
-            lift: l.lift as f64,
+            power: l.power as f64,
+            fine: l.fine as f64,
+            habits: l.habits as f64,
             focus: l.focus as f64,
             poise: l.poise as f64,
             heat: l.heat as f64,
+            base: l.before.fire as f64,
+            fire: (l.after.fire - l.before.fire) as f64,
+            flinch: 0.0,
+            spot: l.spot as f64,
             keep: 0.5f64.powf(1.0 / (l.half_life as f64).max(4.0)),
         }
     }
     pub fn fade(&mut self) {
-        self.lift *= self.keep;
+        self.power *= self.keep;
+        self.fine *= self.keep;
+        self.habits *= self.keep;
         self.focus *= self.keep;
         self.poise *= self.keep;
         self.heat *= self.keep;
+        self.fire *= self.keep;
+        self.flinch *= FLINCH_KEEP;
     }
     /// A word on the sideline adds to what is left of the talks.
     pub fn add(&mut self, l: &Landing) {
         let p = Pulse::of(l);
-        self.lift = (self.lift + p.lift).clamp(-2.0, 2.0);
+        self.power = (self.power + p.power).clamp(-FIRE_CAP, FIRE_CAP);
+        self.fine = (self.fine + p.fine).clamp(-FIRE_CAP, FIRE_CAP);
+        self.habits = (self.habits + p.habits).clamp(-FIRE_CAP, FIRE_CAP);
         self.focus = (self.focus + p.focus).clamp(-2.5, 2.5);
         self.poise = (self.poise + p.poise).clamp(-3.0, 3.0);
         self.heat = (self.heat + p.heat).clamp(-0.5, 1.2);
+        self.fire = (self.base + self.fire + p.fire).clamp(0.02, 0.99) - self.base;
+        if self.spot == 0.0 {
+            self.spot = p.spot;
+        }
         self.keep = self.keep.max(p.keep);
     }
+    /// Trait points on Discipline and Concentration: the talk's focus, and
+    /// the fine work fire costs read on their 1-20 scale.
+    pub fn focus20(&self) -> f64 {
+        self.focus + self.fine / TRAIT_STEP
+    }
+    /// His fire now, 0-1.
+    pub fn fire_now(&self) -> f64 {
+        (self.base + self.fire).clamp(0.0, 1.0)
+    }
+    /// How much of a teammate's spark reaches him (coach fire, item 5): all
+    /// of it at his own pitch or past it, less the cooler he is.
+    pub fn catches(&self) -> f64 {
+        if self.spot <= 0.0 { 0.0 } else { (self.fire_now() / self.spot).clamp(0.0, 1.0) }
+    }
 }
+
+/// Tendency points of fire habits at which a play his habit goes for is
+/// tagged as fire's ("he came downhill hot"; coach fire, item 8).
+pub const HOT: f64 = 1.0;
+
+/// Rating points a spark gives his teammates on the field, at most
+/// (coach fire, item 5: up to 0.4, fading with the momentum edge over a
+/// few snaps). Proposed, not confirmed.
+pub const SPARK: f64 = 0.4;
+
+/// Contact tendency points a big hit takes from the man hit, for the
+/// softest and most rattled man (coach fire, item 5); one tough and
+/// composed (15 on both, on the level's scale) barely flinches. Proposed,
+/// not confirmed.
+pub const FLINCH: f64 = 3.0;
+
+/// The force of a big hit at each level (coach fire, item 5): the top 3%
+/// of the hardest hit on plays with one, measured on the engine's test
+/// rosters (`fire_check hits`, 400 games a level, seed 1, 2026-11-17: the
+/// 97th percentile NFL 2,118, FBS 1,806, FCS 1,679, high school 1,356).
+/// Proposed, not confirmed.
+pub fn big_hit(level: Level) -> f64 {
+    match level {
+        Level::NFL => BIG_HIT[0],
+        Level::FBS => BIG_HIT[1],
+        Level::FCS | Level::SmallCollege => BIG_HIT[2],
+        _ => BIG_HIT[3],
+    }
+}
+/// NFL, FBS, the other college levels, high school.
+pub const BIG_HIT: [f64; 4] = [2120.0, 1810.0, 1680.0, 1360.0];
+
+/// The share of a flinch kept each snap: about half gone after 14 snaps of
+/// the game, the rest of his drive and into the next (coach fire, item 5:
+/// "for a stretch"). Proposed, not confirmed.
+pub const FLINCH_KEEP: f64 = 0.95;
 
 /// When the talk is given.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -480,6 +607,98 @@ pub fn ideal_fire(p: Position) -> f64 {
     }
 }
 
+/// His own best pitch (coach fire, item 1): his position's, moved by his
+/// makeup. A hot temper, a fierce competitor and a hitter play best hotter
+/// (up to 0.08 in all); a calm temper, a man who rattles, and a pocket
+/// passer against a gunslinger or a scrambler play best cooler (down to
+/// 0.06 in all). A Branch-type safety (temper 3, competitiveness 17,
+/// Physicality 17 on the level's scale) sits at about 0.62 against the
+/// safeties' 0.56; a calm pocket passer about 0.38 against 0.42. Real:
+/// each athlete has his own zone of best arousal (Hanin's individual zones
+/// of optimal functioning). Proposed, not confirmed: every size.
+pub fn spot(p: &GamePlayer, level: Level) -> f64 {
+    let hot = ((10.0 - p.traits.temperament) / 10.0).clamp(-0.9, 0.9);
+    let comp = ((p.personality.competitiveness - 10.0) / 10.0).clamp(-1.0, 1.0);
+    let phys = (p.trait20(Attr::Physicality, level) - 10.0) / 10.0;
+    let rattles = (10.0 - p.composure(level)) / 10.0;
+    let mut up = 0.035 * hot.max(0.0) + 0.025 * comp.max(0.0) + 0.03 * phys.max(0.0);
+    let mut down = 0.035 * (-hot).max(0.0) + 0.03 * rattles.max(0.0);
+    if p.position == Position::QB {
+        // A pocket passer's job is fine work snap after snap; a
+        // gunslinger's and a scrambler's less so.
+        let lean = |t: Tend| (p.tend.get(t) - crate::tendencies::MID) / 9.5;
+        let (sling, scram) = (lean(Tend::Gunslinger), lean(Tend::Scramble));
+        up += 0.02 * sling.max(0.0) + 0.01 * scram.max(0.0);
+        down += 0.02 * (-sling).max(0.0) + 0.015 * (-scram).max(0.0);
+    }
+    ideal_fire(p.position) + up.min(0.08) - down.min(0.06)
+}
+
+/// Rating points of power and effort a unit of fire toward his pitch
+/// gives, and of fine and thinking work a unit of fire past it takes;
+/// tendency points a unit of fire moves the fire habits under his pitch
+/// and past it. Each effect at most 3 points either way (Cain's answer 2,
+/// 2026-11-17). Proposed, not confirmed: the slopes (a strong talk moves a
+/// man's fire about 0.15, so it gives about 1.8 points).
+pub const POWER_PER_FIRE: f64 = 12.0;
+pub const FINE_PER_FIRE: f64 = 12.0;
+pub const HABITS_UNDER: f64 = 4.0;
+pub const HABITS_OVER: f64 = 12.0;
+pub const FIRE_CAP: f64 = 3.0;
+
+/// The power and effort ratings fire lifts toward his pitch (Oxendine,
+/// "Emotional Arousal and Motor Performance", 1970: gross strength, speed
+/// and effort tasks gain from arousal). Motor, his hit and a little burst
+/// are read where they act (`sim::Agent::fire_up`, `Sim::trait20`,
+/// `hit_effects`).
+pub const POWER_WORK: [Attr; 3] = [Attr::Strength, Attr::LowerBody, Attr::Pursuit];
+
+/// The fine and thinking ratings fire costs past his pitch (the same
+/// table: fine, complex and decision tasks lose from too much arousal).
+/// Discipline and Concentration are read on their 1-20 scale
+/// (`Pulse::focus20`).
+pub const FINE_WORK: [Attr; 9] = [
+    Attr::ShortAccuracy,
+    Attr::MediumAccuracy,
+    Attr::DeepAccuracy,
+    Attr::ThrowOnMove,
+    Attr::Touch,
+    Attr::Decisions,
+    Attr::PlayRecognition,
+    Attr::Anticipation,
+    Attr::Catching,
+];
+
+/// How much of his job is power and effort work and how much is fine and
+/// thinking work: his position's own weights on each (`positions::weight`).
+pub fn work_shares(pos: Position) -> (f64, f64) {
+    let w = |a: Attr| crate::positions::weight(pos, a);
+    let power = POWER_WORK.iter().map(|&a| w(a)).sum::<f64>() + w(Attr::Motor);
+    let fine = FINE_WORK.iter().map(|&a| w(a)).sum::<f64>() + w(Attr::Discipline) + w(Attr::Concentration);
+    (power, fine)
+}
+
+/// What fire does on the field between two pitches of it (coach fire,
+/// items 2 and 3): rating points of power and effort, of fine and thinking
+/// work, and tendency points on the fire habits, from `f0` to `f1` about
+/// his own pitch `spot`. Under his pitch more fire is more effort and
+/// nothing is lost in thinking; past it the effort holds and the fine work
+/// goes. The habits climb with fire, three times as fast past his pitch.
+pub fn fire_work(spot: f64, f0: f64, f1: f64) -> (f64, f64, f64) {
+    let under = |f: f64| (spot - f).max(0.0);
+    let over = |f: f64| (f - spot).max(0.0);
+    let power = (POWER_PER_FIRE * (under(f0) - under(f1))).clamp(-FIRE_CAP, FIRE_CAP);
+    let fine = (-FINE_PER_FIRE * (over(f1) - over(f0))).clamp(-FIRE_CAP, FIRE_CAP);
+    let habits =
+        (HABITS_UNDER * (f1.min(spot) - f0.min(spot)) + HABITS_OVER * (over(f1) - over(f0))).clamp(-FIRE_CAP, FIRE_CAP);
+    (power, fine, habits)
+}
+
+/// The fire a room takes from the other coach's words in the paper this
+/// week: under a rivalry week's 0.05 (coach voice). Proposed, not
+/// confirmed.
+pub const PROVOKED_FIRE: f64 = 0.03;
+
 /// His mind going in: the stakes, his temper, his years and his week.
 pub fn mind_now(p: &GamePlayer, cx: &Ctx) -> Mind {
     let t = &p.personality.traits;
@@ -499,6 +718,11 @@ pub fn mind_now(p: &GamePlayer, cx: &Ctx) -> Mind {
         + 0.06 * week_of(p);
     if cx.day.rival {
         fire += 0.05;
+    }
+    // Their coach's words on the locker room wall (coach voice): a small
+    // lift, never past a rivalry week's. Proposed, not confirmed.
+    if cx.day.provoked {
+        fire += PROVOKED_FIRE;
     }
     match cx.moment {
         Moment::Pregame => {}
@@ -730,15 +954,19 @@ pub fn land(p: &GamePlayer, pick: &Pick, cx: &Ctx, captain: Option<&GamePlayer>)
         poise: (before.poise as f64 + ear * dp).clamp(0.02, 0.99) as f32,
         focus: (before.focus as f64 + ear * dc).clamp(0.02, 0.99) as f32,
     };
-    // On the field: the pitch against his spot's best, his composure and
-    // his focus, each against how he came in.
-    let ideal = ideal_fire(p.position);
-    let gap = |f: f32| (f as f64 - ideal).abs();
-    let over = |f: f32| (f as f64 - ideal - 0.18).max(0.0);
+    // On the field (coach fire): his fire against his own pitch by the
+    // kind of work, his composure and his focus, each against how he came
+    // in. What it is worth to him weighs the power and fine work by how
+    // much of his job each is, and his settling as the flat lift did.
+    let spot = spot(p, cx.level);
+    let over = |f: f32| (f as f64 - spot).max(0.0);
     let (f0, f1) = (before.fire, after.fire);
-    let lift = (4.0 * (gap(f0) - gap(f1)) + 2.0 * (after.poise - before.poise) as f64).clamp(-1.5, 1.5);
-    let focus = (6.0 * (after.focus - before.focus) as f64 - 4.0 * (over(f1) - over(f0))).clamp(-2.0, 2.0);
+    let (power, fine, habits) = fire_work(spot, f0 as f64, f1 as f64);
+    let focus = (6.0 * (after.focus - before.focus) as f64).clamp(-2.0, 2.0);
     let poise = (8.0 * (after.poise - before.poise) as f64).clamp(-2.5, 2.5);
+    let (ps, fs) = work_shares(p.position);
+    let net = if ps + fs > 0.0 { (ps * power + fs * fine) / (ps + fs) } else { 0.0 };
+    let lift = (net + 0.25 * poise).clamp(-FIRE_CAP, FIRE_CAP);
     let hot01 = hot.max(0.0);
     let heat = (2.5 * ((f1 as f64 - 0.72).max(0.0) - (f0 as f64 - 0.72).max(0.0)) * hot01 + ear * heat_kick * 0.4)
         .clamp(-0.5, 1.0);
@@ -754,13 +982,14 @@ pub fn land(p: &GamePlayer, pick: &Pick, cx: &Ctx, captain: Option<&GamePlayer>)
             Why::Unmoved
         } else if pick.mv == Move::Praise && d_poise < -0.02 {
             Why::Hollow
-        } else if over(f1) > 0.04 && over(f1) > over(f0) {
+        } else if over(f1) > 0.08 && over(f1) > over(f0) + 0.02 {
+            // Past his pitch by enough to cost a point of fine work.
             Why::OverAmped
         } else if d_poise < -0.04 && fragile > 0.4 && ego < 0.0 {
             Why::Shrank
         } else if d_poise < -0.03 {
             Why::Tight
-        } else if f1 as f64 + 0.12 < ideal && d_fire < -0.03 {
+        } else if f1 as f64 + 0.12 < spot && d_fire < -0.03 {
             Why::Flat
         } else if d_focus > 0.04 && d_focus >= d_fire.abs() {
             Why::Locked
@@ -777,6 +1006,10 @@ pub fn land(p: &GamePlayer, pick: &Pick, cx: &Ctx, captain: Option<&GamePlayer>)
         before,
         after,
         lift: lift as f32,
+        power: power as f32,
+        fine: fine as f32,
+        habits: habits as f32,
+        spot: spot as f32,
         focus: focus as f32,
         poise: poise as f32,
         heat: heat as f32,
@@ -892,6 +1125,10 @@ pub fn mix(a: &Landing, b: &Landing, s: f32) -> Landing {
         before: a.before,
         after: m(&a.after, &b.after),
         lift: l(a.lift, b.lift),
+        power: l(a.power, b.power),
+        fine: l(a.fine, b.fine),
+        habits: l(a.habits, b.habits),
+        spot: a.spot,
         focus: l(a.focus, b.focus),
         poise: l(a.poise, b.poise),
         heat: l(a.heat, b.heat),
@@ -1013,6 +1250,9 @@ pub fn coach_word(p: &GamePlayer, cx: &Ctx, seed: u64) -> Pick {
     let read_sd = 0.18 * (1.7 - 0.07 * cx.speaker.motivation).max(0.25);
     let mut best = (f64::MIN, Pick::default());
     for (k, pick) in word_options(p.id).into_iter().enumerate() {
+        if cx.day.room.is_some_and(|r| r.tone != pick.tone) {
+            continue;
+        }
         let l = land(p, &pick, cx, None);
         let score = l.lift as f64 + 0.35 * l.focus as f64 + 0.25 * l.poise as f64 + read_sd * normal(seed, k as u64);
         if score > best.0 {
@@ -1129,15 +1369,22 @@ pub struct RoomNote {
     pub halftime: bool,
     /// (`Unit` index, before, after), the men who will play.
     pub units: Vec<(u8, Mind, Mind)>,
-    /// The players it moved most: (player, why, rating points on everything).
+    /// The players it moved most: (player, why, what it is worth to him on
+    /// the field in rating points).
     pub stood: Vec<(u32, Why, f32)>,
-    /// Rating points on everything at the start, the men who play.
+    /// What it is worth on the field at the start, in rating points, the
+    /// men who play (each man's power and fine work by his job, and his
+    /// settling).
     pub lift: f32,
     /// The same averaged over the next quarter's snaps (both sides', about
     /// 30), as it fades.
     pub quarter: f32,
     /// Composure points at the start, the men who play.
     pub poise: f32,
+    /// Rating points of power and effort, and of fine and thinking work,
+    /// at the start, the men who play (coach fire).
+    pub power: f32,
+    pub fine: f32,
     /// Starters it rattled, over-amped or left flat.
     pub worries: u16,
 }
@@ -1168,6 +1415,8 @@ pub fn note(team: &GameTeam, ls: &[Landing], side: usize, halftime: bool) -> Roo
     let n: f64 = w.iter().sum::<f64>().max(1.0);
     let lift = ls.iter().zip(&w).map(|(l, k)| k * l.lift as f64).sum::<f64>() / n;
     let poise = ls.iter().zip(&w).map(|(l, k)| k * l.poise as f64).sum::<f64>() / n;
+    let power = ls.iter().zip(&w).map(|(l, k)| k * l.power as f64).sum::<f64>() / n;
+    let fine = ls.iter().zip(&w).map(|(l, k)| k * l.fine as f64).sum::<f64>() / n;
     let quarter = ls
         .iter()
         .zip(&w)
@@ -1189,6 +1438,8 @@ pub fn note(team: &GameTeam, ls: &[Landing], side: usize, halftime: bool) -> Roo
         lift: lift as f32,
         quarter: quarter as f32,
         poise: poise as f32,
+        power: power as f32,
+        fine: fine as f32,
         worries,
     }
 }
@@ -1215,6 +1466,67 @@ mod tests {
         assert_eq!(at(-1.0).lift, a.lift);
         let m = at(0.3);
         assert!(m.heat < a.heat && m.heat > b.heat && m.ear > a.ear && m.ear < b.ear);
+    }
+
+    #[test]
+    fn fire_works_by_the_kind_of_work() {
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-9;
+        // Toward his pitch: effort, and no thinking lost.
+        let (p, f, h) = fire_work(0.6, 0.4, 0.55);
+        assert!(near(p, 12.0 * 0.15) && near(f, 0.0) && near(h, 4.0 * 0.15), "{p} {f} {h}");
+        // Past it: the effort holds, the fine work goes, the habits climb.
+        let (p, f, h) = fire_work(0.6, 0.55, 0.75);
+        assert!(near(p, 12.0 * 0.05) && near(f, -12.0 * 0.15), "{p} {f}");
+        assert!(near(h, 4.0 * 0.05 + 12.0 * 0.15), "{h}");
+        // Cooled back to his pitch, his reads come back.
+        let (_, f, h) = fire_work(0.6, 0.75, 0.6);
+        assert!(near(f, 12.0 * 0.15) && h < 0.0);
+        // Under his pitch he loses effort, not thinking.
+        let (p, f, _) = fire_work(0.6, 0.5, 0.35);
+        assert!(p < 0.0 && near(f, 0.0));
+        // Each at most 3 points (Cain, 2026-11-17).
+        let (p, f, h) = fire_work(0.6, 0.05, 0.99);
+        assert!(near(p, FIRE_CAP) && near(f, -FIRE_CAP) && near(h, FIRE_CAP), "{p} {f} {h}");
+    }
+
+    #[test]
+    fn a_hot_hitter_plays_best_hotter_and_a_calm_pocket_passer_cooler() {
+        use crate::game::synthetic::synthetic_league;
+        let level = Level::NFL;
+        let t = &synthetic_league(level, 2, 7)[0];
+        let mut s = t.players.iter().find(|p| p.position == Position::S).unwrap().clone();
+        s.traits.temperament = 3.0;
+        s.personality.competitiveness = 17.0;
+        s.attrs.set(Attr::Physicality, crate::game::rules::trait_norm(level, Attr::Physicality) + 7.0 * TRAIT_STEP);
+        s.attrs.set(Attr::Composure, crate::game::rules::trait_norm(level, Attr::Composure));
+        let branch = spot(&s, level);
+        assert!((0.60..0.65).contains(&branch), "a Branch-type safety: {branch}");
+        let mut q = t.players.iter().find(|p| p.position == Position::QB).unwrap().clone();
+        q.traits.temperament = 16.0;
+        q.personality.competitiveness = 10.0;
+        q.attrs.set(Attr::Physicality, crate::game::rules::trait_norm(level, Attr::Physicality));
+        q.attrs.set(Attr::Composure, crate::game::rules::trait_norm(level, Attr::Composure));
+        q.tend.set(Tend::Gunslinger, 6.0);
+        q.tend.set(Tend::Scramble, 5.0);
+        let pocket = spot(&q, level);
+        assert!((0.36..0.40).contains(&pocket), "a calm pocket passer: {pocket}");
+        // His makeup moves it at most +0.08 and -0.06.
+        assert!(branch <= ideal_fire(Position::S) + 0.08 + 1e-9);
+        assert!(pocket >= ideal_fire(Position::QB) - 0.06 - 1e-9);
+    }
+
+    #[test]
+    fn a_pulse_fades_and_a_flinch_outlasts_it() {
+        let l = Landing { power: 2.0, fine: -1.0, habits: 1.5, spot: 0.6, half_life: 10.0, ..Landing::default() };
+        let mut p = Pulse::of(&l);
+        p.flinch = 2.0;
+        for _ in 0..10 {
+            p.fade();
+        }
+        assert!((p.power - 1.0).abs() < 1e-9 && (p.fine + 0.5).abs() < 1e-9, "half gone after its half-life");
+        assert!((p.flinch - 2.0 * FLINCH_KEEP.powi(10)).abs() < 1e-9);
+        // The fine work's cost reads on Discipline and Concentration too.
+        assert!(p.focus20() < 0.0);
     }
 
     #[test]

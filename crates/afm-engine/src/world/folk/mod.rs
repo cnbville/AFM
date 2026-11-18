@@ -21,6 +21,7 @@ pub mod arrests;
 pub mod asked;
 pub mod backchannel;
 pub mod backers;
+pub mod bonds;
 pub mod boss;
 pub mod case;
 pub mod cast;
@@ -451,6 +452,11 @@ pub struct Folk {
     pub media_policy: u8,
     /// The tones of your last team talks (a tone used too often wears out).
     pub mine_tones: Vec<u8>,
+    /// How you talk, as people have seen and heard it (coach voice,
+    /// `persona::manner::Book`): chips count too, so it lives beside the
+    /// talks' stores rather than in them.
+    #[serde(skip_serializing_if = "persona::manner::Book::is_empty")]
+    pub manner: persona::manner::Book,
     /// While a takeover files its meetings: they go out as one schedule on
     /// the welcome letter, not as a letter each.
     #[serde(skip)]
@@ -501,6 +507,10 @@ pub struct Folk {
     /// id, the school and the term, until he signs or goes elsewhere.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub usage_pledges: Vec<(u32, usize, usage::Usage)>,
+    /// Coach and player bonds (`bonds`): every player's closeness and trust
+    /// with each coach who works with him, and the moments that built it.
+    #[serde(skip_serializing_if = "bonds::Bonds::is_empty")]
+    pub bonds: bonds::Bonds,
 }
 
 /// Fills what a world built before this build lacks (an old world or save
@@ -553,6 +563,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             courts::day(w, d);
             rules::day(w, d);
             boss::day(w, d);
+            persona::manner::day(w, d);
             if w.seat.is_some() {
                 backers::day(w, d);
                 takeover::day(w, d);
@@ -573,6 +584,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             ensure_base(w);
             ties::day(w, d);
             life::day(w, d);
+            bonds::day(w, d);
             network::day(w, d);
             backchannel::day(w, d);
             if w.seat.is_some() {

@@ -17,6 +17,11 @@ pub mod joining;
 pub mod lane_boards;
 pub mod lane_calendar;
 pub mod lane_campaign;
+pub mod lane_capital;
+pub mod lane_capital_campus;
+pub mod lane_capital_drive;
+pub mod lane_capital_pecking;
+pub mod lane_capital_project;
 pub mod lane_cfl;
 pub mod lane_coaching;
 pub mod lane_core;
@@ -110,6 +115,12 @@ impl Game {
     /// errors in plain words.
     pub fn call(&mut self, cmd: &str, args: &Value) -> Reply {
         self.autosave.touch(cmd);
+        // Days never play while an autosave still shares the world's pages
+        // (autosave.rs, module notes). Continue waits in its own arm, once
+        // no meeting stops it.
+        if autosave::plays_days(cmd) && cmd != "continue" {
+            self.autosave.finish_first();
+        }
         let mut r = self.run(cmd, args);
         // The lines a screen showed you are heard: the same moment keeps
         // its words all day, and the next game day reaches for new ones
@@ -216,15 +227,24 @@ impl Game {
             "open_world" | "load" => {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
                 // A world the play-on just wrote is still in memory.
-                let w = match jobs::take_handoff(std::path::Path::new(path)) {
+                let handed = jobs::take_handoff(std::path::Path::new(path));
+                // The last world goes first, with its log's writer (and any
+                // autosave still writing it), before the new one is read: a
+                // 30-year world holds about 6 GB, and reading a save while
+                // the career or world you had open was still in memory held
+                // two, 12 GB, which an 8 GB Mac can't give (the save "won't
+                // load"). The screens ask you to close the open career first
+                // (`leaveCareer`), and a file that can't be read leaves no
+                // world open, which they show as the start page.
+                self.autosave.reset();
+                self.world = None;
+                self.save_path = None;
+                lane_core::links::forget_names();
+                memory::hand_back();
+                let w = match handed {
                     Some(w) => w,
                     None => setup::read(path)?,
                 };
-                // The last world goes first, with its log's writer (and any
-                // autosave still writing it).
-                self.autosave.reset();
-                self.world = None;
-                lane_core::links::forget_names();
                 self.world = Some(w);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
                 if let Some(w) = self.world.as_mut() {
@@ -307,6 +327,10 @@ impl Game {
                         }));
                     }
                 }
+                // Only once the days will play: a meeting's answer above
+                // never waits for the autosave.
+                self.autosave.finish_first();
+                let w = self.wm()?;
                 let (from, filed) = (w.now(), views::desk_ids(w));
                 w.continue_until_needed();
                 lane_core::after_days(w);
@@ -432,6 +456,11 @@ impl Game {
                     lane_hunt::call,
                     lane_leads::call,
                     lane_campaign::call,
+                    lane_capital::call,
+                    lane_capital_drive::call,
+                    lane_capital_project::call,
+                    lane_capital_pecking::call,
+                    lane_capital_campus::call,
                     lane_data::call,
                     notebook::call,
                     live_talk::call,
@@ -487,5 +516,38 @@ mod screen_names {
             }
         }
         assert!(clashes.is_empty(), "names declared in two screens: {clashes:?}");
+    }
+}
+
+/// Opening a world or a save closes the one you had open before it reads
+/// the file, so two 30-year worlds (about 6 GB each) are never in memory at
+/// once (Cain's seed 181 saves that "won't load" on an 8 GB Mac,
+/// 2026-11-17).
+#[cfg(test)]
+mod open_order {
+    use super::Game;
+    use afm_engine::world::{World, WorldOptions};
+    use serde_json::json;
+
+    #[test]
+    fn the_open_world_goes_before_the_next_is_read() {
+        let home = std::env::temp_dir().join(format!("afm-open-order-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let mut g = Game::new(home.clone());
+        let w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
+        let good = home.join("saves").join("small.afmsave");
+        crate::setup::write(&w, &good).unwrap();
+        let bad = home.join("saves").join("broken.afmsave");
+        std::fs::write(&bad, b"AFMWORLD not a world").unwrap();
+
+        g.world = Some(w);
+        // A file that can't be read: the open world went first, so none is left.
+        assert!(g.call("load", &json!({ "path": bad.display().to_string() })).is_err());
+        assert!(g.world.is_none(), "the open world is dropped before the next file is read");
+        assert_eq!(g.call("hello", &json!({})).unwrap()["loaded"], false);
+        // A good file opens as before.
+        g.call("load", &json!({ "path": good.display().to_string() })).unwrap();
+        assert_eq!(g.call("hello", &json!({})).unwrap()["loaded"], true);
+        let _ = std::fs::remove_dir_all(&home);
     }
 }

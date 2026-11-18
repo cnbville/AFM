@@ -157,7 +157,7 @@ impl Kind {
             SlotKind::OpenPractice => Kind::OpenPractice,
             SlotKind::SpringGame => Kind::SpringGame,
             SlotKind::Convention => Kind::Convention,
-            SlotKind::Film => return None,
+            SlotKind::Film | SlotKind::Donor | SlotKind::DonorRoom => return None,
         })
     }
 }
@@ -240,6 +240,29 @@ pub fn your_eye(w: &World) -> (f64, f64) {
     let e = crate::world::scouting::yours::your_eye(w).unwrap_or(10.0);
     (e, crate::world::scouting::film::time::tiredness(w))
 }
+
+/// An eye in a word for the screens (never the number): sharp, good, fair
+/// or weak, the same words the staff's eye has everywhere else.
+pub fn eye_words(eye: f64) -> &'static str {
+    if eye >= 15.0 {
+        "sharp"
+    } else if eye >= 11.0 {
+        "good"
+    } else if eye >= 7.0 {
+        "fair"
+    } else {
+        "weak"
+    }
+}
+
+/// Whether a coach is you (the head coach at a college seat), for the
+/// screens: "you're Kimble here" is only said of a man who isn't.
+pub fn is_you(w: &World, c: u32) -> bool {
+    you(w) == Some(c as usize)
+}
+
+/// A school visit's hours in minutes (four hours at the school).
+pub const VISIT_MINUTES: u16 = visit::MINUTES;
 
 /// A man's eye on his own visit (his evaluation), rested.
 pub fn man_eye(w: &World, c: usize) -> f64 {
@@ -673,7 +696,7 @@ pub(crate) fn put_doc(s: &mut Scene, title: &str, note: &str, cols: &[&str], row
 
 /// Whether a scene's table is the running state (the screens skip it).
 pub fn is_state(d: &crate::world::folk::scene::Doc) -> bool {
-    d.title == STATE_TITLE
+    d.title == STATE_TITLE || d.title == crate::world::capital::scenes::STATE_TITLE
 }
 
 /// A level moved with someone, kept for the scene's book.

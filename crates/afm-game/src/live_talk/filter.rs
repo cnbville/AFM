@@ -25,8 +25,9 @@ pub const BANNED: [&str; 16] = [
     "prompt",
 ];
 
-/// The longest reply kept, in characters (three short sentences).
-pub const MAX_CHARS: usize = 600;
+/// The longest reply kept, in characters (six sentences: a coach walking
+/// you through his season review). Proposed, not confirmed.
+pub const MAX_CHARS: usize = 900;
 
 /// Why a reply was dropped.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -156,9 +157,71 @@ pub fn numbers(t: &str) -> Vec<u64> {
     out
 }
 
+/// The least a salvaged reply keeps, in characters. Proposed, not
+/// confirmed.
+pub const SALVAGE_MIN: usize = 15;
+
+/// A dropped reply without the sentences that broke a rule, when what's
+/// left still says something and fits. One sentence with a number the
+/// card doesn't hold ("Those are the three things I'll be judging you
+/// on") cost your boss his whole answer, and the screen showed "Yeah."
+/// (the talks audit, 2026-11-16). Each sentence kept passes `check` on its
+/// own, so nothing the filter keeps out gets in.
+pub fn salvage(reply: &str, card: &str) -> Option<String> {
+    let mut out = String::new();
+    for s in sentences(reply) {
+        let Ok(s) = check(&s, card) else { continue };
+        if out.chars().count() + 1 + s.chars().count() > MAX_CHARS {
+            break;
+        }
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.push_str(&s);
+    }
+    (out.chars().count() >= SALVAGE_MIN).then_some(out)
+}
+
+/// A text's sentences, each with its end mark (a mark inside a number,
+/// "4.5", ends nothing).
+pub(crate) fn sentences(t: &str) -> Vec<String> {
+    let chars: Vec<char> = t.chars().collect();
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    for (k, c) in chars.iter().enumerate() {
+        cur.push(*c);
+        if matches!(c, '.' | '!' | '?') && chars.get(k + 1).is_none_or(|n| n.is_whitespace()) {
+            let s = cur.trim();
+            if !s.is_empty() {
+                out.push(s.to_string());
+            }
+            cur.clear();
+        }
+    }
+    let s = cur.trim();
+    if !s.is_empty() {
+        out.push(s.to_string());
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_reply_keeps_what_passes_when_one_sentence_breaks_a_rule() {
+        let card = "Your goals for 2026: win 6 games; a top-6 class in the conference.";
+        let r = "Pull your chair in, Coach. Win 6 games and sign a top-6 class. Those are the three things I'll judge you on.";
+        assert!(check(r, card).is_err(), "three isn't on the card");
+        assert_eq!(salvage(r, card).as_deref(), Some("Pull your chair in, Coach. Win 6 games and sign a top-6 class."));
+        // A banned word goes with its sentence; a number in a decimal ends nothing.
+        let r = "My ceiling is higher. I ran a 4.5 and I'll be ready.";
+        assert_eq!(salvage(r, "a 4.5 forty").as_deref(), Some("I ran a 4.5 and I'll be ready."));
+        // Nothing left that says something: the fallback stays.
+        assert_eq!(salvage("Three. Okay.", card), None);
+        assert_eq!(salvage("I threw for 400 yards last week.", card), None);
+    }
 
     const CARD: &str = "Him: Marcus Hill, QB, redshirt senior. 30 career starts. His line: \"I've started thirty \
                         games here.\" <coach_line>You're still my guy on third downs, and you had 212 yards.</coach_line>";

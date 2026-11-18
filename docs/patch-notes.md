@@ -8,6 +8,192 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.619 (18 Nov, shipped): capital lane CS5: the Pecking order screen (PR #539), coach and player bonds (PR #542), scheme-fit lane SF3: a blocked man is out of the play (PR #533)
+**TLDR:** 3 changes ship together. Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans. Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most. Plus 1 more below.
+- Capital lane CS5: the Pecking order screen (PR #539): Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.
+- Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there (PR #539)
+- The drive you know of for each rival: public with how far along it is, a building going up, or a rumor (PR #539)
+- Your own rank over the years as a line (PR #539)
+- A list of what your donors have heard about rivals' quiet campaigns (PR #539)
+- Coach and player bonds (PR #542): Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most.
+- Every player has a bond with you and with your staff that grows through the season, faster with the coaches he sees every day. (PR #542)
+- Being there after a death, an injury or a hard loss moves a bond more than months of practice. (PR #542)
+- Close players follow instructions more often, take your talks to heart, take coaching a little better and are slower to leave. (PR #542)
+- Bonds have a cost: favoritism the room notices, real hurt when a coach leaves, and a colder start for the coach who follows a beloved one. (PR #542)
+- Tell the game how you grew up in setup: a kid raised the same way finds something in common with you. (PR #542)
+- Scheme-fit lane SF3: a blocked man is out of the play (PR #533): Your offensive line now decides how far your backs get. A great line opens real lanes, a weak one leaves its backs meeting tacklers early, and a defender tied up on a block has to get free before he can make the tackle.
+- A defender locked on a block can no longer reach out and drag the runner down: only one who is beating his blocker gets an arm on him. (PR #533)
+- As the back comes, the defender winning his block comes off it fast, and the one losing it stays stuck. (PR #533)
+- Run blocking on your line and block shedding on your front now show in yards a carry. (PR #533)
+- Backs read blocks the same way, so a walled-off defender no longer scares them out of a lane. (PR #533)
+- Coaches pick their runs against each front from the new results. (PR #533)
+- Look at: Capital, then Pecking order, after the July ranking. (PR #539) a player's People tab, "His coaches", and a coach's profile, "Closest to him". (PR #542) your backs' yards before contact behind your best and worst lines, and a run defense with strong block-shedders up front. (PR #533)
+- Docs and tooling merged too, no game change: Negotiation that responds to arguments: the spec and lanes (PR #543); World additions: spec for the agreed items 1, 6 and 7 (docs) (PR #548).
+
+## 0.2.616 (18 Nov, shipped): opening a save closes the open world before reading the file (PR #535)
+**TLDR:** Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.
+- Loading a save while a career or world is open no longer holds two worlds in memory. (PR #535)
+- Big worlds' saves and autosaves load again on 8 GB Macs. (PR #535)
+- If a file can't be opened, you land back on the start page instead of a broken career. (PR #535)
+- Look at: load your latest save from the Load page. (PR #535)
+- Docs and tooling merged too, no game change: Design: coach and player bonds (proposed, not confirmed) (PR #537); Coach bonds: Cain agreed to the design and all 7 questions (PR #538).
+
+## 0.2.615 (17 Nov, shipped): capital lane CS3: the drive screen (PR #526), capital lane CS2: the Donors screen (PR #525), coach fire: fire by the kind of work, targeting and the spark (PR #530), and 1 more
+**TLDR:** 4 changes ship together. Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours. Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one. Plus 2 more below.
+- Capital lane CS3: the drive screen (PR #526): Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.
+- The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign. (PR #526)
+- Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title. (PR #526)
+- The lead donors who are waiting for you are named, with what they'd give to. (PR #526)
+- Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow. (PR #526)
+- Capital lane CS2: the Donors screen (PR #525): Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one.
+- A new Donors screen under Capital lists your donors with what the development office thinks they could give, how close each is to you and when you last met. (PR #525)
+- A fever bar shows how hot donors are after your big moments and when it will fade. (PR #525)
+- Each donor has a page: what drives them, what they remember of you, who they talk to and your development director's read. (PR #525)
+- Book a weekday lunch or dinner from the page, or call one off. (PR #525)
+- Coach fire: fire by the kind of work, targeting and the spark (PR #530): Your pregame and halftime words now reach the field the way real emotion does: a fired-up hitter hits harder and goes for the ball, but a pocket passer pushed past his best pitch gets jumpy and misses throws.
+- Every player has his own best pitch: a hot-tempered hitter plays best fired up, a calm pocket passer plays best calm. (PR #530)
+- Fire adds strength, effort and hitting power up to that pitch; past it he loses accuracy, reads and discipline, and takes more chances. (PR #530)
+- Big hits, forced fumbles and fourth-down stops lift the teammates on the field for a few snaps, and the man who got hit can hear footsteps over the middle. (PR #530)
+- College targeting is called by its era's rule, with ejections and the next game's first half; the NFL fines its hits from what happened in the games. (PR #530)
+- The play log shows it: big hits, players who came in hot, a receiver who heard footsteps, ejections. (PR #530)
+- Capital lane CS4: the project screen (PR #532): The Capital section now has a Project page for the building going up, with the rooms it holds, its timeline and the strings donors put on it. When costs run over, you see what each answer would do before you choose.
+- See the rooms a new building adds or moves, and what each one gives you (PR #532)
+- Answer a cost overrun by cutting rooms, waiting a year or borrowing, with a preview first (PR #532)
+- Grant or turn down a donor's call about his gift (PR #532)
+- See how the team practices while the building goes up (PR #532)
+- Look at: the Capital section's The drive, once your program has a campaign under way. (PR #526) Capital, Donors, in the sidebar when you coach a college program. (PR #525) give a fiery talk before a playoff game and read the play log for your hitters, then try a calm talk with your pocket passer. (PR #530)
+- Docs and tooling merged too, no game change: Design: support staff as full departments (proposed, not confirmed) (PR #528); Support departments: Cain agreed to all seven questions (PR #529); Memory diet: the research and the agreed items (docs) (PR #534); GAPS.md: start the gaps list with the coach-depth findings (PR #536).
+
+## 0.2.611 (17 Nov, shipped): capital lane C5: the facilities race and the press (PR #521), ground lane S3: the school visit screen (PR #514), capital lane C6: high school and NFL facilities (PR #523), and 1 more
+**TLDR:** 4 changes ship together. The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities. A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go. Plus 2 more below.
+- Capital lane C5: the facilities race and the press (PR #521): The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities.
+- When a recruit picks a rival, the reasons can name the rival's new weight room, locker room or other room over yours. (PR #521)
+- Your donors tell you, over dinner or in the suite before kickoff, when a rival is quietly raising money for a new building, and roughly how far along it is. (PR #521)
+- Rumors from a donor who was in the room are close to the truth. Word heard through friends is vaguer. (PR #521)
+- Each July the press publishes a facilities pecking order for every conference, with where you stand and how far you moved. (PR #521)
+- Ground lane S3: the school visit screen (PR #514): A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go.
+- The visit shows its stops in order, with the sign-in sheet of who came before you. (PR #514)
+- You see where the school's kids went and where you stand with the coach. (PR #514)
+- A new name appears with what the public thinks, what the coach says and five blanks to fill. (PR #514)
+- It shows who heard of him first. (PR #514)
+- Skip the visit and get its result line. (PR #514)
+- Capital lane C6: high school and NFL facilities (PR #523): Facilities now matter at every level: high school coaches can work a stadium bond through town, and NFL head coaches ask the owner for the room they need.
+- High schools have a weight room, film room, locker room, turf field and stadium, each helping its own part of the program. (PR #523)
+- Stadium bonds go to the town's vote in May and November; your season and your nights at the Rotary club and the phone bank move the yes share. (PR #523)
+- A new district stadium is shared, so your crosstown rival plays in it too. (PR #523)
+- NFL clubs' rooms move the players' report card, and you ask the owner for one room a year; winning and other teams' interest make him hard to refuse. (PR #523)
+- Capital lane CS1: the Campus screen (PR #527): Your campus now has its own screen: a map of your buildings and rooms, how each one stacks up against your conference, and a button to ask your athletic director for a renovation.
+- See every building with its rooms and their levels (PR #527)
+- Gold squares show what a building under way or a summer renovation will add (PR #527)
+- Each room lists what it unlocks and how it reads against the conference's best (PR #527)
+- Ask your athletic director to renovate a room and see his answer (PR #527)
+- Compare your campus with your rival's (PR #527)
+- Look at: your news on 1 July, and the why-lines on recruits you lost. (PR #521) open this week's scene on a road day from the week board. (PR #514) the owner meeting's room asks, and the boss meeting's facility ask at a high school. (PR #523)
+- Docs and tooling merged too, no game change: CLAUDE.md: small fixes and docs merge on green (docs) (PR #524).
+
+## 0.2.607 (17 Nov, shipped): capital lane C4: your week and scenes (PR #522)
+**TLDR:** Your donors now live in your week. Dinners, the suite before kickoff and the spring caravan sit beside your other scenes, and you choose the rooms a recruit tours on his official visit.
+- Your development office puts donors worth your time on your week, each with a reason, and you can book your own dinners. (PR #522)
+- In season your only donor hour is the suite before a home game. (PR #522)
+- On an official visit you pick the three rooms he sees, and he notices what you skip. (PR #522)
+- When a donor whose name is on a building lands in scandal, you decide whether the name comes down. (PR #522)
+- Groundbreakings, reveal videos and ribbon cuttings keep who was on stage, how the recruits took it and the next day's headline. (PR #522)
+- Look at: a spring week's schedule, then an official visit weekend. (PR #522)
+
+## 0.2.606 (17 Nov, shipped): speed lane: very fast players as rare as real ones (PR #512), coach voice: how you talk, read and reacted to (PR #519), capital lane C3: the money and the drive (PR #520)
+**TLDR:** 3 changes ship together. Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring. How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would. Plus 1 more below.
+- Speed lane: very fast players as rare as real ones (PR #512): Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring.
+- Very fast prospects at the combine come up about as often as in the real NFL draft. (PR #512)
+- A player's top speed comes from his body. Hard work in the weight room still trims a little, but no longer turns a 4.5 man into a 4.4 man. (PR #512)
+- Freaks still exist: the fastest men still run 4.2s, and big men who fly are as common as real ones. (PR #512)
+- Coach voice: how you talk, read and reacted to (PR #519): How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would.
+- Pick how you talk in your coach profile, then let your real words reshape your reputation over a season. (PR #519)
+- Fire aimed at the opponent reads as passion; aimed at a player with no trust behind it, it reads as abuse. (PR #519)
+- Players answer in kind, from "Hell yeah, coach" to going quiet. (PR #519)
+- A pattern of mistreatment brings complaints, an outside review and possibly a firing for cause. (PR #519)
+- AI coaches have their own styles, and their players and staff react by the same rules. (PR #519)
+- Capital lane C3: the money and the drive (PR #520): Winning now brings in money. Titles, a Heisman and top-10 picks set your donors giving, and every program raises its buildings through a real campaign with choices that matter.
+- Big moments set off a giving fever that builds over a run and fades over two years. (PR #520)
+- Each program's drive runs a feasibility study, a quiet phase, a public launch and a close, and rival schools run theirs on the same rules. (PR #520)
+- Donors choose between NIL and buildings one by one. Pushing a donor toward the building leaves less for NIL. (PR #520)
+- Some gifts come with strings that show up later. You can go public early, push your athletic director to borrow, or answer a cost overrun. (PR #520)
+- Look at: the combine results in your first draft class. (PR #512) your coach page's "How you come across" after a few heated talks. (PR #519) the news after a conference title or a top-10 pick. (PR #520)
+
+## 0.2.603 (17 Nov, shipped): capital lane C2: the rooms and the campus (PR #516)
+**TLDR:** Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer.
+- Thirteen rooms per program, each with a level, starting from every school's real buildings. (PR #516)
+- Rooms age and are read against the best in your conference, so a rival's new weight room makes yours look older. (PR #516)
+- Each room has its own effect: the weight room grows bodies, the recovery center gets hurt players back sooner, the content studio helps your players' deals, the locker room makes visits count. (PR #516)
+- In the year before a new building opens, your team works in temporary space. (PR #516)
+- Recruits now care about campus life, some of them a lot. (PR #516)
+- A crash a few seasons in, when the NFL added a team, is fixed. (PR #516)
+- Look at: your program's rooms once the Campus screen arrives. (PR #516)
+
+## 0.2.602 (17 Nov, shipped): days wait for a running autosave instead of copying the world (PR #515), talks that know where they stand and what is between you (PR #507), progression step 5: slower closing near the top and fitted trims hold the star count (PR #518)
+**TLDR:** 3 changes ship together. The game no longer freezes for minutes when you press Continue while it autosaves. The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises. Plus 1 more below.
+- Days wait for a running autosave instead of copying the world (PR #515): The game no longer freezes for minutes when you press Continue while it autosaves.
+- Pressing Continue during an autosave now waits a few seconds for the save to finish, then plays. (PR #515)
+- The button says "Finishing the autosave…" while it waits. (PR #515)
+- Macs with 8 GB of memory no longer run out of memory during an autosave. (PR #515)
+- Talks that know where they stand and what is between you (PR #507): The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises.
+- Players know their eligibility, the draft and their place, and a man in his last season never talks about transferring. (PR #507)
+- Everyone knows their history with you and the time of year: how long you've been there, the games and promises between you, your last talk, and how far they trust you. (PR #507)
+- Your boss tells you his goals and how the money works, and writes down what you commit to without making you prove every sentence. (PR #507)
+- People you push argue with reasons, ask one thing at a time, and take a no once you make it final. (PR #507)
+- "Any questions?" gets a real question back, a thank-you no longer ends a talk, and calls end with a goodbye. (PR #507)
+- Progression step 5: slower closing near the top and fitted trims hold the star count (PR #518): no summary in the PR
+- Look at: press Continue a few times in a row over ten minutes of play. (PR #515) a one-on-one with a player in your first weeks, then your goals meeting with the athletic director. (PR #507)
+- Docs and tooling merged too, no game change: Scheme fit lane SF0: fit_check, the audit's measuring tool (PR #513).
+
+## 0.2.599 (17 Nov, shipped): ground lane S7: your men and your desk (the staff carousel and assistant desk screens) (PR #511)
+**TLDR:** Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.
+- A warning when another school wants one of your men, with his face, what pulls him each way and your read of him (PR #511)
+- Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs (PR #511)
+- Who could take his area, and what your standing loses with him (PR #511)
+- Every man's areas, mood and record, and the areas nobody works (PR #511)
+- An assistant's desk: your list, his answers, his memory of you and your goals (PR #511)
+- Look at: Ground, "Your men" (head coach) or "Your desk" (assistant) (PR #511)
+
+## 0.2.598 (17 Nov, shipped): ground lane S4: the lead card screen (PR #492), ground lane G10: your staff's ground and the assistant seat (PR #491), progression step 6: screens show "99+" where a read passes 99 (PR #503), and 2 more
+**TLDR:** 5 changes ship together. Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next. Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye. Plus 3 more below.
+- Ground lane S4: the lead card screen (PR #492): Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.
+- Your leads sit in a strip; pick one to open his card. (PR #492)
+- The five blanks show who filled each and when, with a button on the open ones. (PR #492)
+- A timeline shows who heard about him and who offered, against the day the services update. (PR #492)
+- Offer him, fill the open blank first, or let him go; each says what it risks. (PR #492)
+- Once he's your find, the card follows how he blooms. (PR #492)
+- Ground lane G10: your staff's ground and the assistant seat (PR #491): Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye.
+- Your recruiting coordinator gives each assistant his areas by who he knows there, and you can move anyone on a Monday. (PR #491)
+- A young coach can ride along with a veteran and meet his high school coaches. (PR #491)
+- When another school wants one of your men, you get a few days to counter with a raise, a title or a promise. (PR #491)
+- A coach who leaves takes his ties with him, and the kids he recruited may waver until you call them. (PR #491)
+- As an assistant, bring your head coach two kids a week; he signs them or says wait, and his August verdict follows you. (PR #491)
+- Progression step 6: screens show "99+" where a read passes 99 (PR #503): When your staff thinks a player might be better than 99, his rating now says so: the range ends in "99+".
+- A range that reaches past the top reads like "97-99+". (PR #503)
+- Ranges below the top look the same as before. (PR #503)
+- Fix the "Ask in your words" 400: nullable enums as anyOf, and a check on every schema (PR #509): Asking in your own words works again: type a search like "safeties from South Carolina" and the board fills in the search for you.
+- The Find box no longer answers with an AI error on most questions. (PR #509)
+- The analyst's stat questions no longer fail the same way. (PR #509)
+- Capital lane C1: the donors (store only) (PR #510): no summary in the PR
+- Look at: open Leads after your staff has been to a few schools. (PR #492) your inbox after the first day of a new college job, for your coordinator's areas letter. (PR #491) the best athletes' speed or strength reads on your roster. (PR #503)
+- Docs and tooling merged too, no game change: Spec: how you talk, your coaching voice read and reacted to (PR #504); Scheme fit: the 25 agreed items and their lanes (docs) (PR #505); Coach fire on the field: the agreed spec (docs) (PR #506); Capital: the facilities layer spec and lane plan (PR #508).
+
+## 0.2.593 (17 Nov, shipped): ground lane G5: the week's scenes played (PR #494)
+**TLDR:** Your recruiting week now plays out as real scenes: walk into a high school coach's office, run your own clinic, sit with families on junior day and take the call the morning a kid decides.
+- A school visit goes stop by stop: the sign-in sheet shows who was in before you, the coach's office gives you his list, and your eye can catch a kid in the weight room nobody listed. (PR #494)
+- Your clinic, open practices and the state coaches' convention warm many coaches at once, fastest with the ones who run your scheme, and the hallway is where the names come out. (PR #494)
+- Junior days, visit weekends and the spring game let you sit with families, hear from player hosts and offer on the spot; from 2027 the spring game is yours to hold or skip. (PR #494)
+- Every scene ends on one line of what you walked away with, and any scene you hand to your coordinator still comes back with his line. (PR #494)
+- Look at: your next school visit or your spring clinic from the week's plan. (PR #494)
+
+## 0.2.592 (17 Nov, shipped): progression step 4c: no 99 wall, a thin top past 99, the bench by body weight (PR #502)
+**TLDR:** The best players can now go past 99 under the hood, so true freaks stand out from merely great players. Big men's bench numbers now follow their weight, as they do at the real combine.
+- Ratings no longer stop at 99. Past the mid-90s each extra point gets harder, so a 100+ arm is about as rare as a 4.25 forty. (PR #502)
+- Elite prospects are as uneven as anyone else. A top talent can have one standout tool and a weaker spot. (PR #502)
+- Bench press reps follow body weight, and the strongest men in the weight room can reach the 40-rep club. (PR #502)
+- Vertical jumps top out near the real record instead of running far past it. (PR #502)
+- Look at: the combine numbers of the biggest, strongest linemen in a draft class. (PR #502)
+
 ## 0.2.591 (17 Nov, shipped): CI: screen tests share each small world; retry runners that shut down (PR #495), live talks: your boss writes down what you commit to (PR #500), let updates skip a pending older version (PR #501)
 **TLDR:** 3 changes ship together. CI: screen tests share each small world; retry runners that shut down Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not. Plus 1 more below.
 - CI: screen tests share each small world; retry runners that shut down (PR #495): no summary in the PR

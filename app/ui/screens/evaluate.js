@@ -49,7 +49,8 @@ const evTrackTh = `<th title="${esc(EV_TRACK)}">Track record</th>`;
 // A staff range as a soft band on the 40-99 scale (or another).
 const evBand = (lo, hi, cls = "", min = 40, max = 99) => {
   const x = (v) => Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
-  return `<span class="ev-band ${cls}" title="${lo}-${hi}"><i style="left:${x(lo)}%;width:${Math.max(2, x(hi) - x(lo))}%"></i><b>${lo}-${hi}</b></span>`;
+  const t = rpair([lo, hi]);
+  return `<span class="ev-band ${cls}" title="${t}"><i style="left:${x(lo)}%;width:${Math.max(2, x(hi) - x(lo))}%"></i><b>${t}</b></span>`;
 };
 
 screens.evaluate = async (a) => {

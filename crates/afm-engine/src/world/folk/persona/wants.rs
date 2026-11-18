@@ -95,6 +95,10 @@ pub enum WantKind {
     Booster(cast::Want),
     /// His kids' futures and his program's name (a high school coach).
     Kids,
+    /// The NFL draft: going as high as he can (a college player whose
+    /// college career ends this year, or one who could declare;
+    /// `talk::standing`).
+    Draft,
 }
 
 /// One of his wants today and how much it weighs for him, 0-1. An engine

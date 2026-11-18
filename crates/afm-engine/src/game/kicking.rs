@@ -873,6 +873,7 @@ fn run_return(
         // The same lunge in the open field as on a scrimmage play.
         open_reach: OPEN_REACH,
         press: 0.0,
+        designed_run: false,
         lane: None,
         bites: Vec::new(),
         two_gap: false,
@@ -883,6 +884,7 @@ fn run_return(
         level: rules.level,
         // The sim's side 0 is the return team.
         mood: k.mood.swap(),
+        targeting: rules.targeting,
         tend_memo: super::sim::tend_memo(),
         reach_memo: super::sim::reach_memo(),
     };

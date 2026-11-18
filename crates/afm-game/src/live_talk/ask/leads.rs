@@ -178,7 +178,7 @@ pub fn outliers(w: &World, me: TeamRef) -> Vec<Lead> {
 
 const RULES: &str = "You are a football analyst's voice, picking leads for a head coach from a list the game has made. The game has already found the outliers: players whose best numbers sit at the top of the level. The card lists them, each with an id (l1, l2 and so on) and his best numbers. Pick the few that deserve the coach's time first (at most five) and say, in one short sentence each, why that player stands out, in plain football words, using only the numbers and facts on the card, copied as printed. Never add a number, a name or a fact that is not in the card. Never mention ratings, potential or anything about the game itself. Order the picks best first. Answer only with the JSON the schema allows.";
 
-fn schema() -> Value {
+pub(crate) fn schema() -> Value {
     let ids: Vec<String> = (1..=MAX_LEADS).map(|k| format!("l{k}")).collect();
     json!({
         "type": "object",

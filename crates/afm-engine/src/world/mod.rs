@@ -15,6 +15,7 @@ pub mod analytics;
 pub mod background;
 pub mod broadcast;
 pub mod buildings;
+pub mod capital;
 pub mod charts;
 pub(crate) mod chemistry;
 pub(crate) mod clock;
@@ -63,6 +64,7 @@ pub use season::{key_normal, key_uniform, level_from_read, level_pool};
 pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
     nfl_year::draft_order(w)
 }
+pub mod departments;
 pub mod people;
 pub mod plans;
 pub(crate) mod polls;
@@ -1150,6 +1152,10 @@ pub struct World {
     /// on the four-level ladder (`ground`).
     #[serde(default)]
     pub ground: ground::Ground,
+    /// Capital, the facilities layer (`docs/design/capital.md`): lane C1's
+    /// donors, circles, pledges and estates (`capital`).
+    #[serde(default)]
+    pub capital: capital::Capital,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1750,7 +1756,10 @@ impl World {
             nfl_units: Vec::new(),
             results: crate::results::Book::default(),
             ground: Default::default(),
+            capital: Default::default(),
         };
+        // Every program's rooms from its number (Capital lane C2).
+        capital::rooms::after_load(&mut w);
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
         systems::spring_install(&mut w);

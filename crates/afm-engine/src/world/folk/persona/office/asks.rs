@@ -127,16 +127,16 @@ fn share_of(w: &str) -> Option<f64> {
 /// A plan ask from your words (the ear's value: the setting, more or less,
 /// how much, and whether you made it your call). None when it names no
 /// setting the plan has.
-pub fn plan_ask(w: &World, words: &str) -> Option<PlanAsk> {
-    if let Some(m) = CHIP_WORDS.iter().position(|c| *c == words) {
-        return Some(PlanAsk { m: m as u8, steps: 1.0, order: false, chip: true });
-    }
+/// The game plan setting an ask names, and its two moves (up, down) on
+/// the plan's own scale; None when it names none, and then it isn't a game
+/// plan ask ("get the banged-up guys extra treatment this week", "back to
+/// basics: tackling, ball security, effort", the talks audit of
+/// 2026-11-16).
+pub fn plan_setting(words: &str) -> Option<(&'static str, u8, u8)> {
     let low = words.to_lowercase();
     let has = |xs: &[&str]| xs.iter().any(|x| low.contains(x));
     let word = |x: &str| low.split(|c: char| !c.is_alphanumeric()).any(|t| t == x);
-    let less = has(&["less", "fewer", "back off", "stop", "cut", "not as", "lower", "down to", "reduce"]);
-    // The setting, and its two moves (up, down) on the plan's own scale.
-    let (setting, up, down) = if has(&["blitz", "pressure", "send more", "bring more", "rush more", "pass rush"]) {
+    Some(if has(&["blitz", "pressure", "send more", "bring more", "rush more", "pass rush"]) {
         ("pressure", 0u8, 4u8)
     } else if word("zone") {
         ("zone", 1, 5)
@@ -148,7 +148,17 @@ pub fn plan_ask(w: &World, words: &str) -> Option<PlanAsk> {
         ("run", 2, 3)
     } else {
         return None;
-    };
+    })
+}
+
+pub fn plan_ask(w: &World, words: &str) -> Option<PlanAsk> {
+    if let Some(m) = CHIP_WORDS.iter().position(|c| *c == words) {
+        return Some(PlanAsk { m: m as u8, steps: 1.0, order: false, chip: true });
+    }
+    let low = words.to_lowercase();
+    let has = |xs: &[&str]| xs.iter().any(|x| low.contains(x));
+    let less = has(&["less", "fewer", "back off", "stop", "cut", "not as", "lower", "down to", "reduce"]);
+    let (setting, up, down) = plan_setting(words)?;
     let order = has(&[
         "order",
         "my call",

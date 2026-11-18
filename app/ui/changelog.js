@@ -17,6 +17,134 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.619", date: "18 Nov", title: "Scheme-fit lane SF3: a blocked man is out of the play and 2 more",
+    notes: [
+      "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.",
+      "Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there",
+      "The drive you know of for each rival: public with how far along it is, a building going up, or a rumor",
+      "Your own rank over the years as a line",
+      "A list of what your donors have heard about rivals' quiet campaigns",
+      "Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most.",
+    ],
+  },
+  {
+    v: "0.2.616", date: "18 Nov", title: "Opening a save closes the open world before reading the file",
+    notes: [
+      "Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.",
+      "Loading a save while a career or world is open no longer holds two worlds in memory.",
+      "Big worlds' saves and autosaves load again on 8 GB Macs.",
+      "If a file can't be opened, you land back on the start page instead of a broken career.",
+    ],
+  },
+  {
+    v: "0.2.615", date: "17 Nov", title: "Capital lane CS4: the project screen and 3 more",
+    notes: [
+      "Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.",
+      "The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign.",
+      "Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title.",
+      "The lead donors who are waiting for you are named, with what they'd give to.",
+      "Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow.",
+      "Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one.",
+    ],
+  },
+  {
+    v: "0.2.611", date: "17 Nov", title: "Capital lane CS1: the Campus screen and 3 more",
+    notes: [
+      "The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities.",
+      "When a recruit picks a rival, the reasons can name the rival's new weight room, locker room or other room over yours.",
+      "Your donors tell you, over dinner or in the suite before kickoff, when a rival is quietly raising money for a new building, and roughly how far along it is.",
+      "Rumors from a donor who was in the room are close to the truth. Word heard through friends is vaguer.",
+      "Each July the press publishes a facilities pecking order for every conference, with where you stand and how far you moved.",
+      "A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go.",
+    ],
+  },
+  {
+    v: "0.2.607", date: "17 Nov", title: "Capital lane C4: your week and scenes",
+    notes: [
+      "Your donors now live in your week. Dinners, the suite before kickoff and the spring caravan sit beside your other scenes, and you choose the rooms a recruit tours on his official visit.",
+      "Your development office puts donors worth your time on your week, each with a reason, and you can book your own dinners.",
+      "In season your only donor hour is the suite before a home game.",
+      "On an official visit you pick the three rooms he sees, and he notices what you skip.",
+      "When a donor whose name is on a building lands in scandal, you decide whether the name comes down.",
+      "Groundbreakings, reveal videos and ribbon cuttings keep who was on stage, how the recruits took it and the next day's headline.",
+    ],
+  },
+  {
+    v: "0.2.606", date: "17 Nov", title: "Capital lane C3: the money and the drive and 2 more",
+    notes: [
+      "Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring.",
+      "Very fast prospects at the combine come up about as often as in the real NFL draft.",
+      "A player's top speed comes from his body. Hard work in the weight room still trims a little, but no longer turns a 4.5 man into a 4.4 man.",
+      "Freaks still exist: the fastest men still run 4.2s, and big men who fly are as common as real ones.",
+      "How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would.",
+      "Pick how you talk in your coach profile, then let your real words reshape your reputation over a season.",
+    ],
+  },
+  {
+    v: "0.2.603", date: "17 Nov", title: "Capital lane C2: the rooms and the campus",
+    notes: [
+      "Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer.",
+      "Thirteen rooms per program, each with a level, starting from every school's real buildings.",
+      "Rooms age and are read against the best in your conference, so a rival's new weight room makes yours look older.",
+      "Each room has its own effect: the weight room grows bodies, the recovery center gets hurt players back sooner, the content studio helps your players' deals, the locker room makes visits count.",
+      "In the year before a new building opens, your team works in temporary space.",
+      "Recruits now care about campus life, some of them a lot.",
+    ],
+  },
+  {
+    v: "0.2.602", date: "17 Nov", title: "Talks that know where they stand and what is between you and 1 more",
+    notes: [
+      "The game no longer freezes for minutes when you press Continue while it autosaves.",
+      "Pressing Continue during an autosave now waits a few seconds for the save to finish, then plays.",
+      "The button says \"Finishing the autosave…\" while it waits.",
+      "Macs with 8 GB of memory no longer run out of memory during an autosave.",
+      "The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises.",
+      "Players know their eligibility, the draft and their place, and a man in his last season never talks about transferring.",
+    ],
+  },
+  {
+    v: "0.2.599", date: "17 Nov", title: "Ground lane S7: your men and your desk (the staff carousel and assistant desk screens)",
+    notes: [
+      "Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.",
+      "A warning when another school wants one of your men, with his face, what pulls him each way and your read of him",
+      "Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs",
+      "Who could take his area, and what your standing loses with him",
+      "Every man's areas, mood and record, and the areas nobody works",
+      "An assistant's desk: your list, his answers, his memory of you and your goals",
+    ],
+  },
+  {
+    v: "0.2.598", date: "17 Nov", title: "Fix the \"Ask in your words\" 400: nullable enums as anyOf, and a check on every schema and 3 more",
+    notes: [
+      "Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.",
+      "Your leads sit in a strip; pick one to open his card.",
+      "The five blanks show who filled each and when, with a button on the open ones.",
+      "A timeline shows who heard about him and who offered, against the day the services update.",
+      "Offer him, fill the open blank first, or let him go; each says what it risks.",
+      "Once he's your find, the card follows how he blooms.",
+    ],
+  },
+  {
+    v: "0.2.593", date: "17 Nov", title: "Ground lane G5: the week's scenes played",
+    notes: [
+      "Your recruiting week now plays out as real scenes: walk into a high school coach's office, run your own clinic, sit with families on junior day and take the call the morning a kid decides.",
+      "A school visit goes stop by stop: the sign-in sheet shows who was in before you, the coach's office gives you his list, and your eye can catch a kid in the weight room nobody listed.",
+      "Your clinic, open practices and the state coaches' convention warm many coaches at once, fastest with the ones who run your scheme, and the hallway is where the names come out.",
+      "Junior days, visit weekends and the spring game let you sit with families, hear from player hosts and offer on the spot; from 2027 the spring game is yours to hold or skip.",
+      "Every scene ends on one line of what you walked away with, and any scene you hand to your coordinator still comes back with his line.",
+    ],
+  },
+  {
+    v: "0.2.592", date: "17 Nov", title: "Progression step 4c: no 99 wall, a thin top past 99, the bench by body weight",
+    notes: [
+      "The best players can now go past 99 under the hood, so true freaks stand out from merely great players. Big men's bench numbers now follow their weight, as they do at the real combine.",
+      "Ratings no longer stop at 99. Past the mid-90s each extra point gets harder, so a 100+ arm is about as rare as a 4.25 forty.",
+      "Elite prospects are as uneven as anyone else. A top talent can have one standout tool and a weaker spot.",
+      "Bench press reps follow body weight, and the strongest men in the weight room can reach the 40-rep club.",
+      "Vertical jumps top out near the real record instead of running far past it.",
+    ],
+  },
+  {
     v: "0.2.591", date: "17 Nov", title: "Let updates skip a pending older version and 1 more",
     notes: [
       "Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not.",

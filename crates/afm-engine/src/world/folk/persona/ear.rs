@@ -269,6 +269,10 @@ pub struct Reading {
     pub dodged: bool,
     /// The line isn't a person talking (section 14): it does nothing.
     pub not_talk: bool,
+    /// How you said it (coach voice, section 1): none from a reading saved
+    /// before it, or when the ear gave none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manner: Option<super::manner::Manner>,
 }
 
 /// A hit as the game sized it, from how much the item weighs for him and
@@ -330,11 +334,18 @@ pub struct Say {
     pub holding_back: bool,
     /// When he lies, the voice gets the lie, never the truth.
     pub lie: Option<String>,
+    /// What the coach just did, in the man's own terms, for the voice to
+    /// react to (a decision on him, what he showed him): never words the
+    /// voice says as its own.
+    pub heard: Vec<String>,
 }
 
 /// The game's turn (5.3).
 #[derive(Clone, Debug, Default)]
 pub struct Turn {
+    /// Season review points a coach gave this turn (`talk::review_page`):
+    /// the talk keeps the count, so a push gives the next ones.
+    pub reviewed: u8,
     /// One answer per question, in order.
     pub told: Vec<Told>,
     /// Each claim and what checking it found.
@@ -370,6 +381,8 @@ pub struct Turn {
     pub dodged: bool,
     /// Each commitment and how he took it (`folk::commit`).
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
+    /// How each man in the room took your manner (coach voice), sized.
+    pub manner: Vec<(Them, super::manner::Took)>,
 }
 
 /// The game's side of a line (lane N4).

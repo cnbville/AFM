@@ -7135,3 +7135,22 @@ I'm handling it, Coach. {gone} would want me to. ~ steady
 I miss competing with {gone} every day. That's the truth. ~ competitor
 Nobody pushes me in practice like {gone} did. ~ competitor
 {gone} and I had our own thing going. I'm still figuring it out without him. ~ loose
+
+# His future when his college career ends this year (Cain 2026-11-16: a
+# senior with no eligibility left opened on the transfer window). Only a man
+# with no college football after this season says these (`lastyear`,
+# `talk::standing`): the draft, the scouts, agents, what comes next.
+@key talk.open.draft
+Is this about the draft? I think about it every day now. ~ college lastyear
+I figured this was about the draft. What are the scouts asking you about me? ~ college lastyear
+The draft's all anybody asks me about anymore. I wanted your read first. ~ college lastyear
+I want to know what you're going to tell the NFL guys about me, Coach. ~ college lastyear
+Whatever you're hearing from the scouts, I'd rather hear it straight from you. ~ college lastyear
+I've got one shot at this draft. I want to do it right. ~ college lastyear
+My family keeps asking me about the draft. I don't know what to tell them. ~ college lastyear
+Agents keep calling the house. I could use some advice on that. ~ college lastyear
+Pro day, the combine, all of it. I need a plan, Coach. ~ college lastyear
+Have teams been calling about me? I'd like to know who. ~ college lastyear
+I'm not ready to be done here, but I know the league is next. ~ college lastyear loyal
+I'm going to the league, Coach. I want to go as high as I can. ~ college lastyear ego
+I don't know how the draft works, honestly. Can you walk me through it? ~ college lastyear humble

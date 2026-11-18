@@ -649,26 +649,22 @@ pub struct DayWeather {
     /// "outside", "inside" (moved to the indoor field), "delayed" (a
     /// lightning hold took half an hour) or "lost" (the field work lost).
     pub place: &'static str,
-    /// What moved it: "rain", "snow", "cold", "wind", "lightning",
-    /// "severe weather", or "" for a normal day.
+    /// What moved it: "rain", "rain on grass" (a high school with no turf,
+    /// Capital lane C6), "snow", "cold", "wind", "lightning", "severe
+    /// weather", or "" for a normal day.
     pub why: &'static str,
 }
 
 /// Whether your team has an indoor field (proposed, not confirmed: every
-/// NFL club; FBS programs past a modest facilities grade, FCS programs
-/// with good ones, the best-funded high schools).
+/// NFL club, the colleges whose campus has one (Capital lane C2, CP17), the
+/// best-funded high schools).
 pub fn indoor_field(w: &World, st: &SeatTeam) -> bool {
     let Some(seat) = w.seat else { return false };
     match st.tier {
-        Tier::Pro => true,
-        Tier::College => seat.program.and_then(|p| w.programs.get(p)).is_some_and(|p| {
-            p.facilities
-                > match p.division {
-                    crate::world::data::Division::FBS => 0.35,
-                    crate::world::data::Division::FCS => 0.7,
-                    _ => 0.9,
-                }
-        }),
+        Tier::Pro => seat.nfl_team.is_none_or(|t| crate::world::capital::nfl::has_indoor(&w.capital, t)),
+        Tier::College => {
+            seat.program.and_then(|p| w.programs.get(p)).is_some_and(crate::world::capital::rooms::has_indoor)
+        }
         Tier::High => seat.program.and_then(|h| w.high_schools.get(h)).is_some_and(|h| h.resources > 0.85),
     }
 }
@@ -702,6 +698,10 @@ pub fn practice_weather(w: &World, st: &SeatTeam, monday: Date, wk: &Week) -> [O
     let Some((state, code, town)) = practice_town(w, st) else { return [None; 7] };
     let inside = indoor_field(w, st);
     let seed = w.options.seed as u64;
+    let grass = st.tier == Tier::High
+        && w.seat
+            .and_then(|s| s.program)
+            .is_some_and(|h| !w.capital.hs.is_empty() && !crate::world::capital::hs::has_turf(w, h));
     std::array::from_fn(|k| {
         let day = &wk.days[k];
         if day.game || !day.periods.iter().any(|p| p.kind.on_field() && !p.own()) {
@@ -727,7 +727,13 @@ pub fn practice_weather(w: &World, st: &SeatTeam, monday: Date, wk: &Week) -> [O
             (if inside { "inside" } else { "outside" }, "wind")
         } else if wx.rain {
             let moved = inside && crate::world::season::key_uniform(seed ^ 0x2A1, d.0 as u64) < 0.5;
-            (if moved { "inside" } else { "outside" }, "rain")
+            // A high school with no turf keeps its team off a wet grass
+            // field for a while (Capital lane C6, CP33).
+            if !moved && grass {
+                ("delayed", "rain on grass")
+            } else {
+                (if moved { "inside" } else { "outside" }, "rain")
+            }
         } else {
             ("outside", "")
         };
@@ -1547,6 +1553,28 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     // about a seventh faster).
     let nut = |wk: &Week| minutes(wk, |p| p.kind == Kind::Nutrition);
     let fuel = clamp(1.0 + 0.15 * (nut(&pw.week) - nut(&pw.neutral)) / (nut(&pw.neutral) + 30.0), 0.9, 1.15);
+    // The nutrition center moves a body plan faster (Capital lane C2).
+    let kitchen = match st.tier {
+        Tier::College => w
+            .seat
+            .and_then(|s| s.program)
+            .and_then(|p| w.programs.get(p))
+            .map_or(1.0, crate::world::capital::rooms::body_plan_rate),
+        // The club's cafeteria and nutrition (Capital lane C6).
+        Tier::Pro => {
+            w.seat.and_then(|s| s.nfl_team).map_or(1.0, |t| crate::world::capital::nfl::body_plan_rate(&w.capital, t))
+        }
+        _ => 1.0,
+    };
+    // The dietitians move a body plan faster (support departments, Q4).
+    let diet = crate::world::departments::seat_team(w).map_or(1.0, |who| {
+        crate::world::departments::diet_pace(crate::world::departments::team(
+            w,
+            who,
+            crate::world::departments::Area::Diet,
+        ))
+    });
+    let kitchen = kitchen * diet;
     let mut absent_ids: Vec<u32> = Vec::new();
     let mut craft_minutes: HashMap<usize, (f64, f64)> = HashMap::new();
     for &i in &st.roster {
@@ -1725,7 +1753,8 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             let gap = target as f64 - now;
             let rate = if gap > 0.0 { 1.5 } else { 1.2 }
                 * clamp(0.7 + 0.03 * p.player.personality.work_ethic, 0.7, 1.3)
-                * fuel;
+                * fuel
+                * kitchen;
             let step = gap.signum() * gap.abs().min(rate);
             if step.abs() > 0.05 {
                 body_change(&mut p.player, step);
@@ -1880,6 +1909,10 @@ pub(crate) fn game_injuries(
         let days = (inj.weeks * (1.0 - 0.12 * medical[*team]) * 7.0).ceil().max(1.0) as i32;
         let back = date.add(1 + days);
         w.training.log_hurt(inj.id, inj.kind, 1 + days as u32, date);
+        // Four weeks or more: a hard moment of his bonds with his coaches.
+        if days >= 28 {
+            crate::world::folk::bonds::injured(w, inj.id);
+        }
         if seat == Some(*team) {
             if w.training.hurt.iter().any(|h| h.id == inj.id && h.until >= back) {
                 continue;
@@ -1949,13 +1982,18 @@ fn report_day(w: &mut World, st: &SeatTeam, d: Date, seed: u64) {
     }
     let away = std::mem::take(&mut w.training.away);
     let (mut tested, mut failed, mut heavy) = (0, Vec::new(), Vec::new());
+    // The strength department wrote the summer's program: a better one
+    // than the level's typical sends fewer men to the list (support
+    // departments).
+    let staff =
+        crate::world::departments::seat_team(w).map_or(1.0, |who| crate::world::departments::conditioning(w, who));
     for a in away {
         let Some(i) = st.roster.iter().copied().find(|&i| w.people[i].player.id == a.id) else { continue };
         let effort = a.effort as f64 / a.weeks.max(1) as f64;
         let p = &w.people[i];
         let stamina = p.player.attributes.get(Attr::Stamina);
         tested += 1;
-        let chance = super::offseason::fail_chance(effort, stamina, st.tier);
+        let chance = super::offseason::fail_chance(effort, stamina, st.tier) * staff;
         let name = p.name.clone();
         if crate::world::season::key_uniform(seed ^ 0x7E57, a.id as u64) < chance {
             let days = 3 + (crate::world::season::key_uniform(seed ^ 0x7E58, a.id as u64) * 8.0) as i32;
@@ -2398,18 +2436,17 @@ fn practice_injuries(
     // The strength staff's guard on muscle strains and backs (minor bug
     // 303): a college program's or a club's head against the level's typical.
     let seat = w.seat.as_ref();
+    // With the sports scientists' (support departments, question 5).
     let guard = match st.tier {
         Tier::College => seat.and_then(|s| s.program).map_or(1.0, |c| {
-            let g = &w.programs[c];
-            crate::game::sim::strength_guard(
-                crate::world::season::strength_head(g),
-                crate::world::season::typical_strength(w, g.division),
-            )
+            let lab = w.programs[c].campus.level(crate::world::capital::rooms::Room::SportsScience);
+            crate::world::departments::game_guard(w, crate::world::people::Who::Prog(c), lab)
         }),
         Tier::Pro => seat.and_then(|s| s.nfl_team).map_or(1.0, |t| {
-            crate::game::sim::strength_guard(
-                crate::world::season::club_strength_head(w, t),
-                crate::world::season::nfl_typical_strength(w),
+            crate::world::departments::game_guard(
+                w,
+                crate::world::people::Who::Club(t),
+                crate::world::pro::games::nfl_lab(w, t),
             )
         }),
         _ => 1.0,

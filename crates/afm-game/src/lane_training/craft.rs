@@ -27,7 +27,7 @@ fn lean(reader: u64, id: u32, k: u64) -> f64 {
 }
 
 /// How well his position coach spots flaws, in a word.
-fn eye_words(eye: f64) -> &'static str {
+pub(super) fn eye_words(eye: f64) -> &'static str {
     if eye >= 15.0 {
         "sharp"
     } else if eye >= 11.0 {
@@ -258,7 +258,7 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize, eye: f64) -> Value {
 }
 
 /// The seasons he has left with you, this one included (None for a pro).
-fn seasons_left(w: &World, i: usize) -> Option<u32> {
+pub(super) fn seasons_left(w: &World, i: usize) -> Option<u32> {
     use afm_engine::world::Stage as S;
     let p = &w.people[i];
     match p.stage {
@@ -319,8 +319,8 @@ pub(super) fn project(w: &World, i: usize, eye: f64, code: u8) -> Result<Value, 
         };
         let fixed = if c.is_flaw() { (lo as f64, hi as f64) } else { (now_lo + gain, now_hi + gain) };
         v["situation"] = json!({
-            "now": [now_lo.round().max(1.0), now_hi.round().min(99.0)],
-            "fixed": [fixed.0.round().max(1.0), fixed.1.round().min(99.0)],
+            "now": [now_lo.round().max(1.0), now_hi.round().min(reads::SHOWN_TOP)],
+            "fixed": [fixed.0.round().max(1.0), fixed.1.round().min(reads::SHOWN_TOP)],
             "tell": c.info().tell,
         });
         // When it holds in games (topic 9c.4), on a copy of him as the
@@ -377,8 +377,8 @@ pub(super) fn project(w: &World, i: usize, eye: f64, code: u8) -> Result<Value, 
             reads::Read::Range(lo, hi) => {
                 let d = x - truth;
                 json!([
-                    (lo as f64 + d - grow).round().clamp(1.0, 99.0),
-                    (hi as f64 + d + grow).round().clamp(1.0, 99.0)
+                    (lo as f64 + d - grow).round().clamp(1.0, reads::SHOWN_TOP),
+                    (hi as f64 + d + grow).round().clamp(1.0, reads::SHOWN_TOP)
                 ])
             }
             reads::Read::NotSeen => Value::Null,

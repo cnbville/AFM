@@ -1,0 +1,79 @@
+/* Lane styles: Capital's drive (lane CS3, board 3, CP37, CP39). Ground's
+   Press Box look: dark panels, ivory text, hairlines, one gold for the thing
+   that is in (a pledge, the stage you are in), amber for what slips. No
+   dollar figures; no saturated fills. The page carries .sl so lane 1's
+   tokens (and the light theme) apply. Every class is cdr- so the app's
+   global names never restyle these. */
+
+.cdr { --cdr-panel: #101217; --cdr-gold: #d8b45a; --cdr-amber: #f7a25a; --cdr-ivory: #e8e6e0; --cdr-track: #2a2d35; padding-bottom: 48px; font-variant-numeric: tabular-nums; display: grid; gap: 16px; }
+:root[data-theme="light"] .cdr { --cdr-panel: #ffffff; --cdr-gold: #8f6d12; --cdr-amber: #b9611a; --cdr-ivory: #1d2026; --cdr-track: #dcdde1; }
+.cdr .amb, .cdr b.amb { color: var(--cdr-amber); }
+.cdr-dim { color: var(--sl-dim); }
+.cdr-dim.sm, .cdr .sm { font-size: 12px; }
+
+.cdr-top { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 18px; }
+.cdr-t { flex: 1 1 280px; display: grid; gap: 2px; }
+.cdr-t h1 { margin: 0; font-size: 28px; font-weight: 800; font-stretch: 80%; letter-spacing: -.01em; line-height: 1.1; }
+.cdr-k { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sl-dim); }
+
+.cdr-card { background: var(--cdr-panel); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--hair); padding: 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cdr-empty { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--sl-dim); max-width: 640px; }
+.cdr-q { margin: 0; font-size: 14.5px; line-height: 1.5; font-style: italic; }
+.cdr-q::before { content: "\201C"; } .cdr-q::after { content: "\201D"; }
+.cdr-link { align-self: flex-start; font: inherit; font-size: 13px; font-weight: 700; padding: 0; border: 0; background: none; color: var(--cdr-gold); cursor: pointer; }
+.cdr-link:hover { text-decoration: underline; }
+
+/* the goal and how far it has come */
+.cdr-hero { padding: 22px 24px; gap: 16px; }
+.cdr-h { display: flex; flex-wrap: wrap; gap: 18px 24px; align-items: flex-end; justify-content: space-between; }
+.cdr-hl { flex: 1 1 420px; min-width: 0; display: grid; gap: 6px; }
+.cdr-hl p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.cdr-bt { font-size: 30px; font-weight: 800; font-stretch: 80%; line-height: 1.08; letter-spacing: -.005em; }
+.cdr-hr { text-align: right; flex: none; }
+.cdr-big { font-size: 52px; font-weight: 800; font-stretch: 75%; line-height: 1; color: var(--cdr-gold); }
+.cdr-big.small { font-size: 30px; color: var(--cdr-amber); }
+
+.cdr-bar { display: flex; height: 14px; border-radius: 9px; overflow: hidden; background: var(--cdr-track); }
+.cdr-bar i { display: block; height: 100%; }
+.cdr-bar i.in { background: var(--cdr-ivory); }
+.cdr-bar i.gold { background: var(--cdr-gold); }
+.cdr-bar i.amb { background: var(--cdr-amber); }
+.cdr-leg { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 12px; color: var(--sl-dim); }
+.cdr-leg b.in { color: var(--cdr-ivory); }
+.cdr-leg b.gold { color: var(--cdr-gold); }
+
+.cdr-stages { display: flex; flex-wrap: wrap; gap: 12px; }
+.cdr-st { flex: 1; min-width: 150px; display: grid; gap: 5px; align-content: start; }
+.cdr-st .ln { height: 4px; border-radius: 4px; background: var(--cdr-track); }
+.cdr-st.done .ln { background: var(--cdr-ivory); }
+.cdr-st.now .ln { background: var(--cdr-gold); }
+.cdr-st.skipped .ln { background: var(--cdr-track); opacity: .5; }
+.cdr-st b { font-size: 13px; }
+.cdr-st.now b { color: var(--cdr-gold); }
+.cdr-st .cdr-dim { font-size: 12px; }
+
+.cdr-cols { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.cdr-gifts { flex: 999 1 620px; gap: 6px; }
+.cdr-side { flex: 1 1 340px; min-width: 0; display: grid; gap: 16px; }
+
+/* the pledges */
+.cdr-pl { display: grid; grid-template-columns: 76px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 12px; align-items: center; padding: 11px 13px; border-radius: 12px; background: var(--fill-1); font-size: 13px; }
+.cdr-pl.cdr-hd { background: none; padding-top: 2px; padding-bottom: 2px; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--sl-dim); }
+.cdr-pl .who { display: grid; gap: 2px; min-width: 0; }
+.cdr-pl .who small { font-size: 12px; color: var(--sl-dim); }
+.cdr-pl.pulled { opacity: .72; }
+.cdr-pl .mo { justify-self: start; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: color-mix(in oklab, var(--cdr-gold) 14%, transparent); color: var(--cdr-gold); }
+@media (max-width: 760px) { .cdr-pl { grid-template-columns: 64px 1fr; } .cdr-pl > :nth-child(3) { display: none; } .cdr-pl.cdr-hd > :nth-child(3) { display: none; } .cdr-pl .mo { grid-column: 2; } }
+
+/* asks and calls */
+.cdr-ask { font-size: 14px; line-height: 1.45; }
+.cdr-ask small { display: block; margin-top: 2px; font-size: 12px; color: var(--sl-dim); line-height: 1.4; }
+.cdr-sub { font-size: 12px; font-weight: 700; color: var(--sl-dim); margin-top: 4px; }
+.cdr-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--fill-1); }
+.cdr-opt.cur { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cdr-gold) 55%, transparent); }
+.cdr-opt > span { display: grid; gap: 2px; min-width: 0; }
+.cdr-opt b { font-size: 13.5px; }
+.cdr-opt small { font-size: 12px; color: var(--sl-dim); line-height: 1.35; }
+.cdr-opt .st-btn { flex: none; padding: 6px 12px; font-size: 12.5px; white-space: nowrap; }
+.cdr-opt > small { flex: none; white-space: nowrap; }
+.cdr-opt .st-btn.gold { box-shadow: inset 0 0 0 1px var(--cdr-gold); color: var(--cdr-gold); }

@@ -215,6 +215,8 @@ struct HsPlayed {
     /// and his school when it's yours, for the news).
     #[allow(clippy::type_complexity)]
     results: Option<(HashMap<u32, crate::results::Man>, HashMap<u32, (usize, Option<super::stories::TeamKey>)>)>,
+    /// The men thrown out for a flagrant hit (coach fire, item 4).
+    ejected: Vec<crate::game::stats::HitFlag>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1345,6 +1347,7 @@ pub(crate) fn squad_team(
             let know = clamp(0.72 + 0.04 * years + head, 0.0, 0.9) * (0.8 + 0.2 * side);
             let mut g = GamePlayer::from_player(p, know, 0.7 * years);
             (g.mood, g.belief) = season::game_mind(&w.people[i], seat_mind, rel_mind);
+            season::bond_mind(w, w.people[i].player.id, w.high_schools[h].coach, &mut g);
             g
         })
         .collect();
@@ -1384,7 +1387,12 @@ pub(crate) fn squad_team(
             nickel: coach.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
             year: w.year,
             // His eye and what the school's budget buys (proposed, not confirmed).
-            film_study: clamp(0.7 * ab.map_or(9.0, |a| a.scheme) + 7.0 * school.resources, 1.0, 20.0),
+            // The film room around the typical one (Capital lane C6).
+            film_study: clamp(
+                0.7 * ab.map_or(9.0, |a| a.scheme) + 7.0 * school.resources + super::capital::hs::film_lift(w, h),
+                1.0,
+                20.0,
+            ),
             install,
             style: coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
@@ -1733,9 +1741,11 @@ fn engine_games(
                 (ev, ids)
             });
             let injuries = std::mem::take(&mut r.injuries);
+            let ejected = r.stats.hit_flags().into_iter().filter(|f| f.ejected).collect();
             Ok(HsPlayed {
                 results,
                 injuries,
+                ejected,
                 score: [ha.max(0) as u32, hb.max(0) as u32],
                 team: r.stats.team.clone(),
                 lines,
@@ -1818,6 +1828,17 @@ fn engine_games(
         // medical staff.
         let side = [h, a].iter().position(|&x| seat == Some(x));
         crate::training::seat::game_injuries(w, day, &g.injuries, [0.0; 2], side);
+        // A disqualification sits the next game (coach fire, item 4).
+        if !g.ejected.is_empty() {
+            use super::folk::Team;
+            super::folk::rules::game_flags(
+                w,
+                Level::HighSchool,
+                [Team::High(h), Team::High(a)],
+                &g.ejected,
+                [&[], &[]],
+            );
+        }
         // The record store's game marks (update 3, lane L20).
         super::marks::hs_game(w, [h, a], g.score, &g.lines, g.neutral);
         let game_key = g.data.and_then(|p| w.tally_game(p));

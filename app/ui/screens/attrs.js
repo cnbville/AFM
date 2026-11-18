@@ -48,7 +48,7 @@ function attrBandWord(u) {
   return u >= 0.9 ? "Elite" : u >= 0.25 ? "Good starter" : u >= -0.25 ? "Starter level" : u >= -0.65 ? "Short of a starter" : "Backup level";
 }
 const attrArticle = (pos) => (/^[AEFHILMNORSX]/.test(pos) ? "an " : "a ") + pos;
-const attrSpan = (r) => `<span class="rg"><i>${r[0]}</i><em>–</em><i>${r[1]}</i></span>`;
+const attrSpan = (r) => `<span class="rg"><i>${rnum(r[0])}</i><em>–</em><i>${rnum(r[1])}</i></span>`;
 const attrPct = (v) => Math.max(0, Math.min(100, v));
 // The read judging a skill (his own, or the staff's where he has none).
 const attrRead = (s) => (s.judge === "mine" ? s.mine : s.judge === "staff" ? s.staff : null);
@@ -105,13 +105,13 @@ function attrRow(s, o) {
   if (marks) bars += `<i class="zone" style="left:${attrPct(s.elite)}%"></i>`;
   bars += `<i class="fill" style="width:${attrPct(lo)}%"></i><i class="pill" style="left:${attrPct(lo)}%;width:${width}%${color ? `;background:${color}` : ""}"></i>`;
   if (marks) bars += `<b class="tk st" style="left:${attrPct(s.starter)}%" title="Starter at ${esc(pool)}: ${s.starter}"></b><b class="tk el" style="left:${attrPct(s.elite)}%" title="Elite, the top tenth of starters: ${s.elite}"></b>`;
-  if (showStaff) bars += `<i class="own" style="left:${attrPct(s.staff[0])}%;width:${Math.max(2, Math.min(s.staff[1] - s.staff[0], 100 - s.staff[0]))}%" title="Your ${staffWord} read ${s.staff[0]} to ${s.staff[1]}"></i>`;
+  if (showStaff) bars += `<i class="own" style="left:${attrPct(s.staff[0])}%;width:${Math.max(2, Math.min(s.staff[1] - s.staff[0], 100 - s.staff[0]))}%" title="Your ${staffWord} read ${rnum(s.staff[0])} to ${rnum(s.staff[1])}"></i>`;
   let tail = `<span class="at-chg"></span>`;
   let small = "";
   if (o.other) {
     const t = o.other[s.key];
     const tr = t && attrRead(t);
-    if (tr) bars += `<i class="oth" style="left:${attrPct(tr[0])}%;width:${Math.max(2, Math.min(tr[1] - tr[0], 100 - tr[0]))}%" title="${esc(o.st.with.name)}: ${tr[0]} to ${tr[1]}"></i>`;
+    if (tr) bars += `<i class="oth" style="left:${attrPct(tr[0])}%;width:${Math.max(2, Math.min(tr[1] - tr[0], 100 - tr[0]))}%" title="${esc(o.st.with.name)}: ${rnum(tr[0])} to ${rnum(tr[1])}"></i>`;
     const g = tr && s.mid != null && t.mid != null ? Math.round(s.mid - t.mid) : null;
     tail = g == null ? `<span class="at-dl"></span>` : `<span class="at-dl ${g > 0 ? "pos" : ""}">${g > 0 ? "+" : g < 0 ? "−" : ""}${Math.abs(g)}</span>`;
   } else {

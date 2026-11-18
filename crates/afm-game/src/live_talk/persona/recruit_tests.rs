@@ -160,6 +160,69 @@ fn a_point_lands_on_the_case_no_bigger_than_the_chip_and_never_raises_trust() {
 }
 
 #[test]
+fn a_question_draws_no_reaction_to_a_pitch() {
+    // The talks audit, 2026-11-16: "That's exactly what I'm looking for"
+    // was on his card for "How was your game Friday?", and "Polite enough,
+    // Coach" came back to "How's his year going?".
+    let reaction = |card: &str| {
+        ["looking for.\"", "polite about it", "doesn't matter much", "back it up"].iter().any(|r| card.contains(r))
+    };
+    let mut cards = Vec::new();
+    for (name, asked) in [("pitch-made", false), ("pitch-asked", true)] {
+        let (mut g, f, sid, _, id, _) = recruit_talk(name, Kind::HomeVisit, Decider::Parent);
+        let tag = {
+            let w = g.world.as_ref().unwrap();
+            let s = scene_of(&g, sid);
+            let wants = Parts::today().wanting.wants(w, Them::Player(id));
+            let k = (0..wants.len())
+                .find(|&k| {
+                    recruit::group_of(wants[k].kind).and_then(|gr| pitch::typed_point(w, &s, None, Some(gr))).is_some()
+                })
+                .expect("a want your case speaks to");
+            format!("c{}", k + 1)
+        };
+        let hit = json!({ "on": "", "item": tag, "how": "reassured" });
+        let mut q = act("question", "", "", "");
+        q["topic"] = json!("Football");
+        let (text, acts) =
+            if asked { ("How's his year going?", vec![q]) } else { ("You'd be home in two hours.", vec![]) };
+        let v = say(&mut g, &f, sid, text, ear(acts, vec![hit]));
+        assert_eq!(v["state"], "done", "{v}");
+        cards.push(f.asked().into_iter().rev().find(|r| r.label == VOICE).map(|r| r.user).unwrap_or_default());
+    }
+    assert!(reaction(&cards[0]), "a point draws a reaction: {}", cards[0]);
+    assert!(!reaction(&cards[1]), "a question draws none: {}", cards[1]);
+}
+
+#[test]
+fn his_parents_answer_under_their_own_name_with_no_label_in_the_words() {
+    let (mut g, f, sid, _, id, _) = recruit_talk("speaker", Kind::HomeVisit, Decider::Parent);
+    let parent = {
+        let w = g.world.as_ref().unwrap();
+        afm_engine::world::folk::persona::talk::channels::name(w, Them::Kin(id, 0))
+    };
+    // His parents do the talking: asked what matters most, they answer,
+    // and the line is theirs on the screen. The voice put the name in
+    // front (the talks audit, 2026-11-16): it goes.
+    let mut q = act("question", "", "", "");
+    q["topic"] = json!("Wants");
+    f.push(EAR, Ok(ear(vec![q], vec![])));
+    f.push(VOICE, Ok(voice(&format!("{parent}: Getting him to the next level matters most to us, Coach."))));
+    let t =
+        ok(&mut g, "people_say", json!({ "id": sid, "text": "What matters most to you in this decision?" }))["ticket"]
+            .as_u64()
+            .unwrap();
+    let v = finish(&mut g, t);
+    assert_eq!(v["state"], "done", "{v}");
+    let s = scene_of(&g, sid);
+    let his = s.lines.iter().rev().find(|l| l.by > 1).unwrap();
+    assert_eq!((his.by, his.name.as_str()), (3, parent.as_str()), "{:?}", s.lines);
+    assert_eq!(his.text, "Getting him to the next level matters most to us, Coach.");
+    let card = f.asked().into_iter().rev().find(|r| r.label == VOICE).map(|r| r.user).unwrap_or_default();
+    assert!(card.contains(&format!("This line is answered by {parent}")), "{card}");
+}
+
+#[test]
 fn a_promise_to_a_recruit_counts_as_you_say_it() {
     let (mut g, f, sid, i, _, mine) = recruit_talk("promise", Kind::RecruitCall, Decider::Himself);
     let v = say(
@@ -172,6 +235,14 @@ fn a_promise_to_a_recruit_counts_as_you_say_it() {
     assert_eq!(v["state"], "done", "{v}");
     assert!(v.get("confirm").is_none(), "a promise needs no confirm: {v}");
     assert_eq!(pledge::on_case(g.world.as_ref().unwrap(), i, mine), Some(pledge::Kind::Early));
+    // How it lands is his own words, quoted: "They've heard promises
+    // before" came back word for word (the talks audit, 2026-11-16).
+    let card = f.asked().into_iter().rev().find(|r| r.label == VOICE).map(|r| r.user).unwrap_or_default();
+    assert!(
+        card.contains("He says: \"I believe you.") || card.contains("He says: \"I've heard promises before."),
+        "{card}"
+    );
+    assert!(!card.contains("They've heard") && !card.contains("They believe"), "{card}");
 }
 
 #[test]
@@ -275,6 +346,8 @@ fn covering_for_his_grades_in_words_is_the_covering_word() {
         "He's a 3.6 student, grades are no problem.",
         ear(vec![claim("3.6 GPA"), act("end", "", "", "")], vec![]),
     );
+    // The goodbye asks first; End closes the call and settles the word.
+    ok(&mut g, "talk_wrap", json!({ "id": sid }));
     assert_eq!(v["state"], "done", "{v}");
     let w = g.world.as_ref().unwrap();
     let c = w.folk.dialogue.calls.iter().rev().find(|c| c.id == id).expect("the call's word");
@@ -295,6 +368,8 @@ fn being_straight_about_his_grades_in_words_is_the_straight_word() {
         "His grades need work, I won't lie.",
         ear(vec![claim("grades need work"), act("end", "", "", "")], vec![]),
     );
+    // The goodbye asks first; End closes the call and settles the word.
+    ok(&mut g, "talk_wrap", json!({ "id": sid }));
     let w = g.world.as_ref().unwrap();
     let c = w.folk.dialogue.calls.iter().rev().find(|c| c.id == id).expect("the call's word");
     assert_eq!((c.word, c.concern), (1, 1), "you were straight");
@@ -332,6 +407,8 @@ fn a_college_call_keeps_everything_you_said_weighed() {
         "He's a 3.6 student. Well, honestly his grades need work.",
         ear(vec![claim("3.6 GPA"), claim("grades need work"), act("end", "", "", "")], vec![]),
     );
+    // The goodbye asks first; End closes the call and settles the word.
+    ok(&mut g, "talk_wrap", json!({ "id": sid }));
     let w = g.world.as_ref().unwrap();
     let c = w.folk.dialogue.calls.iter().rev().find(|c| c.id == id).expect("the call's word");
     let said = c.said.expect("weighed as said");

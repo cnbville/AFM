@@ -47,6 +47,8 @@ pub mod ear;
 pub mod evaluate;
 pub mod fake;
 pub mod knows;
+// How you talk (coach voice): your manner read, kept and reacted to.
+pub mod manner;
 pub mod meetings;
 pub mod memory;
 pub mod negotiate;
@@ -71,6 +73,7 @@ pub mod wanting;
 // Lane N5c: staff, bosses and money (the facet's people, the team doctor,
 // references, staff contracts, your own deal, boosters, compliance).
 pub mod office;
+pub mod review;
 
 use super::cast::CastRef;
 
