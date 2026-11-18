@@ -439,6 +439,138 @@ pub fn deal_year(d: Date) -> i32 {
     if d.month() >= 7 { d.year() + 1 } else { d.year() }
 }
 
+/// The market for college players (item 9): each program's play at each
+/// spot, best first, and the programs that bid (FBS and FCS, with money).
+pub(crate) struct Market {
+    depth: Vec<[Vec<f64>; POSITION_COUNT]>,
+    rivals: Vec<usize>,
+    medians: [[f64; POSITION_COUNT]; super::data::DIVISION_COUNT],
+    lifts: Lifts,
+}
+
+/// Each money level's lift over its division at each spot, by `level`
+/// (`recruiting::bid_lifts`): what a bid takes off a man's play.
+pub type Lifts = [[f64; POSITION_COUNT]; 4];
+
+impl Market {
+    pub(crate) fn new(w: &World) -> Market {
+        let pn = w.programs.len();
+        let mut depth: Vec<[Vec<f64>; POSITION_COUNT]> = vec![Default::default(); pn];
+        for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+            if let (Some(j), Some(x)) = (p.college, p.last_performance) {
+                depth[j][p.player.position.index()].push(x);
+            }
+        }
+        for d in depth.iter_mut() {
+            for v in d.iter_mut() {
+                v.sort_by(|a, b| b.total_cmp(a));
+            }
+        }
+        let rivals: Vec<usize> = (0..pn)
+            .filter(|&k| {
+                let p = &w.programs[k];
+                matches!(p.division, Division::FBS | Division::FCS) && p.collective.budget > 0.0
+            })
+            .collect();
+        Market { depth, rivals, medians: super::recruiting::nil_medians(w), lifts: super::recruiting::bid_lifts(w) }
+    }
+
+    /// What wins college player `i` from the rest of the market (item 9):
+    /// (the best rival's top bid, never past his own school's, that rival
+    /// bid, his play over his level's starters at his spot). His own
+    /// school's top bid reads his role there (a starter's, for December's
+    /// keep-him offers; a landed transfer's, the place he landed in); a rival is any FBS or FCS program where he would
+    /// start or rotate, his play read at its level. None with no season's
+    /// play to read or no bid.
+    pub(crate) fn bid(&self, w: &World, i: usize) -> Option<(f64, f64, f64)> {
+        self.bid_read(w, i, true)
+    }
+
+    /// [`Market::bid`], with `landed` false reading a landed transfer by his
+    /// last role, as December's keep-him offers always have.
+    fn bid_read(&self, w: &World, i: usize, landed: bool) -> Option<(f64, f64, f64)> {
+        let p = &w.people[i];
+        // An early or summer enrollee's latest row is still his high
+        // school's: no college play to price yet (as `recruiting::nil_read`).
+        if landed
+            && p.player
+                .history
+                .iter()
+                .rev()
+                .find(|h| h.playing_time != PlayingTime::Unsigned)
+                .is_none_or(|h| !h.level.is_college())
+        {
+            return None;
+        }
+        let c = p.college?;
+        let from = w.programs[c].division;
+        let perf = p.last_performance?;
+        let pos = p.player.position;
+        let k = pos.index();
+        let stars = super::recruiting::recruiting_stars(p);
+        let slots = crate::league::depth_slots(pos).starters;
+        let medians = &self.medians;
+        // A transfer who hasn't played here yet is read in the place he
+        // landed in (`nil_role`, cleared at fall camp).
+        let (own_role, own_edge) = match p.cal.nil_role.filter(|_| landed) {
+            Some((role, edge)) => (role, edge as f64),
+            None => (p.last_role.unwrap_or(PlayingTime::Backup), perf - medians[from as usize][k]),
+        };
+        // Each bid reads him against the starters at its school's level.
+        let read = if own_edge.is_finite() { own_edge } else { 0.0 };
+        let own = top_bid(
+            w.programs[c].collective.budget,
+            pos,
+            bid_talent(Some(own_role), stars, read - self.lifts[level(&w.programs[c])][k]),
+        );
+        let mut rival = 0.0f64;
+        for &r in self.rivals.iter().filter(|&&r| r != c) {
+            let prog = &w.programs[r];
+            let d = prog.division;
+            let at = perf - super::recruiting::competition_discount(from) + super::recruiting::competition_discount(d);
+            let ahead = self.depth[r][k].partition_point(|&v| v >= at);
+            let role = super::recruiting::role_at(ahead, slots);
+            if role == PlayingTime::Backup {
+                continue;
+            }
+            let m = medians[d as usize][k];
+            let edge = if m.is_finite() { at - m } else { 0.0 } - self.lifts[level(prog)][k];
+            rival = rival.max(top_bid(prog.collective.budget, pos, bid_talent(Some(role), stars, edge)));
+        }
+        let keep = own.min(rival);
+        (keep > 0.0).then_some((keep, rival, own_edge))
+    }
+}
+
+/// Every college player's market price today (`Market::bid`), for the
+/// tools: (his index, the price, his play over his level's starters at his
+/// spot), for each player at an FBS or FCS program
+/// with money who has a season left and isn't leaving (the draft, the
+/// portal, a cut).
+pub fn market_all(w: &World) -> Vec<(usize, f64, f64)> {
+    let market = Market::new(w);
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    (0..w.people.len())
+        .into_par_iter()
+        .filter_map(|i| {
+            let p = &w.people[i];
+            let c = p.college?;
+            let prog = &w.programs[c];
+            if p.stage != Stage::College
+                || !matches!(prog.division, Division::FBS | Division::FCS)
+                || prog.collective.budget <= 0.0
+                || p.cal.portal.is_some()
+                || p.cut_here().is_some()
+                || p.cal.declare_plan == Some(true)
+                || super::college::no_season_left(p, prog.division, label)
+            {
+                return None;
+            }
+            market.bid(w, i).map(|b| (i, b.0, b.2))
+        })
+        .collect()
+}
+
 /// December's keep-him offers before the January window (item 9): each AI
 /// program prices every starter it wants back (one with a season left who
 /// isn't leaving) at the best rival's top bid for him and offers up to its
@@ -451,26 +583,7 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
         return;
     }
     let yours = super::front_office::college::paying(w);
-    let pn = w.programs.len();
-    let medians = super::recruiting::nil_medians(w);
-    // Each program's play at each spot, best first.
-    let mut depth: Vec<[Vec<f64>; POSITION_COUNT]> = vec![Default::default(); pn];
-    for p in w.people.iter().filter(|p| p.stage == Stage::College) {
-        if let (Some(j), Some(x)) = (p.college, p.last_performance) {
-            depth[j][p.player.position.index()].push(x);
-        }
-    }
-    for d in depth.iter_mut() {
-        for v in d.iter_mut() {
-            v.sort_by(|a, b| b.total_cmp(a));
-        }
-    }
-    let rivals: Vec<usize> = (0..pn)
-        .filter(|&k| {
-            let p = &w.programs[k];
-            matches!(p.division, Division::FBS | Division::FCS) && p.collective.budget > 0.0
-        })
-        .collect();
+    let market = Market::new(w);
     let today = w.today;
     let year = deal_year(today);
     let wr: &World = w;
@@ -489,38 +602,10 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
             {
                 return None;
             }
-            let from = wr.programs[c].division;
-            if super::college::no_season_left(p, from, label) {
+            if super::college::no_season_left(p, wr.programs[c].division, label) {
                 return None;
             }
-            let perf = p.last_performance?;
-            let pos = p.player.position;
-            let k = pos.index();
-            let stars = super::recruiting::recruiting_stars(p);
-            let slots = crate::league::depth_slots(pos).starters;
-            let own_edge = perf - medians[from as usize][k];
-            let own = top_bid(
-                wr.programs[c].collective.budget,
-                pos,
-                bid_talent(Some(PlayingTime::Starter), stars, if own_edge.is_finite() { own_edge } else { 0.0 }),
-            );
-            let mut rival = 0.0f64;
-            for &r in rivals.iter().filter(|&&r| r != c) {
-                let prog = &wr.programs[r];
-                let d = prog.division;
-                let at =
-                    perf - super::recruiting::competition_discount(from) + super::recruiting::competition_discount(d);
-                let ahead = depth[r][k].partition_point(|&v| v >= at);
-                let role = super::recruiting::role_at(ahead, slots);
-                if role == PlayingTime::Backup {
-                    continue;
-                }
-                let m = medians[d as usize][k];
-                let edge = if m.is_finite() { at - m } else { 0.0 };
-                rival = rival.max(top_bid(prog.collective.budget, pos, bid_talent(Some(role), stars, edge)));
-            }
-            let keep = own.min(rival);
-            (keep > 0.0).then_some((i, keep, rival, own_edge))
+            market.bid_read(wr, i, false).map(|(keep, rival, edge)| (i, keep, rival, edge))
         })
         .collect();
     let free = super::recruiting::nil_go_free(w);
@@ -582,7 +667,8 @@ pub fn ensure(w: &mut World) {
 }
 
 /// The new NIL scheme's version of a world's money (`ensure`).
-pub(crate) const NIL_REV: u8 = 1;
+/// 2: the Group of 5's money refit to real payments (2b, 2026-11-18).
+pub(crate) const NIL_REV: u8 = 2;
 
 /// July 1's book (item 10): NIL Go's comparisons for the coming year,
 /// read from the third-party money each player cleared today.
