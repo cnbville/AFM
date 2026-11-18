@@ -6,8 +6,8 @@
 use crate::game::calling::{CallMemo, Memory, OffCtx, Situation, call_offense, call_offense_memo};
 use crate::game::guide::{Firm, Want};
 use crate::game::playbook::{
-    Backfield, Formation, ORole, PASS_CONCEPTS, Personnel, PlayKind, Route, concept, pass_concept,
-    readable, readable_library, reads_in, route_for, route_in,
+    Backfield, Formation, ORole, PASS_CONCEPTS, Personnel, PlayKind, Route, Set, concept, pass_concept, readable,
+    readable_library, reads_in, route_for, route_in,
 };
 use crate::game::{OffScheme, Staff};
 use crate::player::Level;
@@ -274,6 +274,47 @@ fn the_extra_tight_ends_take_the_missing_receivers_jobs() {
             assert_eq!(readable(c, f), !reads.is_empty(), "{}", c.name);
         }
     }
+}
+
+#[test]
+fn a_tight_end_across_the_ball_runs_his_own_job() {
+    use ORole::*;
+    // The bootleg floods the strong side (the tight end's and the
+    // fullback's flats, the flanker's corner) and draws the second tight
+    // end the drag back across into the roll. In 22 personnel he takes the
+    // flanker's place in the reads but lines up inline on the weak side,
+    // so he runs his own drag, not a corner away from the roll; on the
+    // wing, on the strong side, he runs the corner. Either strength.
+    let boot = pass_concept(concept("play-action boot"));
+    let f22 = Formation::plain(Personnel::P22, Backfield::UnderCenter, 1.0);
+    assert_eq!(reads_in(boot, &f22), vec![TE, FB, TE2, X]);
+    assert_eq!(route_in(boot, &f22, TE2), Route::Drag);
+    assert_eq!(route_in(boot, &Formation { strength: -1.0, ..f22 }, TE2), Route::Drag);
+    assert_eq!(route_in(boot, &Formation { set: Set::Wing, ..f22 }, TE2), Route::Corner(12.0));
+    // 13 personnel: the second tight end lines up on the strong side and
+    // takes the corner, the third, inline on the weak side, the slot's drag.
+    let f13 = Formation::plain(Personnel::P13, Backfield::UnderCenter, 1.0);
+    assert_eq!(reads_in(boot, &f13), vec![TE, TE2, X, TE3]);
+    assert_eq!(route_in(boot, &f13, TE2), Route::Corner(12.0));
+    assert_eq!(route_in(boot, &f13, TE3), Route::Drag);
+    // Smash in 13: the second takes the slot's corner; the third takes the
+    // flanker's place across the ball and runs the flat, not his hitch.
+    let smash = pass_concept(concept("smash"));
+    assert_eq!(route_in(smash, &f13, TE2), Route::Corner(11.0));
+    assert_eq!(route_in(smash, &f13, TE3), Route::Flat);
+}
+
+#[test]
+fn third_down_reads_the_routes_the_group_runs() {
+    // Y-option reads the tight end's 7-yard sit, then the slot's 10-yard
+    // curl: in 11 personnel it reaches 3rd and 8. In 12 the second tight
+    // end takes the slot's place and runs his own flat, so it doesn't.
+    use crate::game::calling::sticks_depth;
+    let c = pass_concept(concept("Y-option"));
+    let f11 = Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0);
+    let f12 = Formation::plain(Personnel::P12, Backfield::Shotgun, 1.0);
+    assert_eq!(sticks_depth(c, &f11), 10.0);
+    assert_eq!(sticks_depth(c, &f12), 7.0);
 }
 
 #[test]

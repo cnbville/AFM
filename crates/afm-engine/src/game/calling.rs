@@ -1346,13 +1346,22 @@ fn pick_rpo(
     Some(weigh(rng, &[(concept("RPO glance"), 1.0), (concept("RPO bubble"), 1.0), (concept("RPO slant"), 0.8)]))
 }
 
-/// How deep a concept's first two reads break, for third down.
-fn sticks_depth(c: &PassConcept) -> f64 {
-    c.reads
-        .iter()
+/// Third or fourth down past short yardage: the caller weighs the routes
+/// that reach the sticks (topic 6.2).
+fn reads_sticks(sit: &Situation) -> bool {
+    sit.down >= 3 && sit.togo > 3.0
+}
+
+/// How deep a concept's first two reads break as the group lines up, for
+/// third down: a second or third tight end in a missing receiver's place
+/// is read where he stands and runs his own route (lane SF2, `reads_in`,
+/// `route_in`).
+pub(crate) fn sticks_depth(c: &PassConcept, f: &Formation) -> f64 {
+    reads_in(c, f)
+        .into_iter()
         .take(2)
         .map(|r| {
-            let rt = route_for(c, *r);
+            let rt = route_in(c, f, r);
             match rt {
                 Route::Go | Route::Seam | Route::Fade | Route::Post(_) | Route::Corner(_) | Route::Wheel => 15.0,
                 Route::Slant => 6.0,
@@ -1391,9 +1400,11 @@ fn pick_concept(
         return draw(rng, &concept_weights(staff, mem, sit, f, ctx, fake));
     };
     // The weights read the formation only for a boot from the gun, an empty
-    // set and, with designs on the sheet, the personnel.
+    // set and, with designs on the sheet or on third and fourth down (the
+    // routes that reach the sticks), the personnel.
     let designs = ctx.designs.iter().any(|d| d.is_some());
-    let key = (slot, f.backfield == Backfield::Shotgun, f.set == Set::Empty, designs.then_some(f.personnel), fake);
+    let group = (designs || reads_sticks(sit)).then_some(f.personnel);
+    let key = (slot, f.backfield == Backfield::Shotgun, f.set == Set::Empty, group, fake);
     let k = match m.concepts.iter().position(|x| x.0 == key) {
         Some(k) => k,
         None => {
@@ -1406,9 +1417,10 @@ fn pick_concept(
 
 /// Each pass concept's weight on this snap, before `weigh` draws from them.
 /// It draws nothing and reads only the staff, memory, situation, context,
-/// the formation's backfield, set and (for designs) personnel, and whether
-/// the throw comes off a run fake: then every concept that can carry the
-/// fake and the play-action concepts, else every other.
+/// the formation's backfield, set and (for designs, and on third and
+/// fourth down past short yardage) personnel, and whether the throw comes
+/// off a run fake: then every concept that can carry the fake and the
+/// play-action concepts, else every other.
 fn concept_weights(
     staff: &Staff,
     mem: &Memory,
@@ -1431,6 +1443,10 @@ fn concept_weights(
     let mean = ev.iter().sum::<f64>() / ev.len() as f64;
     let tr = trust(c.reading);
     let sit_skill = clamp((c.situational - 4.0) / 14.0, 0.0, 1.0);
+    // Third and fourth down read the routes as the group lines up and the
+    // rule book fields it (`sticks_depth`).
+    let sticks = reads_sticks(sit);
+    let fielded = Formation { personnel: f.personnel.for_players(ctx.players), ..*f };
     // Designed plays on this week's sheet (update 3, F27), drawn for this
     // personnel, are weighed like the library concept each looks like,
     // without the scheme's favorite lean.
@@ -1529,8 +1545,8 @@ fn concept_weights(
             w *= (tr * (ev[like] - mean)).exp();
             // Third and fourth down (topic 6.2): a caller who knows the
             // situation calls routes that reach the sticks.
-            if sit.down >= 3 && !short {
-                let reach = sticks_depth(pc) >= sit.togo;
+            if sticks {
+                let reach = sticks_depth(pc, &fielded) >= sit.togo;
                 w *= 1.0 + 0.8 * sit_skill * if reach { 1.0 } else { -0.6 };
             }
             if pc.depth == PassDepth::Deep && mem.deeps >= 3.0 {

@@ -1000,29 +1000,44 @@ fn own_route(c: &PassConcept) -> Option<Route> {
     c.routes.iter().find(|x| x.0 == TE2).map(|x| x.1).filter(|r| !matches!(r, Block | CheckRelease))
 }
 
+/// The man lines up on the strong side of the ball in this formation,
+/// before any motion.
+fn strong_side(f: &Formation, role: ORole) -> bool {
+    let mid = width() / 2.0;
+    let still = Formation { motion: Motion::None, ..*f };
+    (align(&still, role, 0.0, mid).y - mid) * f.strength > 0.0
+}
+
 /// A man's route in a pass concept as his group lines up (lane SF2, item
 /// 2). A tight end past the first who takes a missing receiver's place
-/// (`stand_in`) runs that receiver's route, except the first of them in an
-/// inside place (the slot's or the second slot's): he keeps that route
-/// only when it is a tight end's own (the seam, the corner, the drag: real
-/// playbooks' Y-seam, Y-corner and mesh), and otherwise runs the concept's
-/// own job for the second tight end (`own_route`), where it draws him one
-/// (Texas doesn't). The places follow the concept's reads, so in 13
-/// personnel, which lacks the flanker too, the second tight end takes the
-/// flanker's place in some concepts and the slot's in others, and the
-/// third the next. Real second and third tight ends run short: 2024 NFL, 6.3
-/// air yards a target for the second in 12 personnel (the first 7.0), 6.5
-/// and 4.5 for the second and third in 13 (7.6), a third of their targets
-/// quick outs and flats, and a fifth corners, digs and seams (nflverse
-/// with FTN charting). Everyone else as `route_for`.
+/// (`stand_in`) runs that receiver's route, with two exceptions, where he
+/// runs the concept's own job for the second tight end (`own_route`)
+/// instead, when it draws him one (Texas doesn't). The first of them in an
+/// inside place (the slot's or the second slot's) keeps that route only
+/// when it is a tight end's own (the seam, the corner, the drag: real
+/// playbooks' Y-seam, Y-corner and mesh). And a man who lines up across the
+/// ball from the outside receiver whose place he takes (the flanker's, for
+/// an inline tight end on the weak side) never runs his route: it is drawn
+/// for the other side of the play, the flood's corner on a bootleg that
+/// rolls away from him, and the library's job for a weak-side tight end is
+/// his own (the drag back across into the roll). The places follow the
+/// concept's reads, so in 13 personnel, which lacks the flanker too, the
+/// second tight end takes the flanker's place in some concepts and the
+/// slot's in others, and the third the next. Real second and third tight
+/// ends run short: 2024 NFL, 6.3 air yards a target for the second in 12
+/// personnel (the first 7.0), 6.5 and 4.5 for the second and third in 13
+/// (7.6), a third of their targets quick outs and flats, and a fifth
+/// corners, digs and seams (nflverse with FTN charting). Everyone else as
+/// `route_for`.
 pub fn route_in(c: &PassConcept, f: &Formation, role: ORole) -> Route {
     let p = f.personnel;
     let Some(r) = stand_in(c, p, role) else { return route_for(c, role) };
     let theirs = route_for(c, r);
     let inside = |e: ORole| stand_in(c, p, e).is_some_and(|x| matches!(x, Slot | Slot2));
     let first_inside = inside(role) && extra_ends(p).iter().take_while(|e| **e != role).all(|e| !inside(*e));
+    let across = matches!(r, X | Z) && strong_side(f, role) != strong_side(f, r);
     match own_route(c) {
-        Some(own) if first_inside && !matches!(theirs, Seam | Corner(_) | Drag) => own,
+        Some(own) if across || first_inside && !matches!(theirs, Seam | Corner(_) | Drag) => own,
         _ => theirs,
     }
 }
