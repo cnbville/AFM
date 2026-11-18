@@ -535,10 +535,23 @@ fn a_club_still_in_its_playoffs_has_games_to_play() {
     let f = teams[0];
     let i = (0..w.people.len()).find(|&k| w.people[k].stage == Stage::Pro).unwrap();
     let id = w.people[i].player.id;
+    // The tiny world keeps no other league's clubs.
+    if w.others.teams.len() <= f {
+        w.others.teams.resize_with(f + 1, Default::default);
+    }
     w.others.teams[f].roster.push(i as u32);
     w.others.live.retain(|l| l.league != CFL);
     w.others.live.push(Live { league: CFL, year, alive: vec![f as u16, teams[1] as u16], round: 2, ..Live::default() });
     let today = w.today;
+    // Three of its games he sat in.
+    for d in [today.add(-21), today.add(-14), today.add(-7)] {
+        let lines = [
+            (id, StatLine { snaps_off: 4, games: 1, ..Default::default() }),
+            (7, StatLine { snaps_off: 64, games: 1, ..Default::default() }),
+        ];
+        kept_game(&mut w, d, [f, teams[1]], &lines, Some(0));
+        w.seat_games.last_mut().unwrap().level = Level::Other;
+    }
     for (alive, quiet) in [(true, true), (false, false)] {
         w.seat = Some(Seat { level: Level::Other, nfl_team: None, program: None, other: Some(f) });
         if !alive {
@@ -550,7 +563,7 @@ fn a_club_still_in_its_playoffs_has_games_to_play() {
         w.folk.promises[k].due = today.add(10);
         talks::job_left(&mut w, "fired");
         let p = w.folk.promises[k].clone();
-        assert!(p.kept.is_some());
+        assert_eq!(p.kept, Some(quiet), "alive {alive}: {p:?}");
         assert_eq!(p.quiet(), quiet, "alive {alive}: {p:?}");
         assert_eq!(p.job_closed, quiet, "alive {alive}");
     }
