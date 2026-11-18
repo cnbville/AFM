@@ -816,14 +816,26 @@ pub fn waiting(w: &World) -> Vec<&Scene> {
     v
 }
 
-/// The turn of a day (1 AM, before the day's first section): a meeting
-/// that stops you and was dated yesterday or earlier is handed to your
-/// staff. A holiday or a jump comes back at the first section of its day,
+/// The end of the clock's day (1 AM, the day runs from 5 AM): a meeting
+/// that stops you and whose hour has passed is handed to your staff. A
+/// holiday or a jump comes back at the first section of the next day,
 /// before the office hour that `day` hands at, so without this a meeting
-/// of the evening before would still be waiting when the holiday ends,
-/// late and still stopping (a Ground call at 3 PM on the last day).
+/// of the last evening (a Ground call at 3 PM on the day before it ends)
+/// would still be waiting when the holiday ends, late and still stopping.
 pub(crate) fn overnight(w: &mut World, d: Date) {
-    let late: Vec<u32> = w.folk.scenes.iter().filter(|s| !s.done && s.stops && s.date < d).map(|s| s.id).collect();
+    let now = crate::calendar::zone::moment(d, super::super::clock::hour::OVERNIGHT);
+    let z = w.seat_zone();
+    let late: Vec<u32> = w
+        .folk
+        .scenes
+        .iter()
+        .filter(|s| !s.done && s.stops && s.date <= d)
+        .filter(|s| match s.minute {
+            Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
+            _ => true,
+        })
+        .map(|s| s.id)
+        .collect();
     for id in late {
         let _ = hand(w, id);
     }
