@@ -450,7 +450,9 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
             |(((r, prng), &role), &coaching)| {
                 // His staff's projects (the progression update, item 14).
                 let lean = class_lean(&r.player);
-                crate::progression::ai_single(&mut r.player, lean, coaching, true, coaching);
+                // One high school staff (the class sim names no schools).
+                let staff = crate::progression::staff_code(crate::progression::StaffAt::HighSchool, 0);
+                crate::progression::ai_single(&mut r.player, lean, coaching, true, coaching, staff);
                 develop_season(&mut r.player, &SeasonContext::new(Level::HS, coaching, role), prng);
                 track_peak(r);
             },
@@ -706,7 +708,9 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
                     ..SeasonContext::new(level.level(), col.coaching[i], role)
                 };
                 let lean = class_lean(&r.player);
-                crate::progression::ai_single(&mut r.player, lean, col.coaching[i], false, col.coaching[i]);
+                // One college staff (the class sim names no programs).
+                let staff = crate::progression::staff_code(crate::progression::StaffAt::College, 0);
+                crate::progression::ai_single(&mut r.player, lean, col.coaching[i], false, col.coaching[i], staff);
                 develop_season(&mut r.player, &ctx, &mut prngs[i]);
                 track_peak(r);
                 if let Some(pp) = r.prog_probe.as_mut() {
@@ -1814,7 +1818,16 @@ fn simulate_league_years(
             }
             let payday = std::mem::take(&mut s.paid);
             let ctx = SeasonContext { adjustment, situation, payday, ..SeasonContext::new(Level::NFL, coaching, role) };
-            crate::progression::ai_single(&mut r.player, crate::progression::Lean::BALANCED, coaching, false, coaching);
+            // His club's staff (an unsigned man's last staff no longer runs it).
+            let staff = crate::progression::staff_code(crate::progression::StaffAt::Nfl, team.unwrap_or(0xFF_FFFE));
+            crate::progression::ai_single(
+                &mut r.player,
+                crate::progression::Lean::BALANCED,
+                coaching,
+                false,
+                coaching,
+                staff,
+            );
             let report = develop_season(&mut r.player, &ctx, &mut prngs[i]);
             let row = r.player.history.last_mut().unwrap();
             row.depth = Some(depth);
