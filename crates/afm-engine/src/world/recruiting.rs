@@ -7873,6 +7873,10 @@ pub(crate) struct PortalMarket {
     pub(crate) season: i32,
     serious: std::collections::HashSet<usize>,
     medians: [[f64; POSITION_COUNT]; DIVISION_COUNT],
+    /// Each money level's lift for its bids (`bid_lifts`); a save from
+    /// before it reads none until its window closes.
+    #[serde(default)]
+    lifts: super::nil_bid::Lifts,
     floors: [[f64; POSITION_COUNT]; DIVISION_COUNT],
     open: Vec<[usize; POSITION_COUNT]>,
     backups_best: Vec<[f64; POSITION_COUNT]>,
@@ -8791,6 +8795,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         season: label + 1,
         serious,
         medians,
+        lifts: bid_lifts(w),
         floors,
         open,
         backups_best,
@@ -9080,7 +9085,7 @@ fn suitors(
             let role = role_at(ahead, slots);
             // Its top bid for him (the new NIL scheme, items 5-7), priced
             // against the others below once every suitor is known.
-            let (school, coll, gross) = portal_nil(wr, j, p, role, perf - median(d), go_free == Some(j));
+            let (school, coll, gross) = portal_nil(wr, j, p, (role, perf - median(d)), &mk.lifts, go_free == Some(j));
             // Your staff working the portal for you names no money: only
             // you do (Cain 2026-11-08, "I want the only offering control"),
             // so a man it brings in weighs the place alone.
@@ -9299,7 +9304,7 @@ fn place_at(
     let role = role_at(ahead, crate::league::depth_slots(pos).starters);
     let edge = perf - mk.medians[d as usize][k];
     // The program's top bid at the place he'd have (the new NIL scheme).
-    let (school, coll, _) = portal_nil(w, j, p, role, edge, nil_go_free(w) == Some(j));
+    let (school, coll, _) = portal_nil(w, j, p, (role, edge), &mk.lifts, nil_go_free(w) == Some(j));
     // Your numbers are all his money from you (every NIL dollar is yours,
     // Cain 2026-11-07): in two pots your revenue share and your collective
     // deal as NIL Go clears it at the place he'd have (B18); before, one
@@ -10131,6 +10136,44 @@ pub(crate) fn nil_medians(w: &World) -> [[f64; POSITION_COUNT]; DIVISION_COUNT] 
     m
 }
 
+/// Each money level's lift over its division at each spot (P4, the rest of
+/// FBS, FCS, below; `nil_bid::level`): the median play of its starters
+/// less the median of all its division's starters. Item 6's shares are a
+/// median starter's at his own level, so the bid side reads a man against
+/// the starters at his school's level, not the whole division: a median
+/// Power 4 starter sits several points over the FBS median and was bid
+/// as a star (2026-11-17, Cain "yes" to 2a). FCS and below read their own
+/// division as it is (no lift).
+pub(crate) fn bid_lifts(w: &World) -> super::nil_bid::Lifts {
+    let mut level: [[Vec<f64>; POSITION_COUNT]; 2] = Default::default();
+    let mut fbs: [Vec<f64>; POSITION_COUNT] = Default::default();
+    for p in w.people.iter() {
+        if p.stage == Stage::College
+            && p.last_role == Some(PlayingTime::Starter)
+            && let (Some(c), Some(perf)) = (p.college, p.last_performance)
+            && w.programs[c].division == Division::FBS
+        {
+            let k = p.player.position.index();
+            fbs[k].push(perf);
+            level[super::nil_bid::level(&w.programs[c]).min(1)][k].push(perf);
+        }
+    }
+    let median = |v: &mut Vec<f64>| {
+        v.sort_by(|a, b| a.total_cmp(b));
+        (!v.is_empty()).then(|| v[v.len() / 2])
+    };
+    let mut lifts = [[0.0; POSITION_COUNT]; 4];
+    for k in 0..POSITION_COUNT {
+        let Some(all) = median(&mut fbs[k]) else { continue };
+        for (l, list) in level.iter_mut().enumerate() {
+            if let Some(m) = median(&mut list[k]) {
+                lifts[l][k] = m - all;
+            }
+        }
+    }
+    lifts
+}
+
 /// A college player's weight in his program's payroll today.
 pub(crate) fn nil_value(
     p: &Person,
@@ -10276,9 +10319,19 @@ fn nil_pool(
 /// the third party's part: (school, collective, the bid itself). A
 /// starting quarterback who played well draws seven figures at a big
 /// program; a backup lineman a few thousand.
-fn portal_nil(w: &World, j: usize, p: &Person, role: PlayingTime, edge: f64, free: bool) -> (f64, f64, f64) {
+fn portal_nil(
+    w: &World,
+    j: usize,
+    p: &Person,
+    (role, edge): (PlayingTime, f64),
+    lifts: &super::nil_bid::Lifts,
+    free: bool,
+) -> (f64, f64, f64) {
     let prog = &w.programs[j];
-    let talent = super::nil_bid::bid_talent(Some(role), recruiting_stars(p), edge);
+    // Bid against the starters at its own level (`bid_lifts`); NIL Go's
+    // range reads the payroll's weight, on his division's medians.
+    let lift = lifts[super::nil_bid::level(prog)][p.player.position.index()];
+    let talent = super::nil_bid::bid_talent(Some(role), recruiting_stars(p), edge - lift);
     let gross = super::nil_bid::top_bid(prog.collective.budget, p.player.position, talent)
         * super::legacy::college::split_q(w, j, 1);
     let (school, coll) = pots(prog, w.today, gross, super::nil_bid::range_top(w, j, p, Some(role), edge), free);
@@ -10303,7 +10356,7 @@ pub(crate) fn portal_usual(w: &World, j: usize, i: usize) -> (f64, f64) {
         _ => 0.0,
     };
     let role = p.last_role.unwrap_or(PlayingTime::Rotation);
-    let (school, coll, _) = portal_nil(w, j, p, role, edge, nil_go_free(w) == Some(j));
+    let (school, coll, _) = portal_nil(w, j, p, (role, edge), &bid_lifts(w), nil_go_free(w) == Some(j));
     (school, coll)
 }
 
@@ -10525,6 +10578,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
             p.cal.nil_keep = None;
             // Collectives pay most of it (about 82%); brand deals, which
             // follow fame and Aura (F15), come on top.
+            p.cal.nil_paid = money as f32;
             let money = money + p.brand as f64;
             p.nil_income = money;
             // The top earners on a team: payouts can bring jealousy, complacency or pressure.

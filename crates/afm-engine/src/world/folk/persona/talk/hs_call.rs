@@ -27,7 +27,7 @@
 //! Claude's (proposed, not confirmed).
 
 use super::super::Them;
-use super::super::ear::{Act, How, Item, Reading, Sized, Turn};
+use super::super::ear::{Act, How, Item, Landing, Reading, Sized, Turn};
 use super::super::knows::Topic;
 use super::super::room::{Channel, Present, Room, Seat};
 use super::super::wants::{Kind, Want};
@@ -396,6 +396,16 @@ pub fn end(w: &mut World, s: &mut Scene) {
     let sharp = sharp(w, s);
     dialogue::call_said(w, s, said, worry, sharp);
     s.end();
+}
+
+/// How a line went over with the caller (the landing read, 2026-11-17):
+/// what you said lands when the call ends, all together, so a line shows
+/// nothing yet unless it cost his trust (an insult, a threat).
+pub fn landing(him: Them, hits: &[Sized]) -> Landing {
+    match super::hits::landing(him, hits, &[]) {
+        l @ (Landing::Missed | Landing::Cost) => l,
+        _ => Landing::Untouched,
+    }
 }
 
 /// The hits a call keeps (none move anything until its end).
