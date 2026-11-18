@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.636 (18 Nov, shipped): coaches answer with real specifics in live talks (PR #554)
+**TLDR:** The coaches you talk to now give real answers about their scheme and their recruiting. Ask a coordinator what he'll run, or a recruiter who he's working, and you get specifics.
+- Coordinators and candidates name their offense or defense, say how well your roster fits it, and say what it would take to switch. (PR #554)
+- Assistants name the recruits they're working and the players who signed through them. (PR #554)
+- In the holdover staff meeting, each coach answers for himself, and the right man speaks up. (PR #554)
+- Coaches no longer act offended by a fair question. (PR #554)
+- Holdover coaches only boast about what's actually true. (PR #554)
+- Look at: a takeover's holdover meetings. Ask "What offense will you run?" and "Who have you been recruiting?" (PR #554)
+
 ## 0.2.635 (18 Nov, shipped): SF1: play action that works (scheme-fit item 3) (PR #545), negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL (PR #567), ground lane G9: the race and the AI on Ground (PR #517)
 **TLDR:** 3 changes ship together. Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do. Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help. Plus 1 more below.
 - SF1: play action that works (scheme-fit item 3) (PR #545): Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do.

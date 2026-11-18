@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.636", date: "18 Nov", title: "Coaches answer with real specifics in live talks",
+    notes: [
+      "The coaches you talk to now give real answers about their scheme and their recruiting. Ask a coordinator what he'll run, or a recruiter who he's working, and you get specifics.",
+      "Coordinators and candidates name their offense or defense, say how well your roster fits it, and say what it would take to switch.",
+      "Assistants name the recruits they're working and the players who signed through them.",
+      "In the holdover staff meeting, each coach answers for himself, and the right man speaks up.",
+      "Coaches no longer act offended by a fair question.",
+      "Holdover coaches only boast about what's actually true.",
+    ],
+  },
+  {
     v: "0.2.635", date: "18 Nov", title: "Ground lane G9: the race and the AI on Ground and 2 more",
     notes: [
       "Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do.",
