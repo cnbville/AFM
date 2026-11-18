@@ -1018,12 +1018,32 @@ function openFind(q = "") {
     mark_();
   };
   const mark_ = () => out.querySelectorAll(".find-item").forEach((b) => b.classList.toggle("on", Number(b.dataset.i) === at));
+  // One question at a time. The game answers one call at a time, so a
+  // call sent for every keystroke queued up behind the ones before it and
+  // the bar sat on old words while it worked through them. While one is out
+  // the latest words wait, and only they are asked next.
+  let asking = false;
+  const ask = async () => {
+    if (asking || !room.isConnected) return;
+    const n = seq, text = inp.value;
+    if (text.trim().length < 2) return;
+    asking = true;
+    if (!items.length) out.innerHTML = '<div class="find-hint">Searching…</div>';
+    try {
+      const x = await api("find", { q: text });
+      if (n === seq && room.isConnected) draw(x);
+    } catch (e) {
+      if (n === seq && room.isConnected) { items = []; out.innerHTML = `<div class="find-hint">The search could not finish: ${esc(e.message || "the game is busy")}. Type again to retry.</div>`; }
+    }
+    asking = false;
+    if (n !== seq) ask();
+  };
   inp.addEventListener("input", () => {
-    const n = ++seq;
+    ++seq;
     clearTimeout(inp._t);
-    inp._t = setTimeout(async () => {
+    inp._t = setTimeout(() => {
       if (inp.value.trim().length < 2) { out.innerHTML = '<div class="find-hint">Type two letters.</div>'; items = []; return; }
-      try { const x = await api("find", { q: inp.value }); if (n === seq) draw(x); } catch (e) { /* the world is busy */ }
+      ask();
     }, 110);
   });
   inp.addEventListener("keydown", (e) => {
