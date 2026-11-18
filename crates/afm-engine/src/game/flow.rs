@@ -108,6 +108,11 @@ const ADMIN_PLAY_CLOCK: f64 = 25.0;
 /// this share at home (real NFL 2021-25: x1.95 at home, x1.46 on the
 /// road, where a crowd puts half the line on a silent count).
 const CADENCE: f64 = 0.95;
+/// The same under the NCAA's and the NFHS's books, where more offenses snap
+/// on a clap or a sideline signal: real FBS 2023-24 false starts a snap on
+/// third down 1.65 times first down's, against the NFL's 1.76 (cfbfastR,
+/// FBS against FBS; EG5, proposed, not confirmed).
+const CADENCE_COLLEGE: f64 = 0.66;
 /// Of the defense's jumps, the share in the neutral zone before the snap
 /// (a dead ball: neutral zone infraction, encroachment), without and with
 /// a hard count; the rest are offside at the snap (real NFL 2021-25: 0.38
@@ -135,6 +140,43 @@ const FORMATION: f64 = 0.0059;
 const BACK_UP_MID: f64 = 33.0;
 const BACK_UP_SLOPE: f64 = 0.2;
 const BACK_UP_COLLEGE: f64 = 0.8;
+/// The fouls before a kick (`kick_snap_foul`; EG5, proposed, not
+/// confirmed). Real NFL 2021-25 a kick snap, read from the formation on
+/// each no-play (nflverse): false starts 0.0128 before a punt, 0.0039
+/// before a field goal and 0.0036 before a try; delays of game not backing
+/// up a punt 0.0055, 0.0043 and 0.0036; the other side's jumps into the
+/// neutral zone 0.0015, 0.0026 and 0.0015. Each man's false start is his
+/// scrimmage chance on first down times his unit's share: the punt team's
+/// wings and gunners split out as on a scrimmage down, a field goal wall
+/// set tight with no motion and no count. The jumps are a lineman's
+/// scrimmage chance with no hard count times the unit's share: a field
+/// goal rush timing the snap to block it, a punt return front mostly
+/// holding up. The kicking unit's delay is the play clock running out on
+/// it, read on the head coach's game management: most often on a punt,
+/// the unit running on after a third-down stop with the play clock going,
+/// least on a try, after the stoppage of a score.
+const KICK_FALSE_PUNT: f64 = 0.77;
+const KICK_FALSE_FG: f64 = 0.21;
+const KICK_JUMP_PUNT: f64 = 0.09;
+const KICK_JUMP_FG: f64 = 0.22;
+const KICK_DELAY_PUNT: f64 = 0.0054;
+const KICK_DELAY_FG: f64 = 0.0044;
+const KICK_DELAY_TRY: f64 = 0.0032;
+/// What a kick's snap is for (`kick_snap_foul`).
+#[derive(Clone, Copy, PartialEq)]
+enum KickSnap {
+    Punt,
+    FieldGoal,
+    Try,
+}
+/// The hard count on fourth and short (`hard_count_gambit`; EG5, proposed,
+/// not confirmed): a coach set to kick on fourth and 3 or less first leaves
+/// his offense out with a hard count, this share of the time at his
+/// level's typical game management. Real NFL 2021-25: 65 delays of game by
+/// an offense on fourth and 3 or less before a kick, outside the punt's
+/// back-up, 0.024 a team game, on 2,697 such kicks.
+const GAMBIT: f64 = 0.037;
+const GAMBIT_TOGO: f64 = 3.0;
 /// Unsportsmanlike conduct after a play's big moment (`after_play_conduct`):
 /// the chance a moment for a man of typical temper and no showman streak
 /// (each book's base times `CONDUCT_ANY`), a showman's ego adding its share
@@ -1260,6 +1302,10 @@ struct Game<'a> {
     def_script: bool,
     /// The return team showed the look on this punt (G18), for its record.
     kick_look: bool,
+    /// Five yards already given up before this kick (EG5): a delay of game
+    /// to back up the punt, or one at the end of a hard count, so the coach
+    /// doesn't take another. Cleared when a kick or a snap is played.
+    kick_delay: bool,
     /// A fake punt's two units on the field and the look (G18): the next
     /// scrimmage snap is played with them.
     fake: Option<FakeUnits>,
@@ -1479,6 +1525,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         must_go: false,
         def_script: false,
         kick_look: false,
+        kick_delay: false,
         fake: None,
         due: Vec::new(),
         scanned: 0,
@@ -2742,8 +2789,25 @@ impl<'a> Game<'a> {
             r.why = format!("{what} {}. {}", if good { "good" } else { "failed" }, r.why);
             self.stats.plays.push(r);
         } else {
+            let mut dist = self.rules().xp_from + kick_add();
+            // The fouls before the try's snap (EG5): the kicking side's put
+            // it 5 yards back, the other side's half the distance closer,
+            // and the try is kicked again.
+            for _ in 0..3 {
+                let (k, _, _, wall, rush) = self.fg_units(team);
+                let Some(f) = self.kick_snap_foul(KickSnap::Try, &wall, &rush, k) else { break };
+                let yds = fouls::penalty(self.s.rules.foul_book(), self.s.rules.year, f.kind, f.side, false).yards;
+                let mut r = self.new_record(PlayType::NoPlay);
+                r.call = KICK_TRY.into();
+                let y = if f.side == 0 { yds } else { yds.min(0.5 * (dist - kick_add())) };
+                dist += if f.side == 0 { y } else { -y };
+                r.penalties.push((f.kind, if f.side == 0 { team } else { 1 - team }, f.player, y, true));
+                r.yards = if f.side == 0 { -y } else { y };
+                r.why = format!("{} on #{} before the try's snap.", f.kind.name(), f.player);
+                self.stats.book(&r);
+                self.stats.plays.push(r);
+            }
             let mut r = self.new_record(PlayType::ExtraPoint);
-            let dist = self.rules().xp_from + kick_add();
             if self.kick(team, dist, 0.1, &mut r).made {
                 self.add_points(team, 1);
             }
@@ -2761,17 +2825,16 @@ impl<'a> Game<'a> {
     }
 
     /// A field goal or extra point try. Returns whether it was good.
-    fn kick(&mut self, team: usize, dist: f64, pressure: f64, r: &mut PlayRecord) -> kicking::FieldGoal {
+    /// The field goal and try units: the kicker, the long snapper, the
+    /// holder, the wall and the other side's rush. The unit is 11: the
+    /// kicker, the holder and a nine-man wall with the long snapper in the
+    /// middle (guards, tackles, ends and wings: three interior linemen, two
+    /// tackles and three tight ends).
+    fn fg_units(&self, team: usize) -> (usize, usize, usize, Vec<usize>, Vec<usize>) {
         let side = &self.sides[team];
-        let ps = &side.team.players;
         let k = side.fg_kicker();
         let sn = side.snapper();
         let h = side.holder(k, sn);
-        let snapper = &ps[sn];
-        let holder = &ps[h];
-        // The unit is 11: the kicker, the holder and a nine-man wall with
-        // the long snapper in the middle (guards, tackles, ends and wings:
-        // three interior linemen, two tackles and three tight ends).
         let mut used = vec![k, sn, h];
         let protect_on: Vec<usize> = [sn]
             .into_iter()
@@ -2792,6 +2855,16 @@ impl<'a> Game<'a> {
             .chain(opp.pick(Position::EDGE, 2, &mut used2))
             .chain(opp.pick(Position::LB, 2, &mut used2))
             .collect();
+        (k, sn, h, protect_on, rush_on)
+    }
+
+    fn kick(&mut self, team: usize, dist: f64, pressure: f64, r: &mut PlayRecord) -> kicking::FieldGoal {
+        let (k, sn, h, protect_on, rush_on) = self.fg_units(team);
+        let side = &self.sides[team];
+        let ps = &side.team.players;
+        let snapper = &ps[sn];
+        let holder = &ps[h];
+        let opp = &self.sides[1 - team];
         let protect = kicking::kick_unit_strength(ps, &protect_on, false);
         let rush = kicking::kick_unit_strength(&opp.team.players, &rush_on, true);
         let along = self.wind_along(team);
@@ -2973,6 +3046,19 @@ impl<'a> Game<'a> {
             if must_go || self.ot && matches!(self.rules().overtime, Overtime::Aaf | Overtime::Xfl2001) {
                 choice = FourthDown::Go;
             }
+            // The hard count on fourth and short (EG5), when kicking from 5
+            // yards back costs little: any punt, a field goal still close
+            // to sure. Not when the clock is late, when the play clock it
+            // takes matters.
+            let cheap = match choice {
+                FourthDown::Punt => true,
+                FourthDown::FieldGoal => self.fg_make_estimate(o, fg_dist + 5.0) >= 0.85,
+                FourthDown::Go => false,
+            };
+            if cheap && !self.kick_delay && self.togo <= GAMBIT_TOGO && !self.clock_late() && self.hard_count_gambit(o)
+            {
+                return;
+            }
             match choice {
                 FourthDown::Punt => {
                     // A fake punt in your plan (update 2, G18), when their
@@ -2996,12 +3082,13 @@ impl<'a> Game<'a> {
                     let odds = BACK_UP_SLOPE * (yl - BACK_UP_MID)
                         + if self.s.rules.foul_book() == fouls::Fouls::Nfl { 0.0 } else { BACK_UP_COLLEGE };
                     let back = clamp(1.0 + 0.06 * (gm - norm), 0.4, 1.6) / (1.0 + odds.exp());
-                    if (30.0..=50.0).contains(&yl) && !self.clock_late() && self.rng.chance(back) {
+                    if (30.0..=50.0).contains(&yl) && !self.kick_delay && !self.clock_late() && self.rng.chance(back) {
                         let id = self.sides[o].team.players[self.sides[o].punter()].id;
                         let mut r = self.new_record(PlayType::NoPlay);
-                        r.call = "delay of game to back up the punt".into();
+                        r.call = KICK_BACK_UP.into();
                         let r = self.no_play(r, Foul { kind: FoulKind::DelayOfGame, side: 0, player: id, at: self.x });
                         self.stats.plays.push(r);
+                        self.kick_delay = true;
                     }
                     self.punt();
                     return;
@@ -3276,6 +3363,17 @@ impl<'a> Game<'a> {
 
     fn field_goal(&mut self, dist: f64) {
         let o = self.poss;
+        // The fouls before the snap (EG5): a dead ball, and the down is
+        // played again from the new spot.
+        let (k, _, _, wall, rush) = self.fg_units(o);
+        if let Some(f) = self.kick_snap_foul(KickSnap::FieldGoal, &wall, &rush, k) {
+            let mut r = self.new_record(PlayType::NoPlay);
+            r.call = KICK_FG.into();
+            let r = self.no_play(r, f);
+            self.stats.plays.push(r);
+            return;
+        }
+        self.kick_delay = false;
         let mut r = self.new_record(PlayType::FieldGoal);
         let late = self.quarter >= 4 && self.game_left() < 150.0;
         let d = self.diff(o);
@@ -3503,10 +3601,21 @@ impl<'a> Game<'a> {
     fn punt(&mut self) {
         let o = self.poss;
         let d = 1 - o;
-        let mut r = self.new_record(PlayType::Punt);
-        r.look = std::mem::take(&mut self.kick_look);
         let (kick_on, ret_on, sn) = self.punt_units();
         let p = kick_on[0];
+        // The fouls before the snap (EG5): a dead ball, and the down is
+        // played again from the new spot.
+        let unit: Vec<usize> = kick_on.iter().copied().filter(|&i| i != p).collect();
+        if let Some(f) = self.kick_snap_foul(KickSnap::Punt, &unit, &ret_on[1..], p) {
+            let mut r = self.new_record(PlayType::NoPlay);
+            r.call = KICK_PUNT.into();
+            let r = self.no_play(r, f);
+            self.stats.plays.push(r);
+            return;
+        }
+        self.kick_delay = false;
+        let mut r = self.new_record(PlayType::Punt);
+        r.look = std::mem::take(&mut self.kick_look);
         let side = &self.sides[o];
         let opp = &self.sides[d];
         let kt = KickTeams {
@@ -3859,6 +3968,225 @@ impl<'a> Game<'a> {
     /// playbook and the snap count decide them. Live-ball ones (the
     /// defense's offside at the snap, its twelve men when the snap comes,
     /// the offense's formation) let the play run (`fouls::live_at_snap`).
+    /// One man's chance to false start before a snap, before the count's
+    /// share: his discipline and concentration with the talks' focus, a
+    /// road crowd's noise, the crew, his tiredness and how well he knows the
+    /// calls. Road teams jump 21% more often in real FBS conference games
+    /// (1.28 a game against 1.06, cfbfastR 2023-24). Concentration joins
+    /// discipline, and decides how much the noise gets to him (proposed, not
+    /// confirmed).
+    fn false_start_chance(&self, o: usize, i: usize, crowd: f64, crew: f64) -> f64 {
+        let p = &self.sides[o].team.players[i];
+        let tired = 1.0 - self.sides[o].energy[i];
+        let level = self.s.rules.level;
+        let talk = self.sides[o].pulse[i].focus20();
+        let conc = (p.trait20(Attr::Concentration, level) + talk).clamp(1.0, 20.0);
+        let focus = 0.6 * (p.trait20(Attr::Discipline, level) + talk).clamp(1.0, 20.0) + 0.4 * conc;
+        0.00162
+            * (1.6 - focus / 15.0).max(0.3)
+            * (1.0 + 0.32 * crowd * clamp(1.5 - 0.05 * conc, 0.5, 1.5))
+            * crew
+            * (1.0 + tired)
+            * (1.25 - 0.25 * p.knowledge)
+    }
+
+    /// How much the snap count on third and fourth down lifts the line's
+    /// false starts at home (`CADENCE`, `CADENCE_COLLEGE`).
+    fn cadence_share(&self) -> f64 {
+        if self.s.rules.foul_book() == fouls::Fouls::Nfl { CADENCE } else { CADENCE_COLLEGE }
+    }
+
+    /// How much more the defense jumps on the quarterback's hard count: 1 to
+    /// 2.5 on his football IQ and his hard-count tool (individual practice:
+    /// the tool's points on his football IQ, a quarter of a step each), more
+    /// when the plan targets snap guessers; a road crowd takes the silent
+    /// share of it.
+    fn hard_count(&self, o: usize, qb: usize, silent: f64) -> f64 {
+        let qp = &self.sides[o].team.players[qb];
+        let vs = self.sides[o].mem.plan.vs.hard_count;
+        let count = 0.25 * qp.craft_vs(crate::craft::Craft::HardCount, self.s.rules.level, 0.0);
+        let h = clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) + count - 10.0), 1.0, 2.5)
+            * (1.0 + 0.5 * vs);
+        1.0 + (h - 1.0) * (1.0 - silent)
+    }
+
+    /// One defensive lineman's chance to jump before a snap: his discipline
+    /// with the talks' focus, his anticipation, how he times the snap and
+    /// the hard count (`hard`, 1 for none).
+    fn jump_chance(&mut self, d: usize, i: usize, hard: f64, def_crew: f64) -> f64 {
+        let level = self.s.rules.level;
+        let p = &self.sides[d].team.players[i];
+        // The best snap anticipators get off early, and now and then too
+        // early (read against his level; proposed, not confirmed).
+        let jump = clamp(1.0 + 0.04 * (p.trait20(Attr::Anticipation, level) - 10.0), 0.6, 1.5);
+        // Times the snap (tendencies): a guesser jumps more, and a hard
+        // count gets him most. A "no snap guessing" order he follows sets
+        // him to 1.
+        let guess = match p.orders.sets(crate::tendencies::Tend::SnapTiming) {
+            Some(v)
+                if self.rng.chance(crate::tendencies::obey_chance(
+                    p.trait20(Attr::Discipline, level),
+                    p.personality.coachability,
+                    p.obey_trust(),
+                    self.sides[d].team.staff.strictness,
+                )) =>
+            {
+                v
+            }
+            // Fire (coach fire, item 3): past his own pitch he guesses the
+            // count more.
+            _ => (p.tend.get(crate::tendencies::Tend::SnapTiming) + self.sides[d].pulse[i].habits).clamp(1.0, 20.0),
+        };
+        let lean = (guess - crate::tendencies::MID) / 9.5;
+        let guess = (1.0 + 1.1 * lean).max(0.1) * hard.powf(1.0 + 0.8 * lean.max(0.0)) / hard.max(1.0);
+        // (0.0019 before tendencies: guessers are the less disciplined men
+        // and a hard count now targets them, so 0.00172 kept the league's
+        // offside where it was; 0.00172 before EG5, when jumps ran 12% short
+        // of real on the first three downs; proposed, not confirmed.)
+        let disc = (p.trait20(Attr::Discipline, level) + self.sides[d].pulse[i].focus20()).clamp(1.0, 20.0);
+        0.00182 * (1.6 - disc / 15.0).max(0.3) * jump * hard * guess * def_crew
+    }
+
+    /// The fouls before a kick's snap (EG5): the kicking unit's false start,
+    /// a jump by the other side into the neutral zone (encroachment under
+    /// NFHS rules) and the play clock running out on the kicking unit, each
+    /// a dead ball with the down played again (`KICK_FALSE_PUNT` and the
+    /// rest). A man offside at the snap of a kick is a live-ball foul of the
+    /// kick play itself, not drawn here. `unit` is the kicking side's men
+    /// but the kicker, `front` the other side's, `kicker` the man a delay is
+    /// booked on.
+    fn kick_snap_foul(&mut self, kick: KickSnap, unit: &[usize], front: &[usize], kicker: usize) -> Option<Foul> {
+        let o = self.poss;
+        let d = 1 - o;
+        let crowd = self.home_crowd(o);
+        let crew = self.crew.pre_snap * self.sides[o].team.prep.rules;
+        let def_crew = self.crew.pre_snap * self.sides[d].team.prep.rules;
+        let (share, jumps, delay) = match kick {
+            KickSnap::Punt => (KICK_FALSE_PUNT, KICK_JUMP_PUNT, KICK_DELAY_PUNT),
+            KickSnap::FieldGoal => (KICK_FALSE_FG, KICK_JUMP_FG, KICK_DELAY_FG),
+            KickSnap::Try => (KICK_FALSE_FG, KICK_JUMP_FG, KICK_DELAY_TRY),
+        };
+        for &i in unit {
+            let chance = self.false_start_chance(o, i, crowd, crew) * share;
+            if self.rng.chance(chance) {
+                let id = self.sides[o].team.players[i].id;
+                return Some(Foul { kind: FoulKind::FalseStart, side: 0, player: id, at: self.x });
+            }
+        }
+        for &i in front {
+            let chance = self.jump_chance(d, i, 1.0, def_crew) * jumps;
+            if self.rng.chance(chance) {
+                let id = self.sides[d].team.players[i].id;
+                let kind = if self.s.rules.foul_book() == fouls::Fouls::Nfhs {
+                    FoulKind::Offside
+                } else {
+                    FoulKind::NeutralZone
+                };
+                return Some(Foul { kind, side: 1, player: id, at: self.x });
+            }
+        }
+        let gm = self.sides[o].team.staff.game_management;
+        let run = clamp(1.0 - 0.04 * (gm - super::rules::coach_norm(self.rules().level)), 0.6, 1.4);
+        if self.rng.chance(delay * (1.0 + 0.52 * crowd) * crew * run) {
+            // Your timeout rule (update 2, G4), as on a scrimmage down.
+            if self.timeout_saves_delay(o) {
+                self.sides[o].timeouts -= 1;
+                self.running = false;
+                let left = self.sides[o].timeouts;
+                self.log(o, format!("Timeout to beat the play clock on the kick ({left} left)."));
+                return None;
+            }
+            let id = self.sides[o].team.players[kicker].id;
+            return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: id, at: self.x });
+        }
+        None
+    }
+
+    /// The hard count on fourth and short (EG5, `GAMBIT`): a coach set to
+    /// kick leaves his offense out first, its quarterback barking a hard
+    /// count to draw the defense. A man who jumps gives the first down (a
+    /// dead ball: no snap comes); a lineman of his own may flinch on it;
+    /// otherwise the play clock runs out and he kicks from 5 yards back.
+    /// Returns whether the down is played again.
+    fn hard_count_gambit(&mut self, o: usize) -> bool {
+        let gm = self.sides[o].team.staff.game_management;
+        let norm = super::rules::coach_norm(self.rules().level);
+        if !self.rng.chance(GAMBIT * clamp(1.0 + 0.06 * (gm - norm), 0.4, 1.6)) {
+            return false;
+        }
+        let d = 1 - o;
+        let crowd = self.home_crowd(o);
+        let silent = 0.5 * crowd.min(1.0);
+        let crew = self.crew.pre_snap * self.sides[o].team.prep.rules;
+        let def_crew = self.crew.pre_snap * self.sides[d].team.prep.rules;
+        let mut used = Vec::new();
+        let line: Vec<usize> = self.sides[o]
+            .pick(Position::OT, 2, &mut used)
+            .into_iter()
+            .chain(self.sides[o].pick(Position::IOL, 3, &mut used))
+            .collect();
+        let mut used = Vec::new();
+        let front: Vec<usize> = self.sides[d]
+            .pick(Position::EDGE, 2, &mut used)
+            .into_iter()
+            .chain(self.sides[d].pick(Position::DT, 2, &mut used))
+            .collect();
+        let qb = self.sides[o].depth.list(Position::QB).iter().copied().find(|&i| !self.sides[o].out[i]).unwrap_or(0);
+        let hard = self.hard_count(o, qb, silent);
+        let cadence = 1.0 + self.cadence_share() * (1.0 - silent);
+        let mut foul = None;
+        for &i in &line {
+            let chance = self.false_start_chance(o, i, crowd, crew) * cadence;
+            if self.rng.chance(chance) {
+                let id = self.sides[o].team.players[i].id;
+                foul = Some(Foul { kind: FoulKind::FalseStart, side: 0, player: id, at: self.x });
+                break;
+            }
+        }
+        if foul.is_none() {
+            for &i in &front {
+                let chance = self.jump_chance(d, i, hard, def_crew);
+                if self.rng.chance(chance) {
+                    let id = self.sides[d].team.players[i].id;
+                    let kind = if self.s.rules.foul_book() == fouls::Fouls::Nfhs {
+                        FoulKind::Offside
+                    } else {
+                        FoulKind::NeutralZone
+                    };
+                    foul = Some(Foul { kind, side: 1, player: id, at: self.x });
+                    break;
+                }
+            }
+        }
+        let togo = self.togo;
+        let qid = self.sides[o].team.players[qb].id;
+        let foul = foul.unwrap_or(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qid, at: self.x });
+        let (kind, side, who) = (foul.kind, foul.side, foul.player);
+        let mut r = self.new_record(PlayType::NoPlay);
+        r.call = "hard count on fourth down".into();
+        let mut r = self.no_play(r, foul);
+        r.why = match (kind, side) {
+            (FoulKind::DelayOfGame, _) => format!(
+                "On fourth and {togo:.0} the offense stays out with a hard count to draw the defense; nobody jumps: \
+                 delay of game, and the kick from 5 yards back."
+            ),
+            (_, 0) => format!(
+                "On fourth and {togo:.0} the offense stays out with a hard count, and its own man jumps: {} on #{who}.",
+                kind.name()
+            ),
+            _ => format!(
+                "On fourth and {togo:.0} the hard count draws the defense: {} on #{who}{}.",
+                kind.name(),
+                if r.first_down { ", a first down" } else { "" }
+            ),
+        };
+        self.stats.plays.push(r);
+        // Five yards given up (his own man's flinch or the delay): no second
+        // delay to back up the punt.
+        self.kick_delay = side == 0;
+        true
+    }
+
     fn pre_snap_foul(&mut self, off: &[(ORole, usize)], def: &[(DSlot, usize)]) -> Option<Foul> {
         let o = self.poss;
         let crowd = self.home_crowd(o);
@@ -3873,34 +4201,18 @@ impl<'a> Game<'a> {
         // every distance: a road crowd puts the line on a silent count, so
         // half of it goes (proposed, not confirmed).
         let silent = 0.5 * crowd.min(1.0);
-        let cadence = if self.down >= 3 { 1.0 + CADENCE * (1.0 - silent) } else { 1.0 };
+        let cadence = if self.down >= 3 { 1.0 + self.cadence_share() * (1.0 - silent) } else { 1.0 };
         for &(r, i) in off {
             if !(r.is_line() || r.is_receiver()) {
                 continue;
             }
-            let p = &self.sides[o].team.players[i];
-            let tired = 1.0 - self.sides[o].energy[i];
-            let level = self.s.rules.level;
-            // Road teams jump 21% more often in real FBS conference games
-            // (1.28 a game against 1.06, cfbfastR 2023-24). Concentration
-            // joins discipline, and decides how much the noise gets to him
-            // (proposed, not confirmed).
-            let talk = self.sides[o].pulse[i].focus20();
-            let conc = (p.trait20(Attr::Concentration, level) + talk).clamp(1.0, 20.0);
-            let focus = 0.6 * (p.trait20(Attr::Discipline, level) + talk).clamp(1.0, 20.0) + 0.4 * conc;
-            let chance = 0.00162
-                * (1.6 - focus / 15.0).max(0.3)
-                * (1.0 + 0.32 * crowd * clamp(1.5 - 0.05 * conc, 0.5, 1.5))
-                * crew
-                * (1.0 + tired)
-                * (1.25 - 0.25 * p.knowledge)
-                * cadence;
+            let chance = self.false_start_chance(o, i, crowd, crew) * cadence;
             if self.rng.chance(chance) {
-                return Some(Foul { kind: FoulKind::FalseStart, side: 0, player: p.id, at: self.x });
+                let id = self.sides[o].team.players[i].id;
+                return Some(Foul { kind: FoulKind::FalseStart, side: 0, player: id, at: self.x });
             }
         }
         let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
-        let qp = &self.sides[o].team.players[qb];
         // The hard count on third and fourth down: a smart quarterback
         // draws the defense offside (proposed, not confirmed); a road crowd
         // takes half of it, as for his own line. (It was only on third and
@@ -3909,55 +4221,14 @@ impl<'a> Game<'a> {
         // Against a front of snap guessers the plan uses it on more downs
         // (tendencies topic 4.4).
         let vs = self.sides[o].mem.plan.vs.hard_count;
-        let hard = if self.down >= 3 || vs > 0.0 && self.togo <= 3.0 {
-            // A hard count that draws flags (individual practice): the
-            // tool's points on his football IQ, a quarter of a step each.
-            let count = 0.25 * qp.craft_vs(crate::craft::Craft::HardCount, self.s.rules.level, 0.0);
-            let h = clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) + count - 10.0), 1.0, 2.5)
-                * (1.0 + 0.5 * vs);
-            1.0 + (h - 1.0) * (1.0 - silent)
-        } else {
-            1.0
-        };
+        let hard = if self.down >= 3 || vs > 0.0 && self.togo <= 3.0 { self.hard_count(o, qb, silent) } else { 1.0 };
         for &(s, i) in def {
             if !s.is_line() {
                 continue;
             }
-            let p = &self.sides[1 - o].team.players[i];
-            // The best snap anticipators get off early, and now and then too
-            // early (read against his level; proposed, not confirmed).
-            let jump = clamp(1.0 + 0.04 * (p.trait20(Attr::Anticipation, self.s.rules.level) - 10.0), 0.6, 1.5);
-            // Times the snap (tendencies): a guesser jumps more, and a hard
-            // count gets him most. A "no snap guessing" order he follows
-            // sets him to 1.
-            let level = self.s.rules.level;
-            let guess = match p.orders.sets(crate::tendencies::Tend::SnapTiming) {
-                Some(v)
-                    if self.rng.chance(crate::tendencies::obey_chance(
-                        p.trait20(Attr::Discipline, level),
-                        p.personality.coachability,
-                        p.obey_trust(),
-                        self.sides[1 - o].team.staff.strictness,
-                    )) =>
-                {
-                    v
-                }
-                // Fire (coach fire, item 3): past his own pitch he guesses
-                // the count more.
-                _ => (p.tend.get(crate::tendencies::Tend::SnapTiming) + self.sides[1 - o].pulse[i].habits)
-                    .clamp(1.0, 20.0),
-            };
-            let lean = (guess - crate::tendencies::MID) / 9.5;
-            let guess = (1.0 + 1.1 * lean).max(0.1) * hard.powf(1.0 + 0.8 * lean.max(0.0)) / hard.max(1.0);
-            // (0.0019 before tendencies: guessers are the less disciplined
-            // men and a hard count now targets them, so 0.00172 keeps the
-            // league's offside where it was.)
-            let disc = (p.trait20(Attr::Discipline, self.s.rules.level) + self.sides[1 - o].pulse[i].focus20())
-                .clamp(1.0, 20.0);
-            // (0.00172 before EG5: jumps ran 12% short of real on the first
-            // three downs; proposed, not confirmed.)
-            let chance = 0.00182 * (1.6 - disc / 15.0).max(0.3) * jump * hard * guess * def_crew;
+            let chance = self.jump_chance(1 - o, i, hard, def_crew);
             if self.rng.chance(chance) {
+                let p = &self.sides[1 - o].team.players[i];
                 // Where he is when it is called (EG5): still in the neutral
                 // zone as the snap comes, offside and a live ball (the NFL
                 // and college); in it before the snap, drawing a flinch or
@@ -3999,6 +4270,7 @@ impl<'a> Game<'a> {
         // His Football IQ is read about his level's typical starter, on the
         // NFL's scale (EG5: on the raw rating college quarterbacks took 50%
         // more delays a snap than real, FBS 2023-24 against the NFL).
+        let qp = &self.sides[o].team.players[qb];
         let ts = |lv: Level| super::synthetic::typical_starter(lv, Position::QB, Attr::FootballIq);
         let fiq = qp.a(Attr::FootballIq) - ts(self.s.rules.level) + ts(Level::NFL);
         if self.rng.chance(DELAY * by_down * (1.3 - fiq / 120.0) * (1.0 + 0.52 * crowd) * crew) {
@@ -4043,6 +4315,7 @@ impl<'a> Game<'a> {
     /// period asks for: inside run is all runs, seven on seven all passes.
     fn snap_play_as(&mut self, two_point: bool, run: Option<bool>) -> PlayRecord {
         let o = self.poss;
+        self.kick_delay = false;
         let sit = self.situation();
         let staff_o = self.sides[o].team.staff;
         let staff_d = self.sides[1 - o].team.staff;
@@ -6727,6 +7000,7 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         must_go: false,
         def_script: false,
         kick_look: false,
+        kick_delay: false,
         fake: None,
         due: Vec::new(),
         scanned: 0,

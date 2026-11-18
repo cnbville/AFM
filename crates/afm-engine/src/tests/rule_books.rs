@@ -170,3 +170,48 @@ fn each_states_book() {
     assert!(!fouls::live_at_snap(Fouls::Ncaa, FoulKind::FalseStart));
     assert!(fouls::live_at_snap(Fouls::Nfhs, FoulKind::IllegalFormation));
 }
+
+/// The fouls before a kick (EG5): a false start, a delay or a jump before a
+/// punt, field goal or try is a dead ball booked under the kick's own call,
+/// and the same side plays the down (or the try) again; a hard count on
+/// fourth and short ends in one foul. Real NFL 2021-25: about 0.014 of kick
+/// snaps (nflverse).
+#[test]
+fn fouls_before_kicks_are_dead_balls_and_replay_the_down() {
+    use crate::game::stats::{KICK_BACK_UP, PlayType, kick_no_play};
+    use FoulKind as K;
+    let level = Level::NFL;
+    let teams = crate::game::synthetic::synthetic_league(level, 2, 7);
+    let (mut kicks, mut fouls, mut counts) = (0usize, 0usize, 0usize);
+    for seed in 0..120 {
+        let r = crate::game::quick_game(&teams[0], &teams[1], level, seed);
+        let plays = &r.stats.plays;
+        for (k, p) in plays.iter().enumerate() {
+            if matches!(p.kind, PlayType::Punt | PlayType::FieldGoal | PlayType::ExtraPoint) {
+                kicks += 1;
+            }
+            let count = p.kind == PlayType::NoPlay && p.call == "hard count on fourth down";
+            if !(count || kick_no_play(p) && p.call != KICK_BACK_UP) {
+                continue;
+            }
+            if count {
+                counts += 1;
+            } else {
+                fouls += 1;
+            }
+            assert_eq!(p.penalties.len(), 1, "one foul: {}", p.why);
+            let kind = p.penalties[0].0;
+            assert!(
+                matches!(kind, K::FalseStart | K::DelayOfGame | K::NeutralZone | K::Offside),
+                "a dead-ball foul: {}",
+                p.why
+            );
+            if let Some(next) = plays.get(k + 1) {
+                assert_eq!(next.offense, p.offense, "the same side plays again: {} / {}", p.why, next.why);
+            }
+        }
+    }
+    let share = fouls as f64 / kicks.max(1) as f64;
+    assert!((0.005..0.04).contains(&share), "fouls before a kick, a kick snap: {share:.4} ({fouls} of {kicks})");
+    assert!(counts < 60, "hard counts on fourth and short: {counts} in 120 games");
+}

@@ -2,7 +2,7 @@
 
 On 2026-11-17 Cain asked what other parts of the match engine need work beyond the update already running (scheme fit): "what other engine parts might need to get improved other then the update we already have running?" The engine gaps audit measured the engine against real NFL play-by-play and the repo's college targets and found 30 gaps. Its report is `afm/engine-gaps/report.md` in the project folder, with the tools in `tools/` and the raw numbers in `raw/` beside it. Where the report and this file differ, this file is right (it was checked once more before it merged).
 
-Cain agreed to all 30 and to the lanes the same evening (22:09 UTC, "agreed"). The question was: "Should all 30 go on the engine fix list as lanes EG1-EG7? Say 'yes to all', or the numbers to leave out. My pick: yes to all, with EG1-EG5 beside the scheme-fit chain and EG6 and EG7 after their SF lanes." This file says what gets built and in which lane. None of it is built.
+Cain agreed to all 30 and to the lanes the same evening (22:09 UTC, "agreed"). The question was: "Should all 30 go on the engine fix list as lanes EG1-EG7? Say 'yes to all', or the numbers to leave out. My pick: yes to all, with EG1-EG5 beside the scheme-fit chain and EG6 and EG7 after their SF lanes." This file says what gets built and in which lane. EG5 is built (2026-11-18; its section below says how); the rest is not.
 
 Cain's engine rule (2026-11-14: nothing in the engine before the next world builds are done, `docs/design/engine-fix-list.md`) is met: the seed 181 world was built on 2026-11-17. So EG1-EG5 can start now.
 
@@ -158,6 +158,19 @@ Fumbles from scrimmage are 20% short (0.79 a team game, real 0.98), and fumbles 
 - **The fix.** Each level's extensions and runoff above, by era.
 
 ### EG5: Each level's rule book and the flags
+
+**Built 2026-11-18** (thread "Build engine lane EG5 rule books"; how it works in `docs/match-engine.md`, "Each level's rule book and the flags", and `docs/reference/how-it-works/match-engine.md`, "Penalties"). Every size is proposed, not confirmed. Claude's calls under Cain's proxy, each the most realistic option found:
+- Texas high schools play the NCAA's book every season and Massachusetts through 2018, both on college hash marks (the fields they were laid out for); the other leagues keep the NFL's book.
+- A lineman past the limit is flagged by how plainly he is past it: the crew sees where he is, not what he knows, so his Football IQ keeps him back instead.
+- The defender's interference hinders the catch and is flagged when the ball falls incomplete and on 12% of the catches made through it, so the offense declines few flags (5%, real 11%; main 45%).
+- Illegal contact is drawn in the NFL only, as the shove past 5 yards in the hand fight; below the NFL that contact is legal.
+- The NFL's men, who are fined, draw 30% fewer late hits and face masks than college and high school players would on the same tackles; roughing the passer is widest in the NFL (college and high school flag 0.62 of the same hits).
+- Unsportsmanlike conduct after the play is drawn by the man who made its big moment, by his ego and temper.
+- College's cadence on third and fourth down pushes false starts 0.66 as hard as the NFL's, since more college offenses snap on a clap or a sideline signal (real FBS third down 1.65 times first down's false starts, the NFL 1.76).
+- The delay to back up a punt reads the distance (half the time from the 33 in the NFL), 0.8 as often under the NCAA's and the NFHS's books, whose whole punt team may leave at the snap.
+- Fouls before a kick's snap come from the unit (the punt team's split men, the field goal wall, the rush timing the snap), and a coach set to kick on fourth and 3 or less first tries a hard count.
+- The tackle's helmet-first share is refitted to 0.09 (0.07), so FBS targeting stays in its real band once EG5 brought the late hits to FBS's real count.
+- The call table's run rows stay (EG5 moves them only by noise) and its pass rows wait for SF5 or SF10, as minor bug 405 says; the analysts' tables are refitted.
 
 **23. Penalty yards and first downs by level.** (medium)
 - **Rules.** College defensive holding is 10 yards (the engine gives 5), with a first down on every call since 2022; before 2022 the first down came only when the defense held an eligible receiver beyond the line on a forward pass that crossed it. In high school (NFHS) only roughing the passer, kicker, holder or snapper gives an automatic first down; pass interference is 15 yards from the previous spot with no first down (since 2013), and holding is 10.

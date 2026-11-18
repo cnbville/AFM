@@ -719,6 +719,19 @@ impl StatLine {
     }
 }
 
+/// The calls a no-play before a kick's snap carries (EG5): a foul by
+/// either unit there falls under special teams, and the tools tell these
+/// snaps from scrimmage downs.
+pub const KICK_PUNT: &str = "punt";
+pub const KICK_FG: &str = "field goal";
+pub const KICK_TRY: &str = "extra point";
+pub const KICK_BACK_UP: &str = "delay of game to back up the punt";
+
+/// A no-play before a punt, field goal or try (EG5).
+pub fn kick_no_play(r: &PlayRecord) -> bool {
+    r.kind == PlayType::NoPlay && [KICK_PUNT, KICK_FG, KICK_TRY, KICK_BACK_UP].contains(&r.call.as_str())
+}
+
 /// Field goal distance bands: under 30, 30-39, 40-49, 50+.
 pub fn fg_band(d: f64) -> usize {
     if d < 30.0 {
@@ -923,7 +936,8 @@ impl GameStats {
             x[2 * f + 1] += 1.0;
         };
         let dropback = matches!(r.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
-        let kick = matches!(r.kind, PlayType::Punt | PlayType::Kickoff | PlayType::FieldGoal | PlayType::ExtraPoint);
+        let kick = matches!(r.kind, PlayType::Punt | PlayType::Kickoff | PlayType::FieldGoal | PlayType::ExtraPoint)
+            || kick_no_play(r);
         // A penalty falls under the job he had on the snap: the passer's
         // passing, a blocker's blocking, a runner's running, a target's
         // catching; on defense the rush, coverage or the run. A foul before

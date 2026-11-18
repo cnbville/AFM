@@ -1268,9 +1268,105 @@ Tried and dropped (NFL test rosters, seed 11):
 
 Still off: inside runs 0.3 a carry short and outside runs 0.3 long (world clubs 1.3), linebackers make too few first tackles, and runs of 20+ are half of real (item 9, lane SF9). Short yardage (item 8) is measured again after this lane, as its spec asks: team 0's backs convert 77-78% of designed runs on 3rd and 4th and 2 or less at the NFL (78-80% before) and 81-84% at FBS (82-84% before), against 67% real, and its quarterbacks 89-95% (real 79%), so it stays lane SF9's. Runs of 20+ don't move (NFL 0.9-1.2% of the backs' carries, FBS 1.3-1.8%, real 2.2%).
 
+## Each level's rule book and the flags (engine gaps lane EG5, 2026-11-18)
+
+Engine gaps items 23-28 (`docs/design/engine-gaps.md`): penalty yards and first downs by level, state and era, half the distance near the goal lines, kick rules by level, ineligible downfield (minor bug 406), pass interference at the real rate and size, the fouls the engine lacked, and illegal blocks in the back, which ran about ten times real. Cain agreed to the engine gaps on 2026-11-17 and gave full proxy; every size below is proposed, not confirmed. How each piece works is on the how-it-works page (`docs/reference/how-it-works/match-engine.md`, "Penalties", the pass rush, the throw and the catch).
+
+What was wrong on main (2,000 `AFM_GAPS=1 match_check` games at the NFL and FBS and 1,000 at high school, seed 1; the NFL's real is nflverse 2021-25 on scrimmage plays):
+
+- **One table marked every foul at every level** (`FoulKind::yards`): no book and no era; half the distance only when the full yards reached the goal line, and then from the line of scrimmage; no safety for the offense's foul in its own end zone (0 a team game, real NFL 0.0044); the defense's holding 5 yards at every level; pass interference near the goal at the 1 at every level; and a personal foul after a gain booked the play's gain in its penalty yards too (19.7 yards an accepted unnecessary roughness, real 13.1).
+- **Fouls the engine never called:** illegal contact, illegal use of hands, neutral zone infractions, the defense's twelfth man, kickoffs out of bounds and short of the landing zone (all 0; real NFL 0.121, 0.110, 0.226, 0.068, 0.070 and 0.079 a team game), and unsportsmanlike conduct after the play (0.003, real 0.025). Every offside killed the play, so there was no free play (0.002 a team game).
+- **Ineligible downfield** (minor bug 406): 0.395 a team game at the NFL (real 0.106), 0.548 at FBS and 0.736 at high school, all on RPOs. Every lineman past the limit was flagged, a won pass block drove its man back downfield, pass blockers walked up to meet a blitzer and took him on 2-3 yards downfield (a pass thrown past the line found one there on a dropback in seven), and an RPO lineman moving on a slant had to turn to stop at the limit and ran a yard or two past it on a fifth of RPO throws.
+- **Illegal blocks in the back** 0.298 a team game (real 0.031): every block from behind was thrown, and 7.5% of them were flagged.
+- **Pass interference** was flagged 0.678 a team game and accepted 0.374 (real 0.561 and 0.497): the contact changed no catch, so the offense declined 45% of the flags, and the accepted ones came out 12.1 yards (real 15.8).
+- **The rest off:** the offense's holding 1.099 and the defense's 0.469 (real 0.893 and 0.322), offside 0.528 (0.253), illegal formation 0.414 (0.224), false starts 0.935 (1.131) and delays 0.212 (0.295), with third and fourth down's false starts at first down's rate (real 1.76 and 4.7 times it), and intentional grounding 0.015 (0.077), a flat 8% of the pocket's throwaways and never outside it.
+- **High school in the world** played today's book in every season (`Rules::for_level`), so targeting was called before 2013, and Texas and Massachusetts got only college hash marks (Massachusetts in every season), not the college book.
+
+What changed (`game/fouls.rs`, new; `game/flow.rs`, `game/scrimmage.rs`, `game/sim.rs`, `game/kicking.rs`, `game/rules.rs`):
+
+- **Three books** (`fouls.rs`): the NFL's, the NCAA's and the NFHS's, each foul's yards, first down and loss of down by season (`penalty`). Texas high schools play the NCAA's every season and Massachusetts through 2018 (`Rules::high_school`); the other leagues keep the NFL's. World high school games read the season's rules (`world/hs_year.rs`, `world/front_office/school.rs`).
+- **Marking** (`defense`, `offense`, `half`): the previous spot, or the end of the run for a defensive foul during a run that ended past the line and for any personal foul after a gain; the offense's hold or block from the previous spot or its own spot as the book says; half the distance at every level; pass interference's own spots near the goal; a safety for the offense's hold, illegal block or grounding in its own end zone; live-ball fouls at the snap (the offside a free play in the NFL and college, encroachment under NFHS rules).
+- **Kicks:** a missed field goal by book (`missed_fg_spot`), a kickoff out of bounds by book and era (`kick_out_spot`), both kickoff fouls booked.
+- **Ineligible downfield at its roots:** a pass blocker never sets past 0.4 yards behind the line and lets a blitzer come to him (`PASS_SET`); a won pass block holds its man where they met; an RPO's line stops 0.3 yards short of the limit give or take his feel (`RPO_MARGIN`, `RPO_FEEL`, `RPO_IQ`), slowing along his own heading (`hold_at`); every pass thrown past the line is checked; the crew flags a man plainly past the limit (`IDF_SEEN`, `IDF_CLEAR`), with no Football IQ in its eye.
+- **Pass interference:** from a yard past the line, sized by air yards (`PI_DEPTH`); the contact hinders the catch (`PI_HINDER`) and is flagged when the ball falls incomplete and on 12% of the catches made through it (`PI_CAUGHT`); the push-off helps the catch and is always flagged (`OPI_HELP`).
+- **The hand fight** in man coverage: one draw for holding, illegal use of hands and (NFL) illegal contact (`HAND_FIGHT`, `DEF_HANDS`, `CHUCK`); the offense's flagged holds include his hands to the face (`OFF_HANDS`).
+- **Illegal blocks in the back:** a blocker lets a man with his back turned go unless he throws it (`IBB_THROW`), and one in two he throws is flagged (`IBB_SEEN`).
+- **Pre-snap:** the twelfth man (`TWELVE_MEN`, `TWELVE_DEAD`); the jump split into neutral zone infractions before the snap and offside at it (`JUMP_EARLY`, `JUMP_EARLY_HARD`); delays by down and by the quarterback's Football IQ (`DELAY`); false starts by the cadence on third and fourth down (`CADENCE`, and `CADENCE_COLLEGE` under the NCAA's and the NFHS's books); the delay to back up a punt from the other side's 30-50 by distance (`BACK_UP_MID`, `BACK_UP_SLOPE`, `BACK_UP_COLLEGE`); fouls before a kick's snap (`kick_snap_foul`); and the hard count on fourth and short (`hard_count_gambit`).
+- **The hit fouls:** the NFL's men, who are fined, draw 0.7 as many of them on the same hits (`fouls::hit_restraint`); face masks 0.0122 and late hits 0.0196 a tackle before the man's own read (0.0087 and 0.023), the flagged hits at the catch point and on a slide at 0.85 of before (`CATCH_HIT_FOUL`, `SLIDE_HIT`); roughing the passer by the book's share of the same hits (`fouls::roughing_share`).
+- **Targeting:** the tackle's helmet-first share is 0.09 (`HIGH_ON_TACKLE`, 0.07 before). At 0.07, with the late hits at FBS's real count, FBS targeting fell to 0.029 a team game, under its real band (cfbfastR 2022-2025, 0.031 to 0.043); at 0.10 it came to 0.042, and at 0.09 it is 0.037. Nearly all of it comes from tackles: the catch point gives 0.004 flagged hits a team game and scrambles 0.008. The NFL has no targeting foul, so it plays the same games either way.
+- **Unsportsmanlike conduct after the play** (`after_play_conduct`), and grounding read from the passer's sense and where the ball goes, in the pocket and outside it (`GROUND_POCKET`, `FLICK_CARRY`, `GROUND_SEEN`).
+- **Tools:** `match_check`'s penalty rows are the real kinds, each on its own (nflverse 2021-25; the 2025 counts for the kickoff fouls), and `AFM_GAPS=1` adds "Rule books and flags": each kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where.
+
+2,000 `AFM_GAPS=1 match_check nfl` games, main and after (seed 1, the test rosters; real is nflverse 2021-25 on scrimmage plays, and 2025 for the kickoff fouls):
+
+| NFL, a team game | main | after | real |
+|---|---|---|---|
+| accepted penalties on scrimmage plays | 5.59 | 5.00 | 5.24 |
+| their yards | 47.6 | 40.1 | 42.6 |
+| offensive holding | 1.099 | 0.898 | 0.893 |
+| false start | 0.935 | 1.128 | 1.131 |
+| pass interference, accepted (flagged) | 0.374 (0.678) | 0.546 (0.572) | 0.497 (0.561) |
+| the same, yards an accepted one | 12.1 | 14.6 | 15.8 |
+| defensive holding | 0.469 | 0.339 | 0.322 |
+| illegal contact | 0 | 0.123 | 0.121 |
+| illegal use of hands | 0 | 0.102 | 0.110 |
+| offside | 0.528 | 0.237 | 0.253 |
+| neutral zone infraction | 0 | 0.254 | 0.226 |
+| delay of game | 0.212 | 0.250 | 0.295 |
+| unnecessary roughness | 0.406 | 0.279 | 0.271 |
+| the same, yards an accepted one | 19.7 | 13.0 | 13.1 |
+| roughing the passer | 0.221 | 0.179 | 0.181 |
+| illegal formation | 0.414 | 0.235 | 0.224 |
+| offensive pass interference | 0.115 | 0.128 | 0.128 |
+| face mask | 0.117 | 0.116 | 0.124 |
+| ineligible man downfield | 0.395 | 0.037 | 0.106 |
+| too many men on the field | 0 | 0.066 | 0.068 |
+| intentional grounding | 0.015 | 0.034 | 0.077 |
+| illegal block in the back | 0.298 | 0.029 | 0.031 |
+| unsportsmanlike conduct | 0.003 | 0.026 | 0.025 |
+| kickoff out of bounds | 0 | 0.080 | 0.070 |
+| kickoff short of the landing zone | 0 | 0.081 | 0.079 |
+| safeties on the offense's foul | 0 | 0.0022 | 0.0044 |
+| false starts a snap, downs 1-4 | 0.0132, 0.0138, 0.0145, 0.0147 | 0.0133, 0.0129, 0.0242, 0.0491 | 0.0132, 0.0125, 0.0232, 0.0620 |
+| delays a snap, downs 1-4 | 0.0030, 0.0030, 0.0033, 0.0042 | 0.0015, 0.0019, 0.0051, 0.0438 | 0.0014, 0.0022, 0.0053, 0.0816 |
+| points | 24.73 | 25.88 | 22.51 |
+| sacks; pressure, of dropbacks | 2.08; 22.1% | 1.94; 21.5% | 2.41; 22.2% |
+| third and fourth down converted | 42.0%, 52.8% | 42.9%, 54.5% | 39.8%, 53.7% |
+
+Before a kick's snap, a kick snap (false start, delay, the other side's jump; main had none): punts 0.0116, 0.0051, 0.0018 (real 0.0128, 0.0055, 0.0015), field goals 0.0037, 0.0037, 0.0031 (0.0039, 0.0043, 0.0026), tries 0.0036, 0.0038, 0.0014 (0.0036, 0.0036, 0.0015). The hard count on fourth and short: 0.026 a team game, 0.024 of them ending in a delay (real NFL delays of this kind 0.024). Free plays (a live-ball offside and the play ran): 0.366 a team game, the offense taking the offside on 65% of them.
+
+Points rise because the offense's drive-killing fouls fall to real: its holding, ineligible downfield, illegal formation and blocks in the back come to 1.20 a team game against main's 2.21, and the defense's accepted pass interference gives 8.0 yards a team game against main's 4.5. On seeds 2-4 (2,000 games each) main to after is +0.65, +0.72 and +0.54 points (+1.15 on seed 1), so EG5 adds about 0.7 points a team game. Points were already high on main (24.7, real 22.5), which is EG6's (the red zone: 65.1% completions, real 53.0%). Sacks fall about 0.13 a team game at every seed: a pass blocker now lets a blitzer come to him, so fewer blitzers beat a blocker who had walked up to meet them (sacks a pressure 0.246 to 0.232, real 0.283); sacks are EG7's and SF8's.
+
+FBS (2,000 games, seed 1; real is cfbfastR 2023-24, FBS against FBS): accepted penalties 6.65 a team game to 5.63 (real 5.40, cfbfastR's penalty flag) and their yards 54.6 to 46.3 (43.0). By kind, main to after against the plays whose text names the foul (kick plays in, so a rough count): holding by both sides 1.96 to 1.49 (about 1.15), false starts 1.08 to 1.27 (1.19), pass interference by both sides 0.40 to 0.55 (0.67), ineligible downfield 0.55 to 0.07 (0.11), illegal blocks in the back 0.39 to 0.04 (illegal blocks of every kind 0.08), delays 0.31 to 0.31 (0.31), unsportsmanlike conduct 0.01 to 0.17 (0.23), face masks 0.13 to 0.18 (0.21), roughing the passer 0.20 to 0.11 (0.12), targeting 0.042 to 0.037 (0.031-0.043 over 2022-25), grounding 0.038 to 0.040 (0.080). False starts by down: 0.45, 0.35, 0.34 and 0.12 a team game (real 0.40, 0.32, 0.31 and 0.15; main 0.48, 0.35, 0.22 and 0.03); delays on fourth down 0.10 (0.15), 0.03 of them to back up a punt (0.05). Points 23.3 to 24.6 (real 27.0), third downs converted 39.7% to 40.7% (40.3%), sacks 2.05 to 1.97 (2.00).
+
+High school (1,000 games, seed 1, the NFHS book; no real count by kind): accepted penalties 6.19 a team game to 5.01 and their yards 48.8 to 41.2; ineligible downfield 0.74 to 0.04, illegal blocks in the back 0.31 to 0.04, holding by both sides 1.84 to 1.47, illegal formation 0.55 to 0.26, encroachment (booked as offside) 0.46 to 0.51, unsportsmanlike conduct 0.01 to 0.12, targeting 0.032 to 0.029, and the defense's twelfth man, illegal participation at 15 yards, 0.05. Points 18.2 to 19.5, third downs converted 36.2% to 37.7%. Texas and (through 2018) Massachusetts take the NCAA's book (`Rules::high_school`), which `match_check hs` doesn't play.
+
+The coaches' call table (`call_values 2000`, 2,000 snaps a cell): EG5 moves its run cells by 0.00 on average with a spread of 0.17, the noise of a build's new draws, and its pass cells by -0.06 with a spread of 1.15 (up to 9.5): little against four rushers (a spread of 0.4-0.8 by coverage) and most against blitzes (Cover 0 2.9, the man blitzes 1.4-1.8), where a pass blocker now waits for the blitzer. The run rows stay. The pass rows stay too: they already differed from the tool by a spread of 3.3 on main, and minor bug 405 holds their refit for SF5 or SF10 (the storm of picks in the tool's two fixed teams), which comes after this lane. The analysts' tables (`world/tally/decide.rs`, `decide_fit -- 1500 1`) are refitted on the branch; no play reads them.
+
+Speed: the same within noise. Back to back on the same machine (main, then the branch, twice at each level, `AFM_GAPS=1`, 4 cores), the NFL took 9.0 and 9.0 ms a game on main against 8.9 and 9.1 after, FBS 9.6 and 9.3 against 9.6 and 9.4, and high school 6.7 and 6.9 against 6.7 and 7.0. The single runs behind the tables, on a quieter machine, gave 7.4 against 7.4, 7.9 against 7.7 and 5.6 against 5.5.
+
+Tried and dropped (seed 1):
+
+- **A flat chance to back up a punt** (0.32 a punt from the 30-50): it backed up from the 48 as often as from the 31, where real coaches do it half the time from the 30-35 and one time in twenty from the 46-50.
+- **Stopping an RPO lineman by his run along the field alone:** he kept his heading, so on a slant he had to turn to stop and ran past the limit; he now slows along his own heading.
+- **Football IQ in the crew's eye for ineligible downfield** (main's 0.4-1.4): the crew sees where he is, not what he knows; his Football IQ now keeps him back (`RPO_IQ`).
+- **The first sizes for the fouls before a kick:** the kick unit's false starts came out 30-50% high, and one delay share for every kind of kick missed real's split (punts most, tries least).
+- **The NFL's cadence at FBS:** third down's false starts came out 32% high (real FBS third down is 1.65 times first down, the NFL 1.76).
+
+Still off, with their owners (each in `GAPS.md`):
+
+- **Ineligible downfield** 0.037 (real 0.106): only RPOs draw it; screens, play action (SF1) and scrambles (EG7) give almost none.
+- **Intentional grounding** 0.034 (0.077): flagged at the real rate a throwaway, but throwaways are a third of real (EG7).
+- **Delays on fourth down** 0.081 (0.142): the back-ups are 0.022 (0.066), at the real share from each spot but with fewer punts from the other side's 30-50 (EG3's long field goals, EG4's fourth-down sums).
+- **Fouls on kick plays** are drawn only before the snap and on kickoffs, so all accepted penalties come to 5.16 a team game (real 6.00): the live-ball kick fouls and bug 403's return fouls are EG3's.
+- **Safeties on the offense's foul** 0.0022 (0.0044).
+- **The hit at the catch point** barely draws a flag, so college targeting comes almost all from tackles (SF5's catch point).
+- **FBS:** holding high and unsportsmanlike conduct low against cfbfastR's play text, and false starts about 10% high before fourth down.
+- **Pass interference** shares the catch point with SF5: whichever merges second measures it again.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
-- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), and `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread).
+- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), and `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread). `AFM_GAPS=1` adds the engine gaps audit's counts (`docs/design/engine-gaps.md`) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where).
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin fit_check -- run <fbs|nfl|hs> [games] [seed] [out] [arms]`: the scheme-fit check (`docs/design/scheme-fit.md`, lane SF0): does a man's skill pay inside his team's scheme? Team 0 is the level's typical team; each arm changes one thing on it (a rating, a body number, a drawn man, the scheme) and replays the same games as its context's typical arm. `fit_check read <dir>` writes the tables (each job's measures, the items' measures against real, as recruited, personnel, where men lined up, ratings nothing reads, the world's fit weights against what +15 moved); `fit_check repeat` compares runs on the claims behind the items.
 - `cargo run --release --bin fire_check -- hits <nfl|fbs|fcs|hs> [games] [seed]`, `talks <level> [seed]`, `run [games] [seed] [stakes]`: coach fire ("Coach fire" above): the big hit's line and the fire counts a team game; the AI coaches' pregame picks against main's; each prototype room's landing on a Branch-type safety and a calm pocket passer, then the two men under each room, A/B on the same seeds against their coach's own read (stakes 0.8 for playoff games).

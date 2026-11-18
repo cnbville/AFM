@@ -1410,9 +1410,13 @@ const FLAGRANT: f64 = 0.02;
 /// the helmet: targeting under the college and high school rules (coach
 /// fire, item 4). Proposed, not confirmed: with the hits at the catch point
 /// and on a slide, fitted so FBS calls about 0.04 targeting fouls a team
-/// game (0.042 on `match_check` seeds 1-12; cfbfastR 2022-2025: 0.031 to
-/// 0.043).
-pub const HIGH_ON_TACKLE: f64 = 0.07;
+/// game (cfbfastR 2022-2025: 0.031 to 0.043). Refitted in engine gaps lane
+/// EG5 (0.07 before): EG5 brought the late hits it rides on down to FBS's
+/// real count of personal fouls, and at 0.07 targeting fell to 0.029 a team
+/// game on `match_check fbs 2000 1` (0.042 at 0.10). The tackle gives nearly
+/// all of it: the hits at the catch point and on a slide flag about 0.01 a
+/// team game together.
+pub const HIGH_ON_TACKLE: f64 = 0.09;
 /// A face mask's and a late hit's chance on a tackle, before his technique
 /// or temper, the crew and the league's restraint (EG5: 0.0087 and 0.023
 /// before; proposed, not confirmed).

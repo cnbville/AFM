@@ -2008,12 +2008,38 @@ fn foul_counts(results: &[afm_engine::game::GameResult], level: Level) {
     // [snaps, false starts, delays, offside + neutral zone].
     let mut by_down = [[0.0f64; 4]; 4];
     let mut backups = 0.0;
+    // Kick snaps (punts, field goals, tries) and the fouls before them:
+    // [snaps, false starts, delays, jumps]; the hard count on fourth and
+    // short: [tried, drew the defense, own false start, delay].
+    let mut kick_snaps = [[0.0f64; 4]; 3];
+    let mut gambits = [0.0f64; 4];
+    // The defense's hit fouls by where they came, flagged: [unnecessary
+    // roughness, targeting] at the catch point (an incomplete pass), on a
+    // scramble (a slide or the tackle) and on any other play (the tackle).
+    let mut hits = [[0.0f64; 2]; 3];
     let ff = |r: &afm_engine::game::stats::PlayRecord, k: &str| r.penalties.iter().any(|p| p.0.name() == k);
     for g in results {
         for p in &g.stats.plays {
             for &(kind, team, _, yds, acc) in &p.penalties {
                 let e = kinds.entry(kind.name()).or_default();
                 e[0] += 1.0;
+                let hit = match kind.name() {
+                    "unnecessary roughness" => Some(0),
+                    "targeting" => Some(1),
+                    _ => None,
+                };
+                if let Some(h) = hit
+                    && team != p.offense
+                {
+                    let w = if p.kind == PT::Pass && !p.complete {
+                        0
+                    } else if p.kind == PT::Scramble {
+                        1
+                    } else {
+                        2
+                    };
+                    hits[w][h] += 1.0;
+                }
                 if acc {
                     e[1] += 1.0;
                     e[3] += yds.abs();
@@ -2029,7 +2055,32 @@ fn foul_counts(results: &[afm_engine::game::GameResult], level: Level) {
             }
             let scrim =
                 matches!(p.kind, PT::Run | PT::Pass | PT::Sack | PT::Scramble | PT::NoPlay | PT::Kneel | PT::Spike);
-            if scrim && (1..=4).contains(&p.down) {
+            {
+                use afm_engine::game::stats::{KICK_FG, KICK_PUNT, KICK_TRY};
+                let unit = match p.kind {
+                    PT::Punt => Some(0),
+                    PT::FieldGoal => Some(1),
+                    PT::ExtraPoint => Some(2),
+                    PT::NoPlay if p.call == KICK_PUNT => Some(0),
+                    PT::NoPlay if p.call == KICK_FG => Some(1),
+                    PT::NoPlay if p.call == KICK_TRY => Some(2),
+                    _ => None,
+                };
+                if let Some(u) = unit {
+                    let k = &mut kick_snaps[u];
+                    k[0] += 1.0;
+                    k[1] += ff(p, "false start") as u8 as f64;
+                    k[2] += ff(p, "delay of game") as u8 as f64;
+                    k[3] += (ff(p, "offside") || ff(p, "neutral zone infraction")) as u8 as f64;
+                }
+                if p.kind == PT::NoPlay && p.call == "hard count on fourth down" {
+                    gambits[0] += 1.0;
+                    gambits[1] += p.penalties.iter().any(|f| f.1 != p.offense) as u8 as f64;
+                    gambits[2] += ff(p, "false start") as u8 as f64;
+                    gambits[3] += ff(p, "delay of game") as u8 as f64;
+                }
+            }
+            if scrim && (1..=4).contains(&p.down) && p.call != afm_engine::game::stats::KICK_TRY {
                 let d = &mut by_down[p.down as usize - 1];
                 d[0] += 1.0;
                 d[1] += ff(p, "false start") as u8 as f64;
@@ -2106,6 +2157,15 @@ fn foul_counts(results: &[afm_engine::game::GameResult], level: Level) {
         );
     }
     println!("  safeties on an accepted foul by the offense {:.4} a team game (real NFL 0.0044)", foul_safety / tg);
+    println!(
+        "  the defense's hit fouls flagged (unnecessary roughness, targeting): at the catch point {:.3} {:.3}, on a scramble {:.3} {:.3}, on any other play (the tackle) {:.3} {:.3}",
+        hits[0][0] / tg,
+        hits[0][1] / tg,
+        hits[1][0] / tg,
+        hits[1][1] / tg,
+        hits[2][0] / tg,
+        hits[2][1] / tg
+    );
     println!(
         "  pass interference by air yards (targets a team game, PI flagged and accepted a target, accepted yards; real accepted a target):"
     );
@@ -2240,6 +2300,30 @@ fn foul_counts(results: &[afm_engine::game::GameResult], level: Level) {
         "    delays on fourth down {:.3} a team game, of them backing up the punt {:.3} (real NFL 0.142 and 0.066, FBS 0.148 and 0.052; nflverse 2021-25, cfbfastR 2023-24)",
         by_down[3][2] / tg,
         backups / tg
+    );
+    // Real NFL 2021-25 a kick snap, from the formation on each no-play
+    // (nflverse): false starts, delays not backing up a punt, jumps.
+    const REAL_KICK: [[f64; 3]; 3] = [[0.0128, 0.0055, 0.0015], [0.0039, 0.0043, 0.0026], [0.0036, 0.0036, 0.0015]];
+    println!("  fouls before a kick, a kick snap (false start, delay, jump; real NFL 2021-25):");
+    for (u, name) in ["punts", "field goals", "tries"].iter().enumerate() {
+        let (k, r) = (kick_snaps[u], REAL_KICK[u]);
+        println!(
+            "    {name:<12} {:>5.2} a team game  {:.4} {:.4} {:.4}   {:.4} {:.4} {:.4}",
+            k[0] / tg,
+            k[1] / k[0].max(1.0),
+            k[2] / k[0].max(1.0),
+            k[3] / k[0].max(1.0),
+            r[0],
+            r[1],
+            r[2]
+        );
+    }
+    println!(
+        "  hard counts on fourth and short before a kick {:.3} a team game: drew the defense {:.3}, own false start {:.3}, delay {:.3} (real NFL delays 0.024 a team game)",
+        gambits[0] / tg,
+        gambits[1] / tg,
+        gambits[2] / tg,
+        gambits[3] / tg
     );
 }
 
