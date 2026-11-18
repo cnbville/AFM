@@ -162,7 +162,7 @@ Fumbles from scrimmage are 20% short (0.79 a team game, real 0.98), and fumbles 
 **Built 2026-11-18** (thread "Build engine lane EG5 rule books"; how it works in `docs/match-engine.md`, "Each level's rule book and the flags", and `docs/reference/how-it-works/match-engine.md`, "Penalties"). Every size is proposed, not confirmed. Claude's calls under Cain's proxy, each the most realistic option found:
 - Texas high schools play the NCAA's book every season and Massachusetts through 2018, both on college hash marks (the fields they were laid out for); the other leagues keep the NFL's book.
 - A lineman past the limit is flagged by how plainly he is past it: the crew sees where he is, not what he knows, so his Football IQ keeps him back instead.
-- The defender's interference hinders the catch and is flagged when the ball falls incomplete and on 12% of the catches made through it, so the offense declines few flags (5%, real 11%; main 45%).
+- The defender's interference hinders the catch and is flagged when the ball falls incomplete and on 12% of the catches made through it, so the offense declines few flags (6%, real 11%; main 44%).
 - Illegal contact is drawn in the NFL only, as the shove past 5 yards in the hand fight; below the NFL that contact is legal.
 - The NFL's men, who are fined, draw 30% fewer late hits and face masks than college and high school players would on the same tackles; roughing the passer is widest in the NFL (college and high school flag 0.62 of the same hits).
 - Unsportsmanlike conduct after the play is drawn by the man who made its big moment, by his ego and temper.
@@ -170,7 +170,7 @@ Fumbles from scrimmage are 20% short (0.79 a team game, real 0.98), and fumbles 
 - The delay to back up a punt reads the distance (half the time from the 33 in the NFL), 0.8 as often under the NCAA's and the NFHS's books, whose whole punt team may leave at the snap.
 - Fouls before a kick's snap come from the unit (the punt team's split men, the field goal wall, the rush timing the snap), and a coach set to kick on fourth and 3 or less first tries a hard count.
 - The tackle's helmet-first share is refitted to 0.09 (0.07), so FBS targeting stays in its real band once EG5 brought the late hits to FBS's real count.
-- The call table's run rows stay (EG5 moves them only by noise) and its pass rows wait for SF5 or SF10, as minor bug 405 says; the analysts' tables are refitted.
+- The call table's run rows stay (EG5 moves them only by noise) and its pass rows, straight and SF1's faked ones, wait for SF5 or SF10, as minor bug 405 says; the analysts' tables are refitted on the engine with SF1 merged.
 
 **23. Penalty yards and first downs by level.** (medium)
 - **Rules.** College defensive holding is 10 yards (the engine gives 5), with a first down on every call since 2022; before 2022 the first down came only when the defense held an eligible receiver beyond the line on a forward pass that crossed it. In high school (NFHS) only roughing the passer, kicker, holder or snapper gives an automatic first down; pass interference is 15 yards from the previous spot with no first down (since 2013), and holding is 10.

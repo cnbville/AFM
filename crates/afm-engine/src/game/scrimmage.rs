@@ -4471,6 +4471,18 @@ const RPO_IQ: f64 = 0.015;
 /// center's stance), and lets the rusher come to him (EG5).
 const PASS_SET: f64 = 0.4;
 
+/// Debug counts of linemen past the limit at a pass thrown past the line
+/// (read by `match_check` with `AFM_GAPS`): the man farthest past by his
+/// job (0 run block, 1 pass block on a man, 2 looking for work, 3 on a
+/// block begun past it, 4 escort, 5 other); on dropbacks (6), with the
+/// passer within 2.5 yards of the line (7), after 3.5 s (8) or in the
+/// scramble drill (9); his block on a dropback (10 pass, 11 run-style, 12
+/// finished, 13 as a helper, 14 none) and on an RPO (15 a block, 16 none);
+/// over a yard past it (17 RPO, 18 dropback); every lineman past it on a
+/// block begun inside it (19); pass blocks driving their man back (20); a
+/// dropback pass block begun past it (21 within a yard, 22 farther; 23 on a
+/// man not rushing, 24 begun under 0.3 s before the throw, 25 on a man off
+/// the line, 26 the lineman 3+ yards past the line, 27 the passer near it).
 pub static INELIGIBLE: [std::sync::atomic::AtomicU64; 32] = [const { std::sync::atomic::AtomicU64::new(0) }; 32];
 
 fn ineligible_count(k: usize) {

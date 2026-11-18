@@ -1402,14 +1402,14 @@ Left open:
 
 Engine gaps items 23-28 (`docs/design/engine-gaps.md`): penalty yards and first downs by level, state and era, half the distance near the goal lines, kick rules by level, ineligible downfield (minor bug 406), pass interference at the real rate and size, the fouls the engine lacked, and illegal blocks in the back, which ran about ten times real. Cain agreed to the engine gaps on 2026-11-17 and gave full proxy; every size below is proposed, not confirmed. How each piece works is on the how-it-works page (`docs/reference/how-it-works/match-engine.md`, "Penalties", the pass rush, the throw and the catch).
 
-What was wrong on main (2,000 `AFM_GAPS=1 match_check` games at the NFL and FBS and 1,000 at high school, seed 1; the NFL's real is nflverse 2021-25 on scrimmage plays):
+What was wrong on main (4b7fb86, with scheme-fit lane SF1; 2,000 `AFM_GAPS=1 match_check` games at the NFL and FBS and 1,000 at high school, seed 1; the NFL's real is nflverse 2021-25 on scrimmage plays):
 
-- **One table marked every foul at every level** (`FoulKind::yards`): no book and no era; half the distance only when the full yards reached the goal line, and then from the line of scrimmage; no safety for the offense's foul in its own end zone (0 a team game, real NFL 0.0044); the defense's holding 5 yards at every level; pass interference near the goal at the 1 at every level; and a personal foul after a gain booked the play's gain in its penalty yards too (19.7 yards an accepted unnecessary roughness, real 13.1).
+- **One table marked every foul at every level** (`FoulKind::yards`): no book and no era; half the distance only when the full yards reached the goal line, and then from the line of scrimmage; no safety for the offense's foul in its own end zone (0 a team game, real NFL 0.0044); the defense's holding 5 yards at every level; pass interference near the goal at the 1 at every level; and a personal foul after a gain booked the play's gain in its penalty yards too (19.5 yards an accepted unnecessary roughness, real 13.1).
 - **Fouls the engine never called:** illegal contact, illegal use of hands, neutral zone infractions, the defense's twelfth man, kickoffs out of bounds and short of the landing zone (all 0; real NFL 0.121, 0.110, 0.226, 0.068, 0.070 and 0.079 a team game), and unsportsmanlike conduct after the play (0.003, real 0.025). Every offside killed the play, so there was no free play (0.002 a team game).
-- **Ineligible downfield** (minor bug 406): 0.395 a team game at the NFL (real 0.106), 0.548 at FBS and 0.736 at high school, all on RPOs. Every lineman past the limit was flagged, a won pass block drove its man back downfield, pass blockers walked up to meet a blitzer and took him on 2-3 yards downfield (a pass thrown past the line found one there on a dropback in seven), and an RPO lineman moving on a slant had to turn to stop at the limit and ran a yard or two past it on a fifth of RPO throws.
-- **Illegal blocks in the back** 0.298 a team game (real 0.031): every block from behind was thrown, and 7.5% of them were flagged.
-- **Pass interference** was flagged 0.678 a team game and accepted 0.374 (real 0.561 and 0.497): the contact changed no catch, so the offense declined 45% of the flags, and the accepted ones came out 12.1 yards (real 15.8).
-- **The rest off:** the offense's holding 1.099 and the defense's 0.469 (real 0.893 and 0.322), offside 0.528 (0.253), illegal formation 0.414 (0.224), false starts 0.935 (1.131) and delays 0.212 (0.295), with third and fourth down's false starts at first down's rate (real 1.76 and 4.7 times it), and intentional grounding 0.015 (0.077), a flat 8% of the pocket's throwaways and never outside it.
+- **Ineligible downfield** (minor bug 406): 0.339 a team game at the NFL (real 0.106), 0.482 at FBS and 0.656 at high school, all on RPOs. Every lineman past the limit was flagged, a won pass block drove its man back downfield, pass blockers walked up to meet a blitzer and took him on 2-3 yards downfield (a pass thrown past the line found one there on a dropback in seven), and an RPO lineman moving on a slant had to turn to stop at the limit and ran a yard or two past it on a fifth of RPO throws.
+- **Illegal blocks in the back** 0.281 a team game (real 0.031): every block from behind was thrown, and 7.5% of them were flagged.
+- **Pass interference** was flagged 0.667 a team game and accepted 0.372 (real 0.561 and 0.497): the contact changed no catch, so the offense declined 44% of the flags, and the accepted ones came out 11.7 yards (real 15.8).
+- **The rest off:** the offense's holding 1.141 and the defense's 0.506 (real 0.893 and 0.322), offside 0.524 (0.253), illegal formation 0.422 (0.224), false starts 0.935 (1.131) and delays 0.206 (0.295), with third and fourth down's false starts at first down's rate (real 1.76 and 4.7 times it), and intentional grounding 0.017 (0.077), a flat 8% of the pocket's throwaways and never outside it.
 - **High school in the world** played today's book in every season (`Rules::for_level`), so targeting was called before 2013, and Texas and Massachusetts got only college hash marks (Massachusetts in every season), not the college book.
 
 What changed (`game/fouls.rs`, new; `game/flow.rs`, `game/scrimmage.rs`, `game/sim.rs`, `game/kicking.rs`, `game/rules.rs`):
@@ -1423,7 +1423,7 @@ What changed (`game/fouls.rs`, new; `game/flow.rs`, `game/scrimmage.rs`, `game/s
 - **Illegal blocks in the back:** a blocker lets a man with his back turned go unless he throws it (`IBB_THROW`), and one in two he throws is flagged (`IBB_SEEN`).
 - **Pre-snap:** the twelfth man (`TWELVE_MEN`, `TWELVE_DEAD`); the jump split into neutral zone infractions before the snap and offside at it (`JUMP_EARLY`, `JUMP_EARLY_HARD`); delays by down and by the quarterback's Football IQ (`DELAY`); false starts by the cadence on third and fourth down (`CADENCE`, and `CADENCE_COLLEGE` under the NCAA's and the NFHS's books); the delay to back up a punt from the other side's 30-50 by distance (`BACK_UP_MID`, `BACK_UP_SLOPE`, `BACK_UP_COLLEGE`); fouls before a kick's snap (`kick_snap_foul`); and the hard count on fourth and short (`hard_count_gambit`).
 - **The hit fouls:** the NFL's men, who are fined, draw 0.7 as many of them on the same hits (`fouls::hit_restraint`); face masks 0.0122 and late hits 0.0196 a tackle before the man's own read (0.0087 and 0.023), the flagged hits at the catch point and on a slide at 0.85 of before (`CATCH_HIT_FOUL`, `SLIDE_HIT`); roughing the passer by the book's share of the same hits (`fouls::roughing_share`).
-- **Targeting:** the tackle's helmet-first share is 0.09 (`HIGH_ON_TACKLE`, 0.07 before). At 0.07, with the late hits at FBS's real count, FBS targeting fell to 0.029 a team game, under its real band (cfbfastR 2022-2025, 0.031 to 0.043); at 0.10 it came to 0.042, and at 0.09 it is 0.037. Nearly all of it comes from tackles: the catch point gives 0.004 flagged hits a team game and scrambles 0.008. The NFL has no targeting foul, so it plays the same games either way.
+- **Targeting:** the tackle's helmet-first share is 0.09 (`HIGH_ON_TACKLE`, 0.07 before). At 0.07, with the late hits at FBS's real count, FBS targeting fell to 0.029 a team game, under its real band (cfbfastR 2022-2025, 0.031 to 0.043); at 0.10 it came to 0.042, and at 0.09 it is 0.037 (0.040 over main's SF1). Nearly all of it comes from tackles: the catch point gives 0.002 flagged hits a team game and scrambles 0.012. The NFL has no targeting foul, so it plays the same games either way.
 - **Unsportsmanlike conduct after the play** (`after_play_conduct`), and grounding read from the passer's sense and where the ball goes, in the pocket and outside it (`GROUND_POCKET`, `FLICK_CARRY`, `GROUND_SEEN`).
 - **Tools:** `match_check`'s penalty rows are the real kinds, each on its own (nflverse 2021-25; the 2025 counts for the kickoff fouls), and `AFM_GAPS=1` adds "Rule books and flags": each kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where.
 
@@ -1431,49 +1431,49 @@ What changed (`game/fouls.rs`, new; `game/flow.rs`, `game/scrimmage.rs`, `game/s
 
 | NFL, a team game | main | after | real |
 |---|---|---|---|
-| accepted penalties on scrimmage plays | 5.59 | 5.00 | 5.24 |
-| their yards | 47.6 | 40.1 | 42.6 |
-| offensive holding | 1.099 | 0.898 | 0.893 |
-| false start | 0.935 | 1.128 | 1.131 |
-| pass interference, accepted (flagged) | 0.374 (0.678) | 0.546 (0.572) | 0.497 (0.561) |
-| the same, yards an accepted one | 12.1 | 14.6 | 15.8 |
-| defensive holding | 0.469 | 0.339 | 0.322 |
-| illegal contact | 0 | 0.123 | 0.121 |
-| illegal use of hands | 0 | 0.102 | 0.110 |
-| offside | 0.528 | 0.237 | 0.253 |
-| neutral zone infraction | 0 | 0.254 | 0.226 |
-| delay of game | 0.212 | 0.250 | 0.295 |
-| unnecessary roughness | 0.406 | 0.279 | 0.271 |
-| the same, yards an accepted one | 19.7 | 13.0 | 13.1 |
-| roughing the passer | 0.221 | 0.179 | 0.181 |
-| illegal formation | 0.414 | 0.235 | 0.224 |
-| offensive pass interference | 0.115 | 0.128 | 0.128 |
-| face mask | 0.117 | 0.116 | 0.124 |
-| ineligible man downfield | 0.395 | 0.037 | 0.106 |
-| too many men on the field | 0 | 0.066 | 0.068 |
-| intentional grounding | 0.015 | 0.034 | 0.077 |
-| illegal block in the back | 0.298 | 0.029 | 0.031 |
-| unsportsmanlike conduct | 0.003 | 0.026 | 0.025 |
-| kickoff out of bounds | 0 | 0.080 | 0.070 |
-| kickoff short of the landing zone | 0 | 0.081 | 0.079 |
-| safeties on the offense's foul | 0 | 0.0022 | 0.0044 |
-| false starts a snap, downs 1-4 | 0.0132, 0.0138, 0.0145, 0.0147 | 0.0133, 0.0129, 0.0242, 0.0491 | 0.0132, 0.0125, 0.0232, 0.0620 |
-| delays a snap, downs 1-4 | 0.0030, 0.0030, 0.0033, 0.0042 | 0.0015, 0.0019, 0.0051, 0.0438 | 0.0014, 0.0022, 0.0053, 0.0816 |
-| points | 24.73 | 25.88 | 22.51 |
-| sacks; pressure, of dropbacks | 2.08; 22.1% | 1.94; 21.5% | 2.41; 22.2% |
-| third and fourth down converted | 42.0%, 52.8% | 42.9%, 54.5% | 39.8%, 53.7% |
+| accepted penalties on scrimmage plays | 5.62 | 5.08 | 5.24 |
+| their yards | 48.1 | 40.5 | 42.6 |
+| offensive holding | 1.141 | 0.917 | 0.893 |
+| false start | 0.935 | 1.145 | 1.131 |
+| pass interference, accepted (flagged) | 0.372 (0.667) | 0.565 (0.600) | 0.497 (0.561) |
+| the same, yards an accepted one | 11.7 | 13.9 | 15.8 |
+| defensive holding | 0.506 | 0.324 | 0.322 |
+| illegal contact | 0 | 0.114 | 0.121 |
+| illegal use of hands | 0 | 0.099 | 0.110 |
+| offside | 0.524 | 0.229 | 0.253 |
+| neutral zone infraction | 0 | 0.255 | 0.226 |
+| delay of game | 0.206 | 0.269 | 0.295 |
+| unnecessary roughness | 0.431 | 0.275 | 0.271 |
+| the same, yards an accepted one | 19.5 | 12.7 | 13.1 |
+| roughing the passer | 0.226 | 0.202 | 0.181 |
+| illegal formation | 0.422 | 0.239 | 0.224 |
+| offensive pass interference | 0.112 | 0.128 | 0.128 |
+| face mask | 0.116 | 0.116 | 0.124 |
+| ineligible man downfield | 0.339 | 0.053 | 0.106 |
+| too many men on the field | 0 | 0.063 | 0.068 |
+| intentional grounding | 0.017 | 0.040 | 0.077 |
+| illegal block in the back | 0.281 | 0.033 | 0.031 |
+| unsportsmanlike conduct | 0.003 | 0.022 | 0.025 |
+| kickoff out of bounds | 0 | 0.081 | 0.070 |
+| kickoff short of the landing zone | 0 | 0.085 | 0.079 |
+| safeties on the offense's foul | 0 | 0.0037 | 0.0044 |
+| false starts a snap, downs 1-4 | 0.0135, 0.0136, 0.0142, 0.0120 | 0.0127, 0.0137, 0.0252, 0.0500 | 0.0132, 0.0125, 0.0232, 0.0620 |
+| delays a snap, downs 1-4 | 0.0031, 0.0029, 0.0029, 0.0030 | 0.0015, 0.0023, 0.0056, 0.0441 | 0.0014, 0.0022, 0.0053, 0.0816 |
+| points | 25.49 | 26.09 | 22.51 |
+| sacks; pressure, of dropbacks | 1.65; 20.2% | 1.54; 20.0% | 2.41; 22.2% |
+| third and fourth down converted | 42.5%, 53.6% | 42.7%, 52.7% | 39.8%, 53.7% |
 
-Before a kick's snap, a kick snap (false start, delay, the other side's jump; main had none): punts 0.0116, 0.0051, 0.0018 (real 0.0128, 0.0055, 0.0015), field goals 0.0037, 0.0037, 0.0031 (0.0039, 0.0043, 0.0026), tries 0.0036, 0.0038, 0.0014 (0.0036, 0.0036, 0.0015). The hard count on fourth and short: 0.026 a team game, 0.024 of them ending in a delay (real NFL delays of this kind 0.024). Free plays (a live-ball offside and the play ran): 0.366 a team game, the offense taking the offside on 65% of them.
+Before a kick's snap, a kick snap (false start, delay, the other side's jump; main had none): punts 0.0137, 0.0060, 0.0010 (real 0.0128, 0.0055, 0.0015), field goals 0.0029, 0.0047, 0.0025 (0.0039, 0.0043, 0.0026), tries 0.0029, 0.0038, 0.0028 (0.0036, 0.0036, 0.0015). The hard count on fourth and short: 0.025 a team game, 0.024 of them ending in a delay (real NFL delays of this kind 0.024). Free plays (a live-ball offside and the play ran): 0.361 a team game, the offense taking the offside on 63% of them.
 
-Points rise because the offense's drive-killing fouls fall to real: its holding, ineligible downfield, illegal formation and blocks in the back come to 1.20 a team game against main's 2.21, and the defense's accepted pass interference gives 8.0 yards a team game against main's 4.5. On seeds 2-4 (2,000 games each) main to after is +0.65, +0.72 and +0.54 points (+1.15 on seed 1), so EG5 adds about 0.7 points a team game. Points were already high on main (24.7, real 22.5), which is EG6's (the red zone: 65.1% completions, real 53.0%). Sacks fall about 0.13 a team game at every seed: a pass blocker now lets a blitzer come to him, so fewer blitzers beat a blocker who had walked up to meet them (sacks a pressure 0.246 to 0.232, real 0.283); sacks are EG7's and SF8's.
+Points rise because the offense's drive-killing fouls fall to real: its holding, ineligible downfield, illegal formation and blocks in the back come to 1.24 a team game against main's 2.18, and the defense's accepted pass interference gives 7.9 yards a team game against main's 4.4. On seeds 2-4 (2,000 games each) main to after is +0.51, +0.39 and +0.71 points (+0.60 on seed 1), so EG5 adds about half a point a team game; before main's SF1 merge it was +0.54 to +0.72 on seeds 2-4. Points were already high on main (25.5, real 22.5), which is EG6's (the red zone: 64.9% completions on main and 64.0% after, real 53.0%). Sacks fall 0.05-0.10 a team game at every seed: a pass blocker now lets a blitzer come to him, so fewer blitzers beat a blocker who had walked up to meet them (sacks a pressure 0.209 to 0.199, real 0.283); sacks are SF8's and EG7's, and SF1 already took them below real (1.65 on main, real 2.41). Accepted penalties on scrimmage plays come to 4.98-5.08 a team game over the four seeds (real 5.24).
 
-FBS (2,000 games, seed 1; real is cfbfastR 2023-24, FBS against FBS): accepted penalties 6.65 a team game to 5.63 (real 5.40, cfbfastR's penalty flag) and their yards 54.6 to 46.3 (43.0). By kind, main to after against the plays whose text names the foul (kick plays in, so a rough count): holding by both sides 1.96 to 1.49 (about 1.15), false starts 1.08 to 1.27 (1.19), pass interference by both sides 0.40 to 0.55 (0.67), ineligible downfield 0.55 to 0.07 (0.11), illegal blocks in the back 0.39 to 0.04 (illegal blocks of every kind 0.08), delays 0.31 to 0.31 (0.31), unsportsmanlike conduct 0.01 to 0.17 (0.23), face masks 0.13 to 0.18 (0.21), roughing the passer 0.20 to 0.11 (0.12), targeting 0.042 to 0.037 (0.031-0.043 over 2022-25), grounding 0.038 to 0.040 (0.080). False starts by down: 0.45, 0.35, 0.34 and 0.12 a team game (real 0.40, 0.32, 0.31 and 0.15; main 0.48, 0.35, 0.22 and 0.03); delays on fourth down 0.10 (0.15), 0.03 of them to back up a punt (0.05). Points 23.3 to 24.6 (real 27.0), third downs converted 39.7% to 40.7% (40.3%), sacks 2.05 to 1.97 (2.00).
+FBS (2,000 games, seed 1; real is cfbfastR 2023-24, FBS against FBS): accepted penalties 6.73 a team game to 5.86 (real 5.25 in 2023 and 5.54 in 2024, cfbfastR's penalty flag) and their yards 54.9 to 48.0 (40.6 and 45.5, but 0.45-0.68 accepted flags a team game carry no yards in cfbfastR, so the real yards run higher). By kind, main to after against the plays whose text names the foul (kick plays in, so a rough count): holding by both sides 2.05 to 1.56 (about 1.15), false starts 1.11 to 1.33 (1.19), pass interference by both sides 0.38 to 0.59 (0.67), ineligible downfield 0.48 to 0.07 (0.11), illegal blocks in the back 0.37 to 0.04 (illegal blocks of every kind 0.08), delays 0.33 to 0.30 (0.31), unsportsmanlike conduct 0.01 to 0.17 (0.23), face masks 0.13 to 0.19 (0.21), roughing the passer 0.22 to 0.11 (0.12), targeting 0.038 to 0.040 (0.031-0.043 over 2022-25), grounding 0.044 to 0.048 (0.080). False starts by down: 0.48, 0.35, 0.37 and 0.11 a team game (real 0.40, 0.32, 0.31 and 0.15; main 0.49, 0.36, 0.23 and 0.03); delays on fourth down 0.10 (0.15), 0.03 of them to back up a punt (0.05). Points 23.9 to 25.5 (real 27.0), third downs converted 39.6% to 41.2% (40.3%), sacks 1.85 to 1.71 (2.00).
 
-High school (1,000 games, seed 1, the NFHS book; no real count by kind): accepted penalties 6.19 a team game to 5.01 and their yards 48.8 to 41.2; ineligible downfield 0.74 to 0.04, illegal blocks in the back 0.31 to 0.04, holding by both sides 1.84 to 1.47, illegal formation 0.55 to 0.26, encroachment (booked as offside) 0.46 to 0.51, unsportsmanlike conduct 0.01 to 0.12, targeting 0.032 to 0.029, and the defense's twelfth man, illegal participation at 15 yards, 0.05. Points 18.2 to 19.5, third downs converted 36.2% to 37.7%. Texas and (through 2018) Massachusetts take the NCAA's book (`Rules::high_school`), which `match_check hs` doesn't play.
+High school (1,000 games, seed 1, the NFHS book; no real count by kind): accepted penalties 6.18 a team game to 5.12 and their yards 49.8 to 42.5; ineligible downfield 0.66 to 0.06, illegal blocks in the back 0.34 to 0.04, holding by both sides 1.88 to 1.51, illegal formation 0.55 to 0.24, encroachment (booked as offside) 0.44 to 0.51, unsportsmanlike conduct 0.01 to 0.13, targeting 0.036 to 0.034, and the defense's twelfth man, illegal participation at 15 yards, 0.06. Points 18.6 to 19.8, third downs converted 36.4% to 38.2%. Texas and (through 2018) Massachusetts take the NCAA's book (`Rules::high_school`), which `match_check hs` doesn't play.
 
-The coaches' call table (`call_values 2000`, 2,000 snaps a cell): EG5 moves its run cells by 0.00 on average with a spread of 0.17, the noise of a build's new draws, and its pass cells by -0.06 with a spread of 1.15 (up to 9.5): little against four rushers (a spread of 0.4-0.8 by coverage) and most against blitzes (Cover 0 2.9, the man blitzes 1.4-1.8), where a pass blocker now waits for the blitzer. The run rows stay. The pass rows stay too: they already differed from the tool by a spread of 3.3 on main, and minor bug 405 holds their refit for SF5 or SF10 (the storm of picks in the tool's two fixed teams), which comes after this lane. The analysts' tables (`world/tally/decide.rs`, `decide_fit -- 1500 1`) are refitted on the branch; no play reads them.
+The coaches' call table (`call_values 2000`, 2,000 snaps a cell, main and after): EG5 moves its run cells by -0.005 on average with a spread of 0.18 (at most 0.47), the noise of a build's new draws, and its straight pass cells by -0.09 with a spread of 1.16 (up to 9.5): little against four rushers (a spread of 0.4-0.7 by coverage) and most against blitzes (Cover 0 3.1, the man blitzes 1.4-1.8), where a pass blocker now waits for the blitzer. SF1's faked rows move the same way: what the fake adds (a faked cell less its straight one) moves by a spread of 0.5-0.9 against four rushers and 1.3-3.3 against blitzes. The run rows stay. The pass rows, straight and faked, stay too: the straight rows already differed from the tool by a spread of 3.4 on main, each faked row is built on its straight row (`tools/call_values/compose.py`), and minor bug 405 holds their refit for SF5 or SF10 (the storm of picks in the tool's two fixed teams), which comes after this lane. The analysts' tables (`world/tally/decide.rs`, `decide_fit -- 1500 1`) are refitted on the merged branch; no play reads them.
 
-Speed: the same within noise. Back to back on the same machine (main, then the branch, twice at each level, `AFM_GAPS=1`, 4 cores), the NFL took 9.0 and 9.0 ms a game on main against 8.9 and 9.1 after, FBS 9.6 and 9.3 against 9.6 and 9.4, and high school 6.7 and 6.9 against 6.7 and 7.0. The single runs behind the tables, on a quieter machine, gave 7.4 against 7.4, 7.9 against 7.7 and 5.6 against 5.5.
+Speed: the same within noise. Back to back on the same machine over main 4b7fb86 (main, then the branch, twice at each level, `AFM_GAPS=1`, 4 cores), the NFL took 9.2 and 9.2 ms a game on main against 9.2 and 9.3 after, FBS 10.3 and 9.8 against 10.2 and 10.0, and high school 6.9 and 7.4 against 6.9 and 7.0. Before main's SF1 merge it was 9.0 and 9.0 against 8.9 and 9.1 at the NFL, 9.6 and 9.3 against 9.6 and 9.4 at FBS, and 6.7 and 6.9 against 6.7 and 7.0 in high school.
 
 Tried and dropped (seed 1):
 
@@ -1485,13 +1485,14 @@ Tried and dropped (seed 1):
 
 Still off, with their owners (each in `GAPS.md`):
 
-- **Ineligible downfield** 0.037 (real 0.106): only RPOs draw it; screens, play action (SF1) and scrambles (EG7) give almost none.
-- **Intentional grounding** 0.034 (0.077): flagged at the real rate a throwaway, but throwaways are a third of real (EG7).
-- **Delays on fourth down** 0.081 (0.142): the back-ups are 0.022 (0.066), at the real share from each spot but with fewer punts from the other side's 30-50 (EG3's long field goals, EG4's fourth-down sums).
-- **Fouls on kick plays** are drawn only before the snap and on kickoffs, so all accepted penalties come to 5.16 a team game (real 6.00): the live-ball kick fouls and bug 403's return fouls are EG3's.
-- **Safeties on the offense's foul** 0.0022 (0.0044).
+- **Ineligible downfield** 0.053 (real 0.106): RPOs draw 0.044 and screens 0.022, nearly all play-action screens, whose fake (SF1) holds the throw while the line releases; dropbacks, other play action and scrambles give almost none, since a pass blocker sets behind the line, SF1's play-action line pass-sets behind it too, and nobody drifts downfield while the passer scrambles (EG7).
+- **Intentional grounding** 0.040 (0.077): flagged at the real rate a throwaway, but throwaways are a third of real (EG7).
+- **Delays on fourth down** 0.084 (0.142): the back-ups are 0.022 (0.066), at the real share from each spot but with fewer punts from the other side's 30-50 (EG3's long field goals, EG4's fourth-down sums).
+- **Fouls on kick plays** are drawn only before the snap and on kickoffs, so all accepted penalties come to 5.25 a team game (real 6.00): the live-ball kick fouls and bug 403's return fouls are EG3's.
+- **Roughing the passer** 0.202 (0.181), up from 0.179 before main's SF1, whose play action turns sacks into throws; the hits on the passer are SF8's.
+- **Neutral zone infractions** 0.255 (0.226) and **kickoffs out of bounds** 0.081 (0.070) run 13-16% high.
 - **The hit at the catch point** barely draws a flag, so college targeting comes almost all from tackles (SF5's catch point).
-- **FBS:** holding high and unsportsmanlike conduct low against cfbfastR's play text, and false starts about 10% high before fourth down.
+- **FBS:** holding high and unsportsmanlike conduct low against cfbfastR's play text, and false starts 10-20% high before fourth down.
 - **Pass interference** shares the catch point with SF5: whichever merges second measures it again.
 
 ## Debug tools
