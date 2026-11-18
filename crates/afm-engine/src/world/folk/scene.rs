@@ -816,6 +816,19 @@ pub fn waiting(w: &World) -> Vec<&Scene> {
     v
 }
 
+/// The turn of a day (1 AM, before the day's first section): a meeting
+/// that stops you and was dated yesterday or earlier is handed to your
+/// staff. A holiday or a jump comes back at the first section of its day,
+/// before the office hour that `day` hands at, so without this a meeting
+/// of the evening before would still be waiting when the holiday ends,
+/// late and still stopping (a Ground call at 3 PM on the last day).
+pub(crate) fn overnight(w: &mut World, d: Date) {
+    let late: Vec<u32> = w.folk.scenes.iter().filter(|s| !s.done && s.stops && s.date < d).map(|s| s.id).collect();
+    for id in late {
+        let _ = hand(w, id);
+    }
+}
+
 /// The end of a day: a meeting you didn't hold is handed to your staff; a
 /// scene that waited a week (a press availability, a call) lapses the same
 /// way.
