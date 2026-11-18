@@ -248,7 +248,7 @@ fn on_point(item: &Item) -> bool {
 /// Holds a line inside the chips' caps: one point an exchange (the best
 /// positive pull, else the worst), none once the talk's exchanges are
 /// used, and each person's trust no lower than `TRUST_FLOOR`. Only a point
-/// pulls: how you said it (your manner, on his pride) lands on his trust
+/// pulls: how you said it (your manner, `Item::Manner`) lands on his trust
 /// beside the point, never in its place. Before, a caring manner's lift
 /// was weighed against the point as if it were a pull, won, and left no
 /// point to land (the landing read, agreed by Cain 2026-11-17).
