@@ -17,7 +17,7 @@
 //! `talk_confirm {id, ticket, k, yes}`. Never saved: it isn't in the world
 //! until you confirm.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
 use afm_ai::{Failure, Request};
@@ -123,6 +123,9 @@ pub fn parts_of(kind: Kind) -> Parts<'static> {
 pub struct Waits {
     map: BTreeMap<u64, Waiting>,
     said: BTreeMap<u32, Vec<Heard>>,
+    /// Talks whose last line read as a goodbye and wait on your Continue
+    /// or End (`wrap_ask`).
+    wraps: BTreeSet<u32>,
 }
 
 /// One typed line's "Heard as" and marks.
@@ -190,6 +193,11 @@ impl Waits {
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
+    /// A talk whose last line read as a goodbye and waits on your answer:
+    /// "What you just said wrapped the talk up. Do you want to continue?"
+    pub fn wrap_asked(&self, scene: u32) -> bool {
+        self.wraps.contains(&scene)
+    }
 }
 
 /// The parts a talk is played with: lane N1's people and lane N3's deals
@@ -200,6 +208,8 @@ pub fn parts() -> Parts<'static> {
 
 /// `people_say` on a talk that plays v3: `{id, text}`.
 pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
+    // Typing on is an answer to "do you want to continue?".
+    g.ai.persona.wraps.remove(&id);
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
     let room = room_of(w, s);
@@ -291,6 +301,10 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         .map(|i| w.people[i].player.position);
         let tags = ear::Tags { today: w.today, pos };
         let reading = ear::keep_open(tags.resolve(&er, &keys), &words);
+        // A line the ear read as a goodbye doesn't close the talk by itself:
+        // it counts as said and you're asked whether to wrap up
+        // (`ear::ask_wrap`).
+        let (reading, wrap_ask) = ear::ask_wrap(reading, &words);
         let reading =
             if matches!(talk::across(&room), Some(Them::Player(_))) { ear::own_work(reading) } else { reading };
         let promises = tags.promises(&er, &keys);
@@ -346,11 +360,14 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
                     Ok(afm_ai::fake::body(&json!({ "line": line, "colour": "" }).to_string(), 600, 40)),
                 );
             }
-            return Step::Call(req, voice_step(id, Outcome { words, heard, marks, confirm }, vc, card_text, t, notes));
+            return Step::Call(
+                req,
+                voice_step(id, Outcome { words, heard, marks, confirm, wrap_ask }, vc, card_text, t, notes),
+            );
         }
         his_line(g, id, &vc, &t, None, &card_text);
         staff_notes(g, id, &notes);
-        Step::Done(done(g, id, Outcome { words, heard, marks, confirm }))
+        Step::Done(done(g, id, Outcome { words, heard, marks, confirm, wrap_ask }))
     })
 }
 
@@ -511,9 +528,15 @@ pub const OVER: &str = "The talk is over. What's left is your call.";
 /// for leaving (thread "Let talking end meetings cleanly"): a one-on-one
 /// lands as its end chip does, a meeting closes with what you didn't argue
 /// standing, and one that holds a decision keeps it as its own picks
-/// (`talk::wrap`). Only on a talk that plays v3.
+/// (`talk::wrap`). Only on a talk that plays v3. With `keep: true` it is the
+/// answer Continue to "What you just said wrapped the talk up": the talk
+/// stays open as if the line hadn't ended it.
 pub fn wrap(g: &mut Game, args: &Value) -> Reply {
     let id = args.get("id").and_then(Value::as_u64).ok_or("Missing id.")? as u32;
+    g.ai.persona.wraps.remove(&id);
+    if args.get("keep").and_then(Value::as_bool).unwrap_or(false) {
+        return g.run("people_scene", &json!({ "id": id }));
+    }
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
     if s.done {
@@ -589,12 +612,17 @@ struct Outcome {
     heard: String,
     marks: Vec<Value>,
     confirm: Vec<Value>,
+    /// Your line read as a goodbye: the page asks whether to wrap up.
+    wrap_ask: bool,
 }
 
 /// The poll's done answer: "Heard as", the marks, what waits on your
 /// confirm, and the scene's normal reply.
 fn done(g: &mut Game, id: u32, out: Outcome) -> Value {
-    let Outcome { words, heard, marks, confirm } = out;
+    let Outcome { words, heard, marks, confirm, wrap_ask } = out;
+    if wrap_ask {
+        g.ai.persona.wraps.insert(id);
+    }
     g.ai.persona.remember(id, &words, &heard, &marks);
     let reply = g.run("people_scene", &json!({ "id": id })).unwrap_or(Value::Null);
     let mut v = json!({ "state": "done", "heard": heard, "marks": marks, "reply": reply });

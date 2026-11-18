@@ -360,6 +360,29 @@ pub fn keep_open(mut r: Reading, line: &str) -> Reading {
     r
 }
 
+/// A goodbye the ear read in your line doesn't close the talk on its own
+/// (it was a bit too sensitive, Cain 2026-11-17): the line counts as said
+/// with the end taken out, and the page asks "What you just said wrapped
+/// the talk up. Do you want to continue?" (Continue keeps the talk open,
+/// End is `talk_wrap`). "End the talk" typed out is still no question.
+/// Returns the reading and whether to ask.
+pub fn ask_wrap(mut r: Reading, line: &str) -> (Reading, bool) {
+    let l = line.to_lowercase().replace('\u{2019}', "'");
+    // Only an outright instruction skips the ask, never "I don't want to
+    // end this talk yet".
+    let negated = ["n't", " not ", " never ", " no "].iter().any(|x| format!(" {l} ").contains(x));
+    let said_so = !negated
+        && ["end the talk", "end this talk", "end the call", "end this call", "end the meeting", "end this meeting"]
+            .iter()
+            .any(|x| l.contains(x));
+    let ends = r.acts.iter().any(|a| matches!(a, Act::End));
+    if !ends || said_so {
+        return (r, false);
+    }
+    r.acts.retain(|a| !matches!(a, Act::End));
+    (r, true)
+}
+
 pub fn reply(v: &Value) -> Option<EarReply> {
     let mut v = v.clone();
     if let Some(acts) = v.get_mut("acts").and_then(Value::as_array_mut) {
@@ -801,4 +824,21 @@ fn date(s: &str) -> Option<Date> {
     let m = it.next()?.parse::<u32>().ok()?;
     let d = it.next()?.parse::<u32>().ok()?;
     ((1..=12).contains(&m) && (1..=31).contains(&d)).then(|| Date::ymd(y, m, d))
+}
+
+#[cfg(test)]
+mod ask_wrap_tests {
+    use super::*;
+
+    fn ends() -> Reading {
+        Reading { acts: vec![Act::End], ..Reading::default() }
+    }
+
+    #[test]
+    fn only_an_outright_end_skips_the_ask() {
+        assert!(!ask_wrap(ends(), "End the talk.").1);
+        assert!(ask_wrap(ends(), "I don't want to end this talk yet").1);
+        assert!(ask_wrap(ends(), "Okay, that's all for now.").1);
+        assert!(ask_wrap(ends(), "Okay, that's all for now.").0.acts.is_empty());
+    }
 }

@@ -82,8 +82,8 @@ jobs:
         env:
           AFM_COMMIT: ${{ github.sha }}
         run: |
-          cargo build --release --bin afm_world --bin star_mix
-          mkdir -p tools && cp target/release/afm_world target/release/star_mix tools/
+          cargo build --release --bin afm_world --bin star_mix --bin support_check
+          mkdir -p tools && cp target/release/afm_world target/release/star_mix target/release/support_check tools/
       - uses: actions/upload-artifact@v4
         with:
           name: world-tools
@@ -187,6 +187,21 @@ jobs:
         with:
           name: star-mix
           path: star_mix.txt
+      # The support departments by level, their reads against the typical
+      # head and six years of the support market on a stand-in carousel
+      # (support departments). A check that fails never stops a world.
+      - name: Support departments check
+        if: steps.build.outputs.half != 'yes' && inputs.quick != 'yes'
+        continue-on-error: true
+        run: |
+          tools/support_check out/*.afmworld market 6 | tee support.txt
+          { echo '```'; cat support.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: steps.build.outputs.half != 'yes' && inputs.quick != 'yes'
+        continue-on-error: true
+        with:
+          name: support-departments
+          path: support.txt
       # A checked world gets its book added to its own release.
       - name: Add the book to the checked world
         if: inputs.publish != 'no' && inputs.check != ''
@@ -262,6 +277,16 @@ jobs:
         with:
           name: star-mix
           path: star_mix.txt
+      - name: Support departments check
+        continue-on-error: true
+        run: |
+          tools/support_check out/*.afmworld market 6 | tee support.txt
+          { echo '```'; cat support.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: support-departments
+          path: support.txt
   # The published world's book, on a machine of its own: the world and its
   # log come down from the worlds page, and the book goes up beside them
   # (name.afmbook.zst, in parts over 2 GB). The game downloads neither the

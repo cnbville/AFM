@@ -72,6 +72,35 @@ pub enum Job {
     RecruitingDirector,
     Academic,
     Engagement,
+    // The support departments' people (support departments).
+    StrengthIntern,
+    SportsScientist,
+    Clinician,
+    PainSpecialist,
+    Adviser,
+    Tutor,
+    Development,
+}
+
+impl Job {
+    /// A department person's job on the staff page (support departments).
+    pub fn of_aide(j: super::departments::Job) -> Job {
+        use super::departments::Job as D;
+        match j {
+            D::StrengthAssistant => Job::StrengthAssistant,
+            D::StrengthIntern => Job::StrengthIntern,
+            D::Dietitian => Job::Dietitian,
+            D::SportsScientist => Job::SportsScientist,
+            D::Trainer => Job::AssistantTrainer,
+            D::Physician => Job::Physician,
+            D::Clinician => Job::Clinician,
+            D::PainSpecialist => Job::PainSpecialist,
+            D::Adviser => Job::Adviser,
+            D::Tutor => Job::Tutor,
+            D::Development => Job::Development,
+            D::Analyst => Job::Analyst,
+        }
+    }
 }
 
 /// One rating a job uses.
@@ -410,6 +439,13 @@ fn job_facets(job: Job, who: u64, base: f64) -> Vec<Facet> {
         Job::RecruitingDirector => (&[("org", "Organization"), ("eval", "Evaluation")], &[]),
         Job::Academic => (&[("acad", "Academic support"), ("life", "Life skills")], &[]),
         Job::Engagement => (&[("life", "Life skills")], &[("acad", "Academic support")]),
+        Job::StrengthIntern => (&[("str", "Strength development"), ("spd", "Speed and conditioning")], &[]),
+        Job::SportsScientist => (&[("load", "Load reading"), ("inj", "Injury prevention")], &[]),
+        Job::Clinician => (&[("couns", "Counseling")], &[]),
+        Job::PainSpecialist => (&[("pain", "Pain management"), ("diag", "Diagnosis")], &[]),
+        Job::Adviser => (&[("acad", "Academic support"), ("life", "Life skills")], &[]),
+        Job::Tutor => (&[("acad", "Academic support")], &[]),
+        Job::Development => (&[("life", "Life skills")], &[]),
         Job::GradAssistant => (&[("teach", "Teaching"), ("opp", "Opponent study")], &[]),
         Job::Coach(_) | Job::HsCoach => (&[], &[]),
     };
@@ -521,43 +557,82 @@ fn support_pay(w: &World, team: Team, job: Job) -> f64 {
     (base * rich / 1000.0).round() * 1000.0
 }
 
-/// Drawn people the support departments add for a team: the strength
-/// coach's assistant and a dietitian, a team physician and an assistant
-/// athletic trainer, a personnel director and a recruiting director at
-/// programs that pay for them.
-pub fn support_people(w: &World, team: Team) -> Vec<(Job, staffing::Drawn)> {
-    let jobs: Vec<(Job, &str, u64)> = match team {
+/// The support departments' people for a team (support departments):
+/// the stored people below a college's or a club's heads, your high
+/// school's athletic trainer, and the people the world still draws (a
+/// college's personnel and recruiting directors, another league's medical
+/// staff). Each with his true rating where he is stored.
+pub fn support_people(w: &World, team: Team) -> Vec<(Job, staffing::Drawn, Option<f64>)> {
+    let stored = |list: &[super::departments::Aide]| -> Vec<(Job, staffing::Drawn, Option<f64>)> {
+        list.iter()
+            .map(|a| {
+                let who = aide_key(team, a);
+                let d = staffing::Drawn {
+                    key: who,
+                    who,
+                    name: a.name.clone(),
+                    title: a.job.title().to_string(),
+                    age: (w.year - a.born).max(18) as u32,
+                    since: a.since,
+                    subject: None,
+                    pay: a.pay as f64,
+                    coach: None,
+                };
+                (Job::of_aide(a.job), d, Some(a.rating as f64))
+            })
+            .collect()
+    };
+    let drawn = |jobs: Vec<(Job, &str, u64)>| -> Vec<(Job, staffing::Drawn, Option<f64>)> {
+        jobs.into_iter()
+            .map(|(job, title, k)| {
+                let key = team.key() << 16 ^ 0x5D0 ^ k;
+                (job, staffing::draw_person(w, key, title, support_pay(w, team, job), None), None)
+            })
+            .collect()
+    };
+    match team {
         Team::College(p) => {
             let prog = &w.programs[p];
             let fbs = prog.division == super::data::Division::FBS;
             let fcs = prog.division == super::data::Division::FCS;
-            let mut v = vec![(Job::Physician, "Team physician", 2)];
+            let mut v = stored(&prog.support.people);
+            let mut extra = Vec::new();
             if fbs || fcs {
-                v.push((Job::StrengthAssistant, "Assistant strength coach", 0));
-                v.push((Job::AssistantTrainer, "Assistant athletic trainer", 3));
-                v.push((Job::RecruitingDirector, "Recruiting director", 5));
+                extra.push((Job::RecruitingDirector, "Recruiting director", 5));
             }
             if fbs {
-                v.push((Job::Dietitian, "Dietitian", 1));
-                v.push((Job::Personnel, "Director of player personnel", 4));
+                extra.push((Job::Personnel, "Director of player personnel", 4));
+            }
+            v.extend(drawn(extra));
+            v
+        }
+        Team::Nfl(t) => w.clubs.get(t).map_or(Vec::new(), |c| stored(&c.support.people)),
+        Team::Other(_) => {
+            drawn(vec![(Job::Physician, "Team physician", 2), (Job::AssistantTrainer, "Athletic trainer", 3)])
+        }
+        Team::High(h) => {
+            let mut v = w
+                .high_schools
+                .get(h)
+                .and_then(|s| s.trainer.as_ref())
+                .map_or(Vec::new(), |a| stored(std::slice::from_ref(a)));
+            for x in v.iter_mut() {
+                x.1.title = if w.high_schools[h].trainer.as_ref().is_some_and(|a| a.share < 1.0) {
+                    "Athletic trainer, part-time".to_string()
+                } else {
+                    "Athletic trainer".to_string()
+                };
             }
             v
         }
-        Team::Nfl(_) => vec![
-            (Job::StrengthAssistant, "Assistant strength coach", 0),
-            (Job::Dietitian, "Dietitian", 1),
-            (Job::Physician, "Team physician", 2),
-            (Job::AssistantTrainer, "Assistant athletic trainer", 3),
-        ],
-        Team::Other(_) => vec![(Job::Physician, "Team physician", 2), (Job::AssistantTrainer, "Athletic trainer", 3)],
-        Team::High(_) => Vec::new(),
-    };
-    jobs.into_iter()
-        .map(|(job, title, k)| {
-            let key = team.key() << 16 ^ 0x5D0 ^ k;
-            (job, staffing::draw_person(w, key, title, support_pay(w, team, job), None))
-        })
-        .collect()
+    }
+}
+
+/// A stored department person's key: his team, name and first year.
+fn aide_key(team: Team, a: &super::departments::Aide) -> u64 {
+    a.name.bytes().fold(team.key() ^ 0x5D0A << 40 ^ a.since as u64 ^ (a.job as u64) << 32, |k, b| {
+        k.wrapping_mul(0x100_0000_01B3) ^ b as u64
+    })
 }
 
 /// The base rating of a drawn support person: around his department's
@@ -673,6 +748,8 @@ pub fn members(w: &World) -> Vec<Member> {
                     keys: vec![0],
                 });
             }
+            // Your school's athletic trainer (support departments).
+            support_members(w, team, &mut v);
         }
         Team::Nfl(_) | Team::Other(_) | Team::College(_) => {
             // Drawn coaching rooms (NFL position coaches, quality control),
@@ -763,40 +840,41 @@ pub fn members(w: &World) -> Vec<Member> {
                     });
                 }
             }
-            for (job, d) in support_people(w, team) {
-                let who = d.who;
-                let dept = match job {
-                    Job::StrengthAssistant | Job::Dietitian => Dept::Performance,
-                    Job::Physician | Job::AssistantTrainer => Dept::Medical,
-                    _ => Dept::Ops,
-                };
-                let facets = job_facets(job, who, support_base(w, team, job, who));
-                let (start, kept) = start_of(w, d.since);
-                let not_yours = not_yours(team, job);
-                v.push(Member {
-                    key: drawn_key(who),
-                    job,
-                    dept,
-                    name: d.name,
-                    title: d.title,
-                    coach: None,
-                    hs: None,
-                    group: None,
-                    age: Some(d.age),
-                    since: d.since,
-                    start,
-                    kept,
-                    not_yours,
-                    pay: not_yours.is_none().then_some(d.pay),
-                    through: not_yours.is_none().then(|| d.since + 2 * ((w.year - d.since).max(0) / 2 + 1) - 1),
-                    known: 0.0,
-                    keys: (0..facets.len()).filter(|&k| facets[k].seen()).take(2).collect(),
-                    facets,
-                });
-            }
+            support_members(w, team, &mut v);
         }
     }
     v
+}
+
+/// The support departments' people as members (support departments).
+fn support_members(w: &World, team: Team, v: &mut Vec<Member>) {
+    for (job, d, rating) in support_people(w, team) {
+        let who = d.who;
+        let dept = job_dept(job);
+        let facets = job_facets(job, who, rating.unwrap_or_else(|| support_base(w, team, job, who)));
+        let (start, kept) = start_of(w, d.since);
+        let not_yours = not_yours(team, job);
+        v.push(Member {
+            key: drawn_key(who),
+            job,
+            dept,
+            name: d.name,
+            title: d.title,
+            coach: None,
+            hs: None,
+            group: None,
+            age: Some(d.age),
+            since: d.since,
+            start,
+            kept,
+            not_yours,
+            pay: not_yours.is_none().then_some(d.pay),
+            through: not_yours.is_none().then(|| d.since + 2 * ((w.year - d.since).max(0) / 2 + 1) - 1),
+            known: 0.0,
+            keys: (0..facets.len()).filter(|&k| facets[k].seen()).take(2).collect(),
+            facets,
+        });
+    }
 }
 
 /// Who hires a support job that isn't yours to hire: a college's medical
@@ -804,11 +882,28 @@ pub fn members(w: &World) -> Vec<Member> {
 /// doctors for the club.
 fn not_yours(team: Team, job: Job) -> Option<&'static str> {
     match (team, job) {
-        (Team::College(_), Job::Trainer | Job::Physician | Job::AssistantTrainer | Job::Academic) => {
-            Some("hired by the athletic department")
-        }
-        (Team::Nfl(_) | Team::Other(_), Job::Physician) => Some("the club's doctors"),
+        (
+            Team::College(_),
+            Job::Trainer
+            | Job::Physician
+            | Job::AssistantTrainer
+            | Job::Academic
+            | Job::Clinician
+            | Job::Adviser
+            | Job::Tutor,
+        ) => Some("hired by the athletic department"),
+        (Team::Nfl(_) | Team::Other(_), Job::Physician | Job::PainSpecialist) => Some("the club's doctors"),
+        (Team::High(_), _) => Some("hired by the district"),
         _ => None,
+    }
+}
+
+/// A support person's department on the staff page.
+fn job_dept(job: Job) -> Dept {
+    match job {
+        Job::StrengthAssistant | Job::StrengthIntern | Job::Dietitian | Job::SportsScientist => Dept::Performance,
+        Job::Physician | Job::AssistantTrainer | Job::Clinician | Job::PainSpecialist => Dept::Medical,
+        _ => Dept::Ops,
     }
 }
 
@@ -1089,18 +1184,20 @@ pub fn job_marks(w: &World, m: &Member, f: usize) -> Option<JobMarks> {
         job => {
             for &t in &teams {
                 let found =
-                    support_people(w, t).into_iter().find(|(j, _)| *j == job).map(|(j, d)| (j, d.who)).or_else(|| {
-                        staffing::drawn_staff(w, t)
-                            .into_iter()
-                            .find(|d| match job {
-                                Job::GradAssistant => d.title.starts_with("Graduate assistant"),
-                                Job::Analyst => d.title.contains("nalyst"),
-                                _ => false,
-                            })
-                            .map(|d| (job, d.who))
-                    });
-                if let Some((j, who)) = found {
-                    let fs = job_facets(j, who, support_base(w, t, j, who));
+                    support_people(w, t).into_iter().find(|(j, ..)| *j == job).map(|(j, d, r)| (j, d.who, r)).or_else(
+                        || {
+                            staffing::drawn_staff(w, t)
+                                .into_iter()
+                                .find(|d| match job {
+                                    Job::GradAssistant => d.title.starts_with("Graduate assistant"),
+                                    Job::Analyst => d.title.contains("nalyst"),
+                                    _ => false,
+                                })
+                                .map(|d| (job, d.who, None))
+                        },
+                    );
+                if let Some((j, who, r)) = found {
+                    let fs = job_facets(j, who, r.unwrap_or_else(|| support_base(w, t, j, who)));
                     v.extend(fs.iter().find(|x| x.key == key).and_then(|x| x.truth));
                 }
             }
