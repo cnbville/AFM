@@ -199,6 +199,9 @@ pub fn weight(w: &World, on: Them, item: &Item, wants: &[Want]) -> Option<f32> {
         Item::HisWord => 0.7,
         // One of the room: a line to the whole team (lane N5d).
         Item::Room => super::super::gameday::group::ROOM_WEIGHT,
+        // Your manner is sized by how he took it (`manner::took`), never
+        // by the ear: no card holds it.
+        Item::Manner => return None,
     })
 }
 
@@ -430,7 +433,10 @@ pub fn landed_bars(him: Them) -> (f32, f32) {
 /// against his own bars. A line with nothing on him touched nothing of his.
 pub fn landing(him: Them, hits: &[Sized], committed: &[f32]) -> Landing {
     let on: Vec<&Sized> = hits.iter().filter(|h| h.hit.on == him).collect();
-    if on.is_empty() && committed.is_empty() {
+    // How you said it touches nothing of his: a greeting or a task said
+    // warmly gets no landing words (Cain 2026-11-18). It still counts in
+    // how a line that touched him went over.
+    if !on.iter().any(|h| h.hit.item != Item::Manner) && committed.is_empty() {
         return Landing::Untouched;
     }
     let net = on.iter().map(|h| h.trust + h.mood).sum::<f32>() + committed.iter().sum::<f32>();
@@ -457,8 +463,14 @@ pub fn read(net: f32, (up, down): (f32, f32)) -> Landing {
 
 /// What your read catches from how the line went over, when nothing else
 /// set a tell: the way a chip's answer reads him (`talks::read_tell`), on
-/// the landing read's own bars.
+/// the landing read's own bars. Short of them there's nothing past his
+/// words for your read to catch, so no tell: "He gives you nothing either
+/// way" stood under "Nice to meet you too, Coach. Appreciate you making
+/// time" (Cain 2026-11-18).
 pub fn tell(w: &World, him: Them, landing: Landing) -> String {
+    if landing.sign() == 0 {
+        return String::new();
+    }
     let Them::Player(id) = him else { return String::new() };
     let Some(i) = folk::person(w, id) else { return String::new() };
     talks::read_tell(w, i, landing.sign()).unwrap_or_default()

@@ -349,10 +349,11 @@ pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Siz
     let warm = |how: How| matches!(how, How::Reassured | How::Respected | How::Staked | How::Flattered);
     let named: Vec<&Hit> = reading.hits.iter().filter(|h| here(h.on) && on_point(&h.item) && warm(h.how)).collect();
     let mine: Vec<&Sized> = hits.iter().filter(|h| on_case(&x, h.hit.on)).collect();
-    // Nothing on him or his family touched nothing of his. A hit the game
-    // sizes as nothing (a warm word on his pride: only how you said it
-    // reaches his trust) still touched him, and moved nothing.
-    if mine.is_empty() && !reading.hits.iter().any(|h| here(h.on)) {
+    // Nothing on him or his family touched nothing of his, and nor does
+    // how you said it alone (a greeting said warmly, Cain 2026-11-18). A
+    // hit the game sizes as nothing (a warm word on his pride: only how you
+    // said it reaches his trust) still touched him, and moved nothing.
+    if !mine.iter().any(|h| h.hit.item != Item::Manner) && !reading.hits.iter().any(|h| here(h.on)) {
         return Landing::Untouched;
     }
     let trust: f32 = mine.iter().map(|h| h.trust).sum();

@@ -232,6 +232,12 @@ pub enum Item {
     /// The team as a whole: a line to the room in a group talk (lane N5d),
     /// heard by each man as one of the room.
     Room,
+    /// How you said it (coach voice): your manner's own hit on each man,
+    /// never one of his things. It makes no line touch him and "Heard as"
+    /// never lists it; it counts in how a line that did touch him went over
+    /// (Cain 2026-11-18: "First time meeting, nice to meet you" was heard
+    /// as "respected on his pride").
+    Manner,
 }
 
 /// How your words landed on it (5.2).
@@ -431,6 +437,10 @@ pub struct Turn {
     pub reworked: Vec<(u32, crate::world::folk::talks::PAct, Option<f32>)>,
     /// You didn't answer the question his last line asked (5.4).
     pub dodged: bool,
+    /// The first line only said hello before his question: no act and
+    /// nothing of anyone's touched. His question waits for the next line
+    /// (`store::Open::greeted`).
+    pub greeting: bool,
     /// Each commitment and how he took it (`folk::commit`).
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
     /// How each man in the room took your manner (coach voice), sized.

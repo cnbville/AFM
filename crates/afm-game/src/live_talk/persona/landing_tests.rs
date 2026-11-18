@@ -4,6 +4,9 @@
 //! a recruit's point said with care still moves your case, and once the
 //! talk's exchanges are spent the read says so; a line that touches three
 //! things swings no further with his day than a line that touches one.
+//! A greeting is no dodge and gets no landing words, how you said it is
+//! never one of his things, and his tell shows only past a bar (Cain's
+//! screenshot, 2026-11-18).
 
 use std::sync::Arc;
 
@@ -55,6 +58,21 @@ fn line(g: &mut Game, f: &Fake, sid: u32, text: &str, acts: Vec<Value>, hits: Ve
 
 fn heard(v: &Value) -> String {
     v["heard"].as_str().unwrap_or_default().to_string()
+}
+
+/// One line on the fake with the ear's whole reading and his reply.
+fn said(g: &mut Game, f: &Fake, sid: u32, text: &str, reading: Value, his: &str) -> Value {
+    f.push(EAR, Ok(body(&reading.to_string(), 1200, 120)));
+    f.push(VOICE, Ok(tt::voice(his, "")));
+    let t = tt::ok(g, "people_say", json!({ "id": sid, "text": text }))["ticket"].as_u64().unwrap();
+    let v = tt::finish(g, t);
+    assert_eq!(v["state"], "done", "{text}: {v}");
+    v
+}
+
+/// The tell under his last reply.
+fn last_tell(g: &Game, sid: u32) -> Option<String> {
+    rt::scene_of(g, sid).lines.iter().rev().find(|l| l.by == 2).and_then(|l| l.tell.clone())
 }
 
 fn hit(item: &str, how: &str) -> Value {
@@ -159,6 +177,24 @@ fn case_total(g: &Game, i: usize, j: usize) -> f32 {
 
 const CARING: &str = r#"{"heat": "even", "language": "clean", "aim": "out", "care": "caring", "say": "tell"}"#;
 
+/// A warm manner the man across takes well (a lift on his trust), as the
+/// ear would write it: who he is decides which (a steady professional
+/// hears little in plain care, and likes being asked).
+fn warm_manner(g: &Game, sid: u32) -> Option<Value> {
+    use afm_engine::world::folk::persona::manner::{self, Manner};
+    let w = g.world.as_ref().unwrap();
+    let room = super::room_of(w, &rt::scene_of(g, sid));
+    let him = afm_engine::world::folk::persona::talk::across(&room)?;
+    let set = manner::setting(w, &room);
+    [("even", "caring", "tell"), ("even", "caring", "ask"), ("even", "neutral", "ask"), ("firm", "caring", "ask")]
+        .into_iter()
+        .find(|(heat, care, say)| {
+            let t = manner::took(w, him, &Manner::from_words(heat, "clean", "out", care, say), &set);
+            t.as_.how().is_some() && t.trust > 0.0
+        })
+        .map(|(heat, care, say)| json!({ "heat": heat, "language": "clean", "aim": "out", "care": care, "say": say }))
+}
+
 #[test]
 fn every_room_reads_a_warm_line_a_harsh_one_and_a_task() {
     type Open = fn(&str) -> (Game, Arc<Fake>, u32);
@@ -192,11 +228,11 @@ fn every_room_reads_a_warm_line_a_harsh_one_and_a_task() {
             Value::Null,
         );
         assert!(heard(&v).ends_with("it didn't land"), "{room}, a harsh line doesn't: {v}");
-        // A task touches nothing of his: what the line was, no landing
-        // words ("Heard as a request.").
+        // A task touches nothing of his, said warmly or not: what the line
+        // was, no landing words ("Heard as a request.").
         let (mut g, f, sid) = open(&format!("landing-task-{room}"));
-        let v =
-            line(&mut g, &f, sid, "Get me a report on it by Friday.", vec![task("report", "")], vec![], Value::Null);
+        let care = warm_manner(&g, sid).unwrap_or_else(|| serde_json::from_str(CARING).unwrap());
+        let v = line(&mut g, &f, sid, "Get me a report on it by Friday.", vec![task("report", "")], vec![], care);
         assert_eq!(heard(&v), "a request", "{room}, a task gets no landing words: {v}");
     }
 }
@@ -233,7 +269,8 @@ fn a_recruit_reads_on_your_case_and_your_care_never_takes_the_points_place() {
     assert!(heard(&v).ends_with("it didn't move him"), "{v}");
     let (mut g, f, sid, ..) = rt::recruit_talk("landing-rtask", Kind::HomeVisit, Decider::Parent);
     let ask = task("other", "send me your transcript");
-    let v = line(&mut g, &f, sid, "Send me your transcript this week.", vec![ask], vec![], Value::Null);
+    let care = warm_manner(&g, sid).unwrap_or_else(|| serde_json::from_str(CARING).unwrap());
+    let v = line(&mut g, &f, sid, "Send me your transcript this week.", vec![ask], vec![], care);
     assert_eq!(heard(&v), "a request", "{v}");
 }
 
@@ -303,6 +340,70 @@ fn a_line_that_touches_three_things_swings_no_further_with_his_day() {
     );
 }
 
+/// What Jalon Perry opened with in Cain's screenshot (2026-11-18).
+const OPENING: &str =
+    "Walked in with a coffee and a sore back. Ready. Tell me what I'm getting paid and how it's figured.";
+
+#[test]
+fn a_greeting_is_no_dodge_and_says_nothing_of_how_it_landed() {
+    // "First time meeting, nice to meet you", said to an opening that
+    // asked what he'd be paid, was heard as "you didn't answer his
+    // question; respected on his pride; hard to tell how it landed", and
+    // "He gives you nothing either way" stood under his warm reply. The
+    // ear here hears a dodge, and the line is said in a manner he takes
+    // well.
+    let (mut g, f, him) = tt::game("landing-greeting", true);
+    let f = f.unwrap();
+    let sid = tt::talk(&mut g, him, "role");
+    {
+        let w = g.world.as_mut().unwrap();
+        let sc = w.folk.scenes.iter_mut().find(|x| x.id == sid).unwrap();
+        match sc.lines.iter_mut().rev().find(|l| l.by == 2) {
+            Some(l) => l.text = OPENING.into(),
+            None => sc.them("Jalon Perry", OPENING, None),
+        }
+    }
+    let care = warm_manner(&g, sid).expect("a warm manner he takes well");
+    let t0 = tt::trust(&g, him);
+    let greeting = json!({ "acts": [], "hits": [], "dodged": true, "not_talk": false, "manner": care });
+    let v = said(
+        &mut g,
+        &f,
+        sid,
+        "First time meeting, nice to meet you.",
+        greeting,
+        "Nice to meet you too, Coach. So what am I getting paid?",
+    );
+    assert_eq!(heard(&v), "", "no dodge, nothing of his touched, no landing words: {v}");
+    assert_eq!(last_tell(&g, sid), None, "no tell under his warm reply");
+    assert!(tt::trust(&g, him) > t0, "he took your care, and paid nothing for a dodge that wasn't");
+    // His question waited for the next line: he asked it again, and a line
+    // that moves on doesn't answer it.
+    let away = json!({ "acts": [], "hits": [], "dodged": true, "not_talk": false });
+    let v = said(&mut g, &f, sid, "Let's talk about how you're settling in.", away, "Fine.");
+    assert!(heard(&v).contains("you didn't answer his question"), "{v}");
+    // How you said it is never one of his things: a warm line on his family
+    // said with care names his family, never his pride.
+    let (mut g, f, sid) = player_talk("landing-manner");
+    let family = tag(&items(&g, &rt::scene_of(&g, sid), true), "his family");
+    let care = warm_manner(&g, sid).expect("a warm manner he takes well");
+    let v = line(&mut g, &f, sid, "Your family raised a good one.", vec![], vec![hit(&family, "respected")], care);
+    assert!(heard(&v).starts_with("respected on his family"), "{v}");
+    assert!(!heard(&v).contains("pride") && !heard(&v).contains("how you said it"), "{v}");
+}
+
+#[test]
+fn his_tell_shows_only_past_a_bar() {
+    let (g, _, him) = tt::game("landing-tell", false);
+    let w = g.world.as_ref().unwrap();
+    let him = Them::Player(him);
+    for l in [Landing::Untouched, Landing::Little, Landing::Nothing, Landing::Cost] {
+        assert_eq!(hits::tell(w, him, l), "", "{l:?}: nothing past his words to catch");
+    }
+    assert!(!hits::tell(w, him, Landing::Landed).is_empty());
+    assert!(!hits::tell(w, him, Landing::Missed).is_empty());
+}
+
 #[test]
 fn the_bars_read_small_moves_in_plain_words() {
     let bars = hits::PLAYER_BARS;
@@ -317,7 +418,13 @@ fn the_bars_read_small_moves_in_plain_words() {
     assert_eq!(hits::landing(him, &[], &[]), Landing::Untouched);
     let faded =
         Sized { hit: Hit { on: him, item: Item::Pride, how: How::Reassured }, trust: 0.0, mood: 0.0, faded: true };
-    assert_eq!(hits::landing(him, &[faded], &[]), Landing::Nothing);
+    assert_eq!(hits::landing(him, std::slice::from_ref(&faded), &[]), Landing::Nothing);
+    // How you said it alone touches nothing of his; beside a hit that did,
+    // it counts in how the line went.
+    let manner =
+        Sized { hit: Hit { on: him, item: Item::Manner, how: How::Reassured }, trust: 0.02, mood: 0.02, faded: false };
+    assert_eq!(hits::landing(him, std::slice::from_ref(&manner), &[]), Landing::Untouched);
+    assert_eq!(hits::landing(him, &[faded, manner], &[]), Landing::Landed);
     assert_eq!(Landing::Nothing.words("him"), "it didn't move him");
     assert_eq!(Landing::Untouched.words("him"), "");
     // His tell shows only past one of his bars.

@@ -67,6 +67,10 @@ pub struct Open {
     /// (`wrap::decides`): no more lines, the meeting's picks decide it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub over: bool,
+    /// The first line only said hello (`Turn::greeting`): his opening's
+    /// question is on the table for the line after it too.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub greeted: bool,
 }
 
 impl Open {
@@ -85,6 +89,7 @@ impl Open {
             refused: Vec::new(),
             raised_at: 0,
             over: false,
+            greeted: false,
         }
     }
 
@@ -188,6 +193,7 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
     o.room = Room { channel: room.channel, present: people };
     o.heat = t.heat;
     o.patience = t.patience;
+    o.greeted |= t.greeting;
     o.lines = o.lines.saturating_add(1);
     if boiled.is_some() {
         o.boiled = boiled;

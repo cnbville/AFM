@@ -635,11 +635,18 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
             && h.hit.item == afm_engine::world::folk::persona::ear::Item::HisWord
             && h.hit.how == afm_engine::world::folk::persona::ear::How::Doubted
     };
+    // How you said it is not one of his things: his answer shows how he
+    // took it, and it counts in how the line went over ("respected on his
+    // pride" stood under "First time meeting, nice to meet you", Cain
+    // 2026-11-18).
+    let manner = |h: &afm_engine::world::folk::persona::ear::Sized| {
+        h.hit.item == afm_engine::world::folk::persona::ear::Item::Manner
+    };
     // Each hit by what it touched, once you know that; one on something
     // he hasn't shown you (what he wants) by how it hit alone, so a line
     // to someone whose hits are all on his wants still says how it went.
     let mut bare: Vec<String> = Vec::new();
-    for h in t.hits.iter().filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005 && !dodge(h)) {
+    for h in t.hits.iter().filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005 && !dodge(h) && !manner(h)) {
         let how = format!("{:?}", h.hit.how).to_lowercase();
         let what = if items::known(w, him, &h.hit.item) { items::short(w, him, &h.hit.item) } else { String::new() };
         if !what.is_empty() {

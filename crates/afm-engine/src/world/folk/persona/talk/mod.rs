@@ -608,9 +608,10 @@ impl Resolving for Conversation<'_> {
                 if let Some(how) = tk.as_.how()
                     && tk.trust.abs() + tk.mood.abs() > 0.002
                 {
-                    let item = if in_group { Item::Room } else { Item::Pride };
+                    // Its own item, never his pride or the room: how you said
+                    // it is not one of his things (Cain 2026-11-18).
                     t.hits.push(Sized {
-                        hit: super::ear::Hit { on: p.who, item, how },
+                        hit: super::ear::Hit { on: p.who, item: Item::Manner, how },
                         trust: tk.trust,
                         mood: tk.mood,
                         faded: false,
@@ -630,8 +631,17 @@ impl Resolving for Conversation<'_> {
         // is set I'd like to talk about where I fit in") asked nothing yet,
         // so the coach's next line answered nothing it owed (the last
         // replay, 2026-11-17).
-        let on_table =
-            (open.asking().is_some() && s.is_none_or(asked_last)) || (open.lines == 0 && s.is_some_and(asked_last));
+        // A greeting is no dodge (Cain 2026-11-18: "First time meeting,
+        // nice to meet you", said to an opening that asked what he'd be
+        // paid, was heard as "you didn't answer his question"): a first
+        // line that makes no act and touches nothing of anyone's only says
+        // hello first. His opening's question waits for the next line, which
+        // owes the answer if he asks it again; one hello, not a string of
+        // them.
+        t.greeting = open.lines == 0 && reading.acts.is_empty() && sized.is_empty();
+        let opening = open.lines == 0 || (open.greeted && open.lines == 1);
+        let on_table = !t.greeting
+            && ((open.asking().is_some() && s.is_none_or(asked_last)) || (opening && s.is_some_and(asked_last)));
         if reading.dodged && on_table {
             t.dodged = true;
             t.hits.push(hits::dodged(w, him));
