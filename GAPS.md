@@ -45,6 +45,8 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 
 ## Logic
 
+- **"You'll be a captain" is only a pride hit in a talk** (medium). The ear has no captaincy term (`usage`, `terms`), so the promise binds you to nothing, he can't judge it later, and the room never hears it; real captains are usually voted by the team, so a coach promising it is promising something he may not control. `takeover::captains_of` already names captains. Found 2026-11-18 (thread "Make talks know the time of year").
+- **A coaching-change transfer window keeps no dates once it opens** (low). `World.coach_window` is cleared the day it opens, so a talk can name the window while it waits but not when it closes once it's open; a late window keeps its dates (`late_windows`). Found 2026-11-18 (thread "Make talks know the time of year").
 - **Brothers are not people to each other** (medium). `Family::older_brother_at` names a program, not a person, so a younger brother can't commit to the coach his brother was close to, and the bond's "his little brother commits to you" (`docs/design/coach-bonds.md`, section 7) isn't built. Same thread.
 - **No bonds with strength coaches or NFL position coaches** (medium). Strength coaches see a player more than anyone in the off-season, and NFL clubs store no position coaches. They wait for support departments and stored NFL staffs. Same thread.
 - **Your own effort in a bond is talks only** (low). `bonds::you_effort` is 1.0: what you do counts only as one-on-ones (a week of contact each) and your choices at the moments, not time you give him in your week (the design's funeral "a day of your week"). Same thread.
