@@ -28,10 +28,13 @@ use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 
 mod craft;
+mod projects;
 mod week;
 
 #[cfg(test)]
 mod board_tests;
+#[cfg(test)]
+mod project_tests;
 
 use crate::reads;
 use crate::views::{
@@ -106,6 +109,22 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let eye = eye_for(w, t, w.people[i].player.position);
             craft::project(w, i, eye, code)
         })(),
+        "player_dev_project_start" | "player_dev_project_end" | "player_dev_body_start" | "player_dev_body_end" => {
+            (|| {
+                let w = game.wm()?;
+                let id = id()?;
+                let what = || args.get("what").and_then(Value::as_str).ok_or("Missing project.");
+                let said = match cmd {
+                    "player_dev_project_start" => projects::start_skill(w, id, what()?)?,
+                    "player_dev_project_end" => projects::end_skill(w, id)?,
+                    "player_dev_body_start" => projects::start_body(w, id, what()?)?,
+                    _ => projects::end_body(w, id)?,
+                };
+                let mut v = dev(w, id)?;
+                v["said"] = json!(said);
+                Ok(v)
+            })()
+        }
         "plans" => (|| plans(game.w()?))(),
         "plans_set" => (|| {
             let w = game.wm()?;
@@ -996,6 +1015,7 @@ fn practice(w: &World) -> Reply {
         "fresh": fresh.map(|f| (f * 100.0).round()),
         "reasons": reasons,
         "players": players.into_iter().map(|x| x.1).collect::<Vec<_>>(),
+        "projects": projects::summary(w),
         "notes": notes,
         "log": log,
         "reports": reports,
@@ -1286,6 +1306,7 @@ fn dev(w: &World, id: u32) -> Reply {
         "sport": sport.map(|s| json!({ "name": s.name(), "now": s.in_season(w.today) })),
         "mood": mood_words(p),
         "craft": craft::tab(w, t, i, eye),
+        "projects": projects::tab(w, t, i),
         "notes": notes,
         "practice_log": log_lines,
         "habits": Tend::ALL.iter().enumerate().map(|(k, t)| json!({ "k": k, "label": t.label() })).collect::<Vec<_>>(),

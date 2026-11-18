@@ -27,6 +27,8 @@
 //   talk.moves     {tabs: [{k, name, note}], builder: {...}}: the pick lists
 //   talk.over      true when the talk ended on a meeting that still holds a decision: no box,
 //                  the meeting's own picks as "Still yours to decide" (talk_wrap ends a talk)
+//   talk.wrap_ask  true when your last line read as a goodbye: "What you just said wrapped the talk up.
+//                  Do you want to continue?" with Continue (talk_wrap keep) and End (talk_wrap)
 //   talk.confirm   [{text, cmd, args}]: what waits on your say-so (N4's talk_confirm; with talk.persona
 //                  the game lists it on every draw, so a reload keeps it)
 // A section is {k, label, note, ...} with k one of: text, entries, tiles, chips,
@@ -236,15 +238,23 @@ function cvChart(c) {
   return `<div class="cv-chart">${c.label ? `<div class="cv-h cv-gold"><em>${esc(c.label)}</em></div>` : ""}<div class="cv-bars">${c.line != null ? `<s style="bottom:${Math.round(54 * c.line / max)}px"></s>` : ""}${c.bars.map((b) => `<div class="cv-bar ${b.now ? "now" : ""}"><small>${b.v != null ? Math.round(b.v * 100) + "%" : ""}</small><span style="height:${b.v != null ? Math.max(3, Math.round(54 * b.v / max)) : 54}px"></span><em>${esc(b.l)}</em></div>`).join("")}</div></div>`;
 }
 
+// Your line read as a goodbye: the talk is still open until you say. Continue keeps it as if
+// the line hadn't ended it; End closes it the way a goodbye does.
+function cvWrapAsk(s) {
+  const a = (keep) => `data-act="cvdo" data-cmd="talk_wrap" data-args='${esc(JSON.stringify(keep ? { id: s.id, keep: true } : { id: s.id }))}'`;
+  return `<div class="cv-confirm"><p>What you just said wrapped the talk up. Do you want to continue?</p><div class="cv-acts"><button type="button" class="st-btn small glass" ${a(false)}>End</button><button type="button" class="st-btn small primary" ${a(true)}>Continue</button></div></div>`;
+}
+
 // What waits on your say-so (an offer, a request, a decision): N4's
 // `talk_confirm`. Nothing here is done until you press the button.
 function cvConfirm(s, T, b) {
+  const ask = T.wrap_ask && !s.done ? cvWrapAsk(s) : "";
   // On a talk the game plays (`talk.persona`) the game lists what waits on you each
   // time the page is drawn, so a reload keeps it; the box's own copy is for the rest.
   const list = T.persona ? T.confirm || [] : [...(T.confirm || []), ...((b && b.confirm) || [])];
   CV_CONFIRM[s.id] = list;
-  if (!list.length) return "";
-  return list.map((c, i) => `<div class="cv-confirm"><p>${cvT(c.text)}</p><div class="cv-acts"><button type="button" class="st-btn small glass" data-act="cvconfirm" data-i="${i}" data-id="${s.id}" data-yes="0">Not that</button><button type="button" class="st-btn small primary" data-act="cvconfirm" data-i="${i}" data-id="${s.id}" data-yes="1">Do it</button></div></div>`).join("");
+  if (!list.length) return ask;
+  return ask + list.map((c, i) => `<div class="cv-confirm"><p>${cvT(c.text)}</p><div class="cv-acts"><button type="button" class="st-btn small glass" data-act="cvconfirm" data-i="${i}" data-id="${s.id}" data-yes="0">Not that</button><button type="button" class="st-btn small primary" data-act="cvconfirm" data-i="${i}" data-id="${s.id}" data-yes="1">Do it</button></div></div>`).join("");
 }
 
 // ---------- the right column ----------
