@@ -8,6 +8,36 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.624 (18 Nov, shipped): name a player's stat line by its year and show the season so far (PR #549), let you start development projects from the Development tab (PR #552), ask before a goodbye closes a live talk (PR #553), and 2 more
+**TLDR:** 5 changes ship together. A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake. You can now start development projects for your own players: a skill project with his position coach, or a body project with the strength staff, with your staff's honest read before you commit. Plus 3 more below.
+- Name a player's stat line by its year and show the season so far (PR #549): A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake.
+- The hover card and compare name the season ("2024 season") instead of "Last season". (PR #549)
+- Until a college season's title game is played, its numbers so far show on their own line. (PR #549)
+- NFL players show this year's numbers so far until the regular season ends. (PR #549)
+- A pro's card shows his pro seasons, not his old college year. (PR #549)
+- Let you start development projects from the Development tab (PR #552): You can now start development projects for your own players: a skill project with his position coach, or a body project with the strength staff, with your staff's honest read before you commit.
+- Start or end a skill project or a body project from a player's Development tab, under Focus. (PR #552)
+- Before you confirm, see your staff's read of what it could add as a range, the practice time, what it costs his other technique, and the extra wear. (PR #552)
+- Each position room keeps its real number of project slots, and the strength staff runs one body project a room. (PR #552)
+- The Training screen's Players tab shows every room's projects at a glance. (PR #552)
+- Ask before a goodbye closes a live talk (PR #553): If a line of yours sounds like a goodbye, the talk no longer shuts on you. You get a quick choice to keep talking or end it.
+- When something you say sounds like you are wrapping up, a prompt asks if you want to continue. (PR #553)
+- Continue keeps the talk going, and what you said still counts. (PR #553)
+- End closes the talk the way it did before. (PR #553)
+- Typing "end the talk" still ends it straight away. (PR #553)
+- Support staff as full departments (PR #531): Your support staff are now real departments, and how many good people you can afford changes how your players grow, heal and keep their grades.
+- Trainers, dietitians, sports scientists, tutors and a behavioral health clinician are people on your staff page, each with their own track record. (PR #531)
+- A rich program with a deep staff finds injuries sooner and keeps its backups healthier; a thin one looks after its starters first. (PR #531)
+- A good dietitian gets a young lineman to his playing weight sooner, and a clinician helps a player through a death in the family or a benching. (PR #531)
+- Assistants step up to run departments, and other teams hire your best ones away. (PR #531)
+- High schools have a full-time athletic trainer, a part-time one or none. (PR #531)
+- Make the search bar fast (PR #555): The search bar (⌘K) now answers as you type instead of lagging behind, and tells you when it is still looking or could not finish.
+- Typing no longer queues up a search for every letter. (PR #555)
+- Players, coaches, teams, towns, records, notes and mail are found much faster in a big world. (PR #555)
+- Shows "Searching…" while it works, and a plain message if the game is busy. (PR #555)
+- Look at: hover a player in January, before the title game. (PR #549) a young player's Development tab, Focus, then Development projects. (PR #552) say "okay, that's all for now" in any talk. (PR #553)
+- Docs and tooling merged too, no game change: Revert world additions 1, 6 and 7 (docs) (PR #551); Engine gaps: the 30 agreed items, lanes EG1-EG7, match_check's counts and how-it-works… (PR #541).
+
 ## 0.2.619 (18 Nov, shipped): capital lane CS5: the Pecking order screen (PR #539), coach and player bonds (PR #542), scheme-fit lane SF3: a blocked man is out of the play (PR #533)
 **TLDR:** 3 changes ship together. Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans. Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most. Plus 1 more below.
 - Capital lane CS5: the Pecking order screen (PR #539): Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.
