@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.625 (18 Nov, shipped): coaches walk you through the season from the world's records (PR #540)
+**TLDR:** Your coaches now really break down a season when you ask them, with the numbers, the games that slipped away and the players who struggled.
+- Ask a coordinator how the year went and he walks you through it: points and yards against the conference, third downs, red zone, big plays, takeaways. (PR #540)
+- He names the games that got away and the starters who struggled or stood out at their spot. (PR #540)
+- A coach hired after last season tells you it wasn't his season, then gives what he saw on the tape. (PR #540)
+- Push for more and he gives you the rest; sharper coaches see more. (PR #540)
+- Ask a coach about one of his players and he knows how the player's numbers rank against the conference's starters. (PR #540)
+- Look at: a staff meeting with a new coordinator at the start of a career. (PR #540)
+
 ## 0.2.624 (18 Nov, shipped): name a player's stat line by its year and show the season so far (PR #549), let you start development projects from the Development tab (PR #552), ask before a goodbye closes a live talk (PR #553), and 2 more
 **TLDR:** 5 changes ship together. A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake. You can now start development projects for your own players: a skill project with his position coach, or a body project with the strength staff, with your staff's honest read before you commit. Plus 3 more below.
 - Name a player's stat line by its year and show the season so far (PR #549): A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake.

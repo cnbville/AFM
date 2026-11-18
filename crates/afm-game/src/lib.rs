@@ -50,6 +50,7 @@ pub mod lane_logos;
 pub mod lane_money;
 pub mod lane_paths;
 pub mod lane_people;
+pub mod lane_race;
 pub mod lane_ratings;
 pub mod lane_schedule;
 pub mod lane_scouting;
@@ -451,6 +452,7 @@ impl Game {
                     lane_ground::call,
                     lane_groundweek::call,
                     lane_groundstaff::call,
+                    lane_race::call,
                     lane_hunt::call,
                     lane_leads::call,
                     lane_campaign::call,

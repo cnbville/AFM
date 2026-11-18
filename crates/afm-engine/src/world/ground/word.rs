@@ -159,7 +159,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         }
         let before = standing::level(w, prog, t.to);
         let holder = t.holder.unwrap_or(Holder::Program(prog as u32));
-        let start = standing::derived(w, t.to, holder);
+        let start = standing::base(w, t.to, holder);
         let m = standing::entry(&mut w.ground, start, t.to, holder, d);
         standing::gain(m, t.by, d);
         if m.contacts == 0 || m.heard.is_none() {
