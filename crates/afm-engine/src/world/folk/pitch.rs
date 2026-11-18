@@ -2519,6 +2519,11 @@ pub fn typed_point(w: &World, s: &Scene, kind: Option<Kind>, group: Option<Group
         Some(k) => pts.iter().find(|p| p.kind == k).copied(),
         None => best_in(&pts, group?).first().copied(),
     }?;
+    typed_of(w, &t, s, pt)
+}
+
+/// A point on the table as a typed line makes it.
+fn typed_of(w: &World, t: &Talk, s: &Scene, pt: &Point) -> Option<Typed> {
     let g = pt.kind.group()?;
     let tier = pt.tier().unwrap_or(Tier::Fair);
     let lean = t.scale() * case::lands(w, pt.care, tier, you(w));
@@ -2527,6 +2532,32 @@ pub fn typed_point(w: &World, s: &Scene, kind: Option<Kind>, group: Option<Group
     let fresh = case.is_none_or(|c| !c.heard(place));
     let again = if fresh { 1.0 } else { w.folk.talked.again_in(w.today, s.id, t.id, pt) };
     Some(Typed { kind: pt.kind, group: g, lean, again, care: pt.care, tier })
+}
+
+/// What `land_typed` would move your case by with this point at `lean`,
+/// read before the line lands (the landing read, agreed by Cain
+/// 2026-11-17): the case keeps the best point in each group and its cap,
+/// so a point a better one already covers moves nothing.
+pub fn typed_moves(w: &World, s: &Scene, p: &Typed, lean: f32) -> f32 {
+    let Some(t) = talk(w, s) else { return 0.0 };
+    let case = if t.transfer { portal::case_with(w, t.id) } else { Some(case::case_now(&w.people[t.i], t.j)) };
+    case.map_or(0.0, |mut c| c.add(p.group, lean, p.again, w.today))
+}
+
+/// Whether you have something that backs a point (`kind`, else anything in
+/// `group`), made in this talk already or not: a point you know, from the
+/// pitch.
+pub fn typed_backed(w: &World, s: &Scene, kind: Option<Kind>, group: Option<Group>) -> bool {
+    let Some(t) = talk(w, s) else { return false };
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    sheet.points.iter().any(|p| {
+        p.known
+            && matches!(p.kind.family(), Family::Pitch(_))
+            && match kind {
+                Some(k) => p.kind == k,
+                None => group.is_some() && p.kind.group() == group,
+            }
+    })
 }
 
 /// His reaction to a typed point, as he shows it (the chip's own rule:
