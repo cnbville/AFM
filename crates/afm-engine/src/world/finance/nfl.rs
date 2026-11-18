@@ -1256,7 +1256,13 @@ fn report_cards(w: &mut World, year: i32) {
         let c = &w.finance.nfl[t];
         let cl = &w.clubs[t];
         let o = &cl.office.owner;
-        let z = |r: u8| crate::world::people::Support::z(r);
+        // The weight room and the training room grade the departments
+        // (support departments), not the heads alone.
+        let dz = |a: crate::world::departments::Area| {
+            crate::world::people::Support::zf(crate::world::departments::team(w, crate::world::people::Who::Club(t), a))
+        };
+        let (dz_strength, dz_med) =
+            (dz(crate::world::departments::Area::Strength), dz(crate::world::departments::Area::Medical));
         let am = c.amenities as f64;
         let mood = cl.team_mood as f64;
         let hc = w.nfl[t].head_coach.and_then(|h| w.coaches.get(h));
@@ -1269,8 +1275,8 @@ fn report_cards(w: &mut World, year: i32) {
             crate::world::capital::nfl::CardBase {
                 family: c.family as f64,
                 am,
-                strength: 0.5 + 0.5 * z(cl.support.strength.rating),
-                med: 0.5 + 0.5 * z(cl.support.medical.rating),
+                strength: 0.5 + 0.5 * dz_strength,
+                med: 0.5 + 0.5 * dz_med,
                 newness: (1.0 - c.home.age(year) as f64 / 30.0).max(0.0),
                 facility: c.facility as f64,
             },
@@ -1281,9 +1287,9 @@ fn report_cards(w: &mut World, year: i32) {
             rooms[2],
             rooms[3],
             rooms[4],
-            0.5 + 0.5 * z(cl.support.medical.rating),
+            0.5 + 0.5 * dz_med,
             rooms[5],
-            0.5 + 0.5 * z(cl.support.strength.rating),
+            0.5 + 0.5 * dz_strength,
             0.5 * am + 0.5 * o.cash_will,
             clamp(0.5 + 0.35 * coach + 0.3 * mood, 0.0, 1.0),
             clamp(

@@ -1057,14 +1057,11 @@ fn firing_open(w: &mut World, s: &mut Scene) {
     let unit = rooms::unit(w, c);
     let mut about = String::new();
     if let Some(u) = &unit {
-        about = format!(
-            " He has been your {} {}.",
-            u.role.name(),
-            match u.years {
-                1 => "this season".to_string(),
-                n => format!("for {n} seasons"),
-            }
-        );
+        about = match u.years {
+            0 => format!(" He is your {} and hasn't coached a game here yet.", u.role.name()),
+            1 => format!(" He has been your {} this season.", u.role.name()),
+            n => format!(" He has been your {} for {n} seasons.", u.role.name()),
+        };
         if let Some(r) = u.record_words() {
             about += &format!(" The team is {r} since he took the job.");
         }

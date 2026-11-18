@@ -34,6 +34,7 @@ pub mod store;
 pub mod today;
 pub mod who;
 pub mod wrap;
+pub mod year;
 
 // Facet lanes (N5a-N5e): each plays its own talks on this conversation.
 pub mod hs_call;
@@ -41,7 +42,8 @@ pub mod recruit;
 
 use super::Them;
 use super::ear::{Act, ActKind, Confirm, Ends, HisAsk, Item, Reading, Resolving, Say, Sized, Turn};
-use super::knows::{Answer, Knows, TellParts, Tells, Topic};
+use super::knowing;
+use super::knows::{Answer, Known, Knows, TellParts, Tells, Topic};
 use super::memory::{HisLie, Line, Secret, Treated};
 use super::room::{Room, Seat};
 use super::terms::{Valuing, Weighed};
@@ -253,7 +255,7 @@ impl Resolving for Conversation<'_> {
                     answered = true;
                 }
                 Act::Question { topic, about, .. } => {
-                    let again = open.asked_before(*topic, *about) || asked_now.contains(&(*topic, *about));
+                    let mut again = open.asked_before(*topic, *about) || asked_now.contains(&(*topic, *about));
                     asked_now.push((*topic, *about));
                     let known = self.parts.knows.knows(w, him, *topic, *about);
                     let pushed = open.pushed(*about) + t.told.len() as u8;
@@ -266,6 +268,19 @@ impl Resolving for Conversation<'_> {
                         pushed,
                     };
                     let mut told = self.parts.tells.tell(w, him, &known, &parts);
+                    // A coach of yours on his own unit walks you through his
+                    // season review: the heaviest points first, the rest when
+                    // you push for more (Cain 2026-11-17: "I was hoping for
+                    // more analysis" got one general line).
+                    if knowing::is_unit_view(w, him, *topic, *about)
+                        && matches!(told.answer, Answer::Straight | Answer::Partly)
+                        && let Some((page, given)) =
+                            review_page(&known, told.answer == Answer::Straight, (open.reviewed + t.reviewed) as usize)
+                    {
+                        told.released = page;
+                        t.reviewed = t.reviewed.saturating_add(given as u8);
+                        again = false;
+                    }
                     // Asked about his own life and nothing's stored: there's
                     // no news, not a thing he doesn't know ("How's the
                     // family?" is never "I'd rather not guess").
@@ -566,6 +581,8 @@ impl Resolving for Conversation<'_> {
         // Every hit on every listener, sized (question 1), then held inside
         // today's caps per person.
         let line = open.lines;
+        let first = t.hits.len();
+        let own_sizes = matches!((facet, s), (Facet::Recruit, Some(_)) | (Facet::HsCall, Some(_)));
         for h in &reading.hits {
             if !room.present.iter().any(|p| p.who == h.on) {
                 continue;
@@ -573,12 +590,13 @@ impl Resolving for Conversation<'_> {
             let sized = match (facet, s) {
                 (Facet::Recruit, Some(s)) => recruit::size(w, s, h, &wants, &open),
                 (Facet::HsCall, Some(s)) => hs_call::size(w, s, h),
-                _ => hits::size(w, h, &wants, &open, line),
+                _ => hits::size(w, h, &wants, &open),
             };
             if let Some(sz) = sized {
                 t.hits.push(sz);
             }
         }
+        let sized = first..t.hits.len();
         // How you said it (coach voice, section 4): each man takes your
         // manner his own way, by what he wants from a coach, what he has
         // with you and where it was said. It lands as one more hit, inside
@@ -605,9 +623,10 @@ impl Resolving for Conversation<'_> {
                 if let Some(how) = tk.as_.how()
                     && tk.trust.abs() + tk.mood.abs() > 0.002
                 {
-                    let item = if in_group { Item::Room } else { Item::Pride };
+                    // Its own item, never his pride or the room: how you said
+                    // it is not one of his things (Cain 2026-11-18).
                     t.hits.push(Sized {
-                        hit: super::ear::Hit { on: p.who, item, how },
+                        hit: super::ear::Hit { on: p.who, item: Item::Manner, how },
                         trust: tk.trust,
                         mood: tk.mood,
                         faded: false,
@@ -627,14 +646,29 @@ impl Resolving for Conversation<'_> {
         // is set I'd like to talk about where I fit in") asked nothing yet,
         // so the coach's next line answered nothing it owed (the last
         // replay, 2026-11-17).
-        let on_table =
-            (open.asking().is_some() && s.is_none_or(asked_last)) || (open.lines == 0 && s.is_some_and(asked_last));
+        // A greeting is no dodge (Cain 2026-11-18: "First time meeting,
+        // nice to meet you", said to an opening that asked what he'd be
+        // paid, was heard as "you didn't answer his question"): a first
+        // line that makes no act and touches nothing of anyone's only says
+        // hello first. His opening's question waits for the next line, which
+        // owes the answer if he asks it again; one hello, not a string of
+        // them. A goodbye the game held back to ask about first still made
+        // its act (`Reading::wrapped`): it can dodge his question.
+        t.greeting = open.lines == 0 && reading.acts.is_empty() && !reading.wrapped && sized.is_empty();
+        let opening = open.lines == 0 || (open.greeted && open.lines == 1);
+        let on_table = !t.greeting
+            && ((open.asking().is_some() && s.is_none_or(asked_last)) || (opening && s.is_some_and(asked_last)));
         if reading.dodged && on_table {
             t.dodged = true;
             t.hits.push(hits::dodged(w, him));
         }
         if facet == Facet::Other {
             hits::settle(&mut t.hits);
+        }
+        // His day, once a line on the words' hits (after `settle`, past the
+        // hits it emptied).
+        if !own_sizes {
+            hits::day(w, &open, line, &mut t.hits[sized]);
         }
         match (facet, s) {
             (Facet::Recruit, Some(s)) => {
@@ -760,8 +794,19 @@ impl Resolving for Conversation<'_> {
         {
             t.say.stance = tp::Stance::from_bits(s.c);
         }
+        // How the line went over ("Heard as"), from everything above: a
+        // recruit's on your case, a high school call's at its end, anyone
+        // else's on his own bars.
+        t.landing = match (facet, s) {
+            (Facet::Recruit, Some(s)) => recruit::landing(w, s, room, reading, &t.hits, &wants),
+            (Facet::HsCall, Some(_)) => hs_call::landing(him, &t.hits),
+            _ => {
+                let committed: Vec<f32> = t.committed.iter().map(|(_, k)| k.trust()).collect();
+                hits::landing(him, &t.hits, &committed)
+            }
+        };
         if t.say.tell.is_empty() {
-            t.say.tell = hits::tell(w, him, &t.hits);
+            t.say.tell = hits::tell(w, him, t.landing);
         }
         let _ = facts;
         t
@@ -1312,4 +1357,34 @@ fn asked_last(s: &Scene) -> bool {
         let t = l.text.replace('\u{2019}', "'").to_lowercase();
         l.by != 1 && (t.contains('?') || ASK_NOW.iter().any(|w| t.contains(w)))
     })
+}
+
+/// A coach's season review as he gives it (`review`), with how many of
+/// its points this gives: the first time, the header, his heaviest points
+/// (`review::FIRST_POINTS`, one when he holds back) and what he'd fix
+/// first; once he has given `given` points, the next ones (a push gets
+/// three more, one when he holds back). None when the answer isn't a
+/// review, or he has nothing left to give.
+pub(crate) fn review_page(known: &[Known], straight: bool, given: usize) -> Option<(Vec<String>, usize)> {
+    use super::review::{FIRST_POINTS, FIX, HEADER};
+    let (header, rest) = known.split_first()?;
+    if !header.words.starts_with(HEADER) {
+        return None;
+    }
+    let (fix, points) = match rest.split_last() {
+        Some((f, p)) if f.words.starts_with(FIX) => (Some(f.words.clone()), p),
+        _ => (None, rest),
+    };
+    let n = if straight { FIRST_POINTS } else { 1 };
+    let next: Vec<String> = points.iter().skip(given).take(n).map(|k| k.words.clone()).collect();
+    let count = next.len();
+    if given == 0 {
+        let mut v = vec![header.words.clone()];
+        v.extend(next);
+        if straight {
+            v.extend(fix);
+        }
+        return Some((v, count));
+    }
+    (count > 0).then_some((next, count))
 }
