@@ -117,6 +117,8 @@ fn you_opening_up_is_kept_and_a_personal_talk_counts_for_the_bond() {
     f.push(EAR, Ok(ear(vec![act("end", "", "", "")], vec![], false)));
     f.push(VOICE, Ok(voice("See you, Coach.", "")));
     say(&mut g, id, "See you tomorrow.");
+    // A goodbye asks before it wraps up (`talk_wrap`).
+    super::tests::ok(&mut g, "talk_wrap", json!({ "id": id }));
     let w = g.world.as_ref().unwrap();
     assert!(w.folk.bonds.personal.contains_key(&him), "the bond counts the talk");
 }
