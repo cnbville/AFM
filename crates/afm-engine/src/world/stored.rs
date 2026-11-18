@@ -53,9 +53,10 @@ impl<T: Blank> Default for Stored<T> {
 impl<T: Blank> Stored<T> {
     /// A part with this value: kept only if it isn't blank.
     pub fn new(v: T) -> Self {
-        let mut s = Stored(Some(Box::new(v)));
-        s.tidy();
-        s
+        // Checked before it is boxed: a load reads a million blank parts,
+        // and boxing each to drop it would leave the allocator's pages full
+        // of holes.
+        if v == *T::blank() { Stored(None) } else { Stored(Some(Box::new(v))) }
     }
     /// The part, if it holds something (the rest read as blank).
     pub fn stored(&self) -> Option<&T> {

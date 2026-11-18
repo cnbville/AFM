@@ -7175,7 +7175,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let mut seen = std::collections::HashSet::new();
             list.retain(|j| seen.insert(*j));
             list.truncate(8);
-            w.people[r.person].cal.offers = list;
+            // A boy with no offer and nothing else in his calendar's rest
+            // already reads as no offers: writing an empty list would make
+            // that part for every rated boy (memory diet, `stored`).
+            let p = &mut w.people[r.person];
+            if !list.is_empty() || p.cal.more.stored().is_some() {
+                p.cal.offers = list;
+            }
         }
     }
     // The rest of a summer week's open recruits: one whose race the school
