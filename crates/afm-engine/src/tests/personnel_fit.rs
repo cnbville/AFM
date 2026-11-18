@@ -242,6 +242,80 @@ fn a_memo_draws_the_same_calls_on_third_down_in_heavy_sets() {
 }
 
 #[test]
+fn a_memo_draws_the_same_calls_for_every_scheme_group_and_roster() {
+    // The coordinators' draft keeps a box's weights in a memo, one slot a
+    // situation (`world/plans.rs`, `draft_sides`). It must draw the same
+    // calls as working the weights out each time, draw for draw: for every
+    // scheme, every group a guide can want, the rosters that field them or
+    // don't, and the rule books' own players a side, over a box from first
+    // and ten to the goal line and the hurry-up.
+    let late = |mut s: Situation| {
+        s.quarter = 4;
+        s.half_left = 100.0;
+        s.game_left = 100.0;
+        s.score_diff = -4;
+        s
+    };
+    let sits = [
+        sit(1, 10.0, 75.0),
+        sit(2, 8.0, 60.0),
+        sit(3, 2.0, 45.0),
+        sit(3, 6.0, 40.0),
+        sit(3, 12.0, 70.0),
+        sit(4, 5.0, 35.0),
+        sit(2, 4.0, 15.0),
+        sit(3, 4.0, 6.0),
+        sit(1, 3.0, 3.0),
+        late(sit(2, 10.0, 60.0)),
+        late(sit(3, 7.0, 45.0)),
+    ];
+    let schemes = [
+        OffScheme::WestCoast,
+        OffScheme::AirRaid,
+        OffScheme::WideZone,
+        OffScheme::PowerGap,
+        OffScheme::SpreadOption,
+        OffScheme::WingT,
+    ];
+    let wants = [
+        None,
+        Some(Personnel::P10),
+        Some(Personnel::P12),
+        Some(Personnel::P13),
+        Some(Personnel::P21),
+        Some(Personnel::P22),
+    ];
+    // Tight ends, a fullback, players a side.
+    let rosters = [(1, false, 11), (2, true, 11), (3, true, 11), (3, false, 11), (3, true, 12), (3, true, 8)];
+    let mem = Memory::default();
+    let mut seed = 100;
+    for scheme in schemes {
+        for want in wants {
+            for (te, fb, players) in rosters {
+                let mut staff = Staff::average(scheme);
+                if let Some(g) = want {
+                    staff.guide.personnel = Want::new(g, Firm::Firm);
+                }
+                let ctx = OffCtx { te_count: te, has_fb: fb, players, ..ctx() };
+                let mut memo = CallMemo::default();
+                seed += 1;
+                let (mut a, mut b) = (Rng::new(seed), Rng::new(seed));
+                for i in 0..220 {
+                    let s = &sits[i % sits.len()];
+                    let x = call_offense(&staff, &mem, s, &ctx, &mut a);
+                    let y = call_offense_memo(&staff, &mem, s, &ctx, &mut b, Some((&mut memo, i % sits.len())));
+                    let group = want.map(|g| g.name());
+                    assert_eq!(
+                        x, y,
+                        "{scheme:?}, want {group:?}, {te} tight ends, fullback {fb}, {players} a side, call {i}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn the_rule_books_own_sets_run_their_own_concepts() {
     // The call is made in 11-man groups and the game fields the rule
     // book's own set for them. The tunnel screen is built for the flanker:
