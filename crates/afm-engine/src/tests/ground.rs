@@ -293,8 +293,21 @@ fn a_promise_reaches_his_coach_from_the_program_it_was_made_at() {
     let (p1, y1) = broken(&mut w, 0, Team::College(other));
     assert_eq!(p1, p0, "this program never gave it");
     assert!(y1 < y0, "your own word goes with you: {y0} to {y1}");
+    // His family still remembers a pro job's promise, on your own word.
+    let fam = people::family_of(&w, kids[1]);
+    for holder in [ph, yh] {
+        let m = w.ground.entry(fam, holder, || crate::world::ground::Memory::new(fam, holder, 0.0, d));
+        m.points = 60.0;
+    }
+    let (fp, fy) = (standing::points(&w, fam, ph), standing::points(&w, fam, yh));
     let (p2, y2) = broken(&mut w, 1, Team::Nfl(0));
     assert_eq!((p2, y2), (p1, y1), "a pro job's promise is no word to him");
+    assert!(standing::points(&w, fam, yh) < fy, "his family remembers");
+    assert_eq!(standing::points(&w, fam, ph), fp, "not the program's");
+    // An assistant's own word: a promise made here reaches you as well as
+    // the program and your head coach.
+    let boss = (0..w.coaches.len()).find(|&c| c != you).unwrap();
+    w.programs[prog].head_coach = Some(boss);
     let (p3, y3) = broken(&mut w, 2, Team::College(prog));
     assert!(p3 < p2 && y3 < y2, "made here: your program and you");
 }

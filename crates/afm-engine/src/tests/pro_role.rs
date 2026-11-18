@@ -690,13 +690,14 @@ fn a_season_sat_out_in_another_league_stands_at_the_years_end() {
     c.other.push(Row { year: y + 2, league: CFL, games: 18, starts: 17, ..Row::default() });
     role::write_all(&mut w);
     assert_eq!(w.people[i].last_role, Some(PlayingTime::Starter));
-    // An NFL season that year is newer than the CFL's.
+    // An NFL season that year is newer than the CFL's: a tenth of the
+    // snaps, a backup, over the CFL starter.
     nfl_row(&mut w, i, y + 2, 17, 0, [0, 0]);
     let c = w.people[i].pro.as_mut().unwrap();
-    c.seasons.last_mut().unwrap().snaps = [1100, 0, 0];
+    c.seasons.last_mut().unwrap().snaps = [100, 0, 0];
     role::write_all(&mut w);
-    assert_eq!(w.people[i].last_role, Some(PlayingTime::Starter));
-    assert_eq!(role::season_role(&w, i), Some(PlayingTime::Starter));
+    assert_eq!(w.people[i].last_role, Some(PlayingTime::Backup));
+    assert_eq!(role::season_role(&w, i), Some(PlayingTime::Backup));
 }
 
 #[test]
@@ -709,4 +710,84 @@ fn a_start_he_saw_is_half_the_snaps_on_his_side() {
     assert!(!games::field_start(Position::WR, &line(0, 60, 0), most), "a receiver's side is the offense");
     assert!(games::field_start(Position::LS, &line(0, 0, 8), most), "a snapper who snapped");
     assert!(!games::field_start(Position::K, &line(0, 0, 0), most));
+}
+
+/// A promise from a save before promises kept their team is this job's
+/// when you leave it, judged already or judged as you go, so Ground's
+/// word reads it as made there and not at your next program.
+#[test]
+fn a_promise_from_before_is_stamped_with_the_job_you_leave() {
+    let (mut w, club, _) = club_man(Position::LB);
+    let men: Vec<usize> = w.clubs[club].roster.iter().copied().take(2).collect();
+    let mut ks = Vec::new();
+    for &i in &men {
+        talks::promise(&mut w, PromiseTo::Player(w.people[i].player.id), PromiseKind::Start, 0);
+        let k = w.folk.promises.len() - 1;
+        w.folk.promises[k].team = None;
+        ks.push(k);
+    }
+    // One judged before you leave; one a man your club cut, judged as you go.
+    w.folk.promises[ks[0]].kept = Some(false);
+    talks::let_go(&mut w, men[1], club);
+    w.clubs[club].roster.retain(|&x| x != men[1]);
+    talks::job_left(&mut w, "left for another job");
+    for &k in &ks {
+        let p = &w.folk.promises[k];
+        assert_eq!((p.team, p.kept), (Some(Team::Nfl(club)), Some(false)), "{p:?}");
+    }
+}
+
+/// Between another league's last regular week and its seeding, a club the
+/// table puts in the field still has games, and one it leaves out is
+/// played out. In the regular season every club plays on.
+#[test]
+fn another_leagues_table_says_who_plays_on_before_the_seeding() {
+    use crate::world::pro::other::{self, CFL, Live, Row};
+    let mut w = seat("nfl");
+    let year = w.today.year();
+    let teams = other::teams_in(CFL, year);
+    let n = teams.len();
+    let table: Vec<Row> = teams
+        .iter()
+        .enumerate()
+        .map(|(k, &f)| Row { fr: f as u16, w: (n - k) as u8, l: k as u8, ..Row::default() })
+        .collect();
+    w.others.live.retain(|l| l.league != CFL);
+    w.others.live.push(Live { league: CFL, year, weeks: vec![Vec::new(); 3], week: 3, table, ..Live::default() });
+    let (best, worst) = (teams[0], teams[n - 1]);
+    assert!(other::plays_on(&w, best), "the table's best is in the field");
+    assert!(!other::plays_on(&w, worst), "its worst is out");
+    w.others.live.last_mut().unwrap().week = 2;
+    assert!(other::plays_on(&w, worst), "a regular week to play");
+}
+
+/// A high school after its last regular Friday: before its state draws
+/// the brackets, a school its results put in the field plays on and one
+/// with no season to show doesn't; once drawn, the bracket says.
+#[test]
+fn a_school_before_the_playoff_draw_plays_on_only_in_its_field() {
+    use crate::world::hs_playoffs::Bracket;
+    let mut w = seat("hs");
+    let s = (0..w.states.len()).max_by_key(|&s| w.states[s].schools.len()).unwrap();
+    let schools = w.states[s].schools.clone();
+    assert!(schools.len() >= 2, "{} schools", schools.len());
+    w.hs_season = Some(crate::world::hs_year::new_season(&w));
+    let (n, out) = (schools.len(), schools[schools.len() - 1]);
+    let hs = w.hs_season.as_mut().unwrap();
+    for (k, &h) in schools.iter().enumerate() {
+        let r = &mut hs.results[h];
+        let played = h != out;
+        r.roster = if played { 40 } else { 0 };
+        r.wins = if played { (n - k) as u32 } else { 0 };
+        r.losses = if played { k as u32 + 1 } else { 0 };
+    }
+    let best = schools[0];
+    assert!(!hs.states[s].done && !hs.states[s].rounds.is_empty());
+    assert!(w.hs_plays_on(best), "in the field its results draw");
+    assert!(!w.hs_plays_on(out), "no season, no field");
+    let hs = w.hs_season.as_mut().unwrap();
+    let rounds = hs.states[s].rounds.len();
+    hs.brackets.push(Bracket::new(s, "Drawn".into(), vec![schools[1] as u32, out as u32], rounds, false));
+    assert!(!w.hs_plays_on(best), "drawn without it");
+    assert!(w.hs_plays_on(schools[1]) || schools[1] == out, "drawn with it");
 }

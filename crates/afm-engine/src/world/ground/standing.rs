@@ -793,26 +793,43 @@ fn family_home(w: &mut World, prog: usize, fam: Who, d: Date, id: u32, last: &st
 /// (GR24): a promise kept is your word held; one broken, or an offer
 /// pulled, is a big moment he holds for years.
 ///
-/// A promise made at your program now pays it and its head coach. One made
-/// at another program you coached (`Promise::team`; judged when you left
-/// it, or a promise that you'd stay broken when you started here) pays
-/// only your own word, which goes with you (`seed` keeps it), not this
-/// program, which never gave it. One made at a job outside college
-/// football is no word to a high school coach.
+/// A promise made at your program now pays it, its head coach and you (an
+/// assistant's own word too). One made at another program you coached
+/// (`Promise::team`; judged when you left it, or a promise that you'd stay
+/// broken when you started here) pays only your own word, which goes with
+/// you (`seed` keeps it), not this program, which never gave it. One made
+/// at a job outside college football is no word to a high school coach;
+/// his family still remembers it, on your own word.
 fn word(w: &mut World, prog: usize, d: Date) {
     use crate::world::folk::Team;
     let you = Holder::Coach(w.career.as_ref().map_or(0, |c| c.coach) as u32);
+    // The program and its head coach; a promise you made here reaches your
+    // own word too (an assistant's).
     let here = vec![Holder::Program(prog as u32)].into_iter().chain(head_holder(w, prog)).collect::<Vec<_>>();
-    let mut todo: Vec<(u64, u32, bool, String, Vec<Holder>)> = Vec::new();
+    let mut yours = here.clone();
+    if !yours.contains(&you) {
+        yours.push(you);
+    }
+    /// One word owed: its key, the kid, kept or not, what it was, who
+    /// holds it, and whether his high school coach hears it.
+    struct Owed {
+        k: u64,
+        id: u32,
+        kept: bool,
+        what: String,
+        to: Vec<Holder>,
+        coach: bool,
+    }
+    let mut todo: Vec<Owed> = Vec::new();
     // A promise closed with nothing to judge (it lapsed, or closed when you
     // left the job) is no word held or broken.
     for p in w.folk.promises.iter().filter(|p| !p.quiet()) {
         if let (Some(kept), crate::world::folk::talks::PromiseTo::Player(id)) = (p.kept, p.to) {
-            let holders = match p.team {
-                None => here.clone(),
-                Some(Team::College(c)) if c == prog => here.clone(),
-                Some(Team::College(_)) => vec![you],
-                Some(_) => continue,
+            let (to, coach) = match p.team {
+                None => (yours.clone(), true),
+                Some(Team::College(c)) if c == prog => (yours.clone(), true),
+                Some(Team::College(_)) => (vec![you], true),
+                Some(_) => (vec![you], false),
             };
             let k = key(&[0x9A0B, id as u64, p.made.0 as u64, p.due.0 as u64]);
             if w.ground.done.binary_search(&k).is_err() {
@@ -824,7 +841,7 @@ fn word(w: &mut World, prog: usize, d: Date) {
                 } else {
                     "promise"
                 };
-                todo.push((k, id, kept, what.into(), holders));
+                todo.push(Owed { k, id, kept, what: what.into(), to, coach });
             }
         }
     }
@@ -832,11 +849,11 @@ fn word(w: &mut World, prog: usize, d: Date) {
         if let Some(pd) = t.pulled {
             let k = key(&[0x9B11, t.id as u64, pd.0 as u64]);
             if w.ground.done.binary_search(&k).is_err() {
-                todo.push((k, t.id, false, "pulled".into(), here.clone()));
+                todo.push(Owed { k, id: t.id, kept: false, what: "pulled".into(), to: here.clone(), coach: true });
             }
         }
     }
-    for (k, id, kept, what, hs_to) in todo {
+    for Owed { k, id, kept, what, to: hs_to, coach } in todo {
         w.ground.once(k);
         let Some(i) = crate::world::scouting::place(w, id) else { continue };
         let hs = w.people[i].hs;
@@ -864,7 +881,7 @@ fn word(w: &mut World, prog: usize, d: Date) {
                 pay_to(w, prog, to, fam, PROMISE_BROKEN, d, None, Some(("You lied to us.".into(), false, true)))
             }
         }
-        let Some(who) = people::head_coach_of(w, hs) else { continue };
+        let Some(who) = people::head_coach_of(w, hs).filter(|_| coach) else { continue };
         match (kept, what.as_str()) {
             (true, _) => pay_to(
                 w,

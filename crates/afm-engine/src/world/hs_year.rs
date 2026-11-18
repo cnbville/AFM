@@ -3080,6 +3080,23 @@ impl World {
         self.hs_season.as_ref().is_some_and(|hs| hs.brackets.iter().any(|b| b.alive(h as u32)))
     }
 
+    /// Whether a school has a playoff game still to play: alive in its
+    /// state's bracket, or, before the state draws its brackets (on its
+    /// first round's morning), in the field its results will draw
+    /// (`hs_playoffs::build`, as `seed_playoffs` draws it).
+    pub(crate) fn hs_plays_on(&self, h: usize) -> bool {
+        let Some(hs) = self.hs_season.as_ref() else { return false };
+        let Some(s) = self.high_schools.get(h).map(|x| x.state) else { return false };
+        let Some(st) = hs.states.get(s).filter(|st| !st.done) else { return false };
+        if hs.brackets.iter().any(|b| b.state as usize == s) {
+            return self.hs_alive(h);
+        }
+        let opps = super::hs_playoffs::opponents(self.high_schools.len(), &hs.played);
+        super::hs_playoffs::build(self, s, &hs.results, &hs.district, &opps, st.rounds.len())
+            .iter()
+            .any(|b| b.alive(h as u32))
+    }
+
     /// The day this year's new class joins the high school rosters.
     pub fn hs_class_day(&self) -> Option<Date> {
         self.hs_season.as_ref().map(|hs| hs.class_day)

@@ -805,20 +805,24 @@ pub(crate) fn let_go(w: &mut World, i: usize, club: usize) {
 /// them). Proposed, not confirmed.
 pub(crate) fn job_left(w: &mut World, why: &str) {
     let Some(old) = Team::seat(w) else { return };
+    // A promise from before promises kept their team was made here, judged
+    // or not: stamped first, so one judged now or before is read as this
+    // job's (Ground's word, `Promise::team`).
+    for p in w.folk.promises.iter_mut() {
+        p.team.get_or_insert(old);
+    }
     judge_settled(w, old);
-    let gone = why != "left for another job";
+    if why == "left for another job" {
+        return;
+    }
     let today = w.today;
     for k in 0..w.folk.promises.len() {
-        if w.folk.promises[k].kept.is_some() {
+        let p = &w.folk.promises[k];
+        if p.kept.is_some() {
             continue;
         }
-        let made_at = w.folk.promises[k].team.unwrap_or(old);
-        let still = gone && still_with(w, &w.folk.promises[k], made_at);
-        let p = &mut w.folk.promises[k];
-        p.team.get_or_insert(old);
-        if gone {
-            close_quietly(p, today, still);
-        }
+        let still = still_with(w, p, p.team.unwrap_or(old));
+        close_quietly(&mut w.folk.promises[k], today, still);
     }
 }
 
@@ -869,7 +873,7 @@ pub(crate) const PLAYED_OUT_DAYS: i32 = 60;
 /// Proposed, not confirmed.
 fn judge_settled(w: &mut World, old: Team) {
     let today = w.today;
-    let mine = |p: &Promise| p.kept.is_none() && p.team.is_none_or(|t| t == old);
+    let mine = |p: &Promise| p.kept.is_none() && p.team == Some(old);
     let ahead = |p: &Promise| mine(p) && super::promise::over_games(p.kind) && p.due <= today.add(PLAYED_OUT_DAYS);
     let games = if w.folk.promises.iter().any(ahead) { super::facts::team_games(w, old) } else { Vec::new() };
     let mut settled = Vec::new();
@@ -891,24 +895,24 @@ fn judge_settled(w: &mut World, old: Team) {
 /// Whether a team still has a game between today and `due`: on its
 /// schedule (`facts::team_games`), or in a playoff it is still in. A high
 /// school's and another league's playoff games aren't on those schedules:
-/// a school still in its state's bracket, or before the bracket is drawn,
-/// plays on to the rounds inside the window; a club in another league plays
-/// on while its season runs and it is alive in it (its promises fall due
-/// the week after the title game, `promise::league_end`). A college's bowl
-/// and an NFL club's playoffs come after their promises fall due.
+/// a school in its state's field (`hs_plays_on`: alive in the bracket, or
+/// in the field its results will draw) plays on to the rounds inside the
+/// window; a club in another league plays on while its regular season runs
+/// and then while it is in the playoffs (`other::plays_on`; its promises
+/// fall due the week after the title game, `promise::league_end`). A
+/// college's bowl and an NFL club's playoffs come after their promises
+/// fall due.
 fn games_left(w: &World, team: Team, games: &[(Date, Team, bool)], today: Date, due: Date) -> bool {
     let within = |d: Date| today <= d && d <= due;
     if games.iter().any(|g| within(g.0)) {
         return true;
     }
     match team {
-        Team::High(h) => w.hs_weeks(h).is_some_and(|(_, rounds, done)| {
-            !done && (w.hs_alive(h) || rounds.first().is_some_and(|&d| today < d)) && rounds.iter().any(|&d| within(d))
-        }),
-        Team::Other(f) => {
-            let k = crate::world::pro::other::league_of(f);
-            w.others.live.iter().any(|l| l.league == k && !l.done && (l.round == 0 || l.alive.contains(&(f as u16))))
+        Team::High(h) => {
+            w.hs_weeks(h).is_some_and(|(_, rounds, done)| !done && rounds.iter().any(|&d| within(d)))
+                && w.hs_plays_on(h)
         }
+        Team::Other(f) => crate::world::pro::other::plays_on(w, f),
         Team::College(_) | Team::Nfl(_) => false,
     }
 }
