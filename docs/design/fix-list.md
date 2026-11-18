@@ -24,6 +24,8 @@ The fix (proposed, not confirmed):
 - Read the real share of plays ending out of bounds from nflverse's play by play (its out-of-bounds flag), by play type and time left, and tune toward it.
 - Check after: that share, the snap-to-snap times in `match_check` and plays a game.
 
+Where it stands: partly built in build 9 and minor bugs 137, 138 and 141 (`docs/match-engine.md`, "Fix list S6.1 and S6.2"). The rest (a wide run's path to the sideline, short outs) goes into engine gaps lane EG4 with item 18, protecting a late lead (Claude's call under Cain's proxy, 2026-11-18; `docs/design/engine-gaps.md`).
+
 ## S6.3 Bonus money paid twice (the $251M contract)
 Cain: "251 m a year seems broken right ?"
 
