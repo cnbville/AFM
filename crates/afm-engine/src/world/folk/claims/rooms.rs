@@ -305,10 +305,6 @@ pub const USUAL_POINTS_PRO: f64 = 22.5;
 pub const USUAL_POINTS_COLLEGE: f64 = 28.0;
 pub const USUAL_POINTS_HIGH: f64 = 27.0;
 
-/// The games of a team's latest season on file are the ones within this many
-/// days of the last. Proposed, not confirmed.
-pub const SEASON_DAYS: i32 = 150;
-
 /// Games a unit's points need before they say anything. Proposed, not
 /// confirmed.
 pub const UNIT_GAMES: usize = 3;
@@ -350,7 +346,8 @@ pub enum Form {
 pub struct Unit {
     pub coach: usize,
     pub role: Role,
-    /// Seasons with you, counting this one.
+    /// Seasons he has coached here: the one under way once it has a game,
+    /// 0 for a man hired after the last one.
     pub years: i32,
     /// The team's record while he has held the job.
     pub wins: u32,
@@ -364,28 +361,18 @@ pub struct Unit {
     pub form: Option<Form>,
 }
 
-/// The games of your team's latest season on file: the ones within 150
-/// days of the last.
-fn latest_games(w: &World) -> Vec<&SeatGame> {
-    let Some(last) = w.seat_games.last().map(|g| g.date) else { return Vec::new() };
-    w.seat_games.iter().filter(|g| g.date.days_to(last) <= SEASON_DAYS && g.date <= last).collect()
-}
-
-/// Points a game your side scored and gave up in the games on file.
-fn points_of(w: &World) -> Option<(f64, f64, u32)> {
-    let (_, me) = w.seat_team()?;
-    let games = latest_games(w);
-    if games.len() < UNIT_GAMES {
+/// Points a game his side scored and gave up in his team's latest season
+/// on file, and how many games that is, read from the world's season
+/// tallies (`persona::review::season_of`): a season played before you took
+/// the job counts (Cain 2026-11-17: a holdover coordinator knew nothing of
+/// the 2-10 year before you). Only a season he coached is his.
+fn points_of(w: &World, team: Team, first: i32) -> Option<(f64, f64, u32)> {
+    let (season, s) = crate::world::folk::persona::review::season_of(w, team)?;
+    if first > season || (s.games as usize) < UNIT_GAMES {
         return None;
     }
-    let (mut f, mut a) = (0.0, 0.0);
-    for g in &games {
-        let side = if g.teams[0] == me { 0 } else { 1 };
-        f += g.stats.score[side] as f64;
-        a += g.stats.score[1 - side] as f64;
-    }
-    let n = games.len() as f64;
-    Some((f / n, a / n, games.len() as u32))
+    let n = s.games as f64;
+    Some((s.points_for as f64 / n, s.points_against as f64 / n, s.games))
 }
 
 /// A coach on your staff, as the building sees him.
@@ -393,7 +380,8 @@ pub fn unit(w: &World, c: usize) -> Option<Unit> {
     let co = w.coaches.get(c)?;
     let job = co.job?;
     let team = Team::from_employer(job.employer);
-    let (for_, against, n) = points_of(w).map_or((None, None, 0), |(f, a, n)| (Some(f), Some(a), n));
+    let (for_, against, n) =
+        points_of(w, team, job.first_season()).map_or((None, None, 0), |(f, a, n)| (Some(f), Some(a), n));
     let usual = usual_points(team);
     let by_points = |scored: bool| -> (Option<(f64, u32)>, Option<Form>) {
         let p = if scored { for_ } else { against };
@@ -430,7 +418,11 @@ pub fn unit(w: &World, c: usize) -> Option<Unit> {
         _ => (None, None),
     };
     let (wins, losses) = record_since(w, team, job.first_season());
-    Some(Unit { coach: c, role: job.role, years: (w.year - job.first_season() + 1).max(1), wins, losses, points, form })
+    // The seasons he has coached here: none for a man hired after the
+    // last one (it read "one season", and he owned a year he never coached).
+    let latest = crate::world::folk::persona::review::latest_played(w, team);
+    let years = (latest - job.first_season() + 1).max(0);
+    Some(Unit { coach: c, role: job.role, years, wins, losses, points, form })
 }
 
 /// The team's record since a season began: its finished seasons from then

@@ -57,6 +57,11 @@ pub struct SeasonContext {
     /// Section 6 topic 10: the medical staff, -1 to 1: how fast he comes
     /// back from a minor or moderate injury (up to 15%).
     pub medical: f64,
+    /// His dietitians' work over the level's typical department, in rating
+    /// points (support departments, question 4; 0 none or typical): the
+    /// weight room's pace toward his weight, never a ceiling.
+    #[serde(default)]
+    pub diet: f64,
     /// Section 6b topic 5: his plan's main focus, set by you. The focus
     /// grows faster the more minutes he spends on it, his position's other
     /// key skills pay a quarter of the gain, and a veteran's decline in it
@@ -229,6 +234,7 @@ impl SeasonContext {
             morale: 0.0,
             physical: 0.0,
             medical: 0.0,
+            diet: 0.0,
             focus: None,
             focus2: None,
             seat_plan: false,
@@ -1632,7 +1638,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // school, from 15 to 25).
     if (15.0..=25.0).contains(&age) && !position.is_specialist() {
         let room = weight_room_room(position, player.original_potential, player.body.frame_weight);
-        let pace = weight_room_pace(hs, personality.work_ethic, ctx.physical);
+        // The dietitians move the plan faster (support departments, Q4).
+        let pace =
+            weight_room_pace(hs, personality.work_ethic, ctx.physical) * crate::world::departments::diet_pace(ctx.diet);
         // A body project's pounds sit past this room (design item 2), so
         // they never count against it.
         let gap = room + player.prog.body_lbs as f64 - player.body.weight;

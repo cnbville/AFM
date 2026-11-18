@@ -678,16 +678,12 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     let hurt_seed = w.options.seed ^ d.0 as u32 ^ 0x1A7E;
     // Each program's strength staff guard on muscle strains and backs
     // (minor bug 303), against its division's typical head.
-    let typical: Vec<f64> = (0..crate::world::data::DIVISION_COUNT)
+    // With the sports scientists' (support departments, question 5).
+    let guards: Vec<f64> = (0..w.programs.len())
         .map(|k| {
-            let d = w.programs.iter().find(|g| g.division as usize == k).map(|g| g.division);
-            d.map_or(10.0, |d| crate::world::season::typical_strength(w, d))
+            let lab = w.programs[k].campus.level(crate::world::capital::rooms::Room::SportsScience);
+            crate::world::departments::game_guard(w, crate::world::people::Who::Prog(k), lab)
         })
-        .collect();
-    let guards: Vec<f64> = w
-        .programs
-        .iter()
-        .map(|g| crate::game::sim::strength_guard(crate::world::season::strength_head(g), typical[g.division as usize]))
         .collect();
     let others_hurt = &w.training.others_hurt;
     let new_hurt: Vec<(crate::calendar::Moment, u32, Date, crate::game::sim::InjuryKind)> = w
