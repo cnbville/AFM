@@ -457,17 +457,40 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
     let draw = super::key(w, 0x7015 ^ kind as u64, w.people[i].player.id as u64 ^ (d.0 as u64) << 32);
     let ahead: Vec<String> = race.iter().take(k.min(2)).map(|r| w.program_name(r.0).to_string()).collect();
     match kind {
-        VisitKind::Official if k < 4 || (k < 6 && draw < 0.3) => {
-            Ok(format!("{name} accepted: he'll be on campus on {}.", d.pretty()))
-        }
+        VisitKind::Official if k < 4 || (k < 6 && draw < 0.3) => Ok(yes_words(&name, kind, d)),
         VisitKind::Official => Err(format!("{name} said no: he's saving his trips for {}.", ahead.join(" and "))),
-        _ if k < 6 || draw < 0.2 => Ok(format!("{name} will see you at home on {}.", d.pretty())),
+        _ if k < 6 || draw < 0.2 => Ok(yes_words(&name, kind, d)),
         _ => Err(format!("{name} thanked you, but he's down to {}.", ahead.join(" and "))),
     }
 }
 
-/// Sets a visit, if the rules allow it and he says yes.
-pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+/// His yes to a visit, in the desk's words.
+fn yes_words(name: &str, kind: VisitKind, d: Date) -> String {
+    match kind {
+        VisitKind::Official => format!("{name} accepted: he'll be on campus on {}.", d.pretty()),
+        _ => format!("{name} will see you at home on {}.", d.pretty()),
+    }
+}
+
+/// What he'd answer if you asked him to a visit on `d` now, without
+/// setting it (`set_visit`'s rules and answer). A talk asks this when you
+/// invite him, so his words and the desk agree.
+pub fn visit_reply(w: &World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    let (i, j) = visit_check(w, id, kind, d)?;
+    answer(w, i, j, kind, d)
+}
+
+/// Sets a visit he already said yes to in a talk: the rules checked again,
+/// his word kept rather than asked again.
+pub fn take_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    let (i, j) = visit_check(w, id, kind, d)?;
+    let name = first(w, i);
+    record_visit(w, id, i, j, kind, d, Ok(yes_words(&name, kind, d)))
+}
+
+/// The rules of a visit you'd set with a transfer: (his index, your
+/// program).
+fn visit_check(w: &World, id: u32, kind: VisitKind, d: Date) -> Result<(usize, usize), String> {
     let j = program(w).ok_or("You have no college job.")?;
     let i = index_of(w, id).ok_or("No such player.")?;
     if let Some(why) = visit_rule(w, i, kind, d) {
@@ -486,7 +509,26 @@ pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<Str
     if t.visits.iter().any(|v| v.date == d && v.state == VisitState::Set) {
         return Err(format!("You see him on {} already.", d.pretty()));
     }
+    Ok((i, j))
+}
+
+/// Sets a visit, if the rules allow it and he says yes.
+pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    let (i, j) = visit_check(w, id, kind, d)?;
     let reply = answer(w, i, j, kind, d);
+    record_visit(w, id, i, j, kind, d, reply)
+}
+
+/// A visit's answer on his file: set or declined, with its note.
+fn record_visit(
+    w: &mut World,
+    id: u32,
+    i: usize,
+    j: usize,
+    kind: VisitKind,
+    d: Date,
+    reply: Result<String, String>,
+) -> Result<String, String> {
     let (state, text) = match &reply {
         Ok(t) => (VisitState::Set, t.clone()),
         Err(t) => (VisitState::Declined, t.clone()),

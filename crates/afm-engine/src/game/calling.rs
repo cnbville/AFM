@@ -23,6 +23,10 @@ pub struct Film {
     pub look: Vec<[f32; 2]>,
     /// Pass concepts and run concepts called.
     pub concepts: Vec<f32>,
+    /// How many of each pass concept's throws came off a run fake (minor
+    /// bug 412): they count as play action in the film's families.
+    #[serde(default = "no_fakes")]
+    pub faked: Vec<f32>,
     pub runs: [f32; RUN_CONCEPTS.len()],
     /// Coverages, blitzes and fronts shown.
     pub cov: [f32; COVERAGE_COUNT],
@@ -32,6 +36,10 @@ pub struct Film {
     pub by_down: [[f32; 2]; 4],
 }
 
+fn no_fakes() -> Vec<f32> {
+    vec![0.0; PASS_CONCEPTS.len()]
+}
+
 impl Default for Film {
     fn default() -> Film {
         Film {
@@ -39,6 +47,7 @@ impl Default for Film {
             def_snaps: 0.0,
             look: vec![[0.0; 2]; LOOK_COUNT],
             concepts: vec![0.0; PASS_CONCEPTS.len()],
+            faked: no_fakes(),
             runs: [0.0; RUN_CONCEPTS.len()],
             cov: [0.0; COVERAGE_COUNT],
             blitz: 0.0,
@@ -57,6 +66,9 @@ impl Film {
             a[1] += b[1];
         }
         for (a, b) in self.concepts.iter_mut().zip(&o.concepts) {
+            *a += b;
+        }
+        for (a, b) in self.faked.iter_mut().zip(&o.faked) {
             *a += b;
         }
         for (a, b) in self.runs.iter_mut().zip(&o.runs) {
@@ -81,6 +93,7 @@ impl Film {
         self.def_snaps *= k;
         self.look.iter_mut().flatten().for_each(|x| *x *= k);
         self.concepts.iter_mut().for_each(|x| *x *= k);
+        self.faked.iter_mut().for_each(|x| *x *= k);
         self.runs.iter_mut().for_each(|x| *x *= k);
         self.cov.iter_mut().for_each(|x| *x *= k);
         self.fronts.iter_mut().for_each(|x| *x *= k);
@@ -92,7 +105,13 @@ impl Film {
     pub fn families(&self) -> [f64; FAMILY_COUNT] {
         let mut f = [0.0; FAMILY_COUNT];
         for (i, &n) in self.concepts.iter().enumerate() {
-            f[pass_family(pass_concept(i)) as usize] += n as f64;
+            let fam = pass_family(pass_concept(i));
+            // A throw off a run fake is play action, not its concept's
+            // family (minor bug 412); a screen stays a screen.
+            let faked = self.faked.get(i).map_or(0.0, |&x| x as f64).min(n as f64);
+            let faked = if faked > 0.0 && faked_family(pass_concept(i), true) != fam { faked } else { 0.0 };
+            f[Family::PlayAction as usize] += faked;
+            f[fam as usize] += n as f64 - faked;
         }
         for (i, &n) in self.runs.iter().enumerate() {
             f[RUN_CONCEPTS[i].family() as usize] += n as f64;
@@ -117,7 +136,13 @@ impl Film {
         self.look[call.formation.look()][pass as usize] += 1.0;
         match call.kind {
             PlayKind::Pass(i) => {
-                if let Some(x) = self.concepts.get_mut(film_concept(i)) {
+                let c = film_concept(i);
+                if let Some(x) = self.concepts.get_mut(c) {
+                    *x += 1.0;
+                }
+                if call.fake
+                    && let Some(x) = self.faked.get_mut(c)
+                {
                     *x += 1.0;
                 }
             }
@@ -639,6 +664,17 @@ fn trust(skill: f64) -> f64 {
     TRUST * x * x
 }
 
+/// A straight drop's share under center, of the system's own under-center
+/// lean, how far the caller's tell moves it for each point it is off the
+/// typical caller's, and the hurry-up's share of it (proposed, not
+/// confirmed: 5.9% of the test league's straight drops, a league with more
+/// under-center systems than the world's, 4.5% on the world's mix; real
+/// 4.0% of straight drops and 18.7% of screens, 5.6% together, FTN 2022-25).
+const DROP_UC_SHARE: f64 = 0.08;
+const DROP_UC_TELL: f64 = 4.0;
+const TELL_TYPICAL: f64 = 0.2;
+const DROP_UC_HURRY: f64 = 0.25;
+
 /// The offensive call.
 pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, rng: &mut Rng) -> OffCall {
     call_offense_memo(staff, mem, sit, ctx, rng, None)
@@ -732,8 +768,10 @@ pub fn call_offense_memo(
     // (nflverse with FTN charting).
     let personnel = weigh(rng, Groups::of(scheme, short, hurry, drop, tell, ctx, want).all());
     let gun = rng.chance(gun_chance(scheme, ctx, drop, tell, hurry));
-    // As `backfield_chance` reads it back.
-    let backfield = if matches!(personnel, Personnel::P21 | Personnel::P22) && !hurry {
+    // As `backfield_chance` reads it back. A two-back package goes under
+    // center on a run or a fake; on a straight drop it lines up in the gun
+    // as the draw above says (minor bug 411).
+    let backfield = if matches!(personnel, Personnel::P21 | Personnel::P22) && !hurry && !drop {
         Backfield::UnderCenter
     } else if gun {
         if matches!(scheme, OffScheme::WideZone | OffScheme::SpreadOption) && rng.chance(0.2) {
@@ -857,8 +895,11 @@ fn wanted(staff: &Staff, ctx: &OffCtx) -> Option<(Personnel, f64)> {
 }
 
 /// His chance of lining up in the gun or the pistol from it: the scheme's
-/// lean, more below the NFL and in the hurry-up, a straight drop leaned to
-/// it and a run or a fake away from it by his tell.
+/// lean, more below the NFL and in the hurry-up; a run or a fake away from
+/// it by his tell. A straight drop is nearly always from the gun whatever
+/// the system (minor bug 411; real NFL 2022-25: 4% under center for drops,
+/// 58% for runs and play action): the system's share of snaps under
+/// center, a tenth of it, led by the caller's tell.
 fn gun_chance(scheme: OffScheme, ctx: &OffCtx, drop: bool, tell: f64, hurry: bool) -> f64 {
     let lean = match scheme {
         OffScheme::AirRaid | OffScheme::SpreadOption => 0.92,
@@ -868,15 +909,22 @@ fn gun_chance(scheme: OffScheme, ctx: &OffCtx, drop: bool, tell: f64, hurry: boo
         OffScheme::WingT => 0.05,
     } + if ctx.level == Level::NFL { 0.0 } else { 0.08 }
         + ctx.lean.gun;
-    clamp(lean + if drop { tell } else { -tell } + if hurry { 0.3 } else { 0.0 }, 0.0, 0.98)
+    if drop {
+        let uc = DROP_UC_SHARE
+            * (1.0 - lean)
+            * clamp(1.0 + DROP_UC_TELL * (TELL_TYPICAL - tell), 0.3, 1.8)
+            * if hurry { DROP_UC_HURRY } else { 1.0 };
+        return 1.0 - clamp(uc, 0.0, 0.6);
+    }
+    clamp(lean - tell + if hurry { 0.3 } else { 0.0 }, 0.0, 0.98)
 }
 
 /// The chance of the backfield the call draws (`call_offense_memo`) when
 /// he leans to the gun with chance `gun`: 21 and 22 under center but in the
-/// hurry-up, a fifth of the gun's snaps from the pistol in the wide-zone
+/// hurry-up and on a straight drop (`drop`), a fifth of the gun's snaps from the pistol in the wide-zone
 /// and spread-option schemes, and three in ten of wide zone's other snaps.
-fn backfield_chance(scheme: OffScheme, p: Personnel, hurry: bool, gun: f64, b: Backfield) -> f64 {
-    if matches!(p, Personnel::P21 | Personnel::P22) && !hurry {
+fn backfield_chance(scheme: OffScheme, p: Personnel, hurry: bool, drop: bool, gun: f64, b: Backfield) -> f64 {
+    if matches!(p, Personnel::P21 | Personnel::P22) && !hurry && !drop {
         return if b == Backfield::UnderCenter { 1.0 } else { 0.0 };
     }
     let gun_pistol = if matches!(scheme, OffScheme::WideZone | OffScheme::SpreadOption) { 0.2 } else { 0.0 };
@@ -928,7 +976,7 @@ pub fn sheet_fake_chance(
     let like = |drop: bool| {
         let group = share(Groups::of(scheme, short, hurry, drop, tell, ctx, want).all(), f.personnel);
         let back =
-            backfield_chance(scheme, f.personnel, hurry, gun_chance(scheme, ctx, drop, tell, hurry), f.backfield);
+            backfield_chance(scheme, f.personnel, hurry, drop, gun_chance(scheme, ctx, drop, tell, hurry), f.backfield);
         let empty = if drop { 1.0 / (1.0 - p_fake).max(0.1) } else { 1.0 };
         let sets = set_weights(scheme, f.personnel, drop, short, staff.year, empty);
         let total: f64 = sets.iter().map(|x| x.1).sum();
@@ -1861,8 +1909,29 @@ fn values() -> &'static Values {
         // caller weighs what the fake adds to each concept (a deep cross
         // gains from linebackers who bit, a quick slant loses the time the
         // fake took) as well as what it adds against the look.
-        let fake_gain = fake.iter().zip(&pass).map(|(f, v)| mean(f) - mean(v)).collect();
-        let fake = fake.iter().zip(&pass).map(|(f, v)| f.map(|x| x - (mean(v) - all))).collect();
+        //
+        // The play-action concepts fake on every snap and have no straight
+        // row, so their own level used to go out with it, and each weighed
+        // like any other concept (minor bug 410): the boot, the shot and the
+        // dig were about 2% of play action each, and the boot gained more
+        // than play action as a whole. Their straight row is the other
+        // straight concepts of their depth, the weights' own yardstick.
+        let straight = |p: &PassConcept| {
+            let same: Vec<f64> = PASS_CONCEPTS
+                .iter()
+                .zip(&pass)
+                .filter(|(q, _)| takes_fake(q) && q.depth == p.depth)
+                .map(|(_, v)| mean(v))
+                .collect();
+            same.iter().sum::<f64>() / same.len().max(1) as f64
+        };
+        let base: Vec<f64> = PASS_CONCEPTS
+            .iter()
+            .zip(&pass)
+            .map(|(p, v)| if p.play_action && !is_rpo_half(p) { straight(p) } else { mean(v) })
+            .collect();
+        let fake_gain = fake.iter().zip(&base).map(|(f, b)| mean(f) - b).collect();
+        let fake = fake.iter().zip(&base).map(|(f, b)| f.map(|x| x - (b - all))).collect();
         let pass: Vec<[f64; LOOK_COLS]> = pass.iter().map(|v| v.map(|x| x - (mean(v) - all))).collect();
         let run = RUN_CONCEPTS
             .iter()

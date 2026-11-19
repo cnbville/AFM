@@ -326,7 +326,10 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         };
         let mut t = conv.turn(w, &room, &conv.said.reading);
         // A negotiation's own answer, claim and asks (lane N5b).
-        let notes = negotiate::said(w, played.facet, &mut t);
+        let mut notes = negotiate::said(w, played.facet, &mut t);
+        // The game's own staff notes under his line (a firm recruit: what
+        // might unsettle him).
+        notes.extend(t.notes.iter().cloned());
         let heard = cards::heard(w, &room, &t);
         let mut vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
         if is_group {

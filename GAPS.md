@@ -4,6 +4,8 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 
 ## Engine
 
+- **Screens line up under center too often, and play action throws too deep** (low-medium). Screens are drawn after the look: 24.0% under center on the NFL test league (real 18.7%), where a drop from the gun is now at real. Play action's air yards an attempt are 12.5 (real 9.2) and 5.7% of its throws are behind the line (real 14.8%), with the boot still below its real share. Minor bugs 410 and 411, 2026-11-18; the screens belong in `calling.rs`, `concept_weights` (a screen from under center weighs more).
+- **Straight drops from the gun expose the pass rush** (medium). With drops lined up as real, NFL sacks are 1.43 a team game (real 2.41) and points 26.1; the pass rush is lane SF8's.
 - **The engine's instructions read a freelance trust, not his trust in the coach** (medium). `GamePlayer.trust` is 0.5 for every player the world sends to a game, so `tendencies::obey_chance` never sees how much he believes his own coach; only the new bond part (`GamePlayer.bond`, `obey_trust`) reaches it. The built `Person::trust` could feed it directly. Found 2026-11-17 (thread "Build coach and player bonds").
 - **The press ranks only finished rooms** (low). `race::press_score` reads `Campus.level` and `since`, so a building that has broken ground adds nothing until it opens, and the Pecking order screen can't say "read as 10th since the groundbreaking" as board 5 draws it. Recruits' groundbreaking pull (facilities lane #281) is separate. Found 2026-11-17 (thread "Build Capital screen CS5"); needs Cain's call on whether a building under way counts for the press.
 - **14-year-olds' tendency centres have drifted** (medium). `CENTER_14` in `tendencies.rs` no longer centres the national class: on 20,000 fixed ids upfield averages 11.12, returner risk 11.04, downhill 11.05, bounce 10.74 and patience 10.01 against the middle 10.5 (the class's patience lean reads vision minus acceleration, speed leans moved with the athlete-first build). A recentre of those five shifts every new player's starting habits, so it is a result change: proposed, not confirmed. Remeasure with `tendency_check nfl 2 1 centers14`. The test `fourteen_year_olds_spread_wide_around_the_middle` runs on fixed ids and a 0.8 band until then. Other tests built on `tests::prospects` still take ids from the global counter (`player.rs` `NEXT_ID`); none reads tendencies today.
@@ -53,6 +55,7 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **Fourth-down sums mostly use the NFL's numbers** (low-medium). The expected points and the go habit are the level's, but the conversion chance reads yards to go only, a punt is always 41 net and a miss goes at the NFL's spot at every level (`fourth_down`, `fourth_ev`). Item 20.
 - **AI staffs never fake a kick** (low). Real 0.036 fake punts a team game; no fake field goal exists. Item 21.
 - **No untimed down or 10-second runoff** (low). Item 22.
+- **A player back from a first-half sit does not win his job back** (low). When another man at his spot is hurt in the first half, the next man takes the job and the sitter, the better player, plays about one snap in the second half (coach fire item 4; found 2026-11-19 on seed 5 of `tests::coach_fire`, which now reads eight games). The lineup should be named again at halftime.
 
 ## Logic
 
@@ -104,7 +107,13 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 
 - **A season's tape barely moves a college price** (medium). NG1's season read adds 0.3 x his tape, but the tape is shrunk for credibility as growth shrinks it, so on seed 1's 2026 season 90% of players move less than 0.13 points (under half a percent of price) and only 16 of 47,659 move more than half a point. A season of interceptions still costs little in the portal. A stronger read (less shrink for the market than for growth, or the stat line itself) needs Cain's call. Found 2026-11-18 (thread "Make negotiation respond to arguments").
 
+- **The ear read a promise about an alum's visit as an official visit invite** (high). "I'll make sure Christian Shipman Jr. comes for a visit in July so he can work with you" came back as `Act::Invite(Visit)`, so the recruit answered an official visit nobody offered (Cain 2026-11-18). For the ear fix thread. Thread "Make recruits' words match their visit choice".
+- **"I'll show you the film" on a call gets "I can't show you that from here"** (medium). The ear reads an offer to show film later as a show-now act, and the call's channel refuses it, though the coach meant sending it. For the ear fix thread. Same thread.
+- **"He gives you nothing either way" under a warm reply** (medium). The read under his line comes from the line's hits (`hits::tell`), not the words the voice gave him, so a warm "that's exactly what I'm looking for" can carry a flat read. For the ear fix thread. Same thread.
+- **A visit asked in the same line as a point is answered before the point lands** (low). `recruit::turn` reads his answer before `apply` lands the line's point on your case, so "great fit for you, come visit" answers on the case as it stood. Make the point, then ask. Same thread.
+
 ## UI
 
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
 - **No pecking order for high school or NFL seats** (medium). The tab row reads "Your seat" for them (CS6), but nothing ranks a district's or an owner's rooms. Same thread.
+- **A firm commit shows only when you ask him to visit** (medium). Your board and his page don't say whether a recruit committed elsewhere would hear you out, so you learn he's firm only from a no (the staff's read then says what might unsettle him). Same thread.
