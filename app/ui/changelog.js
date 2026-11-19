@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.650", date: "19 Nov", title: "Fix minor engine bugs 409-412: the play action leftovers and 7 more",
+    notes: [
+      "Promising a player he'll be a captain now means something. Keep your word when the team votes, or pay for it.",
+      "\"You'll be a captain\" in a talk is now a real promise that shows on your promise list.",
+      "It's judged when your team names its captains at camp.",
+      "If the vote leaves him out, you name him anyway, and the locker room notices who he jumped.",
+      "Your player believes it more when he's already one of the room's leaders.",
+      "The game now needs about a gigabyte less memory in season, so clicks wait less on a Mac with 8 GB.",
+    ],
+  },
+  {
     v: "0.2.638", date: "19 Nov", title: "A rotating defensive line and real weather",
     notes: [
       "Defensive tackles now rotate like a real NFL line, and rain and strong wind hurt the passing game as much as they really do.",

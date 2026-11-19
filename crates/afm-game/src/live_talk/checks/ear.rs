@@ -221,6 +221,7 @@ impl EarSet {
             items: tags(&self.card.items),
             measures: Vec::new(),
             on_table: self.card.on_table.clone(),
+            settled: Vec::new(),
             so_far: so_far.iter().map(|s| Spoken { who: s.who.clone(), text: s.text.clone() }).collect(),
             line: quoted(&line.text),
         }
