@@ -229,7 +229,11 @@ fn signees(w: &World) {
     for g in ["P4", "G5", "FCS"] {
         let mut v: Vec<f64> = per.iter().filter(|(j, _)| level(w, **j) == Some(g)).map(|(_, c)| c.1 as f64).collect();
         let class: usize = per.iter().filter(|(j, _)| level(w, **j) == Some(g)).map(|(_, c)| c.0).sum();
-        println!("  {g}: paid signees a program {} (of {:.1} signed)", spread_n(&mut v), class as f64 / v.len().max(1) as f64);
+        println!(
+            "  {g}: paid signees a program {} (of {:.1} signed)",
+            spread_n(&mut v),
+            class as f64 / v.len().max(1) as f64
+        );
     }
     for g in ["P4", "G5", "FCS"] {
         for stars in (2..=5).rev() {

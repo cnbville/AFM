@@ -6365,6 +6365,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         .zip(plans.par_iter())
         .map(|((prog, signed), plan)| PaidLine::read(prog, &w.people, signed, sign_year, bars, read, plan, today, 0))
         .collect();
+    // What his place in the set pays: None outside it, else the floor of
+    // any offer (`PaidLine::pays`).
+    let paid_floor = |j: usize, k: usize| -> Option<f64> {
+        let p = &w.people[pool[k].person];
+        let pos = p.player.position;
+        let ahead = room0.ahead(j, pool[k].person, pos, p.player.overall() + 6.0);
+        lines[j].pays(first_place(ahead, pos), p.player.overall(), pos)
+    };
     let bid_top = |j: usize, k: usize| -> f64 {
         let prog = &programs[j];
         if prog.collective.budget <= 0.0 {
@@ -6372,18 +6380,19 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         }
         let p = &w.people[pool[k].person];
         let pos = p.player.position;
+        let Some(floor) = paid_floor(j, k) else {
+            return 0.0;
+        };
         let me = p.player.overall() + 6.0;
         let ahead = room0.ahead(j, pool[k].person, pos, me);
-        if !lines[j].takes(first_place(ahead, pos), p.player.overall()) {
-            return 0.0;
-        }
         let chance = super::nil_bid::play_chance(ahead, crate::game::roster::starters(pos));
         // Your collective's split puts more or less into the class (L9).
         // His stars read at its money level (`nil_bid::star_at`).
         let talent = super::nil_bid::star_at(w, super::nil_bid::level(prog), recruiting_stars(p));
-        super::nil_bid::top_bid(prog.collective.budget, pos, talent * chance)
+        (super::nil_bid::top_bid(prog.collective.budget, pos, talent * chance)
             * super::legacy::college::split_q(w, j, 2)
-            * rich(j)
+            * rich(j))
+        .max(floor)
     };
     // The top bids on each recruit, the field each school prices against.
     let bids: Vec<TopTwo> = targets
@@ -6443,7 +6452,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         let gross = if (buying[j] && rank < 0.3 && recruiting_stars(p) >= 4) || hunted(j, k) {
             top
         } else {
-            super::nil_bid::price(top, bids[k].other(j))
+            // Never under what his place in its July paid set pays.
+            super::nil_bid::price(top, bids[k].other(j)).max(paid_floor(j, k).unwrap_or(0.0))
         };
         (weigh(j, k, gross), gross)
     };
@@ -10803,8 +10813,10 @@ pub(crate) struct PaidLine {
     /// Places in the set.
     places: f64,
     /// Each man expected in July's order: (place, overall, the chance he
-    /// is there), best first.
-    keys: Vec<(f64, f64, f64)>,
+    /// is there, his revenue-share weight), best first.
+    keys: Vec<(f64, f64, f64, f64)>,
+    /// The school's revenue share next July (`ncaa::school_pot`).
+    pot: f64,
     /// Deal holders on top of `keys` (your desk's read of the signees).
     deals: f64,
     gate: bool,
@@ -10835,42 +10847,68 @@ impl PaidLine {
             let back = 1.0 - gone(p, prog.division, sign_year, bars, read).0;
             july += back;
             if !p.walk_on && back > 0.0 {
-                keys.push((split_place(p, year), p.player.overall(), back));
+                keys.push((split_place(p, year), p.player.overall(), back, share_value(p)));
             }
         }
         for &i in signed {
             let p = &people[i];
             july += 1.0;
             if !p.cal.signed.is_some_and(|s| s.walk_on) {
-                keys.push((split_place(p, year), p.player.overall(), 1.0));
+                keys.push((split_place(p, year), p.player.overall(), 1.0, share_value(p)));
             }
         }
         july += (plan.slots + plan.walk_on_room) as f64;
         keys.sort_by(|a, b| b.0.total_cmp(&a.0).then(b.1.total_cmp(&a.1)));
         let frac = if super::nil_bid::level(prog) == 0 { NIL_PAID_P4 } else { NIL_PAID_OTHER };
-        PaidLine { places: (frac * july).round(), keys, deals: deals as f64, gate }
+        let pot = super::ncaa::school_pot(prog, Date::ymd(sign_year, 7, 1));
+        PaidLine { places: (frac * july).round(), keys, deals: deals as f64, gate, pot }
     }
 
-    /// Whether a recruit in July's order at `place` and `overall` is in the
-    /// set: fewer men ahead of him than it has places.
-    fn takes(&self, place: f64, overall: f64) -> bool {
+    /// What the school will pay a recruit in July's order at `place` and
+    /// `overall` (his first role's place, `first_place`) at `pos`: None
+    /// when he is outside the set (fewer men ahead of him than it has
+    /// places, or no place), else his place's revenue share, the floor of
+    /// what it offers him (Cain 2026-11-19): the school's July revenue
+    /// share × his role's weight over the set's (the men in it with him,
+    /// as `roster_split` spreads it; the signees' deals and the class's
+    /// places still open at an arrival's weight).
+    fn pays(&self, place: f64, overall: f64, pos: Position) -> Option<f64> {
         if !self.gate {
-            return true;
+            return Some(0.0);
         }
-        let ahead: f64 = self.keys.iter().take_while(|k| k.0 > place || (k.0 == place && k.1 > overall)).map(|k| k.2).sum();
-        self.deals + ahead + 1.0 <= self.places
+        let ahead: f64 =
+            self.keys.iter().take_while(|k| k.0 > place || (k.0 == place && k.1 > overall)).map(|k| k.2).sum();
+        if self.deals + ahead + 1.0 > self.places {
+            return None;
+        }
+        let mine = place * share_weight(Some(PlayingTime::Starter), pos);
+        // The others in the set: the best `places - 1` men by July's order,
+        // and the places left after the men it expects back go to the rest
+        // of the class, each at an arrival's weight.
+        let mut left = self.places - 1.0 - self.deals;
+        let mut others = self.deals * share_weight(None, pos);
+        for k in &self.keys {
+            if left <= 0.0 {
+                break;
+            }
+            let n = k.2.min(left);
+            others += n * k.3;
+            left -= n;
+        }
+        others += left.max(0.0) * share_weight(None, pos);
+        Some(self.pot * mine / (mine + others).max(1e-9))
     }
 }
 
-/// Whether program `j`'s July split would pay recruit `i` (`PaidLine`),
+/// What program `j`'s July split would pay recruit `i` (`PaidLine::pays`),
 /// read today: its roster and plan as `class_outlook` reads them, and its
 /// signees' deals as the last signing stage left them
 /// (`NilBook::signed_paid`).
 /// `ahead` is `ahead_of_recruit`'s count.
-fn pays_recruit(w: &World, j: usize, i: usize, ahead: usize) -> bool {
+fn pays_recruit(w: &World, j: usize, i: usize, ahead: usize) -> Option<f64> {
     let sign_year = next_class(w);
     if !super::ncaa::two_pots(Date::ymd(sign_year, 7, 1)) {
-        return true;
+        return Some(0.0);
     }
     let prog = &w.programs[j];
     let read = RosterRead::new(w, stage_now(w, sign_year), sign_year);
@@ -10878,7 +10916,7 @@ fn pays_recruit(w: &World, j: usize, i: usize, ahead: usize) -> bool {
     let deals = w.nil_book.signed_paid.get(j).copied().unwrap_or(0) as usize;
     let line = PaidLine::read(prog, &w.people, &[], sign_year, w.draft_bars, read, &plan, w.today, deals);
     let p = &w.people[i];
-    line.takes(first_place(ahead, p.player.position), p.player.overall())
+    line.pays(first_place(ahead, p.player.position), p.player.overall(), p.player.position)
 }
 
 // --- Reads for your desk (lane 10) ---------------------------------------------------------
@@ -10902,9 +10940,11 @@ pub(crate) fn usual_nil_parts(w: &World, j: usize, i: usize) -> (f64, f64) {
     }
     // What wins him (the new NIL scheme, item 5): this school's top bid
     // priced against the best of the other schools that offered him.
-    let top = recruit_top(w, j, i);
+    // Never under what his place in its July paid set pays (Cain
+    // 2026-11-19).
+    let (top, floor) = recruit_bid(w, j, i);
     let rival = p.cal.offers.iter().filter(|&&k| k != j).map(|&k| recruit_top(w, k, i)).fold(0.0, f64::max);
-    let money = super::nil_bid::price(top, rival);
+    let money = super::nil_bid::price(top, rival).max(floor);
     pots(prog, w.today, money, go_top_recruit(w, j, p), nil_go_free(w) == Some(j))
 }
 
@@ -10912,17 +10952,29 @@ pub(crate) fn usual_nil_parts(w: &World, j: usize, i: usize) -> (f64, f64) {
 /// 8): its whole NIL budget × his spot's share × his stars × the chance he
 /// plays in his first two years there, read from its roster today (the
 /// signing stage reads the same from its live room).
+/// Nothing when its July paid set would not take him (`PaidLine`, Cain
+/// 2026-11-19), and never under what his place there pays.
 pub(crate) fn recruit_top(w: &World, j: usize, i: usize) -> f64 {
+    recruit_bid(w, j, i).0
+}
+
+/// [`recruit_top`] and the floor under any offer: (top, floor).
+fn recruit_bid(w: &World, j: usize, i: usize) -> (f64, f64) {
     let prog = &w.programs[j];
     let p = &w.people[i];
     let pos = p.player.position;
     let ahead = ahead_of_recruit(w, j, i);
-    if prog.collective.budget <= 0.0 || !pays_recruit(w, j, i, ahead) {
-        return 0.0;
+    if prog.collective.budget <= 0.0 {
+        return (0.0, 0.0);
     }
+    let Some(floor) = pays_recruit(w, j, i, ahead) else {
+        return (0.0, 0.0);
+    };
     let chance = super::nil_bid::play_chance(ahead, crate::game::roster::starters(pos));
     let talent = super::nil_bid::star_at(w, super::nil_bid::level(prog), recruiting_stars(p));
-    super::nil_bid::top_bid(prog.collective.budget, pos, talent * chance) * super::legacy::college::split_q(w, j, 2)
+    let top = super::nil_bid::top_bid(prog.collective.budget, pos, talent * chance)
+        * super::legacy::college::split_q(w, j, 2);
+    (top.max(floor), floor)
 }
 
 /// The men on program `j` at recruit `i`'s spot within two years of him
