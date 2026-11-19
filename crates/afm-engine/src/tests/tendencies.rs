@@ -28,12 +28,9 @@ fn fourteen_year_olds_spread_wide_around_the_middle() {
     let ps = prospects(3000);
     for t in Tend::ALL {
         let v: Vec<f64> = ps.iter().map(|p| p.tend.get(t)).collect();
-        // CENTER_14 has drifted: measured on 20,000 fixed ids, upfield, returner
-        // risk and downhill sit 0.5-0.6 above the middle and patience 0.5 below
-        // (GAPS.md, "14-year-olds' tendency centres"). The band holds that
-        // known drift with room for the 3,000-sample noise (about 0.08); the
-        // recentre is a result change and waits for Cain.
-        assert!((mean(&v) - MID).abs() < 0.8, "{t:?} mean {}", mean(&v));
+        // CENTER_14 is measured on the whole class (`tendency_check nfl 2 1
+        // centers14`, 40,000 players); 3,000 fixed ids add noise of about 0.08.
+        assert!((mean(&v) - MID).abs() < 0.4, "{t:?} mean {}", mean(&v));
         assert!(sd(&v) > 3.5 && sd(&v) < 5.5, "{t:?} sd {}", sd(&v));
         assert!(v.iter().all(|x| (1.0..=20.0).contains(x)));
     }
