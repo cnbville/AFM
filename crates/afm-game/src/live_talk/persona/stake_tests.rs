@@ -82,7 +82,7 @@ fn a_stake_said_again_counts_nothing_in_the_talk_and_little_soon_after() {
         let open = store::Open::new(id, &channels::one_on_one(&s));
         let wants = Parts::today().wanting.wants(w, Them::Player(him));
         let h = Hit { on: Them::Player(him), item: Item::Pride, how: How::Staked };
-        hits::size(w, &h, &wants, &open, 0).unwrap()
+        hits::size(w, &h, &wants, &open).unwrap()
     };
     let fresh = size(&g);
     let first = line(&mut g, &f, him, id, "staked", STAKE);

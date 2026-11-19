@@ -17,6 +17,81 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.636", date: "18 Nov", title: "Coaches answer with real specifics in live talks",
+    notes: [
+      "The coaches you talk to now give real answers about their scheme and their recruiting. Ask a coordinator what he'll run, or a recruiter who he's working, and you get specifics.",
+      "Coordinators and candidates name their offense or defense, say how well your roster fits it, and say what it would take to switch.",
+      "Assistants name the recruits they're working and the players who signed through them.",
+      "In the holdover staff meeting, each coach answers for himself, and the right man speaks up.",
+      "Coaches no longer act offended by a fair question.",
+      "Holdover coaches only boast about what's actually true.",
+    ],
+  },
+  {
+    v: "0.2.635", date: "18 Nov", title: "Ground lane G9: the race and the AI on Ground and 2 more",
+    notes: [
+      "Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do.",
+      "Any pass play can now come off a run fake, so you'll see play-action crossers, floods and even screens, not just three special plays.",
+      "Defenders who read the backfield bite for a moment, longer for an undisciplined one and against a quarterback who hides the ball well.",
+      "Play-action passes are no longer sacked one time in five: the back and the line protect the fake, and bootlegs get a pulling guard while the quarterback rolls away from the rush.",
+      "Play callers fake most on early downs, in run-first systems like wide zone, and against defenses that keep biting.",
+      "Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help.",
+    ],
+  },
+  {
+    v: "0.2.632", date: "18 Nov", title: "Talks: \"Heard as\" says how a line really went (the landing read) and 5 more",
+    notes: [
+      "Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots.",
+      "A player who transfers, signs or is drafted starts fresh with his new staff.",
+      "His last staff's project shows as a note on his Development tab and takes no slot.",
+      "Every staff in the world follows the same rule, so rooms never run past their slots.",
+      "The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game.",
+      "Every conversation knows where your team is in its year and what's coming next.",
+    ],
+  },
+  {
+    v: "0.2.625", date: "18 Nov", title: "Coaches walk you through the season from the world's records",
+    notes: [
+      "Your coaches now really break down a season when you ask them, with the numbers, the games that slipped away and the players who struggled.",
+      "Ask a coordinator how the year went and he walks you through it: points and yards against the conference, third downs, red zone, big plays, takeaways.",
+      "He names the games that got away and the starters who struggled or stood out at their spot.",
+      "A coach hired after last season tells you it wasn't his season, then gives what he saw on the tape.",
+      "Push for more and he gives you the rest; sharper coaches see more.",
+      "Ask a coach about one of his players and he knows how the player's numbers rank against the conference's starters.",
+    ],
+  },
+  {
+    v: "0.2.624", date: "18 Nov", title: "Make the search bar fast and 4 more",
+    notes: [
+      "A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake.",
+      "The hover card and compare name the season (\"2024 season\") instead of \"Last season\".",
+      "Until a college season's title game is played, its numbers so far show on their own line.",
+      "NFL players show this year's numbers so far until the regular season ends.",
+      "A pro's card shows his pro seasons, not his old college year.",
+      "You can now start development projects for your own players: a skill project with his position coach, or a body project with the strength staff, with your staff's honest read before you commit.",
+    ],
+  },
+  {
+    v: "0.2.619", date: "18 Nov", title: "Scheme-fit lane SF3: a blocked man is out of the play and 2 more",
+    notes: [
+      "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.",
+      "Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there",
+      "The drive you know of for each rival: public with how far along it is, a building going up, or a rumor",
+      "Your own rank over the years as a line",
+      "A list of what your donors have heard about rivals' quiet campaigns",
+      "Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most.",
+    ],
+  },
+  {
+    v: "0.2.616", date: "18 Nov", title: "Opening a save closes the open world before reading the file",
+    notes: [
+      "Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.",
+      "Loading a save while a career or world is open no longer holds two worlds in memory.",
+      "Big worlds' saves and autosaves load again on 8 GB Macs.",
+      "If a file can't be opened, you land back on the start page instead of a broken career.",
+    ],
+  },
+  {
     v: "0.2.615", date: "17 Nov", title: "Capital lane CS4: the project screen and 3 more",
     notes: [
       "Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.",

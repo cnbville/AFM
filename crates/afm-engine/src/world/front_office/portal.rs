@@ -229,6 +229,13 @@ pub(crate) fn case_of(w: &World, id: u32) -> Option<&crate::world::folk::case::C
     target(w, id).map(|t| &t.case)
 }
 
+/// Your case with an entrant you chase as it stands, read-only (as
+/// `case_mut` would find it).
+pub(crate) fn case_with(w: &World, id: u32) -> Option<crate::world::folk::case::Case> {
+    program(w)?;
+    target(w, id).map(case_now)
+}
+
 /// Your promise of a role is on his file (0 a starting job, 1 a real role).
 pub(crate) fn promised(w: &World, id: u32) -> Option<(u8, Date)> {
     target(w, id).and_then(|t| t.promise)

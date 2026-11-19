@@ -222,6 +222,10 @@ pub enum PromiseKind {
     /// picks by then, void if he was gone before your first chance or never
     /// entered the draft (Cain 2026-11-15).
     Draft(u8),
+    /// "Take less and I'll sign you help" (negotiation item 4): your club
+    /// adds a starter at this position (its index; 255 any) who starts
+    /// next season's opener.
+    Help(u8),
 }
 
 impl PromiseKind {
@@ -252,6 +256,11 @@ impl PromiseKind {
             PromiseKind::Draft(r) if r >= 7 => "that you'd draft him".into(),
             PromiseKind::Draft(1) => "that you'd take him in the first round".into(),
             PromiseKind::Draft(r) => format!("that you'd take him by round {r}"),
+            PromiseKind::Help(u8::MAX) => "that you'd sign him help".into(),
+            PromiseKind::Help(p) => crate::positions::Position::ALL.get(p as usize).map_or_else(
+                || "that you'd sign him help".into(),
+                |p| format!("that you'd sign him help at {}", p.name()),
+            ),
         }
     }
 }
@@ -434,6 +443,11 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
             let d = w.dates.draft[2].date.add(1);
             if d > today { d } else { d.add(365) }
         }
+        // The Monday after next season's opener (the Thursday kickoff).
+        PromiseKind::Help(_) => {
+            let d = w.dates.nfl_kickoff.add(4);
+            if d > today { d } else { d.add(364) }
+        }
     };
     base.add(
         365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32,
@@ -497,6 +511,9 @@ pub fn check_promises(w: &mut World, d: Date) {
             settle_draft(w, &p, kept, cost);
         } else {
             settle_promise(w, &p, kept, cost);
+        }
+        if let (PromiseTo::Player(id), PromiseKind::Help(_)) = (p.to, p.kind) {
+            help_settled(w, id, kept);
         }
         // A booster takes it further (talk facts lane L8).
         if !kept && let (PromiseTo::Cast(r, term), PromiseKind::Booster(_)) = (p.to, p.kind) {
@@ -641,6 +658,7 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                     })
                 }
                 PromiseKind::Draft(r) => draft_call(w, i, r, p.made) == DraftCall::Kept,
+                PromiseKind::Help(pos) => help_kept(w, pos),
                 _ => true,
             }
         }
@@ -648,6 +666,46 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
         (_, PromiseKind::Booster(want)) => super::backers::kept(w, p.to, p.made, want),
         (PromiseTo::Coach(c), PromiseKind::Raise) => w.folk.staff.raised_since(c, p.made),
         _ => true,
+    }
+}
+
+/// "I'll sign you help" (negotiation item 4) kept: a man new to your club
+/// this league year (signed or traded for, `ProCareer::new_team`) or
+/// drafted this year in the first two rounds, at the position (any for
+/// 255), who started the opener (a start this season with your club).
+pub fn help_kept(w: &World, pos: u8) -> bool {
+    let Some(Team::Nfl(t)) = Team::seat(w) else { return true };
+    let year = w.year;
+    w.clubs[t].roster.iter().any(|&j| {
+        let q = &w.people[j];
+        let Some(c) = q.pro.as_ref() else { return false };
+        let at = pos == u8::MAX || q.player.position.index() == pos as usize;
+        let new = c.new_team || c.draft.is_some_and(|(y, r, _, club)| y == year && r <= 2 && club == t);
+        let started = c.seasons.iter().any(|s| s.year == year && s.team == Some(t) && s.starts > 0);
+        at && new && started
+    })
+}
+
+/// Your club's side of "I'll sign you help" (negotiation item 4): kept,
+/// his trust in the club rises `HELP_KEPT_CLUB`; broken, it falls 0.3 as
+/// a broken promise of the club's does (`pro::market`), and his next deal
+/// with you carries a premium of 5% x his winning goal
+/// (`ProCareer::help_owed`). His trust in you moves as any promise's does.
+/// Proposed, not confirmed.
+pub const HELP_KEPT_CLUB: f64 = 0.05;
+pub const HELP_BROKEN_CLUB: f64 = 0.3;
+pub const HELP_PREMIUM: f64 = 0.05;
+
+fn help_settled(w: &mut World, id: u32, kept: bool) {
+    let Some(i) = super::person(w, id) else { return };
+    let winning = crate::world::pro::market::goals(w, i).winning;
+    let year = w.year;
+    let Some(c) = w.people[i].pro.as_mut() else { return };
+    if kept {
+        c.trust = (c.trust + HELP_KEPT_CLUB).min(1.0);
+    } else {
+        c.trust = (c.trust - HELP_BROKEN_CLUB).max(0.0);
+        c.help_owed = Some((year, (HELP_PREMIUM * winning) as f32));
     }
 }
 
@@ -889,22 +947,38 @@ pub fn mood_event(w: &mut World, id: u32, why: Reason, delta: f32) {
 /// What is left of his dated reasons today: each fades by a quarter a month.
 pub fn residual(w: &World, id: u32) -> f32 {
     let today = w.today;
-    w.folk.moods.iter().find(|x| x.0 == id).map_or(0.0, |x| felt(&x.1, today))
+    let k = super::person(w, id).map_or(1.0, |i| crate::world::departments::clinic_for(w, i)) as f32;
+    w.folk.moods.iter().find(|x| x.0 == id).map_or(0.0, |x| felt(&x.1, today, k))
+}
+
+/// A hard event (a death in the family, a public benching, his arrest):
+/// what a behavioral health clinician helps him back from (support
+/// departments, question 6).
+fn hard(why: u8, v: i8) -> bool {
+    v < 0 && matches!(Reason::from_u8(why), Reason::LifeEvent | Reason::Benched | Reason::ArrestShame)
+}
+
+/// The share of a reason's weight left after `days`: a quarter fades a
+/// month, a hard event `k` times as fast with a clinician (`clinic_for`).
+fn left(why: u8, v: i8, days: i32, k: f32) -> f32 {
+    let speed = if hard(why, v) { k } else { 1.0 };
+    v as f32 / 100.0 * 0.75f32.powf(days.max(0) as f32 / 30.0 * speed)
 }
 
 /// What's left today of a person's dated reasons, summed (`residual`).
-fn felt(notes: &[super::MoodNote], today: Date) -> f32 {
-    notes.iter().map(|&(d, _, v)| v as f32 / 100.0 * 0.75f32.powf(d.days_to(today).max(0) as f32 / 30.0)).sum()
+fn felt(notes: &[super::MoodNote], today: Date, k: f32) -> f32 {
+    notes.iter().map(|&(d, r, v)| left(r, v, d.days_to(today), k)).sum()
 }
 
 /// His dated reasons still felt, newest first, in words.
 pub fn reasons(w: &World, id: u32) -> Vec<(Date, String, f32)> {
     let today = w.today;
+    let k = super::person(w, id).map_or(1.0, |i| crate::world::departments::clinic_for(w, i)) as f32;
     let mut v: Vec<(Date, String, f32)> = w.folk.moods.iter().find(|x| x.0 == id).map_or(Vec::new(), |x| {
         x.1.iter()
             .map(|&(d, r, v)| {
-                let left = v as f32 / 100.0 * 0.75f32.powf(d.days_to(today).max(0) as f32 / 30.0);
-                (d, Reason::from_u8(r).words(v > 0).to_string(), left)
+                let rest = left(r, v, d.days_to(today), k);
+                (d, Reason::from_u8(r).words(v > 0).to_string(), rest)
             })
             .filter(|x| x.2.abs() >= 0.02)
             .collect()
@@ -930,8 +1004,13 @@ pub(crate) fn reapply(w: &mut World, read: &[usize]) {
     for (k, x) in moods.iter().enumerate() {
         first.entry(x.0).or_insert(k);
     }
-    let ids: Vec<(u32, f32)> =
-        moods.par_iter().with_min_len(256).map(|x| (x.0, felt(&moods[first[&x.0]].1, today))).collect();
+    // Each team's clinician (support departments, question 6).
+    let clinic = crate::world::departments::ClinicTable::new(w);
+    let ids: Vec<(u32, f32)> = moods
+        .par_iter()
+        .with_min_len(256)
+        .map(|x| (x.0, felt(&moods[first[&x.0]].1, today, clinic.of(w, x.0))))
+        .collect();
     for (id, r) in ids {
         if r.abs() < 0.01 {
             continue;

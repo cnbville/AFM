@@ -122,6 +122,10 @@ pub fn across(w: &World, s: &Scene) -> Option<Them> {
 /// meeting names (a reference call is a phone call). The hurt man sits in
 /// on his own second opinion: he hears what you ask of the doctor.
 pub fn room(w: &World, s: &Scene) -> Option<Room> {
+    // The whole holdover staff: every coach in it, each himself.
+    if super::gameday::group::holdover_room(s) {
+        return super::coaching::holdover_room(w);
+    }
     let him = across(w, s)?;
     let channel = if s.kind == Kind::Reference { Channel::Phone } else { Channel::InPerson(place_of(&s.place)) };
     let mut present = vec![Present { who: him, seat: Seat::Across, speaks: false }];
@@ -290,6 +294,24 @@ pub fn after(w: &mut World, id: u32, room: &Room, reading: &Reading, t: &Turn) -
     let Some(him) = room.present.first().map(|p| p.who) else { return out };
     out.extend(refs::after(w, id, him, reading, t));
     out.extend(asks::after(w, him, t));
+    // Under a coach's answer on his scheme or his recruiting, what your
+    // staff makes of it (Cain 2026-11-17: item 9): for you, never in his
+    // mouth.
+    if let Them::Coach(c) = him
+        && super::telling::works_for_you(w, him)
+    {
+        let mut said: Vec<super::knows::Topic> = Vec::new();
+        for a in &reading.acts {
+            if let super::ear::Act::Question { topic, about, .. } = a
+                && about.is_none_or(|x| x == him)
+                && !said.contains(topic)
+                && let Some(n) = super::coaching::read_note(w, c, *topic)
+            {
+                said.push(*topic);
+                out.push(n);
+            }
+        }
+    }
     // A no to your extension, kept on record with his reasons (your boss
     // across the table, not your head coach when you're his assistant).
     if let Some(she) = deals::your_boss_she(w, him)

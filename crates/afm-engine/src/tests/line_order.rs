@@ -118,7 +118,10 @@ fn the_seating_read_is_the_first_snap() {
             assert_eq!(seats.by_slot(Position::CB).len(), 3, "{level:?} team {t}");
             assert!(seats.by_slot(Position::QB).is_empty());
             // The defense's named jobs on its first snap in base, early in
-            // the game while everyone is fresh.
+            // the game while everyone is fresh: up to the snap a man of
+            // theirs is hurt on, since the next man up takes a hurt man's
+            // spot (FBS team 3's second corner is hurt on its fourth
+            // defensive snap here).
             let jobs = [
                 (DSlot::Sam, "SAM"),
                 (DSlot::Mike, "MIKE"),
@@ -127,7 +130,14 @@ fn the_seating_read_is_the_first_snap() {
                 (DSlot::SS, "SS"),
             ];
             let in_base = |r: &&PlayRecord| jobs.iter().all(|j| dat(r, j.0).is_some()) && dat(r, DSlot::NCB).is_none();
-            let Some(r) = snaps(&res.stats, 1).take(6).find(in_base) else { continue };
+            let theirs: Vec<u32> = teams[t].players.iter().map(|p| p.id).collect();
+            let hurt = res
+                .stats
+                .plays
+                .iter()
+                .find(|r| r.injuries.iter().any(|i| theirs.contains(&i.id)))
+                .map_or(u32::MAX, |r| r.n);
+            let Some(r) = snaps(&res.stats, 1).take(6).filter(|r| r.n <= hurt).find(in_base) else { continue };
             base += 1;
             for (slot, name) in jobs {
                 assert_eq!(dat(r, slot), seats.at(name, 0), "{level:?} team {t} {name}");

@@ -293,6 +293,10 @@ pub struct CollegeDesk {
     /// Your roster's collective deals in two pots (B18), a year each: (id,
     /// the deal as you wrote it; NIL Go clears it to his range).
     pub coll_deals: Vec<(u32, f64)>,
+    /// The players whose deal is still the old staff's (`seed`): marked on
+    /// the NIL desk until you set his number or he leaves.
+    #[serde(default)]
+    pub inherited: Vec<u32>,
     /// What each recruit who signed with you signed for, until he arrives:
     /// (id, revenue share, collective deal).
     pub signed: Vec<(u32, f64, f64)>,
@@ -695,6 +699,7 @@ pub fn fill_deals(w: &mut World) {
     let desk = &mut w.front_office.college;
     desk.deals.retain(|d| roster.contains(&d.0));
     desk.coll_deals.retain(|d| roster.contains(&d.0));
+    desk.inherited.retain(|id| roster.contains(id));
     desk.signed.retain(|x| !stale.contains(&x.0));
     for (id, s, c) in first {
         if let Some(x) = s {
@@ -1055,25 +1060,29 @@ pub fn seed(w: &mut World, j: usize) {
             (f.3, round_rate(s), round_rate(c))
         })
         .collect();
-    // The roster you inherit keeps the deals the old staff gave it, the
-    // usual split it was paid (Cain's yes 2026-11-08), rounded to $500.
-    // They stand until you change them.
-    let two = ncaa::two_pots(w.today);
-    let inherited: Vec<(u32, f64, f64)> =
-        splits(w, j).into_iter().map(|(id, s, c, held)| (id, round_rate(s), round_coll(c, held))).collect();
-    let desk = &mut w.front_office.college;
-    for x in pre {
-        if !desk.signed.iter().any(|y| y.0 == x.0) {
-            desk.signed.push(x);
+    {
+        let desk = &mut w.front_office.college;
+        for x in pre {
+            if !desk.signed.iter().any(|y| y.0 == x.0) {
+                desk.signed.push(x);
+            }
         }
     }
+    // The roster you inherit keeps the deals the old staff gave it (Cain's
+    // yes 2026-11-08), at each player's market price (Cain 2026-11-17,
+    // `inherited_deals`). They stand until you change them.
+    let two = ncaa::two_pots(w.today);
+    let inherited = inherited_deals(w, j);
+    let desk = &mut w.front_office.college;
     for (id, s, c) in inherited {
-        if !desk.deals.iter().any(|d| d.0 == id) {
-            desk.deals.push((id, s));
+        if desk.deals.iter().any(|d| d.0 == id) {
+            continue;
         }
+        desk.deals.push((id, s));
         if two && !desk.coll_deals.iter().any(|d| d.0 == id) {
             desk.coll_deals.push((id, c));
         }
+        desk.inherited.push(id);
     }
     for (_, _, when, id) in found {
         if desk.board.iter().any(|t| t.id == id) {
@@ -2761,6 +2770,179 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
         .collect()
 }
 
+/// Each of program `j`'s players' market price a year (Cain 2026-11-17):
+/// what wins him from the rest of the market, the best rival's top bid
+/// for him, never past his own school's (`nil_bid::Market::bid`, the price
+/// an AI school's December keep-him offer starts from), read for every
+/// player with a season's play and a season left. A player no rival would
+/// start or rotate has none.
+pub fn market_prices(w: &World, j: usize) -> HashMap<u32, f64> {
+    let market = crate::world::nil_bid::Market::new(w);
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    let div = w.programs[j].division;
+    w.programs[j]
+        .roster
+        .iter()
+        .copied()
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.stage == Stage::College && p.college == Some(j) && !crate::world::college::no_season_left(p, div, label)
+        })
+        .filter_map(|i| market.bid(w, i).map(|b| (w.people[i].player.id, b.0)))
+        .collect()
+}
+
+/// One college player's market price a year (`market_prices`), None
+/// with no rival bid or no season left.
+pub fn market_price(w: &World, i: usize) -> Option<f64> {
+    let p = &w.people[i];
+    let j = p.college.filter(|_| p.stage == Stage::College)?;
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    if crate::world::college::no_season_left(p, w.programs[j].division, label) {
+        return None;
+    }
+    crate::world::nil_bid::Market::new(w).bid(w, i).map(|b| b.0)
+}
+
+/// The deals the old staff leaves you at a new job (Cain 2026-11-17, "go"):
+/// (id, revenue share, collective deal), the second 0 before two pots.
+/// Before, every player inherited the payroll split, so a star the market
+/// paid $4.2M last year came to you at about $1.5M and felt cheated from
+/// the first day, while an AI school would have kept him at his price.
+///
+/// - A deal he signed for the coming money year (as a recruit, a transfer,
+///   or a multi-year deal) stands as written.
+/// - Anyone else staying is paid his market price (`market_prices`) or
+///   what his school and collective paid him last July, the higher, where
+///   that is above the payroll split (`splits`, the going rate); else, and
+///   for a man leaving, the split.
+/// - Each is split between the pots the way the AI's July 1 splits a deal
+///   (`rec::pots`): the program's ratio, the collective's part cleared by
+///   NIL Go to the top of his range and the rest moved into the revenue
+///   share where the cap has room.
+/// - The raises come out of the money left for new offers this year (after
+///   the class that signed and the hunt's reserve). Where a pot can't hold
+///   them, the raises shrink first, then every split takes the same cut,
+///   never below nothing (`fit`; proposed, not confirmed). Only deals he
+///   signed can leave a pot short.
+fn inherited_deals(w: &World, j: usize) -> Vec<(u32, f64, f64)> {
+    let two = ncaa::two_pots(w.today);
+    let year = deals_year(w);
+    let prog = &w.programs[j];
+    let medians = rec::nil_medians(w);
+    let free = rec::nil_go_free(w) == Some(j);
+    let market = market_prices(w, j);
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    let at: HashMap<u32, usize> = prog.roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
+    // His money in the two pots, as July 1 would pay it.
+    let parts = |i: usize, money: f64| -> (f64, f64) {
+        if !two {
+            return (money, 0.0);
+        }
+        let top = if free { f64::INFINITY } else { rec::go_top_now(w, j, &w.people[i], &medians) };
+        rec::pots(prog, w.today, money, top, free)
+    };
+    // Each row: (id, how it was priced, school, collective, his split in
+    // each pot, NIL Go holds some of his split back).
+    let mut rows: Vec<(u32, Priced, f64, f64, f64, f64, bool)> = Vec::new();
+    for (id, s, c, held) in splits(w, j) {
+        let Some(&i) = at.get(&id) else { continue };
+        let p = &w.people[i];
+        let signed = p.cal.nil_deal.filter(|d| d.pays(year) && d.kind != crate::world::nil_bid::DealKind::Keep);
+        let (kind, price) = match signed {
+            Some(d) => (Priced::Signed, Some(d.amount)),
+            // A man leaving (no season left, headed to the draft or the
+            // portal, cut) has no market here: the split, as before.
+            None if p.cal.declare_plan == Some(true)
+                || p.cal.portal.is_some()
+                || p.cut_here().is_some()
+                || crate::world::college::no_season_left(p, prog.division, label) =>
+            {
+                (Priced::Split, None)
+            }
+            None => {
+                let x = market.get(&id).copied().unwrap_or(0.0).max(p.nil_paid());
+                (Priced::Market, (x > s + c).then_some(x))
+            }
+        };
+        match price {
+            Some(x) => {
+                let (school, coll) = parts(i, x);
+                rows.push((id, kind, school, coll, s, c, held > 0.5));
+            }
+            None => rows.push((id, Priced::Split, s, c, s, c, held > 0.5)),
+        }
+    }
+    // What a pot has left for the roster once the signed class and the
+    // hunt's reserve are counted (no deal is set yet).
+    let b = budget(w, j);
+    let school = fit(b.left, b.unlimited, &rows.iter().map(|r| (r.1, r.2, r.4)).collect::<Vec<_>>());
+    let coll = if two {
+        fit(b.coll_left, b.unlimited, &rows.iter().map(|r| (r.1, r.3, r.5)).collect::<Vec<_>>())
+    } else {
+        vec![0.0; rows.len()]
+    };
+    rows.into_iter()
+        .zip(school.into_iter().zip(coll))
+        .map(|(r, (s, c))| {
+            // A priced collective deal is cleared to his range: rounding
+            // never takes it past; the split's rounds as the going rate does.
+            let c = if r.1 == Priced::Split {
+                round_coll(c, if r.6 { 1.0 } else { 0.0 })
+            } else {
+                (c / 500.0).floor() * 500.0
+            };
+            (r.0, round_rate(s), c)
+        })
+        .collect()
+}
+
+/// How an inherited deal was priced (`inherited_deals`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Priced {
+    /// A deal he signed for the coming year: it stands as written.
+    Signed,
+    /// His market price or last year's pay, above the split.
+    Market,
+    /// The payroll split.
+    Split,
+}
+
+/// One pot's inherited deals fitted to what it has left (`left`): rows of
+/// (how priced, the amount, his split). Signed deals stand. Where the pot
+/// can't hold everything, the market raises over the split shrink first,
+/// by the same share; where it can't hold even the splits, every split
+/// takes the same cut, never below nothing (proposed, not confirmed).
+pub(crate) fn fit(left: f64, unlimited: bool, rows: &[(Priced, f64, f64)]) -> Vec<f64> {
+    let sum = |k: Priced, f: fn(&(Priced, f64, f64)) -> f64| -> f64 { rows.iter().filter(|r| r.0 == k).map(f).sum() };
+    let signed = sum(Priced::Signed, |r| r.1);
+    let market = sum(Priced::Market, |r| r.1);
+    let floor = sum(Priced::Market, |r| r.1.min(r.2));
+    let split = sum(Priced::Split, |r| r.1);
+    if unlimited || signed + market + split <= left {
+        return rows.iter().map(|r| r.1).collect();
+    }
+    if market > floor && signed + floor + split <= left {
+        let mu = (left - signed - floor - split) / (market - floor);
+        return rows
+            .iter()
+            .map(|r| match r.0 {
+                Priced::Market => r.1.min(r.2) + mu * (r.1 - r.1.min(r.2)),
+                _ => r.1,
+            })
+            .collect();
+    }
+    let base = floor + split;
+    let lambda = if base > 0.0 { ((left - signed) / base).clamp(0.0, 1.0) } else { 1.0 };
+    rows.iter()
+        .map(|r| match r.0 {
+            Priced::Signed => r.1,
+            Priced::Market => r.1.min(r.2) * lambda,
+            Priced::Split => r.1 * lambda,
+        })
+        .collect()
+}
+
 /// One of your players' deals: his revenue share and his collective deal
 /// a year (in two pots; before, one deal), each left as it is when None.
 /// The deal stands every money year until you change it (`fill_deals`).
@@ -2823,6 +3005,7 @@ pub fn clear_deals(w: &mut World) -> Result<usize, String> {
     let desk = &mut w.front_office.college;
     desk.deals.retain(|d| !ids.contains(&d.0));
     desk.coll_deals.retain(|d| !ids.contains(&d.0));
+    desk.inherited.retain(|id| !ids.contains(id));
     for &id in &ids {
         desk.deals.push((id, 0.0));
         if two {
@@ -2878,6 +3061,8 @@ fn put_deal(w: &mut World, id: u32, school: Option<f64>, coll: Option<f64>) -> R
     let year = deals_year(w);
     let desk = &mut w.front_office.college;
     desk.deals_year = year;
+    // Your number now, not the old staff's.
+    desk.inherited.retain(|&x| x != id);
     // A $0 deal is kept: it pays him nothing.
     if let Some(x) = school {
         desk.deals.retain(|d| d.0 != id);
@@ -3213,8 +3398,13 @@ fn deal_reaction(w: &World, i: usize, j: usize, amount: f64, mine_coll: f64) -> 
     // Cain 2026-11-07).
     let paid = if two { coll_cleared(w, j, id, mine_coll) } else { 0.0 };
     let total = amount + paid;
-    let fair = usual + if two { coll } else { 0.0 };
-    let last = (p.nil_income - p.brand as f64).max(0.0);
+    // His worth: what players in his role get (the going rate), or his
+    // market price where a rival would pay more (Cain 2026-11-17).
+    let split = usual + if two { coll } else { 0.0 };
+    let market = market_price(w, i).unwrap_or(0.0);
+    let fair = split.max(market);
+    let role = if market > split { "other schools would pay him" } else { "players in his role get" };
+    let last = p.nil_paid();
     let counts = fair >= 25_000.0 && p.college_seasons < 4;
     let mood = match mood_of(total, fair) {
         Mood::Insulted if !counts => Mood::WantsMore,
@@ -3234,12 +3424,12 @@ fn deal_reaction(w: &World, i: usize, j: usize, amount: f64, mine_coll: f64) -> 
         }
     }
     v.push(match mood {
-        Mood::Thrilled => format!("He's thrilled: well past what players in his role get (about {}).", dollars(fair)),
-        Mood::Pleased => format!("He's pleased: more than players in his role get (about {}).", dollars(fair)),
-        Mood::Fine => "He's fine with it: about what players in his role get.".into(),
+        Mood::Thrilled => format!("He's thrilled: well past what {role} (about {}).", dollars(fair)),
+        Mood::Pleased => format!("He's pleased: more than {role} (about {}).", dollars(fair)),
+        Mood::Fine => format!("He's fine with it: about what {role}."),
         Mood::WantsMore => format!("He expected more, about {}, but he'll live with it.", dollars(fair)),
         Mood::Insulted => format!(
-            "He feels underpaid: players in his role get about {}. If it stands on July 1, the portal will look better to him.",
+            "He feels underpaid: {role} about {}. If it stands on July 1, the portal will look better to him.",
             dollars(fair)
         ),
     });
@@ -3527,6 +3717,7 @@ pub fn cut_words(w: &World, id: u32) -> Result<String, String> {
 pub(crate) fn drop_deals(w: &mut World, id: u32) {
     w.front_office.college.deals.retain(|d| d.0 != id);
     w.front_office.college.coll_deals.retain(|d| d.0 != id);
+    w.front_office.college.inherited.retain(|&x| x != id);
 }
 
 /// Cuts one of your players (minor bug 60): off the roster and out of your

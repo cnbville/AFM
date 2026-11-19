@@ -34,7 +34,15 @@ pub const ASK_ABOUT: usize = 3;
 
 /// Whether a scene is a group talk.
 pub fn is_group(s: &Scene) -> bool {
-    matches!(s.kind, Kind::TeamTalk | Kind::TeamMeeting | Kind::Council) || super::super::meetings::is_group(s)
+    matches!(s.kind, Kind::TeamTalk | Kind::TeamMeeting | Kind::Council)
+        || super::super::meetings::is_group(s)
+        || holdover_room(s)
+}
+
+/// The takeover's meeting with the whole holdover staff (Cain 2026-11-17:
+/// it had nobody in it, and one nameless "he" answered for the room).
+pub fn holdover_room(s: &Scene) -> bool {
+    s.kind == Kind::Holdover && s.a == u64::MAX
 }
 
 /// The council's members on the roster: your leadership council, else the
@@ -61,6 +69,10 @@ pub fn room(w: &World, s: &Scene) -> Option<Room> {
     // The captains, the parents, the feeder coaches (the older meetings).
     if super::super::meetings::is_group(s) {
         return super::super::meetings::room(w, s);
+    }
+    // The holdover staff, each coach himself.
+    if holdover_room(s) {
+        return super::super::coaching::holdover_room(w);
     }
     let team = s.team.or(Team::seat(w))?;
     let (group, lead, rest) = match s.kind {
@@ -233,6 +245,7 @@ pub fn room_read(w: &World, team: Team) -> Vec<(Option<String>, String)> {
             interest: 0.0,
             room: 1.0,
             pushed: 0,
+            stung: false,
         };
         let told = People.tell(w, who, &known, &parts);
         let name = w.people[m].name.clone();

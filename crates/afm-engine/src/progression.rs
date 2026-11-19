@@ -458,9 +458,40 @@ pub struct Prog {
     /// Your strength staff set it (an AI staff never ends it).
     #[serde(default)]
     pub body_yours: bool,
+    /// The staff his projects belong to (`staff_code`): a project is a
+    /// staff's own plan, so it ends when he moves to another (0: an older
+    /// save, taken as the staff he is with).
+    #[serde(default)]
+    pub staff: u32,
+}
+
+/// Which staff a project belongs to, by level (`staff_code`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StaffAt {
+    HighSchool,
+    College,
+    Nfl,
+}
+
+/// A staff's code for `Prog::staff`: its level and its index (a high
+/// school, a program or a club). Never 0.
+pub fn staff_code(at: StaffAt, index: usize) -> u32 {
+    let level = match at {
+        StaffAt::HighSchool => 1u32,
+        StaffAt::College => 2,
+        StaffAt::Nfl => 3,
+    };
+    level << 24 | (index as u32 + 1) & 0x00FF_FFFF
 }
 
 impl Prog {
+    /// Whether he carries a project another staff set: he has moved since
+    /// (a signing, a transfer, the draft, a trade or a cut), and it is no
+    /// longer anyone's plan.
+    pub fn left_behind(&self, staff: u32) -> bool {
+        self.staff != 0 && self.staff != staff && (self.project > 0 || self.body > 0)
+    }
+
     /// The skill his project works, if any.
     pub fn project(&self) -> Option<Attr> {
         (self.project > 0).then(|| LIMITED[(self.project as usize - 1).min(LIMITED_COUNT - 1)])
@@ -1182,6 +1213,31 @@ pub enum Change {
     /// A project your staff set, on a man who is now on this staff: it
     /// becomes the staff's own.
     Adopt,
+    /// Marks his projects as this staff's (`Prog::staff`).
+    Staff(u32),
+}
+
+/// The changes for a man who has moved to `staff` (`Prog::left_behind`):
+/// his last staff's projects end, and his new staff picks at its next
+/// checkpoint like anyone else's. A project with no staff yet (an older
+/// save) is taken as this staff's. Empty when nothing changes.
+pub fn moved(p: &Player, staff: u32) -> Vec<Change> {
+    let pr = &p.prog;
+    if pr.left_behind(staff) {
+        let mut out = Vec::new();
+        if pr.project > 0 {
+            out.push(Change::End);
+        }
+        if pr.body > 0 {
+            out.push(Change::EndBody);
+        }
+        out.push(Change::Staff(staff));
+        out
+    } else if pr.staff == 0 && (pr.project > 0 || pr.body > 0) {
+        vec![Change::Staff(staff)]
+    } else {
+        Vec::new()
+    }
 }
 
 /// An AI staff's projects for one room at the checkpoint (design items 8,
@@ -1190,14 +1246,32 @@ pub enum Change {
 /// much of a full staff's time it has (a high school's smaller staff).
 /// Returns each change by its place in `members`. Nothing changes here:
 /// the caller applies them (`apply`) when his year opens.
-pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64, seed: u32) -> Vec<(usize, Change)> {
+pub fn ai_room(
+    members: &[&Player],
+    room: Room,
+    lean: Lean,
+    eye: f64,
+    scale: f64,
+    staff: u32,
+    seed: u32,
+) -> Vec<(usize, Change)> {
     let mut out = Vec::new();
     if !part(PART_PROJECTS) {
         return out;
     }
     let mut r = Rng::new(seed ^ 0x4F0E_C7A1);
     let mut running = 0;
+    // A man who brought his last staff's projects: they end, hold no slot,
+    // and he is this staff's to pick from the next checkpoint on.
+    let gone: Vec<bool> = members.iter().map(|p| p.prog.left_behind(staff)).collect();
     for (i, p) in members.iter().enumerate() {
+        let m = moved(p, staff);
+        if !m.is_empty() {
+            out.extend(m.into_iter().map(|c| (i, c)));
+        }
+        if gone[i] {
+            continue;
+        }
         // A project your staff set on a man now on an AI staff (he moved, or
         // you left) is that staff's to judge from here: it adopts it, and
         // its own dead-end rule decides it like any other.
@@ -1215,12 +1289,15 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
     // The strength staff's body projects (design items 7 and 8): its own
     // slot a room, on the men whose bodies trail the spot most.
     if part(PART_BODY) && scale >= 1.0 {
-        let body_running = members.iter().filter(|p| p.prog.body_project().is_some()).count();
+        let body_running =
+            members.iter().enumerate().filter(|(i, p)| !gone[*i] && p.prog.body_project().is_some()).count();
         if body_running < BODY_SLOTS {
             let best = members
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| p.prog.drawn && p.prog.body_project().is_none() && p.age <= BODY_UNTIL - 2)
+                .filter(|(i, p)| {
+                    !gone[*i] && p.prog.drawn && p.prog.body_project().is_none() && p.age <= BODY_UNTIL - 2
+                })
                 .map(|(i, p)| (i, body_bet(p, eye, &mut r)))
                 .filter(|c| c.1 >= BODY_BET_FLOOR)
                 .max_by(|a, b| a.1.total_cmp(&b.1));
@@ -1228,6 +1305,7 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
                 && r.chance(lean.fill())
             {
                 out.push((i, Change::StartBody(BodyKind::Strength)));
+                out.push((i, Change::Staff(staff)));
             }
         }
     }
@@ -1238,7 +1316,7 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
     let mut cands: Vec<(usize, Attr, f64)> = members
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.prog.drawn && p.prog.project().is_none())
+        .filter(|(i, p)| !gone[*i] && p.prog.drawn && p.prog.project().is_none())
         .filter_map(|(i, p)| best_bet(p, AI_SHARP, eye, &mut r).map(|(a, v)| (i, a, v)))
         .filter(|c| c.2 >= BET_FLOOR)
         .collect();
@@ -1253,6 +1331,7 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
     for c in cands.into_iter().take(open) {
         if r.chance(lean.fill() * clamp(scale, 0.0, 1.0)) {
             out.push((c.0, Change::Start(c.1)));
+            out.push((c.0, Change::Staff(staff)));
         }
     }
     out
@@ -1270,6 +1349,7 @@ pub fn apply(p: &mut Player, c: Change) {
             p.prog.yours = false;
             p.prog.body_yours = false;
         }
+        Change::Staff(s) => p.prog.staff = s,
         Change::StartBody(k) => {
             start_body(p, k, false);
         }
@@ -1279,7 +1359,8 @@ pub fn apply(p: &mut Player, c: Change) {
 /// A staff with no rooms to see (the class sim): one player's chance to be
 /// picked a year, set so a room's slots fill as `ai_room` fills them
 /// (design item 13: about 1.5 a 20-man room a year on the prototype).
-pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) {
+/// `staff` is the staff he is with (the class sim has one a level).
+pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64, staff: u32) {
     if !part(PART_PROJECTS) {
         return;
     }
@@ -1287,6 +1368,11 @@ pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) 
     // The class sim has no seat: nothing here is yours.
     p.prog.yours = false;
     p.prog.body_yours = false;
+    // A new level is a new staff: his last staff's projects end.
+    for c in moved(p, staff) {
+        apply(p, c);
+    }
+    p.prog.staff = staff;
     let mut r = stream(p.id, 0x5E1 ^ p.age.wrapping_mul(0x3B));
     // A college strength staff's body project: about one a room at a time
     // (`BODY_SLOTS`), so a man's chance a year is about a room's share.

@@ -245,16 +245,27 @@ pub(crate) fn case_mut(w: &mut World, i: usize, j: usize) -> &mut Case {
     let k = match v.iter().position(|c| c.prog as usize == j) {
         Some(k) => k,
         None => {
-            // A save from before the case: the living room's lean it kept
-            // still counts, in no group.
-            let mut c = Case::new(j);
-            c.again = w.people[i].cal.home_talks.iter().filter(|x| x.0 == j).map(|x| x.1).sum();
+            let c = started(&w.people[i], j);
             let v = &mut w.people[i].cal.cases;
             v.push(c);
             v.len() - 1
         }
     };
     &mut w.people[i].cal.cases[k]
+}
+
+/// A high school recruit's case with a school as it stands, read-only (as
+/// `case_mut` would start it when there is none).
+pub(crate) fn case_now(p: &Person, j: usize) -> Case {
+    of(p, j).copied().unwrap_or_else(|| started(p, j))
+}
+
+/// A new case. A save from before the case: the living room's lean it kept
+/// still counts, in no group.
+fn started(p: &Person, j: usize) -> Case {
+    let mut c = Case::new(j);
+    c.again = p.cal.home_talks.iter().filter(|x| x.0 == j).map(|x| x.1).sum();
+    c
 }
 
 /// What a school can back each group up with for a high school recruit,

@@ -279,10 +279,15 @@ fn the_defense_settings_move_their_measures() {
     eprintln!("boundary {b0:.2} -> {b1:.2}; post {p0:.2} -> {p1:.2}");
     assert!(b1 > 0.97, "the boundary corner by the hash: {b0:.2} -> {b1:.2}");
     assert!(p1 > p0 + 0.1, "the post safety: {p0:.2} -> {p1:.2}");
-    // Two-high to his side: the floor holds.
+    // Two-high to his side: the floor holds, on 48 games a side (16 swung
+    // the share about 0.03). Since play action comes off run looks
+    // (scheme-fit item 3), the coordinator leans off two-high against this
+    // offense's fakes and runs, so the share under the floor is about 0.87
+    // (0.91 before).
+    let base = games(&t[1], &t[0], 48, 7_000);
     let mut home = t[1].clone();
     home.prep.keep.two_high = 0.95;
-    let kept = games(&home, &t[0], 16, 7_000);
+    let kept = games(&home, &t[0], 48, 7_000);
     let (h0, h1) = (rate(&base, &two, cb), rate(&kept, &two, cb));
     eprintln!("two-high {h0:.2} -> {h1:.2}");
     assert!(h1 > h0 + 0.08 && h1 > 0.85, "two-high: {h0:.2} -> {h1:.2}");
