@@ -2344,6 +2344,9 @@ impl World {
     /// year's cleanup drops him (or keeps him as an alumnus) as before.
     pub(crate) fn leavers_compact(&mut self) {
         use rayon::prelude::*;
+        if stored::kept_whole("leavers") {
+            return;
+        }
         self.people.par_iter_mut().filter(|p| p.stage == Stage::Done).for_each(|p| {
             if let Some(m) = p.cal.more.stored_mut() {
                 m.cases = Vec::new();

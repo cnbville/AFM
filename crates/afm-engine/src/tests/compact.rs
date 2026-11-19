@@ -413,9 +413,7 @@ const COACH_FIELDS: &[&str] = &[
 
 /// The working part's fields, which a retired coach is written without.
 const WORK_FIELDS: &[&str] = &[
-    "ability",
     "learning_ceiling",
-    "personality",
     "recent",
     "prove_it",
     "ties",
@@ -463,8 +461,8 @@ fn coaches_keep_their_file_shape_and_retired_ones_drop_their_working_part() {
     let again: Coach = rmp_serde::from_slice(&short).unwrap();
     assert!(again.work.is_none());
     assert_eq!(rmp_serde::to_vec_named(&again).unwrap(), short);
-    // The coach itself is a third of the size it was (920 bytes).
-    assert!(std::mem::size_of::<Coach>() < 400, "{}", std::mem::size_of::<Coach>());
+    // The coach itself is about half the size it was (920 bytes).
+    assert!(std::mem::size_of::<Coach>() < 520, "{}", std::mem::size_of::<Coach>());
 }
 
 /// Memory diet item 3: an alumnus's packed player reads back whole, and

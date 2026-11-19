@@ -207,6 +207,25 @@ fn main() {
             break;
         }
     }
+    // AFM_UNTIL=YYYY-MM-DD (memory diet lane M2's check): Continue on past
+    // the first game to that day, through the year's cleanup, so the prints
+    // cover a whole football year.
+    if let Some(until) = std::env::var("AFM_UNTIL").ok().and_then(|s| {
+        let v: Vec<u32> = s.split('-').filter_map(|x| x.parse().ok()).collect();
+        (v.len() == 3).then(|| afm_engine::calendar::Date::ymd(v[0] as i32, v[1], v[2]))
+    }) {
+        for _ in 0..2000 {
+            if g.world.as_ref().expect("world").today >= until {
+                break;
+            }
+            let r = g.call("continue", &json!({ "staff": true })).expect("continue");
+            if r["studio"]["screen"] == json!("warroom") {
+                war_room(&mut g);
+            }
+        }
+        let (y, m, d) = g.world.as_ref().expect("world").today.parts();
+        line(&format!("on to {y}-{m:02}-{d:02}"), &t);
+    }
     // The film room (lane 13): what watching your last game back adds.
     if let Some(k) = g.world.as_ref().and_then(|w| w.seat_games.len().checked_sub(1)) {
         let before = heap_gb();

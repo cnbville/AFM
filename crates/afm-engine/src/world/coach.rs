@@ -346,6 +346,11 @@ pub struct Coach {
     /// quality-control coach, held now (`until` None) or before his first
     /// full-time job.
     pub junior: Option<Junior>,
+    /// Hidden. The game shows reputation, never this. Kept after he
+    /// retires: his bonds with his old players and his voice in the
+    /// stories read it, with his personality.
+    pub(crate) ability: Ability,
+    pub personality: CoachPersonality,
     /// His working part; None only for a retired coach (memory diet item 9).
     pub(crate) work: Option<Box<Work>>,
 }
@@ -354,11 +359,8 @@ pub struct Coach {
 /// written as the coach's own fields (`c.ties`). Dropped once he retires.
 #[derive(Clone, Debug)]
 pub struct Work {
-    /// Hidden. The game shows reputation, never this.
-    pub(crate) ability: Ability,
     /// How far his ability can still grow (hidden), 1-20.
     pub(crate) learning_ceiling: f64,
-    pub personality: CoachPersonality,
     /// Results against expectation, most recent last (+1 = a season one win-share above).
     pub recent: Vec<f64>,
     /// The year a school gave him a "prove it" extension instead of firing him (note 1).
@@ -393,18 +395,7 @@ pub struct Work {
 impl Default for Work {
     fn default() -> Work {
         Work {
-            ability: Ability {
-                teaching: [0.0; GROUP_COUNT],
-                scheme: 0.0,
-                game_management: 0.0,
-                motivation: 0.0,
-                discipline: 0.0,
-                recruiting: 0.0,
-                network: 0.0,
-                relationships: 0.0,
-            },
             learning_ceiling: 0.0,
-            personality: CoachPersonality { ambition: 0.0, loyalty: 0.0, temper: 0.0 },
             recent: Vec::new(),
             prove_it: None,
             ties: HashMap::new(),
@@ -590,10 +581,10 @@ pub fn generate_coach_as(
         renown: 0.0,
         fame: 0.0,
         junior: None,
+        ability,
+        personality,
         work: Some(Box::new(Work {
-            ability,
             learning_ceiling,
-            personality,
             recent: Vec::new(),
             prove_it: None,
             ties: HashMap::new(),
@@ -615,7 +606,7 @@ impl Coach {
     /// A retired coach never comes back: his working part goes (memory
     /// diet item 9). Called at the year's cleanup and on load.
     pub(crate) fn retire_work(&mut self) {
-        if self.retired {
+        if self.retired && !super::stored::kept_whole("coaches") {
             self.work = None;
         }
     }

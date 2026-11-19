@@ -194,3 +194,13 @@ impl<'de> serde::Deserialize<'de> for KeptPlayer {
         crate::player::Player::deserialize(d).map(|p| KeptPlayer::new(&p))
     }
 }
+
+/// Trial tooling (memory diet, lane M2): `AFM_M2_KEEP=coaches,leavers,tallies`
+/// keeps those parts whole (retired coaches' working part, the leavers'
+/// lists, the open tallies' idle rows), so a check can tell which item
+/// moved a result. Unset, everything is kept compact.
+pub(crate) fn kept_whole(item: &str) -> bool {
+    static KEEP: std::sync::LazyLock<String> =
+        std::sync::LazyLock::new(|| std::env::var("AFM_M2_KEEP").unwrap_or_default());
+    !KEEP.is_empty() && KEEP.split(',').any(|k| k.trim() == item)
+}

@@ -22,13 +22,11 @@ pub(crate) struct File {
     age: u32,
     #[serde(default = "crate::calendar::born::unknown")]
     born: crate::calendar::Date,
-    #[serde(default)]
-    ability: Option<Ability>,
+    ability: Ability,
     #[serde(default)]
     learning_ceiling: Option<f64>,
     reputation: f64,
-    #[serde(default)]
-    personality: Option<CoachPersonality>,
+    personality: CoachPersonality,
     mentor: Option<usize>,
     ex_pro: bool,
     job: Option<Job>,
@@ -82,11 +80,9 @@ impl From<File> for Coach {
         let b = Work::default();
         // A file written without the working part (a retired coach) gives
         // a coach without one.
-        let work = f.ability.map(|ability| {
+        let work = f.learning_ceiling.map(|learning_ceiling| {
             Box::new(Work {
-                ability,
-                learning_ceiling: f.learning_ceiling.unwrap_or(b.learning_ceiling),
-                personality: f.personality.unwrap_or(b.personality),
+                learning_ceiling,
                 recent: f.recent.unwrap_or_default(),
                 prove_it: f.prove_it,
                 ties: f.ties.unwrap_or_default(),
@@ -125,6 +121,8 @@ impl From<File> for Coach {
             renown: f.renown,
             fame: f.fame,
             junior: f.junior,
+            ability: f.ability,
+            personality: f.personality,
             work,
         };
         c.retire_work();
@@ -147,13 +145,11 @@ struct View<'a> {
     ethnicity: Ethnicity,
     age: u32,
     born: crate::calendar::Date,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ability: Option<&'a Ability>,
+    ability: &'a Ability,
     #[serde(skip_serializing_if = "Option::is_none")]
     learning_ceiling: Option<f64>,
     reputation: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    personality: Option<&'a CoachPersonality>,
+    personality: &'a CoachPersonality,
     mentor: Option<usize>,
     ex_pro: bool,
     job: &'a Option<Job>,
@@ -207,10 +203,10 @@ impl serde::Serialize for Coach {
             ethnicity: self.ethnicity,
             age: self.age,
             born: self.born,
-            ability: w.map(|w| &w.ability),
+            ability: &self.ability,
             learning_ceiling: w.map(|w| w.learning_ceiling),
             reputation: self.reputation,
-            personality: w.map(|w| &w.personality),
+            personality: &self.personality,
             mentor: self.mentor,
             ex_pro: self.ex_pro,
             job: &self.job,

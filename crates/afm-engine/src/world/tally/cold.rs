@@ -39,7 +39,7 @@ fn unpack<V: serde::de::DeserializeOwned + Default>(b: &[u8]) -> V {
 impl Cold {
     /// A game on `date` for row `key`: whether a sweep is due first.
     pub fn due(&mut self, date: i32) -> bool {
-        if date < self.next {
+        if date < self.next || crate::world::stored::kept_whole("tallies") {
             return false;
         }
         self.next = date + SWEEP_DAYS;
