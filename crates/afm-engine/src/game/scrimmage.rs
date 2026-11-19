@@ -6673,13 +6673,13 @@ const CONTEST_PBU: f64 = 0.02;
 
 /// A receiver's hands within his level (scheme-fit item 6): the miss on a
 /// catchable ball falls this much a point of Catching about his level's
-/// typical starter at his position. At the old 0.00095 a point, Catching +15
-/// on the X took 0.3 drops off 100 targets (a tight end's 0.7), a third of
-/// real: receivers' drops a target have a true spread of 0.54 points between
-/// wide receivers (FTN charting 2022-24, the binomial noise taken out), and
-/// +15 is about 2.5 of their spreads. At 0.0029 it is 1.4 (proposed, not
-/// confirmed).
-const CATCH_HANDS: f64 = 0.0029;
+/// typical starter at his position. Receivers' drops a target have a true
+/// spread between men of 0.54 points among wide receivers, 1.01 among tight
+/// ends and 1.12 among backs (FTN charting 2022-24, men with 40 or more
+/// targets, the binomial noise taken out). On world seed 1's NFL clubs the
+/// old 0.00095 a point gave 0.26, 0.31 and 0.48, and 0.0029 gave 1.49, 1.24
+/// and 2.18 (proposed, not confirmed).
+const CATCH_HANDS: f64 = 0.0016;
 
 /// The ball arrives (topic 1): who can get to it, and who catches it.
 #[allow(clippy::too_many_arguments)]
