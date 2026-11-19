@@ -1,0 +1,85 @@
+{
+ "facet": "The whole team in a room (lane N5d)",
+ "card": {
+  "setting": "A team talk, the whole team, the locker room, Monday, September 7, 2037, fbs",
+  "coach": "Dale Ruiz, head coach at Fairview State",
+  "them": "the whole team",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "the whole team (every man in the room)",
+    "kind": "other"
+   },
+   {
+    "tag": "p2",
+    "text": "Marcus Hill, WR, sophomore (a starter)",
+    "kind": "player"
+   },
+   {
+    "tag": "p3",
+    "text": "Jason Webb, QB, senior (a captain)",
+    "kind": "player"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what they want: to win, and to be somewhere that matters"
+   },
+   {
+    "tag": "c2",
+    "text": "what they want: to be treated as men"
+   },
+   {
+    "tag": "c3",
+    "text": "on their minds: the loss to State"
+   },
+   {
+    "tag": "c4",
+    "text": "the team's pride"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "Nobody's job is safe after that.",
+   "acts": [
+    {
+     "act": "threat"
+    }
+   ]
+  },
+  {
+   "text": "Get some rest. Meeting's at seven tomorrow.",
+   "acts": [
+    {
+     "act": "end"
+    }
+   ],
+   "may": [
+    {
+     "act": "request"
+    }
+   ]
+  },
+  {
+   "text": "We're better than what we showed on Saturday.",
+   "hits": [
+    {
+     "item": "c3|c4"
+    }
+   ]
+  }
+ ],
+ "exploits": [
+  {
+   "text": "Every one of you is perfect, the best men I've ever met, the greatest team in history.",
+   "why": "fresh exploit",
+   "max_hits": 2
+  }
+ ],
+ "name": "team",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}

@@ -1,0 +1,101 @@
+{
+ "facet": "The high school coach's college calls (lane N5a)",
+ "card": {
+  "setting": "A call from a college coach, a phone call, Monday, September 7, 2037, high school",
+  "coach": "Dale Ruiz, head coach at Lincoln High",
+  "them": "Greg Moran, an assistant coach at Fairview State",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Greg Moran, an assistant coach at Fairview State (the man across from you)",
+    "kind": "coach"
+   },
+   {
+    "tag": "p2",
+    "text": "Jaylen Brooks, WR, senior (your player they are asking about)",
+    "kind": "player"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what he wants: an honest read on Jaylen's grades and character"
+   },
+   {
+    "tag": "c2",
+    "text": "what he wants: to get in before another school"
+   },
+   {
+    "tag": "c3",
+    "text": "his pride"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "Is anybody else sniffing around him yet?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Pitches"
+    }
+   ]
+  },
+  {
+   "text": "What do you need to know about him?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Wants"
+    }
+   ]
+  },
+  {
+   "text": "He's got a 3.4 and he's never missed a class.",
+   "acts": [
+    {
+     "act": "claim",
+     "claim": "stat|status|off_field|record",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Call me after your staff meeting and let me know where you land.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "heads_up|tell_me|other"
+    }
+   ],
+   "may": [
+    {
+     "act": "end"
+    }
+   ]
+  },
+  {
+   "text": "I'm not letting you near him until you're serious.",
+   "hits": [
+    {
+     "item": "c2|c3",
+     "how": "threatened|stung|insulted|doubted"
+    }
+   ],
+   "may": [
+    {
+     "act": "threat"
+    },
+    {
+     "act": "answer",
+     "what": "refuse"
+    }
+   ]
+  }
+ ],
+ "exploits": [],
+ "name": "hs_call",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}

@@ -1,0 +1,117 @@
+{
+ "facet": "A prospect, a scout, the draft side (lane N5e)",
+ "card": {
+  "setting": "A pre-draft interview, in person, the combine, Monday, September 7, 2037, nfl",
+  "coach": "Dale Ruiz, head coach and general manager of the Fairview Falcons",
+  "them": "Darius King, QB, senior prospect",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Darius King, QB, senior prospect (the man across from you)",
+    "kind": "player"
+   },
+   {
+    "tag": "p2",
+    "text": "Gil Foster, your area scout (your staff, brought in)",
+    "kind": "scout"
+   },
+   {
+    "tag": "p3",
+    "text": "Sandra Voss, his agent",
+    "kind": "agent"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what he wants: a team that will play him"
+   },
+   {
+    "tag": "c2",
+    "text": "what he wants: money: his rookie deal"
+   },
+   {
+    "tag": "c3",
+    "text": "on his mind: the questions about his decision-making"
+   },
+   {
+    "tag": "c4",
+    "text": "his pride"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "Get up on the board and show me your Cover 2 beater.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "whiteboard"
+    }
+   ]
+  },
+  {
+   "text": "Draw up your favorite red-zone play for me.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "whiteboard"
+    }
+   ]
+  },
+  {
+   "text": "What happened at your old school with your coach?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Character"
+    }
+   ]
+  },
+  {
+   "text": "Who else have you had dinner with this week?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Market"
+    }
+   ]
+  },
+  {
+   "text": "Gil, call his high school coach and see what kind of teammate he is.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "find_out|scout",
+     "about": "p1",
+     "of": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Sandra, tell the other teams we're taking him early.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "plant",
+     "about": "p1",
+     "of": "p3"
+    }
+   ]
+  },
+  {
+   "text": "You hold the ball too long and it gets you hit.",
+   "hits": [
+    {
+     "item": "c3|c4",
+     "how": "stung|doubted|insulted"
+    }
+   ]
+  }
+ ],
+ "exploits": [],
+ "name": "draft",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}
