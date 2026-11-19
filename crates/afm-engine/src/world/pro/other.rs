@@ -1438,6 +1438,52 @@ fn next_pairs(live: &Live, f: &Format) -> Vec<(u16, u16)> {
     playoff_pairs(live, f)
 }
 
+/// Whether a club has a game still to play this season: a game in the
+/// regular weeks still to come; with none left, a place in the field the
+/// table will draw (whichever way the other clubs' last games go, each a
+/// win either way; ties left out), before the seeding as `next_pairs`
+/// reads it; or a place in the playoffs once drawn. None once the season
+/// stopped short, in a league without playoffs, or out of them.
+pub(crate) fn plays_on(w: &World, fr: usize) -> bool {
+    let k = league_of(fr);
+    let me = fr as u16;
+    w.others.live.iter().filter(|l| l.league == k && !l.done).any(|l| {
+        let Some(f) = format(k, l.year) else { return false };
+        let wk = l.week as usize;
+        let stop = f.stop_after.map_or(l.weeks.len(), |s| (s as usize).min(l.weeks.len()));
+        let left: Vec<(u16, u16)> = l.weeks.get(wk..stop).unwrap_or_default().iter().flatten().copied().collect();
+        if left.iter().any(|&(h, a)| h == me || a == me) {
+            return true;
+        }
+        if l.round > 0 {
+            return l.alive.contains(&me);
+        }
+        if f.stop_after.is_some() || f.playoff == Playoff::None {
+            return false;
+        }
+        // Too many games left to try every way: it may still get in.
+        if left.len() > 12 {
+            return true;
+        }
+        (0..1u32 << left.len()).any(|ways| {
+            let mut table = l.table.clone();
+            for (g, &(h, a)) in left.iter().enumerate() {
+                let (won, lost) = if ways >> g & 1 == 1 { (h, a) } else { (a, h) };
+                for r in table.iter_mut() {
+                    if r.fr == won {
+                        r.w += 1;
+                    } else if r.fr == lost {
+                        r.l += 1;
+                    }
+                }
+            }
+            let mut field = Live { league: l.league, year: l.year, table, ..Live::default() };
+            seed_playoffs(&mut field, &f);
+            field.alive.contains(&me)
+        })
+    })
+}
+
 /// Your club's league season under way: its place in `others.live` and
 /// its format.
 fn seat_league(w: &World) -> Option<(usize, usize, Format)> {
@@ -1772,7 +1818,13 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             if w.logging() {
                 log_game(w, (k, year, wk, round, neutral, d), teams, &r, [&sh.team, &sa.team]);
             }
+            if let Some(fr) =
+                w.seat.and_then(|s| s.other).filter(|_| w.seat_plays(crate::calendar::Level::Other, teams))
+            {
+                seat_arrivals(w, fr, d);
+            }
             w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref(), &r.talks);
+            super::games::seat_hurt(w, crate::calendar::Level::Other, teams, &r.injuries);
             w.seat_line(crate::calendar::Level::Other, teams, None, neutral);
             crate::world::stories::other_game(w, teams, &r.stats, round > 0);
             if let Some(o) = w.tape_watch(crate::calendar::Level::Other) {
@@ -1875,6 +1927,22 @@ fn playoff_pairs(live: &Live, f: &Format) -> Vec<(u16, u16)> {
 }
 
 /// A game's lines on each player's page, and its injuries.
+/// Your club's men, as a school's or an NFL club's practice week records
+/// them (there is no practice week in another league): the day each was
+/// first on your roster, so a game he sat says something about your word
+/// (`seen::games`; code oddity 29). The first time, everyone has been
+/// here a year.
+fn seat_arrivals(w: &mut World, fr: usize, d: Date) {
+    let ids: Vec<u32> = w.others.teams[fr].roster.iter().map(|&i| w.people[i as usize].player.id).collect();
+    let first = w.training.arrived.is_empty();
+    w.training.arrived.retain(|a| ids.contains(&a.0));
+    for id in ids {
+        if !w.training.arrived.iter().any(|a| a.0 == id) {
+            w.training.arrived.push((id, if first { d.add(-365) } else { d }));
+        }
+    }
+}
+
 fn record(w: &mut World, k: u8, teams: [u16; 2], r: &GameResult, who: [&HashMap<u32, usize>; 2]) {
     let year = w.year;
     for side in 0..2 {
@@ -1977,6 +2045,11 @@ fn finish(w: &mut World, d: Date, li: usize, f: &Format, note: &'static str) {
     let teams: Vec<usize> = table.iter().map(|r| r.fr as usize).collect();
     for &fr in &teams {
         let roster = w.others.teams[fr].roster.clone();
+        // Each man's role is the one this season gave him (code oddity 29),
+        // before the league lets him go.
+        let men: Vec<usize> = roster.iter().map(|&i| i as usize).collect();
+        let row_year = w.year;
+        super::role::write_league(w, &men, k, row_year);
         let mut keep = Vec::new();
         for i in roster {
             let i = i as usize;

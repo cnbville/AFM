@@ -392,12 +392,13 @@ pub fn seat_program(w: &World) -> Option<usize> {
 
 /// A cousin's family starts from the family it knows, a level lower
 /// (GR62): its points less one level's width, as old acquaintances.
-fn from_cousin(w: &mut World, prog: usize, fam: Who, cousin: Who, d: Date) {
+pub(crate) fn from_cousin(w: &mut World, prog: usize, fam: Who, cousin: Who, d: Date) {
     let hs: Vec<Holder> = holders(w, prog);
     for holder in hs {
         let Some(c) = w.ground.get(cousin, holder) else { continue };
         let pts = (c.points - COUSIN_DROP).max(0.0);
-        if pts <= 0.0 {
+        // A family you broke your word with knows you for itself.
+        if pts <= 0.0 || w.ground.get(fam, holder).is_some_and(|m| m.broken.is_some()) {
             continue;
         }
         let met = c.met;
@@ -700,11 +701,27 @@ pub(crate) fn pay(
     kid: Option<(u32, &str, Fared)>,
     moment: Option<(String, bool, bool)>,
 ) {
-    let before = level(w, prog, who);
-    let mk = people::makeup(w, who);
     let mut hs = vec![Holder::Program(prog as u32)];
     hs.extend(head_holder(w, prog));
-    for holder in hs {
+    pay_to(w, prog, &hs, who, by, d, kid, moment);
+}
+
+/// `pay` into these holders only. Word spreads from a coach through your
+/// program's area (`word::spread`) only when your program is paid.
+#[allow(clippy::too_many_arguments)]
+fn pay_to(
+    w: &mut World,
+    prog: usize,
+    hs: &[Holder],
+    who: Who,
+    by: f32,
+    d: Date,
+    kid: Option<(u32, &str, Fared)>,
+    moment: Option<(String, bool, bool)>,
+) {
+    let before = level(w, prog, who);
+    let mk = people::makeup(w, who);
+    for &holder in hs {
         let start = base(w, who, holder);
         let m = entry(&mut w.ground, start, who, holder, d);
         if let Some((id, name, how)) = kid {
@@ -728,6 +745,7 @@ pub(crate) fn pay(
     // on again.)
     if let Some((_, good, big)) = &moment
         && matches!(who, Who::Coach(_))
+        && hs.contains(&Holder::Program(prog as u32))
     {
         let about = kid.map(|k| k.1.to_string());
         super::word::spread(w, prog, who, by, *good, *big, about, d);
@@ -784,10 +802,48 @@ fn family_home(w: &mut World, prog: usize, fam: Who, d: Date, id: u32, last: &st
 /// Promises judged and offers pulled reach the kid's high school coach
 /// (GR24): a promise kept is your word held; one broken, or an offer
 /// pulled, is a big moment he holds for years.
+///
+/// A promise made at your program now pays it, its head coach and you (an
+/// assistant's own word too). One made at another program you coached
+/// (`Promise::team`; judged when you left it, or a promise that you'd stay
+/// broken when you started here) pays only your own word, which goes with
+/// you (`seed` keeps it), not this program, which never gave it. One made
+/// at a job outside college football is no word to a high school coach;
+/// his family still remembers it, on your own word.
 fn word(w: &mut World, prog: usize, d: Date) {
-    let mut todo: Vec<(u64, u32, bool, String)> = Vec::new();
-    for p in &w.folk.promises {
+    use crate::world::folk::Team;
+    let you = Holder::Coach(w.career.as_ref().map_or(0, |c| c.coach) as u32);
+    // The program and its head coach; a promise you made here reaches your
+    // own word too (an assistant's).
+    let here = vec![Holder::Program(prog as u32)].into_iter().chain(head_holder(w, prog)).collect::<Vec<_>>();
+    let mut yours = here.clone();
+    if !yours.contains(&you) {
+        yours.push(you);
+    }
+    /// One word owed: its key, the kid, kept or not, what it was, who
+    /// holds it, whether his high school coach hears it, and the day it
+    /// was judged (a word from a job away from college waits for your next
+    /// college seat, and is dated when it happened).
+    struct Owed {
+        k: u64,
+        id: u32,
+        kept: bool,
+        what: String,
+        to: Vec<Holder>,
+        coach: bool,
+        on: Date,
+    }
+    let mut todo: Vec<Owed> = Vec::new();
+    // A promise closed with nothing to judge (it lapsed, or closed when you
+    // left the job) is no word held or broken.
+    for p in w.folk.promises.iter().filter(|p| !p.quiet()) {
         if let (Some(kept), crate::world::folk::talks::PromiseTo::Player(id)) = (p.kept, p.to) {
+            let (to, coach) = match p.team {
+                None => (yours.clone(), true),
+                Some(Team::College(c)) if c == prog => (yours.clone(), true),
+                Some(Team::College(_)) => (vec![you], true),
+                Some(_) => (vec![you], false),
+            };
             let k = key(&[0x9A0B, id as u64, p.made.0 as u64, p.due.0 as u64]);
             if w.ground.done.binary_search(&k).is_err() {
                 let what = if matches!(
@@ -798,7 +854,7 @@ fn word(w: &mut World, prog: usize, d: Date) {
                 } else {
                     "promise"
                 };
-                todo.push((k, id, kept, what.into()));
+                todo.push(Owed { k, id, kept, what: what.into(), to, coach, on: p.due.min(d) });
             }
         }
     }
@@ -806,11 +862,19 @@ fn word(w: &mut World, prog: usize, d: Date) {
         if let Some(pd) = t.pulled {
             let k = key(&[0x9B11, t.id as u64, pd.0 as u64]);
             if w.ground.done.binary_search(&k).is_err() {
-                todo.push((k, t.id, false, "pulled".into()));
+                todo.push(Owed {
+                    k,
+                    id: t.id,
+                    kept: false,
+                    what: "pulled".into(),
+                    to: here.clone(),
+                    coach: true,
+                    on: pd.min(d),
+                });
             }
         }
     }
-    for (k, id, kept, what) in todo {
+    for Owed { k, id, kept, what, to: hs_to, coach, on: d } in todo {
         w.ground.once(k);
         let Some(i) = crate::world::scouting::place(w, id) else { continue };
         let hs = w.people[i].hs;
@@ -818,10 +882,12 @@ fn word(w: &mut World, prog: usize, d: Date) {
         // His family remembers too, for every brother (GR62): lie to them
         // and the whole family remembers.
         let fam = people::family_of(w, i);
+        let to = hs_to.as_slice();
         match (kept, what.as_str()) {
-            (true, _) => pay(
+            (true, _) => pay_to(
                 w,
                 prog,
+                to,
                 fam,
                 WORD_HELD,
                 d,
@@ -830,15 +896,18 @@ fn word(w: &mut World, prog: usize, d: Date) {
             ),
             (false, "pulled") => {
                 let words = format!("You pulled his offer in {}.", MONTH[d.parts().1 as usize - 1]);
-                pay(w, prog, fam, PROMISE_BROKEN, d, None, Some((words, false, true)));
+                pay_to(w, prog, to, fam, PROMISE_BROKEN, d, None, Some((words, false, true)));
             }
-            (false, _) => pay(w, prog, fam, PROMISE_BROKEN, d, None, Some(("You lied to us.".into(), false, true))),
+            (false, _) => {
+                pay_to(w, prog, to, fam, PROMISE_BROKEN, d, None, Some(("You lied to us.".into(), false, true)))
+            }
         }
-        let Some(who) = people::head_coach_of(w, hs) else { continue };
+        let Some(who) = people::head_coach_of(w, hs).filter(|_| coach) else { continue };
         match (kept, what.as_str()) {
-            (true, _) => pay(
+            (true, _) => pay_to(
                 w,
                 prog,
+                to,
                 who,
                 WORD_HELD,
                 d,
@@ -847,15 +916,24 @@ fn word(w: &mut World, prog: usize, d: Date) {
             ),
             (false, "pulled") => {
                 let words = format!("You pulled {last}'s offer in {}.", MONTH[d.parts().1 as usize - 1]);
-                pay(w, prog, who, PROMISE_BROKEN, d, None, Some((words, false, true)));
+                pay_to(w, prog, to, who, PROMISE_BROKEN, d, None, Some((words, false, true)));
             }
             (false, "play") => {
                 let words = format!("You told me {last} would play.");
-                pay(w, prog, who, PROMISE_BROKEN, d, Some((id, &last, Fared::Buried)), Some((words, false, true)));
+                pay_to(
+                    w,
+                    prog,
+                    to,
+                    who,
+                    PROMISE_BROKEN,
+                    d,
+                    Some((id, &last, Fared::Buried)),
+                    Some((words, false, true)),
+                );
             }
             (false, _) => {
                 let words = format!("You made {last} a promise and didn't keep it.");
-                pay(w, prog, who, PROMISE_BROKEN, d, None, Some((words, false, true)));
+                pay_to(w, prog, to, who, PROMISE_BROKEN, d, None, Some((words, false, true)));
             }
         }
     }

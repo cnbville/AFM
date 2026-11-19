@@ -51,7 +51,8 @@ pub fn check(w: &World, s: &Scene, stated: &Stated) -> Truth {
         "depth_rank" | "role" if about != him => {
             place(&v).map_or(Truth::Unknown, |first| said(first, seen::starter(w, j)))
         }
-        "snaps_share" if about != him => {
+        // A specialist's share is the kicking game's, not a side's.
+        "snaps_share" if about != him && !w.people[j].player.position.is_specialist() => {
             share(&v).map_or(Truth::Unknown, |x| said(true, (x - promise::share_now(w, j)).abs() <= SHARE_SLACK))
         }
         "touches" if about != him => match (number(&v), touches(w, about)) {

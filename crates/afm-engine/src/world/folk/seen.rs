@@ -40,7 +40,20 @@ pub fn snaps(l: &StatLine, offense: bool) -> u32 {
 
 /// He was out hurt on a day (your training room's list).
 pub fn hurt_on(w: &World, id: u32, d: Date) -> bool {
-    w.training.hurt.iter().any(|h| h.id == id && h.from <= d && d <= h.until)
+    w.training.hurt.iter().any(|h| h.id == id && h.from <= d && d <= h.until) || d == w.today && pro_out(w, id)
+}
+
+/// A pro out hurt today, on his own days (`ProCareer::out_days`): a pro's
+/// injuries are not on your trainers' list.
+fn pro_out(w: &World, id: u32) -> bool {
+    super::person(w, id).and_then(|i| w.people[i].pro.as_ref()).is_some_and(|c| c.out_days > 0 || c.out_weeks > 0)
+}
+
+/// Out hurt for one of your kept games: on your trainers' list that day,
+/// or kept on the game as one of your pro club's men out or hurt in it
+/// (`SeatGame::hurt`).
+pub fn hurt_in(w: &World, g: &crate::world::seat::SeatGame, id: u32) -> bool {
+    g.hurt.contains(&id) || hurt_on(w, id, g.date)
 }
 
 /// His practice groups, newest first: (the week's day, his group).
@@ -65,6 +78,10 @@ pub struct Game {
     /// The most snaps any of your men played on his side of the ball.
     pub most: u32,
     pub offense: bool,
+    /// A kicker, punter or long snapper: his snaps are his kicks, and one
+    /// of each dresses, so a game he kicked in is a start (code oddity 29;
+    /// proposed, not confirmed).
+    pub kicks: bool,
     /// A named teammate's snaps, and whether he was out hurt.
     pub mate: Option<(u32, bool)>,
     /// The game in `World::seat_games` and his team's side in it (0
@@ -75,14 +92,22 @@ pub struct Game {
 
 impl Game {
     pub fn snaps(&self) -> u32 {
-        self.line.as_ref().map_or(0, |l| snaps(l, self.offense))
+        self.line.as_ref().map_or(0, |l| if self.kicks { l.snaps_st } else { snaps(l, self.offense) })
     }
-    /// He started it, or as good as: half the most snaps on his side.
+    /// He started it, or as good as: half the most snaps on his side. A
+    /// specialist who kicked in it.
     pub fn started(&self) -> bool {
+        if self.kicks {
+            return self.snaps() > 0;
+        }
         self.most > 0 && self.snaps() as f64 >= START_SHARE * self.most as f64
     }
-    /// His share of the most snaps on his side.
+    /// His share of the most snaps on his side (a specialist's is all or
+    /// nothing).
     pub fn share(&self) -> f64 {
+        if self.kicks {
+            return if self.snaps() > 0 { 1.0 } else { 0.0 };
+        }
         if self.most == 0 { 0.0 } else { self.snaps() as f64 / self.most as f64 }
     }
     /// Carries plus targets.
@@ -98,21 +123,24 @@ pub fn games(w: &World, id: u32, from: Date, to: Date, mate: Option<u32>) -> Vec
     let Some(team) = super::Team::seat(w) else { return Vec::new() };
     let pos = w.people[i].player.position;
     let off = offense(pos);
+    let kicks = pos.is_specialist();
     let since = w.training.arrived.iter().find(|x| x.0 == id).map(|x| x.1);
     let mut out = Vec::new();
     for (at, g) in w.seat_games.iter().enumerate().filter(|(_, g)| g.date >= from && g.date <= to && g.date <= w.today)
     {
         let Some(side) = super::claims::side_of(g, team) else { continue };
         let line = g.stats.players[side].get(&id).cloned();
-        let hurt = hurt_on(w, id, g.date);
+        let hurt = hurt_in(w, g, id);
         // A game before he came (or one he isn't known to have been here
         // for) says nothing.
         if line.is_none() && !hurt && since.is_none_or(|d| d > g.date) {
             continue;
         }
-        let most = g.stats.players[side].values().map(|l| snaps(l, off)).max().unwrap_or(0);
-        let mate = mate.map(|m| (g.stats.players[side].get(&m).map_or(0, |l| snaps(l, off)), hurt_on(w, m, g.date)));
-        out.push(Game { date: g.date, hurt, line, most, offense: off, mate, at, side });
+        // A specialist's field is the kicking game.
+        let field = |l: &StatLine| if kicks { l.snaps_st } else { snaps(l, off) };
+        let most = g.stats.players[side].values().map(field).max().unwrap_or(0);
+        let mate = mate.map(|m| (g.stats.players[side].get(&m).map_or(0, field), hurt_in(w, g, m)));
+        out.push(Game { date: g.date, hurt, line, most, offense: off, kicks, mate, at, side });
     }
     out.sort_by_key(|g| g.date);
     out
@@ -122,11 +150,9 @@ pub fn games(w: &World, id: u32, from: Date, to: Date, mate: Option<u32>) -> Vec
 /// last two practice weeks and last two games of this season (the newest
 /// sighting breaks a tie). None when he has seen nothing yet this season.
 pub fn first_now(w: &World, i: usize) -> Option<bool> {
-    let p = &w.people[i];
-    if p.player.position.is_specialist() {
-        return None;
-    }
-    let id = p.player.id;
+    // A kicker, punter or long snapper has no practice group: his games
+    // say (he kicked in them or he didn't).
+    let id = w.people[i].player.id;
     let mut seen: Vec<(Date, bool)> = weeks(w, id).into_iter().take(WINDOW).map(|x| (x.0, x.1 == GROUP_ONES)).collect();
     let open = w.today.add(-SEASON_DAYS);
     let mut gs: Vec<Game> = games(w, id, open, w.today, None).into_iter().filter(|g| !g.hurt).collect();

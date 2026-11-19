@@ -73,6 +73,8 @@ fn game(w: &mut World, days_ago: i32, score: [i32; 2]) -> usize {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
     opp
 }

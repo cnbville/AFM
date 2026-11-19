@@ -1278,7 +1278,16 @@ pub fn record(w: &World, m: &Member) -> Record {
         .into_iter()
         .filter_map(|(id, y, role, start)| {
             let i = folk::person(w, id)?;
-            let now = w.people[i].last_role?;
+            // At a school, a man who has gone pro is read by his last
+            // college season, as his rows are (a pro's `last_role` is his
+            // pro one, code oddity 29).
+            let p = &w.people[i];
+            let school = Team::seat(w).is_some_and(|t| !matches!(t, Team::Nfl(_) | Team::Other(_)));
+            let now = if school && p.stage == Stage::Pro {
+                p.player.history.iter().rev().find(|h| h.level.is_college()).map(|h| h.playing_time)?
+            } else {
+                p.last_role?
+            };
             (role_code(now) < role).then_some((id, y, role_of(role), start as f64))
         })
         .collect();
