@@ -1395,6 +1395,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             favs: Vec::new(),
             tells: crate::world::plans::film_tells(&own.film),
             designs: Vec::new(),
+            players: setup.rules.code.players,
         };
         side.card = crate::world::plans::kickoff_card(side.team, &inp);
     }
@@ -4020,6 +4021,7 @@ impl<'a> Game<'a> {
             burner: self.sides[o].burner_lean(),
             shots: self.sides[o].shots_lean(),
             lean: self.sides[o].lean(),
+            players: self.rules().code.players,
         };
         let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
         // Your four-minute plan (update 2, G4): run it out, or keep
@@ -4058,7 +4060,7 @@ impl<'a> Game<'a> {
             };
             let side = &self.sides[o];
             let again = |rng: &mut Rng| calling::call_offense(&staff_o, &side.mem, &sit, &ctx, rng);
-            let fake = calling::throw_fake_chance(&staff_o, &side.mem, &sit, &ctx);
+            let fake = |f: &Formation, i: usize| calling::sheet_fake_chance(&staff_o, &side.mem, &sit, &ctx, f, i);
             if let Some((c, _)) = super::sheet::off_call(&side.card, &sit, &call, fake, sctx, &mut self.rng, again) {
                 call = c;
             }
@@ -5907,6 +5909,7 @@ impl<'a> Game<'a> {
             burner: self.sides[o].burner_lean(),
             shots: self.sides[o].shots_lean(),
             lean: self.sides[o].lean(),
+            players: self.rules().code.players,
         };
         (ctx, qb_threat)
     }
