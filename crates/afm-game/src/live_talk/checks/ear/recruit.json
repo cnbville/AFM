@@ -7,19 +7,23 @@
   "people": [
    {
     "tag": "p1",
-    "text": "Jaylen Brooks, WR, high school senior (the man across from you)"
+    "text": "Jaylen Brooks, WR, high school senior (the man across from you)",
+    "kind": "player"
    },
    {
     "tag": "p2",
-    "text": "Darnell Brooks, his father (his family)"
+    "text": "Darnell Brooks, his father (his family)",
+    "kind": "family"
    },
    {
     "tag": "p3",
-    "text": "Mike Whitfield, his high school coach"
+    "text": "Mike Whitfield, his high school coach",
+    "kind": "coach"
    },
    {
     "tag": "p4",
-    "text": "Terrence Reyes, wide receivers coach (your staff, brought in)"
+    "text": "Terrence Reyes, wide receivers coach (your staff, brought in)",
+    "kind": "coach"
    }
   ],
   "items": [
@@ -183,7 +187,8 @@
      "act": "offer"
     },
     {
-     "act": "promise"
+     "act": "promise",
+     "what": "start"
     }
    ],
    "why": "an offer stack, said as terms",
