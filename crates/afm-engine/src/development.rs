@@ -113,6 +113,15 @@ pub struct SeasonContext {
     /// 4: up to 3, `world::folk::bonds::coachability_lift`).
     #[serde(default)]
     pub bond: f64,
+    /// The share of his position coach's one-on-one time he keeps when the
+    /// room runs projects he isn't on (design item 8,
+    /// `progression::room_time`): 1 with none.
+    #[serde(default = "one")]
+    pub room_time: f64,
+}
+
+fn one() -> f64 {
+    1.0
 }
 
 /// The injuries a player really had since his last development step
@@ -245,6 +254,7 @@ impl SeasonContext {
             results: None,
             hurt: None,
             bond: 0.0,
+            room_time: 1.0,
         }
     }
 }
@@ -746,6 +756,10 @@ pub struct SeasonReport {
     /// the next one (`YearHurt::rehab`, with real injuries).
     #[serde(default)]
     pub rehab_due: bool,
+    /// What his skill project's click added to his ceiling this step (0
+    /// when it didn't click), for your staff's note.
+    #[serde(default)]
+    pub project_click: f64,
 }
 
 /// What one yearly step drew and why (world reader lane R2): every term
@@ -1417,7 +1431,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // part of the room between his everyday ceiling and what his body and
     // makeup allow, by his knack (everyday item 1), and a breakout closes
     // it at a click's size (item 5). On its own stream.
-    why.room_closed = crate::progression::everyday(player, ctx.coaching, ctx.level, pt, ctx.trouble.is_some());
+    // His position coach's one-on-one time, thinner when the room runs
+    // projects he isn't on (design item 8): a little less of his coaching
+    // sticks, in the room's closing and his climb.
+    let room_coaching = ctx.coaching - crate::progression::room_coaching_cut(ctx.coaching, ctx.room_time);
+    why.room_closed = crate::progression::everyday(player, room_coaching, ctx.level, pt, ctx.trouble.is_some());
     why.room_breakout =
         crate::progression::breakout(player, ctx.level, events.has(Ev::Breakout), breakout_mean, tested);
     // His skill project's year (design items 9-11): its ceiling, a click.
@@ -1426,7 +1444,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     why.project_click = project.click;
 
     // --- Growth towards the ceiling --------------------------------------------
-    let coaching_mult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
+    let coaching_mult = 0.75 + room_coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
     // How much of coaching sticks, a close bond with his teacher adding up
     // to 3 points of coachability (coach and player bonds, question 4).
     let coachability_lean = 0.6 + (personality.coachability + ctx.bond.clamp(0.0, 3.0)) * 0.04;
@@ -1793,6 +1811,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         events,
         games_missed,
         rehab_due: rehab,
+        project_click: project.click,
     }
 }
 
