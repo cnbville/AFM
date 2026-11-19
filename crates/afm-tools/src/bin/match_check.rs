@@ -1892,7 +1892,17 @@ fn gaps_counts(
     // Penalties by kind: [flagged, accepted].
     let mut pens: BTreeMap<String, [f64; 2]> = BTreeMap::new();
     // Fumbles by kind: [fumbles, lost].
-    let mut fcat: BTreeMap<&str, [f64; 2]> = BTreeMap::new();
+    let mut fcat: BTreeMap<String, [f64; 2]> = BTreeMap::new();
+    // Fumbles by nflverse's kinds and precedence (engine gaps items 4-7; the
+    // spec's `real_fumbles` reading): [fumbles, lost, out of bounds, the
+    // defense's recoveries, advanced, 10+ yards, returned for a score, the
+    // fumbler's own recoveries, a teammate's].
+    let mut fnv: BTreeMap<&str, [f64; 9]> = BTreeMap::new();
+    // What each kind is a share of: [sacks, designed runs, catches, snaps
+    // under center, in the gun, fumbled snaps under center, in the gun].
+    let mut per = [0.0f64; 7];
+    // Plays and fumbles by the man's position: "sack by EDGE" and the like.
+    let mut bypos: BTreeMap<String, [f64; 2]> = BTreeMap::new();
     // Accepted pass interference: [yards, flags].
     let mut dpi = [0.0f64; 2];
     // The half's last snap: each call's count, then [snaps, touchdowns].
@@ -1942,20 +1952,87 @@ fn gaps_counts(
                 if p.fumble_lost {
                     fum[2] += 1.0;
                 }
-                let cat = match p.kind {
-                    PT::Sack => "sack",
-                    PT::Pass if p.complete => "after a catch",
-                    PT::Pass => "pass, no catch",
-                    PT::Scramble => "scramble",
-                    PT::Run if is_qb(p.carrier) => "QB run",
-                    PT::Run => "designed run",
-                    PT::Kickoff | PT::Punt => "kick or punt play",
-                    _ => "other",
-                };
-                let e = fcat.entry(cat).or_default();
+                // How it came out (the engine's own kinds), and who had it.
+                use afm_engine::game::sim::FumbleHow;
+                let note = p.fumble.unwrap_or_default();
+                let fpos = p.fumbled.and_then(|f| pos_of.get(&f)).map_or("?".to_string(), |x| format!("{x:?}"));
+                let cat =
+                    format!("{:?}{}", note.how, if matches!(p.kind, PT::Kickoff | PT::Punt) { " (kick)" } else { "" });
+                let e = fcat.entry(format!("{cat:<16} by {fpos}")).or_default();
                 e[0] += 1.0;
                 if p.fumble_lost {
                     e[1] += 1.0;
+                }
+                // nflverse's order: a kick, then an aborted snap, a sack and
+                // a scramble over it, then a designed run, a catch and a
+                // pass without one. A snap he picked up and threw from is a
+                // pass's.
+                let nv = match p.kind {
+                    PT::Kickoff | PT::Punt => "kick or punt play",
+                    _ if note.how == FumbleHow::Snap && p.kind != PT::Pass => "aborted snap",
+                    PT::Sack => "sack",
+                    PT::Scramble => "scramble",
+                    PT::Run => "designed run",
+                    PT::Pass if p.complete => "after a catch",
+                    PT::Pass => "pass, no catch",
+                    _ => "other",
+                };
+                let e = fnv.entry(nv).or_default();
+                e[0] += 1.0;
+                if p.fumble_lost {
+                    e[1] += 1.0;
+                }
+                if note.out {
+                    e[2] += 1.0;
+                }
+                // The defense of the play came up with it (on an
+                // interception the offense's man is the one who recovers).
+                let d = 1 - p.offense;
+                if p.recovered.is_some_and(|id| p.side_of(id) == Some(d)) {
+                    e[3] += 1.0;
+                    if note.ran >= 0.5 {
+                        e[4] += 1.0;
+                    }
+                    if note.ran >= 10.0 {
+                        e[5] += 1.0;
+                    }
+                    if p.defense_td && !p.interception {
+                        e[6] += 1.0;
+                    }
+                } else if p.recovered.is_some() && p.recovered == p.fumbled {
+                    e[7] += 1.0;
+                } else if p.recovered.is_some() {
+                    e[8] += 1.0;
+                }
+            }
+            if matches!(p.kind, PT::Run | PT::Pass | PT::Sack | PT::Scramble) {
+                let uc = p.call.contains("under center");
+                per[3 + (!uc) as usize] += 1.0;
+                if p.fumble.is_some_and(|f| f.how == afm_engine::game::sim::FumbleHow::Snap) {
+                    per[5 + (!uc) as usize] += 1.0;
+                }
+                match p.kind {
+                    PT::Sack => per[0] += 1.0,
+                    PT::Run => per[1] += 1.0,
+                    PT::Pass if p.complete => per[2] += 1.0,
+                    _ => {}
+                }
+                // Each kind's rate by the man's position (engine gaps items 6
+                // and 7): the sacker, the designed run's carrier, the catcher.
+                let snap = p.fumble.is_some_and(|f| f.how == afm_engine::game::sim::FumbleHow::Snap);
+                let key = match p.kind {
+                    PT::Sack => p.sackers.first().map(|s| ("sack by", *s)),
+                    PT::Run if !snap => p.carrier.map(|c| ("designed run by", c)),
+                    PT::Pass if p.complete => p.target.map(|c| ("catch by", c)),
+                    _ => None,
+                };
+                if let Some((k, id)) = key {
+                    let pos = pos_of.get(&id).map_or("?".to_string(), |x| format!("{x:?}"));
+                    let e = bypos.entry(format!("{k} {pos}")).or_default();
+                    e[0] += 1.0;
+                    if p.fumbled.is_some() && !snap {
+                        e[1] += 1.0;
+                    }
                 }
             }
             match p.kind {
@@ -2135,8 +2212,75 @@ fn gaps_counts(
         scrim[4] / tg,
         scrim[5] / tg
     );
+    println!("fumbles by how the ball came out and who had it:");
     for (k, e) in &fcat {
-        println!("  fumbles {k:<20} {:.3} a team game, lost {:.3}", e[0] / tg, e[1] / e[0].max(1.0));
+        println!("  {k:<28} {:.4} a team game, lost {:.3}", e[0] / tg, e[1] / e[0].max(1.0));
+    }
+    // Real, nflverse 2021-25 (`real_eg2.py`): sack 0.298 lost 0.510 out
+    // 0.038 advanced 0.327 10+ 0.147 scores 46; after a catch 0.244 0.500
+    // 0.190 0.313 0.166 17; designed run 0.197 0.576 0.058 0.241 0.122 18;
+    // aborted snap 0.185 0.247 0.026 0.134 0.067 5; pass, no catch 0.036
+    // 0.082 0.072; scramble 0.024 0.469 0.281. All: 0.983 a team game,
+    // lost 0.455, out of bounds 0.085, advanced 0.280, 10+ 0.136, return
+    // touchdowns 0.032 a team game.
+    // Who came up with it, real (`real_eg2e.py`; the defense, the fumbler
+    // himself, a teammate, out of bounds): designed run 0.564 0.185 0.193
+    // 0.058; after a catch 0.488 0.156 0.166 0.190; sack 0.503 0.153
+    // 0.305 0.038; aborted snap 0.237 0.374 0.364 0.026; all from
+    // scrimmage 0.448 0.214 0.253 0.085.
+    println!(
+        "fumbles by nflverse's kinds (a team game, lost, out of bounds; the defense's recoveries advanced, 10+, scores; who came up with it: the defense, himself, a teammate):"
+    );
+    let mut all = [0.0f64; 9];
+    for (k, e) in &fnv {
+        for (a, v) in all.iter_mut().zip(e) {
+            *a += v;
+        }
+        println!(
+            "  {k:<18} {:.3}  lost {:.3}  out {:.3}  adv {:.3}  10+ {:.3}  TDs {:<4}  who {:.3} {:.3} {:.3}",
+            e[0] / tg,
+            e[1] / e[0].max(1.0),
+            e[2] / e[0].max(1.0),
+            e[4] / e[3].max(1.0),
+            e[5] / e[3].max(1.0),
+            e[6],
+            e[3] / e[0].max(1.0),
+            e[7] / e[0].max(1.0),
+            e[8] / e[0].max(1.0)
+        );
+    }
+    println!(
+        "  all                {:.3}  lost {:.3}  out {:.3}  adv {:.3}  10+ {:.3}  return TDs {:.4} a team game  who {:.3} {:.3} {:.3}",
+        all[0] / tg,
+        all[1] / all[0].max(1.0),
+        all[2] / all[0].max(1.0),
+        all[4] / all[3].max(1.0),
+        all[5] / all[3].max(1.0),
+        all[6] / tg,
+        all[3] / all[0].max(1.0),
+        all[7] / all[0].max(1.0),
+        all[8] / all[0].max(1.0)
+    );
+    let rate = |k: &str, n: f64| fnv.get(k).map_or(0.0, |e| e[0]) / n.max(1.0);
+    // Real: 12.4% of sacks, 0.81% of designed runs, 1.13% of catches;
+    // snaps on the ground 0.467% under center, 0.227% in the gun.
+    println!(
+        "fumble rates: a sack {:.4}, a designed run {:.4}, a catch {:.4}; fumbled snaps under center {:.5}, in the gun {:.5}",
+        rate("sack", per[0]),
+        rate("designed run", per[1]),
+        rate("after a catch", per[2]),
+        per[5] / per[3].max(1.0),
+        per[6] / per[4].max(1.0)
+    );
+    // Real (nflverse 2021-25): sacks fumble by the sacker's spot DE 12.6%,
+    // OLB 15.7%, DT 7.7%, NT 9.3%, ILB 7.2%, CB 10.5%, S 12.0%; designed
+    // runs by the carrier RB 0.70%, QB 2.12%, WR 1.34%; catches WR 1.09%,
+    // TE 1.23%, RB 1.14%.
+    println!("fumble rates by position (plays, rate):");
+    for (k, e) in &bypos {
+        if e[0] >= 50.0 {
+            println!("  {k:<24} {:>7.0}  {:.4}", e[0], e[1] / e[0]);
+        }
     }
     println!("DPI accepted avg yards {:.2}", dpi[0] / dpi[1].max(1.0));
     println!("penalties a team game (flagged / accepted):");
