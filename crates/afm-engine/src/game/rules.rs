@@ -96,6 +96,11 @@ pub struct Rules {
     /// The concussion rules of the level and season (engine gaps item 3).
     #[serde(default)]
     pub concussion: Concussion,
+    /// The book's fumble rules where they are not the level's own (engine
+    /// gaps item 4): a state on college rules, the CFL, a high school
+    /// season before 2025. None reads as the level's (`fumble_rule`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fumbles: Option<FumbleRule>,
 }
 
 /// The concussion rules of a level and season (engine gaps item 3). The
@@ -172,6 +177,35 @@ impl Concussion {
     pub const BACK_BEFORE: (f64, f64) = (0.495, 0.31);
 }
 
+/// Who may advance a fumble and where one out of bounds is spotted (engine
+/// gaps item 4). The defense may always advance a fumble at every level.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct FumbleRule {
+    /// On fourth down and on a try only the fumbler may advance his own
+    /// team's fumble: a teammate's recovery is dead, back at the spot of
+    /// the fumble if he got it ahead of it (the NFL since 1979, the NCAA).
+    pub fourth_down: bool,
+    /// The same after the two-minute warning of either half (the NFL).
+    pub late: bool,
+    /// A fumble that goes forward and out of bounds between the goal lines
+    /// comes back to the spot of the fumble (the NFL, the NCAA, the NFHS
+    /// from 2025); a muffed snap is spotted where it went out.
+    pub forward_back: bool,
+    /// A ball out of bounds belongs to the team that touched it last in
+    /// the field of play, not the team that last had it (the CFL).
+    pub last_touch: bool,
+}
+
+impl FumbleRule {
+    pub const NFL: FumbleRule = FumbleRule { fourth_down: true, late: true, forward_back: true, last_touch: false };
+    pub const NCAA: FumbleRule = FumbleRule { fourth_down: true, late: false, forward_back: true, last_touch: false };
+    /// The NFHS: anyone may advance a fumble (`forward_back` from 2025).
+    pub const NFHS: FumbleRule = FumbleRule { fourth_down: false, late: false, forward_back: true, last_touch: false };
+    /// The CFL: anyone may advance a fumble; out of bounds it is the team's
+    /// that touched it last.
+    pub const CFL: FumbleRule = FumbleRule { fourth_down: false, late: false, forward_back: false, last_touch: true };
+}
+
 /// The targeting rule (coach fire, item 4): a forcible hit to the head or
 /// neck of a defenseless man, or one led with the crown of the helmet.
 /// College: a 15-yard personal foul from 2008, with an ejection from 2013
@@ -222,6 +256,7 @@ impl Rules {
                 code: Default::default(),
                 targeting: Targeting::None,
                 concussion: Concussion::for_year(level, 0),
+                fumbles: None,
             },
             Level::HS => Rules {
                 level,
@@ -245,6 +280,7 @@ impl Rules {
                 code: Default::default(),
                 targeting: Targeting::Foul,
                 concussion: Concussion::for_year(level, 0),
+                fumbles: None,
             },
             // FBS, FCS, D2 and below play NCAA rules.
             _ => Rules {
@@ -271,6 +307,7 @@ impl Rules {
                 code: Default::default(),
                 targeting: Targeting::Eject,
                 concussion: Concussion::for_year(level, 0),
+                fumbles: None,
             },
         }
     }
@@ -311,6 +348,11 @@ impl Rules {
                 // NFHS targeting from 2013.
                 if year < 2013 {
                     r.targeting = Targeting::None;
+                }
+                // A forward fumble out of bounds came back to the spot of
+                // the fumble only from 2025 (NFHS rule 4-3-1 exception).
+                if year < 2025 {
+                    r.fumbles = Some(FumbleRule { forward_back: false, ..FumbleRule::NFHS });
                 }
             }
             _ => {
@@ -358,8 +400,19 @@ impl Rules {
 
     /// States that play high school football under NCAA rules (Texas,
     /// Massachusetts): college hashes and clock, still high school length.
+    /// The NCAA's fumble rule too (engine gaps item 4).
     pub fn high_school_on_college_rules() -> Rules {
-        Rules { hash: 6.667, ..Rules::for_level(Level::HS) }
+        Rules { hash: 6.667, fumbles: Some(FumbleRule::NCAA), ..Rules::for_level(Level::HS) }
+    }
+
+    /// The fumble rules in play (engine gaps item 4): the book's own where
+    /// it has them, otherwise the level's.
+    pub fn fumble_rule(&self) -> FumbleRule {
+        self.fumbles.unwrap_or(match self.level {
+            Level::NFL => FumbleRule::NFL,
+            Level::HS => FumbleRule::NFHS,
+            _ => FumbleRule::NCAA,
+        })
     }
 }
 
