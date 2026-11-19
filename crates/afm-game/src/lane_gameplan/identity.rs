@@ -477,7 +477,12 @@ pub(super) fn view(w: &World) -> Reply {
         let pick = g.personnel.to.unwrap_or(own_p);
         let own_share = season_share(pick).unwrap_or(if pick == own_p { 0.55 } else { 0.15 });
         let k = g.personnel.pull().map_or(0.0, |x| x.1);
-        let expect = own_share + 0.55 * k * (1.0 - own_share) * 0.85;
+        // The guideline leans every normal down's call toward its group (85%
+        // of snaps; short yardage and the hurry-up keep their own): firmness
+        // k adds k times the scheme's table to it (`calling::Groups::of`,
+        // lane SF2), closing k / (1 + k) of the gap before the group fits
+        // the call.
+        let expect = own_share + 0.85 * k * (1.0 - own_share) / (1.0 + k);
         let pfit = |p: Personnel| match p {
             Personnel::P10 => fits[1] + 0.2 * (wrs as f64 - 7.0).clamp(-2.0, 2.0),
             Personnel::P12 => fits[2] + 0.3 * (tes as f64 - 3.0).clamp(-2.0, 2.0),
@@ -502,7 +507,7 @@ pub(super) fn view(w: &World) -> Reply {
             "kv": [
                 { "k": "Your roster · fit", "v": format!("{}, {}, {}: your staff reads {} personnel as a {} fit.", men(wrs, "receiver"), men(tes, "tight end"), men(rbs, "back"), pick.name(), FIT_WORDS[fit_level(pfit(pick))].to_lowercase()) },
                 { "k": "The coordinator's view", "v": if you(oc) { "You call the offense yourself.".to_string() } else if g.personnel.to.is_none() { format!("Nothing asked of him: {} is his base group.", own_p.name()) } else if pick == own_p { "Agrees: it's his base group.".to_string() } else { format!("He'd rather stay in {}, his base group.", own_p.name()) } },
-                { "k": "How well it gets called", "v": "Short yardage and the hurry-up keep their own groups: the guideline wins some of the normal downs." },
+                { "k": "How well it gets called", "v": "Short yardage and the hurry-up keep their own groups. On the other downs the guideline leans every call toward it, and the group still fits the call: more of the runs and play action, fewer of the straight drops." },
                 { "k": "If you change it", "v": "No new calls: the same plays from a different group, and the depth chart's next man up gets the snaps." },
                 { "k": "Elsewhere it shows", "v": "The depth chart's jumbo and goal line packages, and recruiting's tight end and fullback needs." },
             ],

@@ -499,7 +499,7 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
                     && p.college.is_some_and(|c| w.programs[c].division != crate::world::data::Division::FBS)
                     && !w.clubs.get(t).is_some_and(|c| c.files.contains_key(&p.player.id))
             })
-            .map(|p| (p.cal.draft_read.map_or(p.last_performance.unwrap_or(0.0), |r| r.score), p.player.id))
+            .map(|p| (p.cal.draft_read.map_or(p.last_performance.get().unwrap_or(0.0), |r| r.score), p.player.id))
             .collect();
         small.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
         let areas: Vec<usize> = w.clubs.get(t).map_or(Vec::new(), |c| {

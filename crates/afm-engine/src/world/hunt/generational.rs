@@ -88,7 +88,7 @@ fn class(w: &mut World, d: Date) {
         .people
         .iter()
         .filter(|p| matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && p.class_of == class_of && p.stars >= 4)
-        .filter_map(|p| p.cal.service_read.map(|r| (r, p.player.id)))
+        .filter_map(|p| p.cal.service_read.get().map(|r| (r, p.player.id)))
         .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
     let Some((read, id)) = best else { return };
     let Some(i) = sc::place(w, id) else { return };

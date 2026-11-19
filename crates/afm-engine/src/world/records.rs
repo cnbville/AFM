@@ -948,6 +948,10 @@ pub(crate) fn close_season(w: &mut World) {
     norms(w, year, &recs);
     let start = w.stats.seasons.len();
     w.stats.year_index.push((year, start));
+    // Exactly this season's rows more, not double the room (memory diet
+    // item 7: the book holds about two million rows, and doubling left 3.49
+    // million of room for 1.81 million).
+    w.stats.seasons.reserve_exact(recs.len());
     for (k, r) in recs.into_iter().enumerate() {
         w.stats.by_player.entry(r.id).or_default().push((start + k) as u32);
         w.stats.seasons.push(r);
