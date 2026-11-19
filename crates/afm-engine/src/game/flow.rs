@@ -3711,8 +3711,10 @@ impl<'a> Game<'a> {
         // second tight end took the flanker's place, which many concepts
         // read first, so in 13 personnel he drew 47% of the tight ends'
         // targets and the first 32% (real 29% and 47%); always putting the
-        // best one there gave the first 61%. A run keeps the depth chart's
-        // places, and so does a throw that reads no tight end past the first.
+        // best one there gave the first 60%, and this gives him 40% and the
+        // second 41% (the test league set firmly to 13, proposed, not
+        // confirmed). A run keeps the depth chart's places, and so does a
+        // throw that reads no tight end past the first.
         if let PlayKind::Pass(i) = call.kind
             && tes.len() > 1
             && te_men.len() == tes.len()

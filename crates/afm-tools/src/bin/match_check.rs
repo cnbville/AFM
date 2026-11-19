@@ -2610,14 +2610,19 @@ fn slope(rows: &[(f64, f64)]) -> (f64, f64) {
 /// a yard of separation at the catch, picks left out), with the binomial
 /// noise of his counts taken out, beside the real NFL's receiver seasons
 /// (FTN charting 2022-24 joined to nflverse play by play and rosters, the
-/// same cuts), and the forty's slopes of his aDOT and deep targets across
-/// men with 40 or more targets, so read it at the NFL.
+/// same cuts), the slope of drops on Catching, and the forty's slopes of his
+/// aDOT and deep targets across men with 40 or more targets, so read it at
+/// the NFL.
 fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game::GameTeam]) {
     use afm_engine::attributes::Attr;
     use afm_engine::positions::Position as P;
-    let who: std::collections::HashMap<u32, (P, f64, f64, f64)> = teams
+    let who: std::collections::HashMap<u32, (P, f64, f64, f64, f64)> = teams
         .iter()
-        .flat_map(|t| t.players.iter().map(|p| (p.id, (p.position, p.height, p.attrs.get(Attr::Speed), p.forty()))))
+        .flat_map(|t| {
+            t.players.iter().map(|p| {
+                (p.id, (p.position, p.height, p.attrs.get(Attr::Speed), p.forty(), p.attrs.get(Attr::Catching)))
+            })
+        })
         .collect();
     // Per man: [targets, catches, drops, contested, contested catches, and
     // over the throws not picked (a pick keeps no separation) separation,
@@ -2724,6 +2729,25 @@ fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game:
             "      separation at the catch {sep_m:.2} yd, true sd {sep_noise:.2} (real WR 0.42, Next Gen Stats 2018-25), {:+.3} yd a 10 points of Speed (correlation {:+.2}, real about none)",
             10.0 * slope(&sep).0,
             slope(&sep).1
+        );
+        // Drops on Catching across men with 40 or more targets: the slope,
+        // the spread of Catching between them, and the drops' spread that
+        // Catching alone gives (slope × that spread), beside the true sd above.
+        let hands: Vec<(f64, f64)> = men
+            .iter()
+            .filter(|m| m.1[0] >= 40.0)
+            .map(|m| (who.get(&m.0).map(|w| w.4).unwrap_or(0.0), m.1[2] / m.1[0]))
+            .collect();
+        let sd_hands = {
+            let k = hands.len().max(2) as f64;
+            let m = hands.iter().map(|x| x.0).sum::<f64>() / k;
+            (hands.iter().map(|x| (x.0 - m).powi(2)).sum::<f64>() / (k - 1.0)).sqrt()
+        };
+        println!(
+            "      a 10 points of Catching: drops a target {:+.2} pts; Catching spreads {:.1} points between them, so it alone spreads drops {:.2}",
+            1000.0 * slope(&hands).0,
+            sd_hands,
+            100.0 * slope(&hands).0.abs() * sd_hands
         );
         if let Some(fr) = fr {
             let forty_of = |id: u32| who.get(&id).map(|w| w.3).unwrap_or(0.0);

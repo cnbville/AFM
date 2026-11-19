@@ -4220,9 +4220,12 @@ const MISREAD_LANE: f64 = 1.0;
 /// sees each defender watching him break on the ball as he really will
 /// (`ball_break`), all of it at `READ_SHARP` points of field read above the
 /// typical starter, and each lane as it is. He used to see every window
-/// tighter than it was, the misread turned around: Decisions +15 cut picks
-/// by about 9% but threw 0.4 to 0.5 yards shorter, held the ball into sacks
-/// and scored no more. The one man he still gives that respect is a defender
+/// tighter than it was, the misread turned around: on main dcdde89
+/// Decisions +15 cut picks 0.03 to 0.26 points of throws by throwing 0.18
+/// to 0.39 yards shorter, held the ball and scored no more (-0.36 to +0.18
+/// a game). Now he keeps his depth, takes 0.3 to 0.5 points of dropbacks
+/// fewer sacks and scores 0.44 a game more on average (`fit_check`, the
+/// audit's seeds). The one man he still gives that respect is a defender
 /// underneath reading his eyes, between him and the spot within `LURK_NEAR`
 /// yards of the throw's line: the man who picks it (proposed, not
 /// confirmed).
@@ -4324,13 +4327,13 @@ fn ball_break(sim: &Sim, d: usize, r: usize) -> f64 {
 /// of the receiver's Route Running and route craft about his level's
 /// typical starter at his position (sooner for a poorer route runner).
 /// Against zone a route used to read only the room he sits down in and the
-/// speed he keeps through the cut: Route Running +15 drew the X 21% more
-/// targets a route against zone at 1.8 points lower catch rate and the same
-/// yards a dropback for the team, since the extra looks went into tighter
-/// windows (separation on his targets -0.09 yards against zone, +0.63
-/// against man). At 0.1 it adds 0.2 yards against zone in the slot and at
-/// tight end, holds his catch rate and lifts the team's EPA a dropback
-/// (proposed, not confirmed).
+/// speed he keeps through the cut: on main dcdde89 Route Running +15 drew
+/// 0.7 to 3.9 more targets a 100 routes against zone into tighter windows
+/// (his catch rate there -0.3 to -2.8 points, separation -0.16 to +0.06
+/// yards). At 0.1 the slot and the tight end gain 0.04 to 0.25 yards of
+/// separation against zone and hold their catch rate, and every
+/// receiver's yards a route against zone rise 0.22 to 0.56 (`fit_check`,
+/// the audit's seeds; proposed, not confirmed).
 const ZONE_TURN: f64 = 0.1;
 const TURN_NEAR: f64 = 6.0;
 
@@ -6677,8 +6680,10 @@ const CONTEST_PBU: f64 = 0.02;
 /// spread between men of 0.54 points among wide receivers, 1.01 among tight
 /// ends and 1.12 among backs (FTN charting 2022-24, men with 40 or more
 /// targets, the binomial noise taken out). On world seed 1's NFL clubs the
-/// old 0.00095 a point gave 0.26, 0.31 and 0.48, and 0.0029 gave 1.49, 1.24
-/// and 2.18 (proposed, not confirmed).
+/// old 0.00095 a point gave 0.26, 0.31 and 0.48, 0.0029 gave 1.49, 1.24 and
+/// 2.18, and this gives 1.06, 0.89 and 0.78, of which Catching alone spreads
+/// 0.68, 0.53 and 0.94 (a miss is a drop only when he is open, so the open
+/// man drops more; proposed, not confirmed).
 const CATCH_HANDS: f64 = 0.0016;
 
 /// The ball arrives (topic 1): who can get to it, and who catches it.
