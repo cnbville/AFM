@@ -1095,11 +1095,7 @@ fn sub_games(w: &mut World, h: usize, week: usize, friday: Date, d: Date) {
         let (home_t, away_t) = if home { (&a, &b) } else { (&b, &a) };
         let seed = (key(w, SALT ^ 0x6A, (w.year as u64) << 16 | (week as u64) << 2 | squad as u64) * 1.8e19) as u64;
         let mut setup = crate::game::GameSetup::new(home_t, away_t, crate::player::Level::HS, seed);
-        setup.rules = if matches!(code.as_str(), "TX" | "MA") {
-            crate::game::Rules::high_school_on_college_rules()
-        } else {
-            crate::game::Rules::for_level(crate::player::Level::HS)
-        };
+        setup.rules = crate::game::Rules::high_school(&code, w.year);
         setup.rules.quarter = 600.0;
         setup.cond = crate::game::Conditions {
             temperature: wx.temperature,

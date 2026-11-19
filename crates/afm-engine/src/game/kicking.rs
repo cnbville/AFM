@@ -62,7 +62,14 @@ pub struct KickResult {
     pub returner: Option<u32>,
     pub notes: Notes,
     pub frames: Option<Vec<Frame>>,
+    /// An NFL kickoff that came down short of the landing zone (from 2024).
+    #[serde(default)]
+    pub short: bool,
 }
+
+/// The share of kickoffs a kicker of typical technique mis-hits (EG5;
+/// proposed, not confirmed).
+const MISHIT: f64 = 0.039;
 
 /// High snaps in the wet (individual practice): in rain or snow the
 /// snapper's skill reads the flaw lower (five rating points a step).
@@ -129,6 +136,10 @@ pub struct FieldGoal {
     pub distance: f64,
     pub bad_snap: bool,
     pub why: String,
+    /// How far the kick carried, yards from the spot of the hold (0 when
+    /// it never got off): a short one comes down in front of the posts.
+    #[serde(default)]
+    pub carry: f64,
 }
 
 /// A field goal or extra point try from `distance` yards (spot of the hold
@@ -154,7 +165,7 @@ pub fn field_goal(
     let bad_snap = rng.chance(0.004 * (1.0 + (10.0 - snap_skill).max(-5.0) * 0.18));
     let hold = holder.a(Attr::Catching) * 0.5 + holder.a(Attr::Concentration) * 0.5;
     let bad_hold = !bad_snap && rng.chance(0.004 * (1.6 - hold / 100.0));
-    let mut fg = FieldGoal { made: false, blocked: false, distance, bad_snap, why: String::new() };
+    let mut fg = FieldGoal { made: false, blocked: false, distance, bad_snap, why: String::new(), carry: 0.0 };
     if bad_snap && rng.chance(0.6) {
         fg.why = format!("The snap got away from holder #{}.", holder.id);
         return fg;
@@ -196,6 +207,7 @@ pub fn field_goal(
     let wide = lateral.abs() > field().posts;
     let short_of = reach < distance;
     fg.made = !wide && !short_of;
+    fg.carry = reach;
     let composure = kicker.composure(level);
     fg.why = if fg.made {
         if pressure > 0.6 && composure > 14.0 {
@@ -309,7 +321,14 @@ pub fn kickoff(
         3 => (from - max).max(10.0 + rng.range(0.0, 7.0)),
         _ => aim,
     };
-    let land_x = (from - max).max(aim) + rng.normal(0.0, 2.5 * spread);
+    // A mis-hit (EG5, item 28): now and then he catches it wrong and it
+    // carries little more than half its usual, by his technique. Under the
+    // NFL's landing zone one that comes down short of it goes to the 40
+    // (real 2025: 0.079 a team game, about 1 kickoff in 60); elsewhere it
+    // is a short kick to return. Proposed, not confirmed.
+    let mishit = rng.chance(MISHIT * clamp(1.4 - tech / 100.0, 0.4, 1.2));
+    let land_x =
+        if mishit { from - max * rng.range(0.45, 0.7) } else { (from - max).max(aim) + rng.normal(0.0, 2.5 * spread) };
     let land_y = clamp(mid() + rng.normal(0.0, 7.0), 2.0, width() - 2.0);
     let hang = clamp(
         3.4 + 0.014 * (kicker.a(Attr::KickPower) - 60.0) + 0.006 * (tech - 60.0) + rng.normal(0.0, 0.2),
@@ -323,15 +342,20 @@ pub fn kickoff(
     };
     res.distance = from - land_x;
     res.hang = hang;
-    // Out of bounds: rare, the ball goes to the 40.
-    if rng.chance(0.006 * (1.4 - kicker.a(Attr::KickoffTechnique) / 100.0)) {
+    // Out of bounds: rare; the ball goes where the level's rule puts it
+    // (the NFL's 40, college's 35 from the 35, high school's 35 from the
+    // 40: `fouls::kick_out_spot`, engine gaps lane EG5, item 25).
+    // (0.006 before EG5 booked it: 1.7% of the test league's kickoffs, real
+    // NFL 2025 1.4%, 0.072 flagged a team game; proposed, not confirmed.)
+    if rng.chance(0.0042 * (1.4 - kicker.a(Attr::KickoffTechnique) / 100.0)) {
         res.out_of_bounds = true;
-        res.spot = rules.code.kick_out_spot;
+        res.spot = super::fouls::kick_out_spot(rules, rules.kickoff_from, goal());
         res.duration = hang;
         return res;
     }
     if rules.nfl_kickoff && land_x > 20.0 {
         // Short of the landing zone.
+        res.short = true;
         res.spot = rules.code.short_kick_spot;
         res.duration = hang;
         return res;
@@ -870,6 +894,8 @@ fn run_return(
         fight: Vec::new(),
         fight_since: 0.0,
         screen: None,
+        hold_edge: None,
+        hold_slip: [0.0; super::sim::MAX_AGENTS],
         // The same lunge in the open field as on a scrimmage play.
         open_reach: OPEN_REACH,
         press: 0.0,
@@ -886,6 +912,7 @@ fn run_return(
         // The sim's side 0 is the return team.
         mood: k.mood.swap(),
         targeting: rules.targeting,
+        fouls: rules.foul_book(),
         loose: None,
         fumble_rule: FumbleSnap::plain(rules),
         resume: None,
