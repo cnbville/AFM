@@ -571,7 +571,8 @@ fn drive(c: &Ctx, j: usize) -> Option<(f32, Point)> {
 
 /// The team he grew up on: a point only for that school.
 fn childhood_team(c: &Ctx, j: usize) -> Option<(f32, Point)> {
-    (c.p.childhood_team == Some(j)).then(|| (1.0, Point::new(Kind::ChildhoodTeam).text("school", c.w.program_name(j))))
+    (c.p.childhood_team.map(usize::from) == Some(j))
+        .then(|| (1.0, Point::new(Kind::ChildhoodTeam).text("school", c.w.program_name(j))))
 }
 
 /// Staying in his state: a point only for a school in it.
