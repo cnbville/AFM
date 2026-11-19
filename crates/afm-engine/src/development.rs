@@ -1769,8 +1769,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         adjustment: if dip > 0.0 { Some(round_half_up(dip * 100.0) / 100.0).into() } else { OptF64::NONE },
         spring_gain: OptF64::NONE,
         spring_open: OptF64::NONE,
-        team: None,
-        depth: None,
+        team: crate::player::OptIdx::NONE,
+        depth: crate::player::DepthLabel::NONE,
         situation: OptF64::NONE,
         results: OptF64::NONE,
     });
