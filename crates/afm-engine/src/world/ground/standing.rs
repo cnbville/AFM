@@ -130,7 +130,7 @@ pub enum Contact {
 /// to the school (0.8), the area (0.45) and the state (0.25) and its
 /// footprint in the state (0.2), put together as chances; Home only where
 /// the school itself is a pipeline (a kid of his did well there).
-fn program_part(w: &World, p: usize, h: usize) -> f32 {
+pub(crate) fn program_part(w: &World, p: usize, h: usize) -> f32 {
     let (Some(prog), Some(s)) = (w.programs.get(p), w.high_schools.get(h)) else { return 0.0 };
     let school = prog.hs_pipeline.get(&h).map_or(0.0, |x| x.0);
     let area = prog.area_pipeline.get(&s.area).map_or(0.0, |x| x.0);
@@ -190,9 +190,18 @@ fn coach_part(w: &World, c: u32, k: u32) -> f32 {
     v
 }
 
-/// A holder's points with a person: his memory, or day one.
+/// A holder's points with a person: his memory, or (lane G9) the AI's
+/// worked tie on top of day one, or day one.
 pub fn points(w: &World, who: Who, holder: Holder) -> f32 {
-    w.ground.get(who, holder).map_or_else(|| derived(w, who, holder), |m| m.points)
+    w.ground.get(who, holder).map_or_else(|| base(w, who, holder), |m| m.points)
+}
+
+/// What a holder has with a person before your seat's memory: the AI's
+/// worked tie (a man who joins your staff brings it), never below day one
+/// (lane G9).
+pub fn base(w: &World, who: Who, holder: Holder) -> f32 {
+    let d = derived(w, who, holder);
+    w.ground.ai.get(who, holder).map_or(d, |t| t.points.max(d))
 }
 
 /// A program and its current men: who holds its staff's ground.
@@ -311,16 +320,16 @@ pub fn contact(w: &mut World, prog: usize, man: Option<usize>, who: Who, kind: C
     let week = d.0.div_euclid(7);
     for (holder, share) in targets {
         let skill = people::skill(w, holder_man(holder, man));
-        let base = VISIT * skill * mk.warmth * pull;
+        let one = VISIT * skill * mk.warmth * pull;
         let size = match kind {
-            Contact::Visit if hc => base * name,
-            Contact::Visit => base,
-            Contact::Call | Contact::Campus if hc => base * name,
-            Contact::Call | Contact::Campus => base * CALL_SHARE,
+            Contact::Visit if hc => one * name,
+            Contact::Visit => one,
+            Contact::Call | Contact::Campus if hc => one * name,
+            Contact::Call | Contact::Campus => one * CALL_SHARE,
             Contact::Event(fit) => EVENT * fit * mk.warmth,
         } * share
             * scale;
-        let start = derived(w, who, holder);
+        let start = base(w, who, holder);
         let m = entry(&mut w.ground, start, who, holder, d);
         // One contact a day: three of his kids seen on one Thursday are one
         // visit with him.
@@ -504,7 +513,7 @@ fn seed(w: &mut World, prog: usize, you: usize, d: Date) {
     let ph = Holder::Program(prog as u32);
     for h in 0..w.high_schools.len() {
         for who in [people::head_coach_of(w, h), Some(Who::Counselor(h as u32))].into_iter().flatten() {
-            let v = derived(w, who, ph);
+            let v = base(w, who, ph);
             if v >= 25.0 {
                 let did = w.programs[prog].hs_pipeline.get(&h).is_some_and(|x| x.0 >= 0.05);
                 let m = entry(&mut w.ground, v, who, ph, d);
@@ -516,7 +525,7 @@ fn seed(w: &mut World, prog: usize, you: usize, d: Date) {
     let ties: Vec<usize> = w.coaches[you].ties.keys().copied().collect();
     for h in ties {
         if let Some(who) = people::head_coach_of(w, h) {
-            let v = derived(w, who, yh);
+            let v = base(w, who, yh);
             if v >= 25.0 {
                 entry(&mut w.ground, v, who, yh, d).did_well = true;
             }
@@ -525,7 +534,7 @@ fn seed(w: &mut World, prog: usize, you: usize, d: Date) {
     for (h, kind) in roots(w, you) {
         let Some(who) = people::head_coach_of(w, h) else { continue };
         let town = w.high_schools[h].town.clone();
-        let start = derived(w, who, yh);
+        let start = base(w, who, yh);
         let m = entry(&mut w.ground, start, who, yh, d);
         let (pts, words, since) = match kind {
             Root::OwnSchool => {
@@ -696,7 +705,7 @@ pub(crate) fn pay(
     let mut hs = vec![Holder::Program(prog as u32)];
     hs.extend(head_holder(w, prog));
     for holder in hs {
-        let start = derived(w, who, holder);
+        let start = base(w, who, holder);
         let m = entry(&mut w.ground, start, who, holder, d);
         if let Some((id, name, how)) = kid {
             m.kid(id, name, how);
@@ -736,7 +745,7 @@ pub(crate) fn grant(w: &mut World, prog: usize, who: Who, by: f32, words: Option
     let mut hs = vec![Holder::Program(prog as u32)];
     hs.extend(head_holder(w, prog));
     for holder in hs {
-        let start = derived(w, who, holder);
+        let start = base(w, who, holder);
         let m = entry(&mut w.ground, start, who, holder, d);
         gain(m, by, d);
         if let Some(words) = &words
@@ -758,7 +767,7 @@ fn family_home(w: &mut World, prog: usize, fam: Who, d: Date, id: u32, last: &st
         _ => "He came home with a degree. That was the promise.".to_string(),
     };
     for holder in hs {
-        let start = derived(w, fam, holder);
+        let start = base(w, fam, holder);
         let m = entry(&mut w.ground, start, fam, holder, d);
         m.kid(id, last, how);
         m.did_well = true;
@@ -939,6 +948,18 @@ fn rivals(w: &World, prog: usize, d: Date) -> std::collections::HashMap<usize, V
             if v.0 != prog && v.1 > d.add(-30) && v.1 <= d {
                 seen.push((q.hs, v.0, v.1.0));
             }
+        }
+    }
+    // Lane G9: the rival staffs' own road and calls with his head coach.
+    for (&k, t) in &w.ground.ai.ties.0 {
+        let (coach, holder) = super::ai::key_parts(k);
+        if let Holder::Program(p) = holder
+            && p as usize != prog
+            && t.last > d.add(-30)
+            && t.last <= d
+            && let Some((h, Role::HeadCoach)) = people::coach_school(w, coach as usize)
+        {
+            seen.push((h, p as usize, t.last.0));
         }
     }
     seen.sort_unstable();
@@ -1211,7 +1232,7 @@ pub(crate) fn bloom(w: &mut World, prog: usize, who: Who, by: f32, words: String
         targets.push(h);
     }
     for holder in targets {
-        let start = derived(w, who, holder);
+        let start = base(w, who, holder);
         let m = entry(&mut w.ground, start, who, holder, d);
         gain(m, by, d);
         if !m.moments.iter().any(|x| x.words == words) {

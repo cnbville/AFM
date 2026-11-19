@@ -152,19 +152,18 @@ You're going to hear things about the last staff. Some of it's true. None of it'
 I'll be straight with you, Coach. I want to stay, and I think you need somebody who knows where the bodies are buried around here.
 
 @key takeover.holdover.detail
-I've been recruiting the best kid in the state since he was a freshman. He trusts me, and so does his mom. ~ college
-I know every high school coach within two hundred miles of here. They pick up when I call. ~ college
-I took a two-star kid nobody else offered, and he's starting for us now. I can do that again. ~ college
+I'm the one recruiting {hold_recruit}. If I'm gone, you're starting over with him. ~ college
+I know every high school coach within two hundred miles of here. They pick up when I call. ~ college hold_network=yes
+{hold_two_star} was a two-star when I recruited him, and he's starting for us now. I can do that again. ~ college
 I'm in the group chat with my guys. I hear things before anybody else in this building does. ~ modern !nfl
-A good chunk of this signing class came through me. If I'm gone, a couple of those kids might be too. ~ college
-The best young player on this roster is in my room, and he's about to take a jump. I'd hate not to see it through.
-I've coached [two|a couple of] Pro Bowlers. I know what makes each guy in that room go. ~ nfl
-I was in the draft room for our last two classes. I know which of these young guys we were high on, and why. ~ nfl
-I recruited Texas for over a decade. The high school coaches down there know my face. ~ college texas
+{hold_class} kids in this signing class came through me. If I'm gone, a couple of them might be too. ~ college
+{hold_young} is the best young player on this roster, he's in my room, and he's about to take a jump. I'd hate not to see it through.
+I know what makes each guy in that room go, and what shuts him down. ~ nfl
+I was in the draft room for our last two classes. I know which of these young guys we were high on, and why. ~ nfl hold_draft=yes
+I've recruited {hold_area} for years. The high school coaches there know my face. ~ college
 I know which kids are hurting, which ones have stuff going on at home and which ones need a kick. That's worth something in a transition. ~ !nfl
 I've seen a coaching change up close before. The first spring is rough. I can help you get through it. ~ old
 I can tell you right now which kids are thinking about the portal, and what it would take to keep them. ~ college modern
-Our walk-ons run through me. A couple of those kids are going to play for you. ~ college
 I'll have cut-ups on every one of my guys on your desk by Friday, with notes.
 Ask the players about me. Don't ask me. Ask them.
 

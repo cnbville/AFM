@@ -24,6 +24,12 @@ const COLLEGE_GO_CSV: &str = include_str!("../../../../data/real-world/college_f
 /// or more (`nfl_fourth_go_habit.csv`), where every coach goes anyway.
 const GO_HABIT_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go_habit.csv");
 const WP_CSV: &str = include_str!("../../../../data/real-world/nfl_win_prob.csv");
+/// How often real offenses fake the run before a throw (scheme-fit item 3):
+/// FTN charting with nflverse play-by-play, 2022-2025, as a logistic model
+/// on the down and distance, the score and clock, and the field
+/// (`play_action_rate.py`). College and high school read it too (no
+/// college charting on file; proposed, not confirmed).
+const PLAY_ACTION_CSV: &str = include_str!("../../../../data/real-world/nfl_play_action_rate.csv");
 
 fn rows(csv: &str) -> impl Iterator<Item = Vec<&str>> {
     csv.lines().skip(1).filter(|l| !l.trim().is_empty()).map(|l| l.split(',').collect())
@@ -170,6 +176,66 @@ pub fn real_pass_rate(down: u8, togo: f64, score_diff: i32, clock: Clock, colleg
         }
     }
     if college { 0.5 } else { 0.58 }
+}
+
+/// The play-action model's parts: log odds by (down, togo bucket), by
+/// (score bucket, clock) and by field zone (yards from the end zone: 5, 10,
+/// 20, 99).
+struct PlayAction {
+    down_togo: HashMap<(i32, i32), f64>,
+    score_time: HashMap<(i32, i32), f64>,
+    field: HashMap<i32, f64>,
+}
+
+static PLAY_ACTION: LazyLock<PlayAction> = LazyLock::new(|| {
+    let mut t = PlayAction { down_togo: HashMap::new(), score_time: HashMap::new(), field: HashMap::new() };
+    for r in rows(PLAY_ACTION_CSV) {
+        let logit: f64 = r[3].parse().unwrap_or(0.0);
+        match r[0] {
+            "down_togo" => {
+                t.down_togo.insert((r[1].parse().unwrap_or(1), r[2].parse().unwrap_or(10)), logit);
+            }
+            "score_time" => {
+                let time = match r[2] {
+                    "late" => 1,
+                    "two_minute" => 2,
+                    _ => 0,
+                };
+                t.score_time.insert((r[1].parse().unwrap_or(0), time), logit);
+            }
+            _ => {
+                t.field.insert(r[1].parse().unwrap_or(99), logit);
+            }
+        }
+    }
+    t
+});
+
+/// How often real NFL offenses throw off a run fake here: the share of
+/// dropbacks (screens in, RPOs out) by down and distance, score and clock,
+/// and the field. Half of them on first and ten in a close game, under one
+/// in fifty on third and long, one in twenty in the two-minute drill.
+pub fn real_play_action_rate(down: u8, togo: f64, yardline_100: f64, score_diff: i32, clock: Clock) -> f64 {
+    let t = &*PLAY_ACTION;
+    let d = down.clamp(1, 3) as i32;
+    let c = match clock {
+        Clock::Normal => 0,
+        Clock::Late => 1,
+        Clock::TwoMinute => 2,
+    };
+    let zone = if yardline_100 <= 5.0 {
+        5
+    } else if yardline_100 <= 10.0 {
+        10
+    } else if yardline_100 <= 20.0 {
+        20
+    } else {
+        99
+    };
+    let x = t.down_togo.get(&(d, togo_bucket(togo))).copied().unwrap_or(-1.3)
+        + t.score_time.get(&(score_bucket(score_diff), c)).copied().unwrap_or(0.0)
+        + t.field.get(&zone).copied().unwrap_or(0.0);
+    1.0 / (1.0 + (-x).exp())
 }
 
 fn go_table(csv: &str) -> HashMap<(i32, i32, i32), f64> {

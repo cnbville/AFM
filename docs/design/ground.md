@@ -128,7 +128,7 @@ Each part names its items, what it is in one or two lines, and where it lives. "
 - **Moves both ways:** invade, defend, poach a man for his ground, outwork, flip a commit (a warning and one scene to fight for him), run the other down (a claim that settles on the facts; a false one costs whoever made it). Money outside the rules is rumors and a case if found. Ground's own work never buys a signature.
 - **The AI plays Ground:** it plans its week by its needs, its ground and the threats it sees through the same signs; it knows only what its people know, so its board comes from its men's tips and looks and the services, not stars and footprint. That replaces today's board (`recruiting.rs`) and doesn't sit beside it.
 - It changes how the whole world recruits, so its lane checks the world's recruiting against real (where blue chips sign, flagships holding their state, how often low-star kids are drafted, the FCS share of draft picks), on GR61's trial worlds.
-- **Code:** `world/ground/race.rs` and `world/ground/ai.rs`, wired into `world/recruiting.rs`.
+- **Code:** `world/ground/race.rs` and `world/ground/ai.rs`, wired into `world/recruiting.rs`. Built 2026-11-17 in lane G9 (`docs/reference/how-it-works/ground.md`, "Lane G9"); the world check against real waits for Cain's yes on its cost.
 
 ### K. Your staff's ground (GR68, GR69)
 

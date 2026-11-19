@@ -59,8 +59,8 @@ Agreed: "Each player gets his own lowest number, built from your bond with him, 
 
 Real hometown discounts mostly run 5 to 15% under market (Tom Brady's later deals and Patrick Mahomes's 2023 restructure were the rare quarter to half); they come from players who already earned their big money, love the place and expect to win.
 
-- **His discount** d, for your club or school only (proposed, not confirmed):
-  - Bond: 0.06 x his closeness to you (`folk::bonds::close`, from the bonds build, PR #542; 0 until it merges).
+- **His discount** d for a club or school (proposed, not confirmed). His own club or school gets every part; a new one only its winning and his home (the ring chaser and the hometown man):
+  - Bond: 0.06 x his closeness to you (`folk::bonds::close`, from the bonds build, PR #542).
   - Trust: 0.03 x his trust in you over half (`(trust - 0.5) / 0.5`, at least 0), one trust (item 2).
   - Contending: 0.04 x how much your team wins, read as his want reads it (`want_fit`'s Winning: +1 at a .800 season, 0 at .500, nothing below; college: your last season and your final rank) x his winning want over half.
   - Home: 0.03 when you play in his home state (NFL: the club's state; college: his home state's school or within 250 miles), x his home want.
@@ -133,6 +133,9 @@ Agreed: "Recruits: points come from his tape and your depth chart. They only low
 
 - Each lane's tests: a player with a bad season priced lower in the portal, a staying player's lowball upsetting him on the day, a true point moving the counter and stopping at his market, a cherry-picked point caught, a prove-it counter, a proud and a professional man, the help promise kept and broken, a recruit's point capped at his other offers.
 - **A world check** (lanes NG1 and NG4 change the world): re-signings before free agency, re-sign prices against market, portal prices by season, against main on one seed. It needs Cain's yes with the cost stated first.
+- **NG4 measured** (2026-11-18, Cain's yes on "Measure first"; seed 1's shipped world played one season with `play_on`, stand-in games): re-signed before free agency main 91, NG4 76; unrestricted free agents 304 and 317; players rated 78+ unsigned at cutdown 71 and 85; median dead money $37.6M and $34.6M; trades 39 and 39. The first build gave 69 re-signs and 100 unsigned: in free agency his price stopped 2% above the best offer and his market read his ideal, so a man who barely cared about money could never take the best offer. His market now takes out the room the score already allows and is capped at the best offer once he is on the market (`MARKET_SLACK`, `Ideal::best`).
+- **NG1 measured** (2026-11-18, the ignored `negotiation_college::season_read_measure`): seed 1's shipped world played on the engine to January 5, 2027 (`play_on` with `engine`, 330 days, about 18 minutes), then read. 47,659 of 70,095 college players with a season read carry tape. The tape moves the read very little: p5 -0.13 points, p50 0, p95 +0.12; 10 players lose more than half a point and 6 gain more. At `BID_PLAY` (3% a point) nine in ten prices move under half a percent. The ledger's shrink for credibility (`Fit::weight`) keeps one season's tape small, so a season of interceptions still barely lowers what other schools would pay. The shipped world file itself has no ledger for 2025, so before its first season the read is `last_performance` alone.
+- **NG4's re-sign fix** (2026-11-18, a proxy call for Cain while he slept: give clubs a real edge with their own players before free agency): before the market his agent reads what the other clubs would really pay (`market::agent_read`: the best `make_offer` from any other club, less the sure thing `SURE_THING` 0.05 for a deal now over the market's risks; the minimum when nobody else would bid), and his market at his own club is never above it. Proposed, not confirmed. Same seed: re-signed 83 (main 91), unrestricted free agents 311 (304), rated 78+ unsigned at cutdown 80 (71), median dead money $37.1M ($37.6M), trades 41 (39). The re-signs still short of main are players another club values more by over 5%; they go to the market.
 
 ## The lanes
 
