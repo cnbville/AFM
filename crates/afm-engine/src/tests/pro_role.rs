@@ -620,6 +620,11 @@ fn a_promise_your_club_broke_by_cutting_him_is_judged_when_you_leave() {
         let k = w.folk.promises.len() - 1;
         talks::let_go(&mut w, i, club);
         w.clubs[club].roster.retain(|&x| x != i);
+        // Another job is taken as `staff::take_job` takes it: what is
+        // settled is judged before you go, then you leave.
+        if why == "left for another job" {
+            talks::leaving_for(&mut w, Team::Nfl((club + 1) % w.clubs.len()));
+        }
         talks::job_left(&mut w, why);
         let p = w.folk.promises[k].clone();
         assert_eq!(p.kept, Some(false), "{why}: you cut him, so you broke it");
@@ -731,6 +736,7 @@ fn a_promise_from_before_is_stamped_with_the_job_you_leave() {
     w.folk.promises[ks[0]].kept = Some(false);
     talks::let_go(&mut w, men[1], club);
     w.clubs[club].roster.retain(|&x| x != men[1]);
+    talks::leaving_for(&mut w, Team::Nfl((club + 1) % w.clubs.len()));
     talks::job_left(&mut w, "left for another job");
     for &k in &ks {
         let p = &w.folk.promises[k];

@@ -454,7 +454,11 @@ pub(crate) fn visit(w: &mut World, prog: usize, man: usize, h: usize, kids: &[us
         }
     }
     let after = coach.map_or(Level::Stranger, |c| standing::level(w, prog, c));
-    let text = visit_line(w, man, h, &seen_ids, coach, after);
+    let mut text = visit_line(w, man, h, &seen_ids, coach, after);
+    // Lane G9: the sign-in sheet and any rival in the stands.
+    if let Some(signs) = super::super::race::at_school(w, h, d) {
+        text = format!("{text} {signs}");
+    }
     let id = w.ground.week.next();
     w.ground.week.log.push(Done {
         id,
