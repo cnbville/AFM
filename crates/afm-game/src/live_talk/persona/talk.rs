@@ -20,7 +20,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
-use afm_ai::{Failure, Request};
+use afm_ai::Failure;
 use afm_engine::world::World;
 use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
@@ -359,9 +359,7 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         let confirm = waits(g, id, &room, &t);
         let card_text = vc.text();
         if g.ai.usable() {
-            let req = Request::new(voice::VOICE, voice::VOICE_RULES, &card_text)
-                .schema(voice::schema())
-                .max_tokens(voice::VOICE_TOKENS);
+            let req = voice::request(&card_text);
             if let Some(f) = g.ai.browser_fake() {
                 let line = vc.released.first().cloned().unwrap_or_else(|| "I hear you, Coach.".into());
                 f.push(
@@ -695,3 +693,7 @@ mod replay_tests;
 #[cfg(test)]
 #[path = "landing_tests.rs"]
 mod landing_tests;
+
+#[cfg(test)]
+#[path = "replies_tests.rs"]
+mod replies_tests;

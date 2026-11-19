@@ -41,13 +41,13 @@ pub mod hs_call;
 pub mod recruit;
 
 use super::Them;
-use super::ear::{Act, ActKind, Confirm, Ends, HisAsk, Item, Reading, Resolving, Say, Sized, Turn};
+use super::ear::{Act, ActKind, Confirm, Ends, HisAsk, Item, Reading, Reply, Resolving, Say, Sized, Turn};
 use super::knowing;
 use super::knows::{Answer, Known, Knows, TellParts, Tells, Topic};
 use super::memory::{HisLie, Line, Secret, Treated};
 use super::negotiate::points;
 use super::room::{Room, Seat};
-use super::terms::{Valuing, Weighed};
+use super::terms::{Give, Offer, Request, Valuing, Weighed};
 use super::wants::{Acting, Boil, Want, WantKind, Wanting, Willing};
 use crate::player::Trait;
 use crate::world::World;
@@ -342,7 +342,13 @@ impl Resolving for Conversation<'_> {
                 }
             }
         }
-        for act in &reading.acts {
+        // Your answer to his counter (talk replies item 3): taking it up
+        // makes it your offer on his terms (weighed, then the confirm card
+        // as for any deal), a counter of yours is weighed as an offer, a no
+        // takes it off the table. With no counter of his on the table, a yes
+        // takes up the ask his last line raised.
+        let (acts, accepted) = answers(w, him, &open, reading, &mut t);
+        for act in &acts {
             match act {
                 // An open floor has nothing to look up: never "he doesn't
                 // know" (the talks audit, 2026-11-16: "Any questions?" to
@@ -401,6 +407,14 @@ impl Resolving for Conversation<'_> {
                         && let Some(x) = own_nothing(*topic)
                     {
                         told.released = vec![x.into()];
+                    }
+                    // A coach you're hiring, asked for his number (talk
+                    // replies item 4): his ask, or a floor or a range when
+                    // he's cagey by his makeup. "I'd rather hear your number
+                    // first" was all a ballpark got.
+                    if let Some(x) = his_number(w, him, *topic, act) {
+                        told.answer = Answer::Straight;
+                        told.released = vec![x];
                     }
                     // Hot past his point and gone quiet: the safe half at most.
                     if open.boiled == Some(Boil::Quiet) && told.answer == Answer::Straight {
@@ -527,13 +541,27 @@ impl Resolving for Conversation<'_> {
                     }
                     promise_k += 1;
                 }
-                Act::Promise { .. } => {
+                Act::Promise { words, .. } => {
                     // Logged through P1 in `apply`, in order: its index then.
                     // Only one that has a home with him (`promise_home`): a
                     // promise to a player, to a parent about his son, or a
                     // stay or a raise to someone in your building.
-                    if self.said.promises.get(promise_k).is_some_and(|p| promise_home(w, him, p).is_some()) {
+                    if let Some(p) = self.said.promises.get(promise_k)
+                        && let Some(home) = promise_home(w, him, p)
+                    {
                         t.promised.push((w.folk.promises.len() + t.promised.len()) as u32);
+                        // His take on it, from his belief in your word (talk
+                        // replies item 2): before this the voice heard
+                        // nothing and fell back on "I've heard promises
+                        // before".
+                        let (what, belief) = match home {
+                            Home::Player(pid) => talks::typed_belief(w, pid, p)
+                                .map(|(k, b)| (k.words(), b))
+                                .unwrap_or_else(|| (folk::plain(words), f64::from(trust_of(w, him)))),
+                            Home::To(_, k) => (k.words(), f64::from(trust_of(w, him))),
+                        };
+                        t.say.released.extend(promise_take(w, him, &what, belief));
+                        t.settled.push(format!("the coach promised you {what}"));
                     }
                     promise_k += 1;
                 }
@@ -704,6 +732,31 @@ impl Resolving for Conversation<'_> {
                 }
             }
         }
+        // His terms on your ask, taken up: he does it, on what he named.
+        if let Some(r) = accepted {
+            t.say.released.push("He'll do it, on the terms he named.".into());
+            if super::asks::costs_you(&r) {
+                t.confirm.push(Confirm::Request(r.clone()));
+            }
+            if let Some(c) = open.counter.as_ref().filter(|c| !c.gives.is_empty() || !c.terms.is_empty()) {
+                t.confirm.push(Confirm::Offer(taken(w, him, c)));
+            }
+            t.settled.push(format!("agreed: you'll {}, on your terms", super::asks::request_words(&r)));
+            t.asked.push((r, Willing::Yes, None));
+        }
+        // Going back on your word (talk replies item 6): a claim or a
+        // decision in this line that says the opposite of an open promise
+        // of yours breaks it now; he's told, and he raises it.
+        if let Some(i) = yours_across(w, him, s) {
+            for k in contradicted(w, i, &acts, &facts) {
+                let what = w.folk.promises[k as usize].kind.words();
+                t.say.released.push(format!(
+                    "He reminds you that you promised him {what}: what you just said goes back on it, and he says so."
+                ));
+                t.settled.push(format!("the coach went back on his promise of {what}"));
+                t.broken.push(k);
+            }
+        }
         // Asks put to someone else in the room by name (ear audit item 4):
         // weighed and answered by that man, never by the man across ("Gil,
         // find out what his old coach thinks of his work ethic", to your
@@ -864,6 +917,7 @@ impl Resolving for Conversation<'_> {
                     | Act::Request(_)
                     | Act::Decision(_)
                     | Act::Future { .. }
+                    | Act::Answer(_)
             )
         });
         // Never in front of the whole team or a room: a man doesn't raise
@@ -939,6 +993,7 @@ impl Resolving for Conversation<'_> {
                 t.his_asks.clear();
             }
         }
+        settle_words(w, him, &mut t);
         t.speaker = channels::speaker(room, reading);
         if let Some(s) = s
             && s.kind == SceneKind::OneOnOne
@@ -1037,6 +1092,16 @@ impl Resolving for Conversation<'_> {
                 talks::mood_event(w, pid, talks::Reason::Talk, h.mood);
             }
         }
+        // Open promises this line went back on (talk replies item 6): broken
+        // now, before the line's own promises are logged.
+        for k in &t.broken {
+            if let Some(line) = talks::break_now(w, *k as usize)
+                && let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id)
+            {
+                sc.outcome.push(line);
+            }
+        }
+        let made_from = w.folk.promises.len();
         // Promises count the moment you say them (question 4), through P1
         // (a recruit's through the recruiting desk, above): to a player, to
         // a parent about his son, a stay or a raise to someone in your
@@ -1172,6 +1237,10 @@ impl Resolving for Conversation<'_> {
             Line { you: self.said.words.clone(), reading: self.said.reading.clone(), his: String::new() },
         );
         store::advance(w, id, &room, t, &self.said, point);
+        // The promises this line made stay "earlier in this talk" on his
+        // card, out of his history with you, until the talk ends (item 5).
+        let made_to = w.folk.promises.len();
+        store::promised(w, id, (made_from..made_to).map(|k| k as u32));
         // The draft side's rooms (lane N5e): the interview clock, a press,
         // a GM's word, a family's answer for the file.
         super::draft::after_line(w, id, &self.said, t);
@@ -1188,6 +1257,260 @@ impl Resolving for Conversation<'_> {
             end(w, id);
         }
     }
+}
+
+/// Your answers to his counter, read into the acts the game already
+/// weighs (talk replies item 3): a counter of yours is an offer, a yes to
+/// his counter is your offer on his terms, a yes to his ask (no counter on
+/// the table) is an offer of what he asked for when the game can give it,
+/// and a no takes it off the table. Returns the acts to play, and an ask
+/// of yours whose terms you took up (he does it, on those terms).
+fn answers(w: &World, him: Them, open: &store::Open, reading: &Reading, t: &mut Turn) -> (Vec<Act>, Option<Request>) {
+    let mut acts = Vec::new();
+    let mut accepted = None;
+    for a in &reading.acts {
+        match a {
+            Act::Answer(Reply::Counter(o)) => {
+                t.answered = true;
+                acts.push(Act::Offer(o.clone()));
+            }
+            Act::Answer(Reply::Accept) => {
+                t.answered = true;
+                match &open.counter {
+                    Some(c) if c.request.is_some() && c.offer.is_none() => accepted = c.request.clone(),
+                    Some(c) => acts.push(Act::Offer(taken(w, him, c))),
+                    None => match his_ask_taken(w, him, open) {
+                        Some(o) => acts.push(Act::Offer(o)),
+                        None => {
+                            if let Some(k) = open.asking() {
+                                t.say.heard.push(format!(
+                                    "He hears a yes to what he asked: {}",
+                                    super::wanting::want_words(k)
+                                ));
+                                t.settled.push(format!("the coach said yes to {}", super::wanting::want_words(k)));
+                            }
+                        }
+                    },
+                }
+            }
+            Act::Answer(Reply::Refuse) => {
+                t.answered = true;
+                let what = match &open.counter {
+                    Some(c) => c.asks.join(", "),
+                    None => open.asking().map(|k| super::wanting::want_words(k).to_string()).unwrap_or_default(),
+                };
+                if !what.is_empty() {
+                    t.say.heard.push(format!("He turns down what you asked for: {what}"));
+                    t.settled.push(format!("the coach turned down {what}"));
+                }
+            }
+            x => acts.push(x.clone()),
+        }
+    }
+    (acts, accepted)
+}
+
+/// His counter taken up: the offer he countered with what he asked for in
+/// it (his number in place of yours, the rest added), or what he asked for
+/// alone.
+fn taken(w: &World, him: Them, c: &store::OnTable) -> Offer {
+    let mut o = c.offer.clone().unwrap_or_default();
+    for g in &c.gives {
+        match g {
+            Give::Money(_) => {
+                o.gives.retain(|x| !matches!(x, Give::Money(_)));
+                o.gives.push(g.clone());
+            }
+            Give::Years(_) => {
+                o.gives.retain(|x| !matches!(x, Give::Years(_)));
+                o.gives.push(g.clone());
+            }
+            _ if !o.gives.contains(g) => o.gives.push(g.clone()),
+            _ => {}
+        }
+    }
+    o.terms.extend(c.terms.iter().cloned());
+    let asks = c.asks.join(", ");
+    o.words = match (o.words.trim().is_empty(), asks.is_empty()) {
+        (true, _) => asks,
+        (false, true) => o.words.clone(),
+        (false, false) => format!("{}, with {asks}", o.words.trim().trim_end_matches(['.', '?', '!'])),
+    };
+    o.kind = super::deals::kind_of(w, him, &o);
+    o
+}
+
+/// A yes to the ask his last line raised, as an offer of what he asked for
+/// when the game can give it (`office::asks::his_gives`: a raise, a title,
+/// the play-calling for your own staff); None when it isn't a thing the
+/// game can give.
+fn his_ask_taken(w: &World, him: Them, open: &store::Open) -> Option<Offer> {
+    let k = open.asking()?;
+    let gives = super::office::asks::his_gives(w, him, k);
+    if gives.is_empty() {
+        return None;
+    }
+    let mut o =
+        Offer { words: gives.iter().map(Give::words).collect::<Vec<_>>().join(", "), gives, ..Offer::default() };
+    o.kind = super::deals::kind_of(w, him, &o);
+    Some(o)
+}
+
+/// His belief in a promise above which he takes your word, and below which
+/// he doubts it out loud. Proposed, not confirmed.
+pub const TAKES_WORD: f64 = 0.65;
+pub const DOUBTS_WORD: f64 = 0.4;
+/// His trust in you below which a man of that kind asks for it in writing.
+/// Proposed, not confirmed.
+pub const WRITING_TRUST: f32 = 0.35;
+
+/// His take on a promise, from his belief in your word (talk replies item
+/// 2): he takes it, takes it warily, or doubts it out loud; in writing only
+/// when his trust is low and he's that kind of man (a professional who
+/// wants things on paper, or a proud man you've let down before).
+pub fn promise_take(w: &World, him: Them, what: &str, belief: f64) -> Vec<String> {
+    let mut out = vec![if belief >= TAKES_WORD {
+        format!("He takes your word on it: {what}.")
+    } else if belief >= DOUBTS_WORD {
+        format!("He takes it warily ({what}): he'll believe it when he sees it.")
+    } else {
+        format!("He doubts it ({what}), and says so.")
+    }];
+    let let_down =
+        him.promise_to().is_some_and(|to| w.folk.promises.iter().any(|p| p.to == to && p.kept == Some(false)));
+    let kind = z(w, him, Trait::Professionalism) > 0.5 || (let_down && z(w, him, Trait::Ego) > 0.3);
+    if trust_of(w, him) < WRITING_TRUST && kind {
+        out.push("He wants it in writing.".into());
+    }
+    out
+}
+
+/// The open promises to your player that a line's claims and decisions go
+/// back on (talk replies item 6): a start or his place against a word that
+/// drops him or a bench, a role against a bench or a cut, a position against
+/// a move, any of them against telling him he has no future here.
+fn contradicted(w: &World, i: usize, acts: &[Act], facts: &[Stated]) -> Vec<u32> {
+    use super::terms::Decision;
+    use crate::world::folk::future::Word;
+    use crate::world::folk::talks::{PromiseKind, PromiseTo};
+    let id = w.people[i].player.id;
+    let dropped = facts
+        .iter()
+        .any(|f| f.kind == "depth_rank" && f.about.is_none_or(|a| a == id) && claims::truth::demotion(&f.value));
+    let decided = |d: Decision| acts.iter().any(|a| matches!(a, Act::Decision(x) if *x == d));
+    let gone = decided(Decision::Cut)
+        || decided(Decision::Traded)
+        || acts.iter().any(|a| matches!(a, Act::Future { word, .. } if *word != Word::Backed));
+    let benched = decided(Decision::Benched) || decided(Decision::Redshirt);
+    let moved: Vec<u8> = acts
+        .iter()
+        .filter_map(|a| match a {
+            Act::Decision(Decision::PositionMoved(p)) => Some(*p),
+            Act::Request(Request::Position(p)) => Some(*p),
+            _ => None,
+        })
+        .collect();
+    w.folk
+        .promises
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.to == PromiseTo::Player(id) && p.kept.is_none())
+        .filter(|(_, p)| match p.kind {
+            PromiseKind::Start | PromiseKind::Join(0) | PromiseKind::Place(0) => gone || benched || dropped,
+            PromiseKind::Place(_) => gone || dropped,
+            PromiseKind::Snaps | PromiseKind::Touches | PromiseKind::Join(_) | PromiseKind::Usage => gone || benched,
+            PromiseKind::Position(pos) => gone || moved.iter().any(|m| *m != pos),
+            PromiseKind::Captain => gone,
+            _ => false,
+        })
+        .map(|(k, _)| k as u32)
+        .collect()
+}
+
+/// What this line settled, for the talk's settled list (talk replies item
+/// 11), in his terms.
+fn settle_words(w: &World, him: Them, t: &mut Turn) {
+    let mut out: Vec<String> = Vec::new();
+    for (o, wd) in &t.weighed {
+        let what = folk::plain(&o.words);
+        match wd {
+            Weighed::Yes => out.push(format!("the coach offered \"{what}\" and you'd take it (done once he confirms)")),
+            Weighed::Counter(c) => {
+                out.push(format!("still open: the coach offered \"{what}\"; you countered: {}", c.asks.join(", ")))
+            }
+            Weighed::Later(d) => out.push(format!("still open: the coach offered \"{what}\"; you answer by {d}")),
+            Weighed::Lowball => out.push(format!("you turned down \"{what}\" as a lowball")),
+            Weighed::No => out.push(format!("you turned down \"{what}\"")),
+        }
+    }
+    for (r, wl, _) in &t.asked {
+        let what = super::asks::request_words(r);
+        match wl {
+            Willing::Yes => out.push(format!("agreed: you'll {what}")),
+            Willing::If(c) => out.push(format!("still open: you'd {what} if you get {}", c.asks.join(", "))),
+            Willing::Later(d) => out.push(format!("still open: you'll say by {d} whether you'll {what}")),
+            Willing::No => out.push(format!("you said no: you won't {what}")),
+        }
+    }
+    for c in &t.confirm {
+        if let Confirm::Decision(d) = c {
+            out.push(format!("the coach told you: {}", channels::decision_to(*d, him)));
+        }
+    }
+    // His own asks are on the card's "already asked" list, not here: an
+    // answered one stayed "still open" all talk.
+    let _ = w;
+    // The voice reads this list as his own: "promised" and the rest are
+    // already in the second person where they name him.
+    t.settled.extend(out);
+}
+
+/// Words in a question that ask for his number. Proposed, not confirmed.
+const NUMBER_WORDS: [&str; 8] = ["ballpark", "number", "money", "salary", "pay", "million", "figure", "contract"];
+
+/// A man most cagey about naming his number: greedy and cool with people,
+/// or one who barely trusts you. Proposed, not confirmed.
+pub const CAGEY: f64 = 0.35;
+
+/// His number for the job you're hiring him for, when your question asks
+/// for it (talk replies item 4): his ask said plainly, or by a cagey man a
+/// floor ("not under") or a range. None for anyone else or any other
+/// question.
+fn his_number(w: &World, him: Them, topic: Topic, act: &Act) -> Option<String> {
+    let Them::Coach(c) = him else { return None };
+    if super::office::asks::on_your_staff(w, c) {
+        return None;
+    }
+    let role = super::office::deals::role_for(w, c)?;
+    let Act::Question { words, .. } = act else { return None };
+    // "ball-park" and "ball park" are a ballpark too (Cain's own spelling).
+    let low = words.to_lowercase().replace(['-', ' '], "");
+    let asks_money = matches!(topic, Topic::Money | Topic::Market)
+        || (matches!(topic, Topic::Wants | Topic::Job | Topic::Nothing)
+            && NUMBER_WORDS.iter().any(|x| low.contains(x)));
+    if !asks_money {
+        return None;
+    }
+    let named = folk::hiring::talk(w, c).and_then(|t| t.named);
+    let ask = named.unwrap_or_else(|| folk::hiring::ask(w, c, role));
+    let m = super::makeup::makeup(w, him);
+    let cagey = 0.5 * super::makeup::Makeup::z(m.greed) - 0.5 * super::makeup::Makeup::z(m.warmth)
+        + if trust_of(w, him) < 0.3 { 0.3 } else { 0.0 };
+    let words = super::terms::money_words;
+    Some(if cagey >= CAGEY {
+        let floor = (folk::hiring::pay_now(w, c) * 1.05).max(ask * 0.9);
+        if super::makeup::Makeup::z(m.ego) > 0.2 {
+            format!("He won't give you an exact number, but he gives you his floor: not under {} a year.", words(floor))
+        } else {
+            format!(
+                "He gives you a range, not a number: somewhere between {} and {} a year.",
+                words(ask * 0.95),
+                words(ask * 1.1)
+            )
+        }
+    } else {
+        format!("He names his own price, what he would want: {} a year.", words(ask))
+    })
 }
 
 /// The man across in your one-on-one, when he's your player: his index.
@@ -1292,6 +1615,7 @@ fn want_topics(k: WantKind) -> &'static [Topic] {
         WantKind::Career => &[Topic::Jobs, Topic::Job],
         WantKind::Role => &[Topic::Wants, Topic::Job],
         WantKind::Draft => &[Topic::Market, Topic::ScoutFile],
+        WantKind::Players => &[Topic::Recruiting],
         _ => &[],
     }
 }
@@ -1368,6 +1692,7 @@ pub fn ask_words(k: WantKind) -> String {
         WantKind::Booster(_) => "he asks what his money is buying",
         WantKind::Kids => "he asks what this means for his kids",
         WantKind::Draft => "he asks what you're hearing about him from the NFL scouts",
+        WantKind::Players => "he asks whether his best players would be recruited as part of the hire",
     }
     .into()
 }

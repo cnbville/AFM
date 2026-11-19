@@ -142,6 +142,23 @@ pub fn raw(w: &World, him: Them) -> Vec<(WantKind, f32)> {
             from_wants(&f.decider_wants, if slot == 0 { 1.0 } else { 0.7 }, &mut out);
             out.push((WantKind::Family, if slot == 0 { 0.12 } else { 0.3 }));
         }
+        // A man interviewing for your staff wants what a candidate wants,
+        // whatever his job now (talk replies item 7: a high school coach in
+        // a staff interview kept a feeder coach's wants and asked for
+        // "clinic and camp invites"): the role and its path, the money, his
+        // say in the scheme, a winner, a job that lasts, his family's move;
+        // a high school coach also his best players recruited with him.
+        Them::Coach(c) if super::coaching::interviewing(w, c) && kind != Kind::Staff => {
+            out.push((WantKind::Career, 0.3 + 0.2 * z(m.ambition)));
+            out.push((WantKind::Money, 0.2 + 0.15 * z(m.greed)));
+            out.push((WantKind::Scheme, 0.12 + 0.1 * z(m.ego)));
+            out.push((WantKind::Winning, 0.15));
+            out.push((WantKind::Security, 0.1 + 0.08 * z(m.loyalty)));
+            out.push((WantKind::Family, 0.08));
+            if kind == Kind::HsCoach && !super::coaching::his_players(w, c).is_empty() {
+                out.push((WantKind::Players, 0.15 + 0.1 * z(m.warmth) + 0.05 * z(m.ego)));
+            }
+        }
         Them::Coach(c) => match kind {
             Kind::HsCoach => {
                 out.push((WantKind::Kids, 0.45 + 0.1 * z(m.warmth)));
@@ -255,7 +272,7 @@ pub fn met(w: &World, him: Them, k: WantKind) -> bool {
         a.with == him
             && match a.offer.kind {
                 DealKind::Nil | DealKind::Contract | DealKind::Restructure => k == WantKind::Money,
-                DealKind::Scholarship => k == WantKind::Role || k == WantKind::Academics,
+                DealKind::Scholarship => matches!(k, WantKind::Role | WantKind::Academics | WantKind::Players),
                 DealKind::Staff => matches!(k, WantKind::Career | WantKind::Money),
                 DealKind::Booster => matches!(k, WantKind::Booster(_)),
                 DealKind::Favour => k == WantKind::Kids,
@@ -297,5 +314,6 @@ pub fn want_words(k: WantKind) -> &'static str {
         WantKind::Booster(x) => x.short(),
         WantKind::Kids => "his kids' futures",
         WantKind::Draft => "the NFL draft: going as high as he can",
+        WantKind::Players => "his best players recruited as part of the hire",
     }
 }

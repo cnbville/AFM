@@ -658,9 +658,21 @@ fn you_words(s: &str, v: Voice) -> String {
 /// where it stands as he sees it (`promise::State`), and whether there are
 /// none when he would know it (`none`).
 fn promises(w: &World, to: impl Fn(&PromiseTo) -> bool, v: Voice, none: bool, out: &mut Vec<String>) {
-    let mine: Vec<&Promise> = w.folk.promises.iter().filter(|p| to(&p.to)).collect();
+    // One made in a talk still open is "earlier in this talk" on his card
+    // (`store::Open.promised`), never a past meeting: "you told me this
+    // morning" came back on the line after it (talk replies item 5).
+    let now = super::store::in_open_talks(w);
+    let mine: Vec<&Promise> = w
+        .folk
+        .promises
+        .iter()
+        .enumerate()
+        .filter(|(k, p)| to(&p.to) && !now.contains(&(*k as u32)))
+        .map(|(_, p)| p)
+        .collect();
+    let in_this_talk = w.folk.promises.iter().enumerate().any(|(k, p)| to(&p.to) && now.contains(&(k as u32)));
     if mine.is_empty() {
-        if none {
+        if none && !in_this_talk {
             out.push(format!("The coach hasn't made {} a promise", v.him()));
         }
         return;

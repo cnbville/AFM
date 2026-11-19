@@ -22,6 +22,21 @@ use super::recruit_tests as rt;
 use super::tests::{game, ok, talk};
 use crate::Game;
 
+/// The candidate's ask in a hiring replay: the scripts' offers ("{a70}",
+/// 70% of it) are sized to the man the tiny world draws, as Cain's 2.3 and
+/// 2.6 million were to Donte's 3.1.
+static ASK: Mutex<f64> = Mutex::new(0.0);
+
+fn sized(line: &str) -> String {
+    let ask = *ASK.lock().unwrap();
+    let mut out = line.to_string();
+    for (k, x) in [("{a70}", 0.7), ("{a85}", 0.85), ("{a95}", 0.95)] {
+        let n = (ask * x / 10_000.0).round() * 10_000.0;
+        out = out.replace(k, &afm_engine::world::folk::persona::terms::money_words(n).replace('$', ""));
+    }
+    out
+}
+
 /// The real model, every request and reply kept.
 struct Kept {
     real: Real,
@@ -101,6 +116,31 @@ fn script(facet: &str) -> &'static str {
         }
         "oc" => {
             "I've watched the tape from last season. The offense wasn't good enough.|So convince me to let you stay OC.|Why did the run game fall apart late in the year?|What would you change with this group?|I'm letting you go. I appreciate what you did here."
+        }
+        // Cain's five talks (2026-11-19, talk replies lane A): what each
+        // should now get right.
+        // A promise that his place wouldn't change, then "you'll be the
+        // last": the promise breaks on the spot and he raises it (item 6).
+        "sanders" => {
+            "Hey kid, how's the family ?|I'll be straight, you haven't progressed as i expected. I've been watching the practice film and it's all decent, but there is nothing popping out to me. I still have trust in you but you'll be the last on the depth chart|since you're athletic numbers are sub-par. You needs to make huge strides as a pocket passer. To start we need your arm strength to improve ASAP|Your arm has to be rated 70, at least if you want a future here"
+        }
+        // Promises made in this talk stay this talk's (item 5), and he takes
+        // them by how much he believes you (item 2).
+        "lampkins" => {
+            "How are you feeling about where you're at?|I'm not writing you off, but someone with elite hands like yours but not the fastest can be incredibly elite at slot position. So here is my thinking, i want you to be our starting slot, we'll move you from z and x so we can get burners there instead. You'll be the most consistent slot in college|You'll start on slot|You'll see in the winter workouts, you're going to be a star with us"
+        }
+        // He names his number (item 4) and a yes to it is your offer on his
+        // terms (item 3).
+        "donte" => {
+            "Thanks for coming in. Tell me what you'd do with our offense.|Dynamic West Coast, we moved our best receiver from an outside guy to the slot, he has the most secure hands in college, we put him on a focus to improve his release speed. If you were to sign i'll find you a 6'2+ burner who runs at least a < 4.45|Let me know where your minds at|How does {a70} sound ?|Okay give me a ball-park|How does {a85} sound ?|Okay, {a95} and you're my coordinator. Deal?"
+        }
+        "donte_yes" => {
+            "Thanks for coming in. What would it take to get you here?|How does {a70} sound ?|Okay give me a ball-park|Alright, you've got it. Your number works for me."
+        }
+        // A high school coach in an interview wants his players recruited as
+        // part of the hire and names them (item 7); a yes counts (item 3).
+        "merez" => {
+            "Thanks for coming in. What are you looking for in this job?|Depends on your family, i see south carolina as a rebuild. A dynasty, i'm planning on being here a long time and winning championships. And South carolina is not a bad place to celebrate winning in hahaha|They'll get free scholarships if that's what you mean|Considere it done|which of the kids do you feel will imrpove our roster?"
         }
         _ => "Hello.|How are you?",
     }
@@ -306,6 +346,118 @@ fn open(facet: &str) -> Option<(Game, u32)> {
             ok(&mut g, "people_scene", json!({ "id": sid }));
             Some((g, sid))
         }
+        "sanders" | "lampkins" => {
+            use afm_engine::world::folk::talks::{Promise, PromiseKind, PromiseTo};
+            let (mut g, _, him) = game(&format!("replay-{facet}"), true);
+            {
+                let w = g.world.as_mut().unwrap();
+                let i = afm_engine::world::folk::person(w, him).unwrap();
+                let today = w.today;
+                let p = &mut w.people[i];
+                if *facet == *"sanders" {
+                    p.player.position = afm_engine::positions::Position::QB;
+                    p.trust = 0.4;
+                    // Earlier: his place wouldn't change, due next winter.
+                    let mut pr = Promise::blank(PromiseTo::Player(him), PromiseKind::Place(2));
+                    pr.made = today.add(-60);
+                    pr.due = today.add(300);
+                    pr.belief = 0.5;
+                    w.folk.promises.push(pr);
+                } else {
+                    p.player.position = afm_engine::positions::Position::WR;
+                }
+                println!(
+                    "  [setup] you and the coach: {}",
+                    afm_engine::world::folk::persona::talk::between::words(w, Them::Player(him)).join(" | ")
+                );
+            }
+            let id = talk(&mut g, him, "role");
+            Some((g, id))
+        }
+        "donte" | "donte_yes" | "merez" => {
+            // A coordinator at another school, or a high school head coach
+            // (with players of his when the world has one).
+            let (mut g, _, _) = game(&format!("replay-{facet}"), true);
+            {
+                // The coordinator's chair open, as it was for Donte.
+                let w = g.world.as_mut().unwrap();
+                if let Some(Team::College(p)) = Team::seat(w) {
+                    w.programs[p].oc = None;
+                }
+                let hs = (0..w.coaches.len())
+                    .filter(|&c| {
+                        matches!(afm_engine::world::folk::persona::makeup::coach_team(w, c), Some(Team::High(_)))
+                    })
+                    .count();
+                println!(
+                    "  [setup] openings {:?}; high school coaches {hs}",
+                    afm_engine::world::folk::staffing::openings(w)
+                );
+            }
+            let (c, role) = {
+                let w = g.world.as_ref().unwrap();
+                let team = Team::seat(w).unwrap();
+                let theirs = |c: usize| {
+                    let t = afm_engine::world::folk::persona::makeup::coach_team(w, c);
+                    t.is_some() && t != Some(team)
+                };
+                let open = afm_engine::world::folk::staffing::openings(w);
+                let oc = afm_engine::world::coach::Role::OffensiveCoordinator;
+                let role = if open.contains(&oc) { oc } else { *open.first()? };
+                if *facet == *"merez" {
+                    let hs = |c: usize| {
+                        matches!(afm_engine::world::folk::persona::makeup::coach_team(w, c), Some(Team::High(_)))
+                    };
+                    let roster = |c: usize| {
+                        afm_engine::world::folk::persona::makeup::coach_team(w, c).map_or(0, |t| t.roster(w).len())
+                    };
+                    let with_kids = (0..w.coaches.len())
+                        .find(|&c| hs(c) && !afm_engine::world::folk::persona::coaching::his_players(w, c).is_empty());
+                    (
+                        with_kids
+                            .or_else(|| (0..w.coaches.len()).find(|&c| hs(c) && roster(c) >= 2))
+                            .or_else(|| (0..w.coaches.len()).find(|&c| hs(c)))?,
+                        role,
+                    )
+                } else {
+                    let oc = (0..w.coaches.len()).find(|&c| {
+                        theirs(c)
+                            && w.coaches[c]
+                                .job
+                                .is_some_and(|j| j.role == afm_engine::world::coach::Role::OffensiveCoordinator)
+                    });
+                    (oc.or_else(|| (0..w.coaches.len()).find(|&c| theirs(c)))?, role)
+                }
+            };
+            let w = g.world.as_mut().unwrap();
+            // A high school coach's best players, starred so he has some to
+            // sell (the tiny world's are mostly unstarred).
+            if let Some(t @ Team::High(h)) = afm_engine::world::folk::persona::makeup::coach_team(w, c) {
+                // The tiny world's schools can be empty: two of its high
+                // schoolers play for him.
+                if t.roster(w).len() < 2 {
+                    let kids: Vec<usize> = (0..w.people.len())
+                        .filter(|&i| w.people[i].stage == afm_engine::world::Stage::HighSchool)
+                        .take(2)
+                        .collect();
+                    w.high_schools[h].roster.extend(kids);
+                }
+                for (k, i) in t.roster(w).into_iter().take(2).enumerate() {
+                    w.people[i].stars = 3 - k as u8;
+                }
+            }
+            *ASK.lock().unwrap() = afm_engine::world::folk::hiring::ask(w, c, role);
+            println!(
+                "  [setup] {} ({:?}), interviewing for {role:?}; ask {:.0}; his players: {}",
+                w.coaches[c].name,
+                afm_engine::world::folk::persona::makeup::coach_team(w, c),
+                *ASK.lock().unwrap(),
+                afm_engine::world::folk::persona::coaching::his_players(w, c).len()
+            );
+            let id = afm_engine::world::folk::staffing::start_interview(w, c, role).ok()?;
+            ok(&mut g, "people_scene", json!({ "id": id }));
+            Some((g, id))
+        }
         _ => None,
     }
 }
@@ -325,6 +477,11 @@ const FACETS: &[&str] = &[
     "recruit_home",
     "recruit_call",
     "hs_call",
+    "sanders",
+    "lampkins",
+    "donte",
+    "donte_yes",
+    "merez",
 ];
 
 #[test]
@@ -365,7 +522,8 @@ fn replay_talks_on_the_real_model() {
         }
         let mut seen = v["lines"].as_array().map_or(0, Vec::len);
         let lines = given.clone().unwrap_or_else(|| script(facet).to_string());
-        for line in lines.split('|') {
+        for line in lines.split('|').map(sized) {
+            let line = line.as_str();
             let before = kept.log.lock().unwrap().len();
             let r = g.call("people_say", &json!({ "id": id, "text": line }));
             let Ok(r) = r else {
