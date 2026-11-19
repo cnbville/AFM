@@ -150,7 +150,11 @@ async function ppRoom() {
     { k: "line", t: "Your line to his coach", l: true, f: (x) => esc(x.line ? ppCap(x.line) : "") },
     { k: "talk", t: "", f: (x) => `<button class="st-btn small glass" data-act="pptalkmenu" data-id="${x.id}">Talk</button>`, v: () => 0 },
   ];
-  return `<section class="panel"><h2>The room <small>${esc(r.mood.words)} · ${ppHours(r.hours)} left this week</small></h2>${table("pp-room", cols, r.rows, { sort: "mood", empty: "No players." })}</section>`;
+  // A meeting with one position room (group talks, item 9): once a week each,
+  // half an hour, the room's position coach at the board.
+  const rooms = ["Quarterbacks", "Running backs", "Receivers", "Offensive line", "Defensive line", "Linebackers", "Defensive backs", "Specialists"];
+  const meet = `<p class="muted small">Meet a position room: ${rooms.map((x, k) => `<a class="link" data-act="pppositionmeet" data-g="${k}">${x}</a>`).join(" · ")}</p>`;
+  return `<section class="panel"><h2>The room <small>${esc(r.mood.words)} · ${ppHours(r.hours)} left this week</small></h2>${meet}${table("pp-room", cols, r.rows, { sort: "mood", empty: "No players." })}</section>`;
 }
 function ppTrust(t) {
   return t >= 0.8 ? "Would run through a wall for you" : t >= 0.65 ? "Trusts you" : t >= 0.5 ? "Buying in" : t >= 0.38 ? "Waiting to see" : t >= 0.25 ? "Doubts you" : "Has stopped listening";
@@ -459,6 +463,7 @@ Object.assign(CORE_MORE, {
   ppteamtalk: () => ppGoScene(api("people_team_talk")),
   ppbossmeet: () => ppGoScene(api("people_boss_meeting")),
   ppcouncilmeet: () => ppGoScene(api("people_council_meet")),
+  pppositionmeet: (el) => ppGoScene(api("people_position_meet", { group: Number(el.dataset.g) })),
   pptalk: (el) => ppGoScene(api("people_talk", { id: Number(el.dataset.id), subject: el.dataset.s })),
   pptalkmenu: (el, ev) => {
     if (ev) ev.stopPropagation();

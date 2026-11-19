@@ -61,7 +61,7 @@ fn a_line_to_the_room_reaches_every_man_in_it() {
         ],
         ..Reading::default()
     };
-    let out = group::expand(&room, r);
+    let out = crate::world::folk::persona::crowd::expand(&w, &room, r);
     assert_eq!(out.hits.iter().filter(|h| h.item == Item::Room).count(), room.present.len());
     assert!(out.hits.iter().all(|h| h.on != group::ROOM));
     assert!(out.hits.contains(&Hit { on: one, item: Item::Pride, how: How::Stung }));
