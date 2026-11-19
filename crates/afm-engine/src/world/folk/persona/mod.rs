@@ -59,6 +59,7 @@ pub mod wants;
 
 // Lane N1, people: who he is, what he knows and tells, what he wants, heat
 // and patience, the stores, people coming to you.
+pub mod coaching;
 pub mod coming;
 pub mod feel;
 pub mod football;
@@ -73,6 +74,7 @@ pub mod wanting;
 // Lane N5c: staff, bosses and money (the facet's people, the team doctor,
 // references, staff contracts, your own deal, boosters, compliance).
 pub mod office;
+pub mod review;
 
 use super::cast::CastRef;
 

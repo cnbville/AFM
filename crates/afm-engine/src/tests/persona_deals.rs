@@ -25,12 +25,12 @@ use crate::world::folk::persona::wants::{Acting, Want, WantKind, Willing};
 use crate::world::folk::{case, person, ties};
 use crate::world::{Stage, World};
 
-fn wants(kinds: &[WantKind]) -> Vec<Want> {
+pub(super) fn wants(kinds: &[WantKind]) -> Vec<Want> {
     kinds.iter().enumerate().map(|(k, &kind)| Want { kind, weight: 1.0 - 0.2 * k as f32, met: false }).collect()
 }
 
 /// A college world with your program, and a class to draw people from.
-fn college() -> (World, usize) {
+pub(super) fn college() -> (World, usize) {
     let mut w = seat("college");
     w.add_class_aged(19);
     w.add_class_aged(17);
@@ -39,7 +39,7 @@ fn college() -> (World, usize) {
 }
 
 /// The next high schooler not used yet.
-fn fresh(w: &World, skip: &[usize], age: u32) -> usize {
+pub(super) fn fresh(w: &World, skip: &[usize], age: u32) -> usize {
     (0..w.people.len())
         .find(|&i| w.people[i].stage == Stage::HighSchool && w.people[i].player.age == age && !skip.contains(&i))
         .or_else(|| (0..w.people.len()).find(|&i| w.people[i].stage == Stage::HighSchool && !skip.contains(&i)))
@@ -138,7 +138,11 @@ fn a_pro_asks_his_market_price_moved_by_greed_and_your_first_number() {
     let f = Fake { wants: wants(&[WantKind::Money, WantKind::Role]), ..Default::default() };
     let d = Deals { wants: &f };
     let money = |x: f64| Offer { gives: vec![Give::Money(x)], ..Default::default() };
-    let ask = worth * (1.0 + deals::ASK_GREED);
+    // His ask comes down by his own discount for your club (the
+    // negotiation overhaul, item 1).
+    let club = w.seat.and_then(|s| s.nfl_team).unwrap();
+    let home = crate::world::pro::market::discount(&w, i, club, true).total;
+    let ask = worth * (1.0 + deals::ASK_GREED - home);
     // Over his ask: yes (his agent may take a day or two); with your
     // deadline this week, yes now.
     let rich = money(ask * 1.05);

@@ -285,7 +285,7 @@ pub(crate) fn owe(w: &mut World, who: Who, holder: Holder, by: i8, words: String
         return;
     }
     let d = w.today;
-    let start = standing::derived(w, who, holder);
+    let start = standing::base(w, who, holder);
     let m = standing::entry(&mut w.ground, start, who, holder, d);
     m.favor(by, words.clone(), d);
     let yours = Some(holder) == you(w).map(|y| Holder::Coach(y as u32));
@@ -611,7 +611,7 @@ pub fn ask(w: &mut World, who: Who, kid: Option<u32>) -> Result<String, String> 
     }
     let next = Level::ALL[lv as usize + 1];
     // The gates (GR28): a favor never makes the clock run faster.
-    let start = standing::derived(w, who, held_by);
+    let start = standing::base(w, who, held_by);
     let cap = standing::cap(standing::entry(&mut w.ground, start, who, held_by, d), d);
     if cap < next.floor() {
         return Err(match next {
@@ -646,7 +646,7 @@ pub fn ask(w: &mut World, who: Who, kid: Option<u32>) -> Result<String, String> 
             < DODGE * (1.0 - 2.0 * mk.loyal as f64)
     {
         let words = format!("he dodged your ask when {} wanted the same", w.program_name(j));
-        let start = standing::derived(w, who, holder);
+        let start = standing::base(w, who, holder);
         let m = standing::entry(&mut w.ground, start, who, holder, d);
         m.favors.push(Favor { date: d, words, his: false });
         if m.favors.len() > super::memory::FAVORS {
@@ -664,7 +664,7 @@ pub fn ask(w: &mut World, who: Who, kid: Option<u32>) -> Result<String, String> 
     owe(w, who, holder, -1, what);
     let mut text = String::new();
     if owes < 1 {
-        let start = standing::derived(w, who, held_by);
+        let start = standing::base(w, who, held_by);
         let m = standing::entry(&mut w.ground, start, who, held_by, d);
         standing::gain(m, OVERASK, d);
         text.push_str("You asked for more than he owed you. He answered, but he noticed. ");
@@ -1031,7 +1031,7 @@ fn settle(w: &mut World, prog: usize, d: Date) {
         let heard: Vec<Who> = std::iter::once(man).chain(pl.sender).collect();
         for &who in &heard {
             for h in [holder, Holder::Program(prog as u32)] {
-                let start = standing::derived(w, who, h);
+                let start = standing::base(w, who, h);
                 let m = standing::entry(&mut w.ground, start, who, h, d);
                 m.your_word.0 = m.your_word.0.saturating_add(1);
                 if held {

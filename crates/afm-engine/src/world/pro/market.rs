@@ -689,6 +689,16 @@ pub struct Ideal {
     /// Wants a starting job.
     pub start: bool,
     pub opened: Date,
+    /// The best offer the market has put on the table for him since it
+    /// opened, a year (`decay`): once he is on the market, what it really
+    /// pays him. None before any offer.
+    #[serde(default)]
+    pub best: Option<f64>,
+    /// His market pinned for a talk where your true points moved his ideal
+    /// (negotiation item 3a, `front_office::nfl::ideal_of`): the points
+    /// lower his ask toward his market, never his market itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market: Option<f64>,
 }
 
 /// An offer on the table.
@@ -700,6 +710,15 @@ pub struct Offer {
     pub gtd: f64,
     /// A promised starting job (logged; topic 4 question 2).
     pub start: bool,
+    /// The part of his discount your "I'll sign you help" buys as he
+    /// believes it (negotiation item 4, `front_office::nfl`): 0 for every
+    /// AI offer.
+    #[serde(default, skip_serializing_if = "is_zero32")]
+    pub help: f32,
+}
+
+fn is_zero32(x: &f32) -> bool {
+    *x == 0.0
 }
 
 /// A deal agreed and not yet signed: the seven-day window after an offer
@@ -758,6 +777,8 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
         years: clamp(years.round(), 1.0, 5.0) as u32,
         start: g.role > 0.45 && view >= 70.0 && slots.starters > 0,
         opened: d,
+        best: None,
+        market: None,
     }
 }
 
@@ -804,11 +825,173 @@ pub(crate) fn state_tax(w: &World, t: usize, year: i32) -> f64 {
     }
 }
 
+// --- His lowest number (negotiation overhaul, items 1 and 2) -----------------------------
+
+/// The parts of a player's own discount for a club (`docs/design/
+/// negotiation-arguments.md`, item 1): what he would give up below his
+/// market to play there. Each part at full is its size; the sum is scaled
+/// by how little money matters to him and whether he has made his money,
+/// and kept to `FLOOR_MAX`. Proposed, not confirmed.
+pub const FLOOR_BOND: f64 = 0.06;
+pub const FLOOR_TRUST: f64 = 0.03;
+pub const FLOOR_WIN: f64 = 0.04;
+pub const FLOOR_HOME: f64 = 0.03;
+/// Having made his money (career earnings against a tenth of the year's
+/// cap) raises the discount up to this much more.
+pub const FLOOR_MADE: f64 = 0.6;
+pub const FLOOR_MAX: f64 = 0.25;
+
+/// A player's discount for one club, part by part (engine numbers, never
+/// shown).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Discount {
+    pub bond: f64,
+    pub trust: f64,
+    pub win: f64,
+    pub home: f64,
+    /// 1.6 - 1.2 x his money goal: 0.4 for a man who lives for money.
+    pub money: f64,
+    /// 0-1: how far he has made his money.
+    pub made: f64,
+    /// The discount, 0 to `FLOOR_MAX`.
+    pub total: f64,
+}
+
+/// One trust (item 2): his trust in the club (trade rumors, promises the
+/// front office broke), and for your own club his trust in you as your
+/// talks and kept promises move it, the two averaged. An AI club's player
+/// has only his trust in the club: the world keeps no pro's trust in an AI
+/// head coach.
+pub fn one_trust(w: &World, i: usize, t: usize) -> f64 {
+    let club = w.people[i].pro.as_ref().map_or(1.0, |c| c.trust);
+    if crate::world::folk::Team::seat(w) == Some(crate::world::folk::Team::Nfl(t)) && w.career.is_some() {
+        let you = crate::world::folk::persona::makeup::trust(
+            w,
+            crate::world::folk::persona::Them::Player(w.people[i].player.id),
+        );
+        0.5 * (club + you)
+    } else {
+        club
+    }
+}
+
+/// His closeness to the club's head coach (coach and player bonds,
+/// `folk::bonds::close`): yours when it is your club, the AI head coach's
+/// otherwise. 0 with no head coach or no bond.
+fn bond_close(w: &World, i: usize, t: usize) -> f64 {
+    let coach = w.nfl.get(t).and_then(|c| c.head_coach);
+    crate::world::folk::bonds::close(w, w.people[i].player.id, coach) as f64
+}
+
+/// How much the club wins, as a player who wants to win reads it: last
+/// season's win share, 0 at .500 or worse, 1 at .800 (the agent's read,
+/// `front_office::nfl::want_fit`). 0 before a season is on the books.
+fn contending(w: &World, t: usize) -> f64 {
+    w.nfl_seasons
+        .iter()
+        .rev()
+        .take(64)
+        .find(|s| s.team == t && s.year <= w.year && s.wins + s.losses > 0)
+        .map_or(0.0, |s| clamp((s.wins as f64 / (s.wins + s.losses) as f64 - 0.5) / 0.3, 0.0, 1.0))
+}
+
+/// His discount for club `t` (item 1). His own club (`own`) gets every
+/// part; a new club only its winning and his home state, the ring chaser's
+/// and the hometown man's.
+pub fn discount(w: &World, i: usize, t: usize, own: bool) -> Discount {
+    let g = goals(w, i);
+    let p = &w.people[i];
+    let year = w.year;
+    let bond = if own { FLOOR_BOND * bond_close(w, i, t) } else { 0.0 };
+    let trust = if own { FLOOR_TRUST * clamp((one_trust(w, i, t) - 0.5) / 0.5, 0.0, 1.0) } else { 0.0 };
+    let win = FLOOR_WIN * contending(w, t) * clamp((g.winning - 0.5) / 0.5, 0.0, 1.0);
+    let at_home = super::super::franchise::era_in(w, t, year)
+        .and_then(|e| super::super::geo::state_index(e.state))
+        .is_some_and(|s| s == p.home_state);
+    let home = if at_home { FLOOR_HOME * g.home } else { 0.0 };
+    let money = 1.6 - 1.2 * g.money;
+    let made = p.pro.as_ref().map_or(0.0, |c| clamp(c.earnings / (money::price_cap(year) * 0.1), 0.0, 1.0));
+    let total = ((bond + trust + win + home) * money * (1.0 + FLOOR_MADE * made)).clamp(0.0, FLOOR_MAX);
+    Discount { bond, trust, win, home, money, made, total }
+}
+
+/// The share of his ideal the contract score already counts as his money
+/// in full (`raw_score`'s money part: an offer at 95% of his ideal after
+/// tax meets it): his ideal is his ask, with that room in it.
+pub const MARKET_SLACK: f64 = 0.95;
+
+/// His market, a year: what the market would really pay him. His ideal
+/// less its room (`MARKET_SLACK`) and what his own money goal adds
+/// (`ideal`'s money factor); once he is on the market, never above the
+/// best offer it has put on the table (`Ideal::best`). Never under the
+/// minimum. Before, his ideal without the money goal alone: a man who
+/// barely cared about money sat a few percent over the best offer his
+/// price came down to (`decay` stops 2% above it) and could never take it.
+pub fn market_apy(w: &World, i: usize, ideal: &Ideal) -> f64 {
+    let g = goals(w, i);
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    if let Some(m) = ideal.market {
+        return m.max(money::minimum(w.year, credited));
+    }
+    let read = ideal.apy * MARKET_SLACK / (1.0 + 0.2 * (g.money - 0.5));
+    read.min(ideal.best.unwrap_or(f64::INFINITY)).max(money::minimum(w.year, credited))
+}
+
+/// Before the market, the sure thing (NG4's re-sign fix, a proxy call for
+/// Cain on 2026-11-18): at his own club he takes up to this much under
+/// what his agent reads the other clubs would pay, for a deal now over
+/// the market's risks (an injury, a dry market, a move). Proposed, not
+/// confirmed.
+pub const SURE_THING: f64 = 0.05;
+
+/// His agent's read of the market before it opens, for talks with club `t`
+/// (his own): the best offer any other club would make him today
+/// (`make_offer` at a month in, so the climb is done), less the sure thing;
+/// the minimum when no other club would bid. Put in `Ideal::best`, so his
+/// market at his own club is never above what the others would really
+/// pay. Before, his market read his ideal alone, and a club that valued
+/// him under it could never re-sign him, however little the rest of the
+/// league offered.
+pub(crate) fn agent_read(w: &World, i: usize, t: usize, ideal: &Ideal, cap_year: i32) -> f64 {
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let best = (0..w.nfl.len())
+        .filter(|&o| o != t)
+        .filter_map(|o| make_offer(w, o, i, ideal, 30, 0.0, cap_year).map(|x| x.apy))
+        .max_by(f64::total_cmp);
+    best.map_or(money::minimum(w.year, credited), |b| b * (1.0 - SURE_THING))
+}
+
+/// His lowest number for club `t`, a year: his market less his discount
+/// there (item 1), never under the minimum.
+pub fn lowest(w: &World, i: usize, t: usize, ideal: &Ideal, own: bool) -> f64 {
+    lowest_with(w, i, t, ideal, own, 0.0)
+}
+
+/// [`lowest`], with a part `extra` added to his discount inside its cap
+/// (your "I'll sign you help", negotiation item 4).
+pub fn lowest_with(w: &World, i: usize, t: usize, ideal: &Ideal, own: bool, extra: f64) -> f64 {
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let d = (discount(w, i, t, own).total + extra).clamp(0.0, FLOOR_MAX);
+    (market_apy(w, i, ideal) * (1.0 - d)).max(money::minimum(w.year, credited))
+}
+
 /// How close an offer comes to his ideal, 0 to about 1.1: each part met
 /// against what he wants, weighted by his own goals. "Balanced" (Cain): no
 /// single term covers the rest, so an offer short on the money or the
 /// guarantees he cares about can't pass 85%, whatever the role or the city.
 pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<usize>) -> f64 {
+    let (s, gtd_short) = raw_score(w, i, o, ideal, own);
+    // His lowest number (item 1): under it, money he cares about at all
+    // isn't met, whatever the rest. Before, a flat 0.82 of his ideal after
+    // tax for anyone whose money goal passed 0.3, and no floor at all
+    // under it (a cliff).
+    let short = o.apy < lowest_with(w, i, o.team, ideal, own == Some(o.team), o.help as f64);
+    if short || gtd_short { s.min(0.84) } else { s }
+}
+
+/// The offer's score before the money and guarantee floors, and whether
+/// the guarantee is short of what a man who wants security takes.
+pub(crate) fn raw_score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<usize>) -> (f64, bool) {
     let year = w.year;
     let g = goals(w, i);
     let p = &w.people[i];
@@ -828,8 +1011,8 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
     } else {
         1.0
     };
-    let trust = p.pro.as_ref().map_or(1.0, |c| c.trust);
-    let loyal_q = if own == Some(o.team) { 0.9 + 0.25 * trust } else { 1.0 };
+    let mine = own == Some(o.team);
+    let loyal_q = if mine { 0.9 + 0.25 * one_trust(w, i, o.team) } else { 1.0 };
     // Section 6 topic 2: a grudge against the team, or a coach he played for.
     let ties_q = super::super::people::ties_q(w, i, o.team);
     let parts = [
@@ -852,7 +1035,7 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
     if !w.folk.backchannel.first.is_empty() && super::super::folk::backchannel::first_word(w, i, o.team) {
         s *= 1.02;
     }
-    if (money_q < 0.82 && g.money > 0.3) || (gtd_q < 0.75 && g.security > 0.5) { s.min(0.84) } else { s }
+    (s, gtd_q < 0.75 && g.security > 0.5)
 }
 
 /// A team's offer to a player: up to its walk-away price, opening below his
@@ -892,7 +1075,7 @@ pub(crate) fn make_offer(
         w.clubs[t].depth.get(pos.index()).map_or(0, |d| d.iter().filter(|&&j| j != i && grade(w, t, j) > view).count());
     let gtd = ideal.gtd.min(0.25 + 0.5 * o.owner.cash_will);
     let years = money::usual_years(pos, market_grade(w, pos, view), w.people[i].player.age);
-    Some(Offer { team: t, apy, years, gtd, start: ideal.start && better < slots.starters })
+    Some(Offer { team: t, apy, years, gtd, start: ideal.start && better < slots.starters, help: 0.0 })
 }
 
 /// A deal's terms (topic 4's term board, laid out the way real deals are):
@@ -1285,6 +1468,9 @@ fn decay(w: &mut World, i: usize, d: Date, best: Option<f64>) {
     // all spring, no club with a starter ever bid, and he retired unsigned
     // in September; 5% a market day after six weeks is proposed, not
     // confirmed).
+    if let Some(b) = best {
+        id.best = Some(id.best.map_or(b, |x| x.max(b)));
+    }
     id.apy = match best {
         Some(b) => (id.apy * 0.97).max(b * 1.02).min(id.apy),
         None if weeks > 6.0 => id.apy * 0.95,
@@ -1398,8 +1584,9 @@ pub(crate) fn resign_talks(w: &mut World, d: Date, deadline: bool) {
         if market_grade(w, w.people[i].player.position, view) < 68.0 {
             continue;
         }
-        let id = ideal(w, i, d);
+        let mut id = ideal(w, i, d);
         let Some(o) = make_offer(w, t, i, &id, 30, 0.0, year) else { continue };
+        id.best = Some(agent_read(w, i, t, &id, year));
         let s = score(w, i, &o, &id, Some(t));
         // A money-minded player with no tie to the team wants to see what
         // the market pays (proposed, not confirmed size).
@@ -1659,6 +1846,7 @@ pub(crate) fn open_league_year(w: &mut World, d: Date) {
                 years: id.years,
                 gtd: 0.0,
                 start: false,
+                help: 0.0,
             });
             sign_offer(w, i, &o, d, money::Kind::Veteran, "his team held his rights");
             w.market.year_mut(year).resigned += 1;
@@ -1966,6 +2154,7 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
             continue;
         }
         o.apy = o.apy.min(walk);
+        id.best = Some(agent_read(w, i, t, &id, year + 1));
         let s = score(w, i, &o, &id, Some(t));
         let bar = if deadline { 0.82 } else { 0.87 };
         if s < bar {

@@ -1268,12 +1268,192 @@ Tried and dropped (NFL test rosters, seed 11):
 
 Still off: inside runs 0.3 a carry short and outside runs 0.3 long (world clubs 1.3), linebackers make too few first tackles, and runs of 20+ are half of real (item 9, lane SF9). Short yardage (item 8) is measured again after this lane, as its spec asks: team 0's backs convert 77-78% of designed runs on 3rd and 4th and 2 or less at the NFL (78-80% before) and 81-84% at FBS (82-84% before), against 67% real, and its quarterbacks 89-95% (real 79%), so it stays lane SF9's. Runs of 20+ don't move (NFL 0.9-1.2% of the backs' carries, FBS 1.3-1.8%, real 2.2%).
 
+## Play action that works (scheme-fit lane SF1, item 3, 2026-11-17)
+
+Design: `docs/design/scheme-fit.md`, item 3 (Cain: yes, "result breaking"), and his pick on 2026-11-17, "fake on any dropback play": play action is a tag any dropback concept can carry, and the coaches' table learns each concept with and without it. How it works: `docs/reference/how-it-works/match-engine.md`, "Play action", and `play-calling.md`, "Play action". Real numbers are FTN charting with nflverse play-by-play, RPOs left out: 2024 for the spec's targets (screens left out too), 2022-2025 for the call habit (screens in, since a screen can come off a fake). Every size is Claude's, proposed, not confirmed.
+
+What was wrong:
+
+- **The fake was a straight drop with a pause.** The quarterback backed up for 0.35 s more with no back meeting him, the line pass-set as on any dropback, and the fake reached only the coverage: later reads, and until they read it, men not in a deep zone or on a wide receiver stepped toward the line. The rush came at once into a quarterback who was later to his set: 22.9% of play-action dropbacks were sacks (real 6.6%), worth -0.09 EPA a dropback on the test league (real +0.15).
+- **The boot ran into the rush.** It kept the standard protection, and the quarterback set 7 yards toward the strength side, where his tackle was already blocking: 47% sacked (real 5.7% on boots and rollouts).
+- **Only three concepts could fake** (the shot, the dig and the boot), so play action was 7.9% of NFL dropbacks (real 21.2%).
+
+What changed (`game/scrimmage.rs`, `game/sim.rs`, `game/calling.rs`, `game/playbook.rs`, `game/sheet.rs`, `game/tables.rs`, `game/flow.rs`; the panel in `afm-game`, `lane_gameplan/likeus.rs`):
+
+- **The tag and the call.** Any dropback concept but the RPO halves and the three play-action concepts (which fake already) can carry the fake; screens too (27% of real screens come off a fake). It is decided with the throw, before the look, so a fake comes from the run's own personnel and backfield. How often: the league's real habit for the down, distance, score, clock and field (`data/real-world/nfl_play_action_rate.csv`), leaned on the odds by the scheme (wide zone 1.75, wing-T 1.6, power 1.35, West Coast 1.0, spread option 0.7, Air Raid 0.55), by your word to a player promised play action, and by what the coaches' table says the fake adds against the looks this defense shows. A throw off the call sheet fakes at the caller's own habit too: it keeps the fake of his own call when that was a throw, and when it replaces a run (which has no fake to keep) it fakes at his habit for the spot.
+- **The fake.** The back takes the run's path through the mesh (0.8 s under center, 0.7 in the pistol, 0.6 in the shotgun), the quarterback rides it and pulls it, and the back carries the fake 0.45 s into the line before he takes his job in the pass. The quarterback finishes his drop at least 2 yards past the mesh (a deeper drop keeps its depth, and the boot keeps its own spot), 0.45 s later to his set than on a straight drop.
+- **Who it holds.** Everyone who keys the backfield plays the run he is shown until he reads the pass (his own read time, which the fake already lengthens by his Play Recognition, Discipline and Downhill habit and the passer's Ball Handling against his level's typical starter): the rushers, the zone defenders, and a man on a tight end or a back. A man on a wide receiver has his eyes on his man. A fooled rusher in a block plays it as the run: he gets no nearer the passer, and the block stands where it is until he reads the pass, or the quarterback throws or tucks it and runs (rolling out on the boot or breaking the pocket to throw on the move does not end it).
+- **The protection.** With the back in it, a half-slide (not on the boot, below, where the back has no man of his own and blocks only a free rusher who comes into him on his path): the guard and tackle on the side he fakes to block the down linemen over them (the tackle has the end), the center and the far side slide a gap away, and the back has the first rusher left on his side from the center out. He blocks a free rusher who comes into him on his path, and from the mesh on his own man if that man comes and he sees him (Football IQ and Pass Blocking against the blitzer's Blitzing); otherwise he carries the fake, then blocks or releases. When he runs a route, the standard protection.
+- **The hot throw.** Once his eyes are back from the mesh (0.2 s after it under center, at once in the shotgun and the pistol), a passer with a free man coming can throw before he sets, by his own poise and blitz reading (`urgent`); the hot read's window runs the fake's 0.45 s later. A throw he decides on in that window goes when it would have, even if the blitzer is picked up first; outside it he reads nothing new until a tenth of a second after he sets, and the back still carrying out the fake is nobody's target.
+- **The boot.** The guard on the boot side pulls to the end man there; the blocker who had the end takes the guard's man, and if nobody had the end, a lineman with no man of his own blocks back on the guard's man. The quarterback keeps rolling outside and back toward the line at 0.48 of his top speed (about 4.8 yd/s, 10.7 mph, for the NFL's typical starter; a quick passer gets outside sooner), eyes downfield, and a back lined up on the ball runs his route to the side the quarterback rolls to (the back who fakes the run away from the roll runs his later, from where the fake left him).
+- **The coaches' table** (`crates/afm-engine/data/call_values.csv`, `call_values`) has a play-action row for every concept that can carry the fake, played from the shotgun against every look, and a caller weighs the fake against the look as he weighs the concept. The straight pass rows stay as on main (minor bug 405: the tool's fixed teams throw a storm of picks into the Cover 1 robber), so each faked row is its straight row plus what the fake changes on the same snaps (`tools/call_values/compose.py`); the three play-action concepts' rows and the runs are rebuilt on this lane (it moves only the draw, by the fake's sell, at most 0.28 a cell).
+- **The line chart** counts a back who blocks after the fake in the protection, with the man the half-slide gave him, so a seven-man play-action protection is charted as Max (the usage promises read it).
+- **The game plan's "teams like us" panel** reads a faked play as the play the sheet names ("play-action flood" is flood), and a play with motion too.
+
+The league's play action (`match_check`, 2,000 games at each level, seed 1, every team on its own staff, college and NFL teams on their own call sheet too (high school staffs draft none, as in the game); main with SF3 merged, then after; real is the NFL, and no college charting is on file):
+
+| | NFL | FBS | High school | Real |
+|---|---|---|---|---|
+| play action, share of dropbacks | 7.9% to 19.6% | 7.1% to 19.9% | 8.7% to 19.9% | 21.2% |
+| the same on 1st, 2nd, and 3rd and 4th down | 10.5%, 6.6%, 5.8% to 31.2%, 20.0%, 3.3% | 9.3%, 6.2%, 5.1% to 31.7%, 19.5%, 2.8% | 11.9%, 6.5%, 6.7% to 32.5%, 19.2%, 2.7% | 36.6%, 20.8%, 4.2% |
+| EPA a dropback, play action | -0.086 to +0.189 | -0.281 to +0.070 | -0.423 to +0.066 | +0.149 |
+| EPA a dropback, straight drops | +0.119 to +0.112 | +0.071 to +0.056 | -0.081 to -0.103 | +0.031 |
+| play action over a straight drop | -0.205 to +0.077 | -0.352 to +0.014 | -0.342 to +0.169 | +0.118 |
+| sacked, play action | 22.9% to 4.7% | 20.7% to 5.6% | 27.2% to 5.7% | 6.6% |
+| sacked, straight drops | 4.7% to 4.8% | 5.7% to 5.9% | 8.9% to 9.1% | 7.3% |
+| sacked, the boot | 46.9% to 2.4% | 44.8% to 2.6% | 39.5% to 2.0% | 5.7% (every play action that leaves the pocket) |
+| the boot, share of play action | 35.1% to 2.1% | 29.2% to 1.9% | 41.5% to 5.5% | (36% leave the pocket, flushed passers too) |
+| pressured, play action against straight drops | 2.00 to 0.93 times | 1.75 to 0.92 | 1.56 to 0.75 | 1.19 |
+| time to throw, play action and straight (s) | 3.20 and 2.41 to 2.82 and 2.42 | 3.33 and 2.50 to 2.93 and 2.52 | 3.58 and 2.58 to 3.10 and 2.58 | 3.15 and 2.66 |
+| yards an attempt, play action and straight | 11.02 and 7.38 to 8.59 and 7.28 | 9.41 and 7.18 to 7.95 and 7.13 | 8.92 and 6.44 to 7.77 and 6.34 | 8.60 and 6.93 |
+| air yards a play-action attempt | 20.1 to 11.8 | 20.4 to 11.3 | 18.3 to 10.0 | 9.2 |
+| play-action throws behind the line | 0.4% to 5.7% | 0.8% to 6.5% | 1.1% to 6.5% | 14.8% |
+| play action from under center | 40.7% to 56.9% | 37.6% to 50.2% | 59.9% to 65.7% | 58.1% |
+| straight drops from under center | 26.6% to 25.8% | 20.5% to 20.8% | 26.3% to 26.2% | 4.0% |
+| sacks a team game | 2.08 to 1.65 | 2.05 to 1.85 | 2.24 to 1.85 | 2.41 (FBS 2.00) |
+
+Why it moved: the fake holds the rushers and the box until their reads, so play-action pressure fell below a straight drop's and the sacks fell with it; the half-slide gives the back a man of his own; on the boot the guard has the end man, so the roll is rarely sacked (2.4% at the NFL), though a third of boots are still pressured. The call habit puts the fake on early downs from run looks (57% of NFL play action from under center, real 58%), and air yards a play-action attempt fell by 41% at the NFL (45% at FBS and in high school) because any concept, short ones too, can carry the fake now.
+
+The typical team (`fit_check`, the spec's own measure: team 0 of each test league is the level's typical team, here in the West Coast context; FBS seeds 151 and 171 at 3,000 games an arm, the NFL's 161 at 2,400; main with SF3 merged, then after):
+
+| Measure (West Coast) | FBS 151 | FBS 171 | NFL 161 | Real |
+|---|---|---|---|---|
+| play action, share of dropbacks | 3.5% to 21.7% | 3.3% to 20.8% | 4.2% to 20.7% | 21.2% |
+| EPA a dropback, play action | -0.211 to +0.151 | -0.195 to +0.125 | -0.032 to +0.210 | +0.149 |
+| EPA a dropback, straight drops | +0.195 to +0.197 | +0.172 to +0.164 | +0.163 to +0.168 | +0.031 |
+| play action over a straight drop | -0.406 to -0.046 | -0.367 to -0.039 | -0.195 to +0.042 | +0.118 |
+| sacked, play action | 19.9% to 5.2% | 19.1% to 5.1% | 21.9% to 5.0% | 6.6% |
+| sacked, straight drops | 3.9% to 3.9% | 3.7% to 3.8% | 4.2% to 4.3% | 7.3% |
+| the boot, share of dropbacks | 1.1% to 0.3% | 1.1% to 0.3% | 1.3% to 0.4% | |
+| sacked, the boot | 44.5% to 2.0% | 39.7% to 2.4% | 51.3% to 1.8% | 5.7% (every play action that leaves the pocket) |
+
+By system, after: the share of dropbacks with a fake, then play action over a straight drop (EPA a dropback):
+
+| System | FBS 151 | FBS 171 | NFL 161 |
+|---|---|---|---|
+| Air Raid | 15.2%, -0.022 | 14.6%, -0.024 | 14.5%, +0.026 |
+| spread option | 16.7%, +0.026 | 15.8%, +0.011 | 15.3%, +0.049 |
+| West Coast | 21.7%, -0.046 | 20.8%, -0.039 | 20.7%, +0.042 |
+| power gap | 25.2%, +0.016 | 24.1%, +0.004 | 23.9%, +0.054 |
+| wide zone | 30.2%, +0.069 | 28.8%, +0.016 | 28.3%, +0.096 |
+
+Play action itself is near real on the typical team at FBS (+0.15 and +0.13 EPA a dropback) and above it at the NFL (+0.21; real NFL +0.15); its straight drops run far above real (+0.16 to +0.20, real +0.03), so the gap between them comes out short (below, "Left open").
+
+The quarterback's two play-action ratings, re-measured (+15 on team 0's quarterback, points a game ± one standard error; main with SF3 merged, then after):
+
+| +15 on team 0's quarterback | FBS 151 | FBS 171 | NFL 161 |
+|---|---|---|---|
+| Ball Handling, West Coast | -0.18 ± 0.22 to +0.37 ± 0.27 | -0.20 ± 0.21 to +0.40 ± 0.26 | +0.08 ± 0.17 to +0.11 ± 0.20 |
+| Ball Handling, wide zone | -0.12 ± 0.15 to +0.26 ± 0.23 | -0.03 ± 0.17 to -0.10 ± 0.23 | +0.06 ± 0.17 to +0.05 ± 0.19 |
+| Ball Handling, spread option | -0.24 ± 0.27 to -0.06 ± 0.27 | -0.06 ± 0.18 to -0.23 ± 0.23 | +0.09 ± 0.20 to +0.25 ± 0.24 |
+| Throw on the Move, West Coast | -0.02 ± 0.10 to +0.22 ± 0.10 | +0.02 ± 0.09 to +0.14 ± 0.10 | +0.16 ± 0.09 to -0.08 ± 0.11 |
+| Throw on the Move, wide zone | -0.07 ± 0.13 to +0.04 ± 0.16 | +0.11 ± 0.09 to -0.03 ± 0.10 | +0.10 ± 0.11 to -0.14 ± 0.11 |
+
+One cell of the fifteen is past the noise (Throw on the Move in the West Coast at FBS seed 151, +0.22 ± 0.10; +0.14 ± 0.10 on seed 171 and -0.08 ± 0.11 at the NFL), about what chance gives, and each arm moves EPA a dropback by under 0.02. +15 Ball Handling makes the fake's own part of each fooled man's read 16% longer (`SELL_PER_POINT`), about 0.05 s or 5% of his whole read for a typical starter, and only on the 15-30% of dropbacks with a fake (and on draws): over the nine cells it averages about a tenth of a point a game. Throw on the Move reads only on a throw at over 3 yd/s, and the boot is 2% of play action in the league (left open, below; on the typical team 0.3-0.4% of dropbacks in the West Coast, 1.2-1.5% in wide zone), so few throws read it.
+
+The league totals that moved (`match_check`, seeds 1-12 at 400 games each, at every level; main with SF3 merged, then after, with the change ± its standard error over the 12 seeds). Every total stays inside its band in `tests/match_engine.rs`.
+
+| A team game | NFL | FBS | High school | Real |
+|---|---|---|---|---|
+| sacks | 2.11 to 1.64 (-0.47 ± 0.03) | 2.04 to 1.76 (-0.28 ± 0.02) | 2.18 to 1.88 (-0.30 ± 0.03) | 2.41 (FBS 2.00) |
+| pressure rate | 22.3% to 20.2% | 24.2% to 22.8% | 31.4% to 29.4% | 22.2% |
+| pass attempts | 33.5 to 34.6 (+1.09 ± 0.07) | 31.6 to 32.9 (+1.28 ± 0.09) | 21.2 to 22.0 (+0.77 ± 0.07) | 33.3 (FBS 31.0) |
+| net pass yards | 234.8 to 247.5 (+12.7 ± 0.7) | 219.3 to 232.4 (+13.1 ± 0.9) | 122.8 to 132.6 (+9.8 ± 0.8) | 218.6 |
+| yards an attempt | 7.38 to 7.44 (+0.06 ± 0.01) | 7.32 to 7.39 (+0.07 ± 0.03) | 6.45 to 6.58 (+0.13 ± 0.02) | 7.05 (FBS 7.29) |
+| points | 24.73 to 25.61 (+0.88 ± 0.10) | 23.54 to 24.32 (+0.78 ± 0.18) | 17.76 to 18.41 (+0.65 ± 0.10) | 22.51 (FBS 26.97) |
+| EPA a play | +0.036 to +0.057 | +0.016 to +0.030 | -0.011 to +0.004 | -0.004 |
+| snaps under center | 40.3% to 43.4% | 31.8% to 34.3% | 43.5% to 45.9% | 31.9% |
+| tight ends' share of targets | 17.1% to 16.3% | 13.5% to 13.3% | 13.5% to 13.7% | 21.9% |
+
+Why: the sacks play action gave away are gone (above), so those snaps are throws now (0.47 a team game at the NFL, 0.28 at FBS, 0.30 in high school). With fewer scrambles and more plays a game (+0.47, +0.88 and +0.48; why is not measured), that is about one more attempt, 10 to 13 more net yards and most of a point a team game at each level. The NFL test league already scored above real (24.7, real 22.5); FBS moves toward its real 27.0. Straight drops were sacked short of real before this lane and still are (4.9% at the NFL over the 12 seeds, real 7.3%), so the NFL's sacks are further below real now (1.64, real 2.41), and FBS's went from about real (2.04, real 2.00) to below it (1.76) (left open, below). Snaps under center rise because a fake comes from the run's own backfield, on top of straight drops that already came from under center too often (left open). Tight ends' share of targets slips at the NFL (17.1% to 16.3%, real 21.9%); why is not measured, and their routes are lane SF2's.
+
+Seed 181's 32 NFL clubs (the world file from main 61ab9cc, `AFM_AB_WORLD`): `match_check` 2,000 games with every club on its own staff and call sheet, and `fit_check` with club 1 as team 0 (NFL seed 161, 2,400 games an arm, the West Coast context); main with SF3 merged, then after:
+
+| | Every club (`match_check`) | Club 1 (`fit_check`) | Real |
+|---|---|---|---|
+| play action, share of dropbacks | 6.8% to 16.2% | 4.3% to 17.7% | 21.2% |
+| EPA a dropback, play action | -0.092 to +0.197 | -0.269 to +0.099 | +0.149 |
+| EPA a dropback, straight drops | +0.090 to +0.094 | +0.013 to +0.030 | +0.031 |
+| play action over a straight drop | -0.182 to +0.103 | -0.282 to +0.069 | +0.118 |
+| sacked, play action | 22.0% to 3.8% | 28.8% to 5.1% | 6.6% |
+| sacked, straight drops | 4.3% to 4.2% | 5.9% to 5.7% | 7.3% |
+| sacked, the boot | 44.0% to 1.2% | 54.1% to 6.1% | 5.7% |
+| sacks a team game | 1.75 to 1.36 | | 2.41 |
+| points a team game | 23.58 to 24.66 | | 22.51 |
+| net pass yards a team game | 225.3 to 237.1 | | 218.6 |
+
+On the world's clubs the gap is near real (+0.103, real +0.118). They fake on 16.2% of dropbacks, the test league's teams on 19.6%. Partly the schemes: 12 of the world's 32 clubs run the Air Raid, which fakes least, 10 the West Coast, 5 wide zone, 3 power gap and 2 the spread option; the test league has 9 Air Raid, 6 West Coast, 5 wide zone and 12 power gap teams. On the typical team's shares by system that mix gives about half of the 3.4 points; the rest is not measured. Their points stay inside the world's agreed 20-25.
+
+Speed (`match_check`, 2,000 games at seed 1, the machine otherwise quiet, main with SF3 merged and after in turn, three rounds; the games' own time): NFL 15.4 s on main against 16.2 after (+5.6%), FBS 16.2 against 17.1 (+5.1%), high school 11.6 against 12.1 (+4.3%). Every round was slower after (+2.6% to +10.5%).
+
+Left open:
+
+- **The league's sacks.** Play action is sacked near real now (4.7% at the NFL, real 6.6%), but straight drops were short of real before this lane and still are: 4.8% (real 7.3%), and 5.0% on 3rd and 4 or more on the 240 games below (real 10.6%). Sacks a team game are 1.64 at the NFL over the 12 seeds (real 2.41), 1.36 on seed 181's clubs. The pass rush is lane SF8's.
+- **The gap is short of real** at the NFL (+0.077 EPA a dropback, real +0.118) and at FBS (+0.014; no college charting on file). Play action itself is at real: +0.177 on 240 NFL test-league games (seeds 1001-1240) without screens and RPOs, real +0.150 (2024); their straight drops are +0.131 (real +0.032), a gap of +0.046 on those games. The straight drops are too good, most of all on 3rd down, three tenths of them: +0.263 on 3rd and 1 to 3 (real -0.127) and +0.159 on 3rd and 4 or more (real -0.034; real is 2024's 3rd downs alone). With those at real the gap on those games would be about +0.12. This lane leaves straight drops about as they were (+0.119 to +0.112 at the NFL); they are the pass rush's and the coverage's lanes (SF8, SF5 and SF7).
+- **The boot, the shot and the dig are rare:** about 2% of play action each (in high school the boot 5.5% and the shot 4.3%). Yet the boot gains more than play action as a whole on every league: +0.36 EPA a dropback on the NFL test league, +0.19 at FBS, +0.35 in high school and +0.38 on seed 181's clubs, against +0.19, +0.07, +0.07 and +0.20 for play action as a whole (partly the looks it is called into; on seed 181's clubs the dig, +0.54, and the shot, +0.45, gain more still). The coaches' table takes each concept's own level out on purpose (a caller calls what beats the look), and a faked row keeps only what its fake adds over its straight row; these three fake on every snap and have no straight row, so their own edge goes out with their level, though in the table's own snaps the boot averages 11.8 yards a snap and the dig 10.9, against 6.9 for the straight medium concepts, and the shot 10.7 against the deep ones' 7.3. Off a fake each weighs like any other concept, one of 27, and the boot half that from the shotgun (minor bug 410). So Throw on the Move still reads on few throws.
+- **Short play-action throws.** 5.7% of play-action throws are behind the line (real 14.8%), and air yards a play-action attempt are 11.8 (real 9.2).
+- **Pressure.** Play action is pressured 0.93 times as often as a straight drop (real 1.19), and its time to throw is 2.82 s (real 3.15).
+- **Straight drops from under center** are 26% of straight drops at the NFL over the 12 seeds (real 4%), from before this lane, so snaps under center run 43% (real 32%) (minor bug 411).
+- **The two-high floor test** reads 87% two-high under a 0.95 floor (main 91%): the coordinator leans off two-high against an offense that fakes and runs well from run looks.
+- **The scramble drill** moves every passer at the same pace, the flaw this lane fixed on the boot (minor bug 409).
+- **Faked throws count as their concept's family** (`call_family` reads the concept, not the fake): for the film's mix and the ideas that spread from it, a new idea's surprise and how well a man knows his job (busts), a play-action flood is a flood, not play action (minor bug 412).
+
+## The inside line's rotation and the weather's size (engine gaps items 29 and 30, 2026-11-18)
+
+Items 29 and 30 of `docs/design/engine-gaps.md`, one small-fixes lane. Every size is Claude's under Cain's proxy (2026-11-18), proposed, not confirmed. Real numbers: nflverse play-by-play 2021-25 (regular season, outdoor and open-roof games) and snap counts 2021-25 (2023-24 for the 4-3 split); the scripts are in the project folder at `afm/engine-gaps/tools/small_fixes_*.py.txt`.
+
+What was wrong on main:
+- **The inside line never rotated.** A tired man sits only for a backup above the same energy line (`pick`). Once the room has played a few snaps nobody is above it, so the starters play on: the top two tackles played 82% and 74% of their team's snaps, the fourth 5%. Moving the line or the allowance did nothing (0.90 and 600, 0.95 and 3,000, 0.99 and 9,000 all left 82-89% and 69-77%), as bug 368's sweep found. Letting a backup in when he is only fresher than the starter moved it 1-3 points. Real staffs rotate tackles by plan.
+- **The wind's miss grew evenly with its speed** (0.010 a mph). Real dry games barely move to 10 mph and then fall fast, so main charged too much for a breeze and too little for a strong wind: 17 mph cost 1.7 points a team against the default 5 mph (real 15-19 mph against under 10: 2.7).
+- **A wet ball's miss was a flat 10%.** Real rain hits long throws hardest (20+ air yards: 37.2% to 31.3% complete; under 10: 72.8% to 70.0%). Main's rain cost 1.7 points a team and 0.47 yards an attempt (real 3.4 and 0.75; 2.9 points in rain under 10 mph, as rain games are windier).
+
+What changed (`game/flow.rs`, `game/scrimmage.rs`):
+- **The staff rotates the inside line in waves** (`line_waves`, `DT_WAVE_SPREAD` 40, `DT_WAVE_STAY` 2). Each tackle's planned share of the room's snaps is ∝ e^(-gap / 40), gap his points behind the room's best man; the men furthest behind their share go in first, and a man on the field counts 2 snaps ahead, so they come in waves of a few snaps. The energy rule still spells a man who is spent. Not on kick units, not against a no-huddle (the men on stay on), and not when your own rotation plan (G15) names a man of the room. A star 20 points better than his backups still plays most snaps; a room of equals splits them.
+- **Wind: 0.00129 × wind² / (1 + (wind / 20)²) × (1 + 0.01 × distance)** on the miss (`WIND_MISS`, `WIND_GALE`). A passer allows for a breeze but not a gale's gusts, and in a gale he throws lower and harder, so it levels off past 20 mph (real 20+ mph games, 18 of them at 23 mph on average, lose 0.46 yards an attempt, less than 15-19 mph's 0.65).
+- **Rain or snow: 1 + 0.007 × distance** on the miss (`WET_THROW`): 3.5% at 5 yards, 21% at 30. The catch's ×0.97 in the wet is unchanged.
+- Tried and dropped: footing (both sides' burst and cut 10% lower on a wet field raised yards after the catch by 0.5 a catch, real -0.37, because tacklers lose their closing burst more than carriers lose their cut) and a slower first step after a wet catch (no change in yards after the catch). Both are in `GAPS.md`, with ball placement after the catch.
+
+`match_check` against main fe3e2b3 (the game code is the same as d6f1d71's), same seeds (seed 1; NFL and FBS 2,000 games, high school 1,000; `AFM_RAIN=1` and `AFM_WIND` runs at the NFL; `AFM_SNAPS=1` prints the rank shares, new here):
+
+| NFL | main | after | real |
+|---|---|---|---|
+| tackles' snaps a game, ranks 1-4 | 82%, 74%, 38%, 5% | 71%, 63%, 48%, 14% | 68%, 50%, 31%, 16% (4-3 teams 68%, 54%, 36%, 23%) |
+| points a team game, default (5 mph across) | 24.73 | 24.84 | 22.51 |
+| rain against default: points | -1.72 | -2.36 | -3.45 (se 0.96); -2.87 under 10 mph |
+| rain: yards an attempt | -0.47 | -0.68 | -0.75 |
+| rain: completion, all / 20+ air / under 10 | -3.3 / -4.1 / -3.8 pts | -4.1 / -7.0 / -4.5 | -3.5 / -5.9 / -2.8 |
+| wind 10 mph against none: points | -1.23 | -1.38 | -1.36 (10-14 against 0-4) |
+| wind 17 against none: points / yards an attempt | -2.45 / -0.53 | -3.11 / -0.69 | -3.03 / -0.65 (15-19, se 0.15) |
+| wind 22 against none: points / yards an attempt | -3.56 / -0.64 | -4.05 / -0.84 | -1.17 (se 2.0) / -0.46 (se 0.27; 20+) |
+| wind 17 against the default | -1.70 | -2.34 | -2.69 (15-19 against under 10, se 0.8) |
+| sacks / pressure rate | 2.08 / 0.221 | 2.07 / 0.219 | 2.41 / 0.222 |
+
+- FBS: tackles 77% to 66% (top two); ranks 70%, 62%, 49%, 25%; points 23.32 to 23.66 (noise is about 0.3). High school (three tackles a roster): top two 82% to 68%, ranks 71%, 65%, 54%; points 18.21 to 18.19. No real snap counts for college or high school.
+- Every other count in `AFM_GAPS=1` moved inside noise (injuries by position vary by about 0.02 a team game between seeds).
+- The second tackle stays above real because the engine's fronts always field two tackles (three in a 3-4 base): real 4-3 teams line up 1.83 inside men a snap, sliding edges inside on passing downs, and the engine has no such package (`GAPS.md`).
+- Rain's short completions fall 1.7 points more than real, all from the catch's ×0.97, which this lane kept; its long ones 1.1 more. Both sit inside rain's 60 games.
+- `match_check nfl 2000` takes 14.8 s (main 14.5 s) on 4 cores.
+- The coaches' call table and `decide_fit` were not rerun: in the default games the change is inside noise (points +0.11, yards an attempt +0.05), and the weather moves only bad-weather games, which the tables don't model.
+
+Measured again over main ea85aad (with scheme-fit lane SF1's play action), the same seeds:
+
+| NFL | main | after | real |
+|---|---|---|---|
+| points a team game, default | 25.49 | 25.80 | 22.51 |
+| yards an attempt / a carry, default | 7.29 / 4.28 | 7.40 / 4.33 | 7.05 / 4.52 |
+| rain against default: points / yards an attempt | -1.85 / -0.40 | -2.89 / -0.70 | -3.45 / -0.75 |
+| wind 17 against none: points / yards an attempt | -2.79 / -0.58 | -3.13 / -0.72 | -3.03 / -0.65 |
+| sacks a team game | 1.65 | 1.64 | 2.41 |
+
+- Tackles by rank are the same as before (71%, 63%, 48%, 14%); FBS top two 77% to 66%, high school 82% to 68%.
+- Over this main the rotation costs the defense more than before: points +0.31 at the NFL, +0.32 at FBS and +0.43 in high school, yards a carry +0.03 to +0.07. The backups play more snaps, and the rest the starters get doesn't yet win it back (`GAPS.md`).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
-- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), and `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread).
+- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), and `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread).
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin fit_check -- run <fbs|nfl|hs> [games] [seed] [out] [arms]`: the scheme-fit check (`docs/design/scheme-fit.md`, lane SF0): does a man's skill pay inside his team's scheme? Team 0 is the level's typical team; each arm changes one thing on it (a rating, a body number, a drawn man, the scheme) and replays the same games as its context's typical arm. `fit_check read <dir>` writes the tables (each job's measures, the items' measures against real, as recruited, personnel, where men lined up, ratings nothing reads, the world's fit weights against what +15 moved); `fit_check repeat` compares runs on the claims behind the items.
 - `cargo run --release --bin fire_check -- hits <nfl|fbs|fcs|hs> [games] [seed]`, `talks <level> [seed]`, `run [games] [seed] [stakes]`: coach fire ("Coach fire" above): the big hit's line and the fire counts a team game; the AI coaches' pregame picks against main's; each prototype room's landing on a Branch-type safety and a calm pocket passer, then the two men under each room, A/B on the same seeds against their coach's own read (stakes 0.8 for playoff games).
 - `cargo run --release --bin garbage_check -- fbs|nfl|hs [games] [quality sd] [seed]`: garbage time against real play-by-play (who plays the 4th quarter by lead, run-out, 4th downs, sample why lines).
 - `cargo run --release --bin leagues_check -- <start year> <history years> [scale] [seed]`: the other leagues in a small world (college on the stand-in): every season's table, scoring against the real league, champions, rosters and Canadians, the CFL draft, the best passing lines and the coaches' seats.
-- `cargo run --release --bin play_trace -- <run|pass|N> [seed] [sweep]`: one snap traced tick by tick, or a sweep of seeds. `AFM_LEVEL=fbs|hs`, `AFM_COV=0-9`, `AFM_LOS=yards` and `AFM_BASE=1` set the level, coverage, spot and personnel. `AFM_TRACE=1` prints every agent.
+- `cargo run --release --bin play_trace -- <run|pass|N> [seed] [sweep]`: one snap traced tick by tick, or a sweep of seeds. `AFM_LEVEL=fbs|hs`, `AFM_COV=0-9`, `AFM_LOS=yards` and `AFM_BASE=1` set the level, coverage, spot and personnel; `AFM_PRESSURE=0-5` the pressure, `AFM_BF=uc|pistol|gun` the backfield and `AFM_FAKE=1` a run fake before the throw (scheme-fit item 3). The one-snap mode prints every agent; the sweep prints one line a seed (`AFM_TRACE=1` is `match_check`'s switch for the agent trace).

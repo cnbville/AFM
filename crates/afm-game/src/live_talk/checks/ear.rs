@@ -143,6 +143,7 @@ impl EarSet {
         let tags = |v: &[SetTag]| v.iter().map(|t| Tagged { tag: t.tag.clone(), text: t.text.clone() }).collect();
         EarCard {
             setting: self.card.setting.clone(),
+            year: String::new(),
             coach: self.card.coach.clone(),
             them: self.card.them.clone(),
             people: tags(&self.card.people),

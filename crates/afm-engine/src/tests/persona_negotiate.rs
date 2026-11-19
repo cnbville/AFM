@@ -18,7 +18,7 @@ use crate::world::{World, WorldOptions};
 
 /// A tiny world in the 2025 league year with you as an NFL head coach and
 /// general manager (as `front_office.rs`).
-fn nfl_world() -> (World, usize) {
+pub(super) fn nfl_world() -> (World, usize) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     let t = (0..w.clubs.len())
         .filter(|&t| crate::world::franchise::active_in(&w, t, w.year))
@@ -39,7 +39,7 @@ fn nfl_world() -> (World, usize) {
 
 /// A mid-priced veteran of yours whose deal just ran out, with an agent
 /// who negotiates for him when `agent`.
-fn expiring(w: &mut World, t: usize, agent: bool) -> usize {
+pub(super) fn expiring(w: &mut World, t: usize, agent: bool) -> usize {
     w.today = w.dates.tag_window_open;
     let i = *w.clubs[t]
         .roster
@@ -56,7 +56,7 @@ fn expiring(w: &mut World, t: usize, agent: bool) -> usize {
     i
 }
 
-fn offer(gives: Vec<Give>) -> Offer {
+pub(super) fn offer(gives: Vec<Give>) -> Offer {
     Offer { kind: DealKind::Contract, gives, ..Offer::default() }
 }
 

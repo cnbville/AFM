@@ -162,6 +162,7 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     };
     let Some(him) = talk::across(room) else { return (c, keys) };
     c.them = person(w, him);
+    c.year = talk::year::words(w, him);
     let add = |c: &mut EarCard, keys: &mut EarKeys, who: Them, why: &str| {
         if keys.people.iter().any(|(_, x)| *x == who) {
             return;
@@ -213,6 +214,14 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     if let Them::Coach(co) = him {
         for pid in folk::talks::coached_by(w, co).into_iter().take(MAX_COACHED) {
             add(&mut c, &mut keys, Them::Player(pid), "a player he coaches");
+        }
+        // His recruiting, for you or a job with you: the recruits he's
+        // working and the ones who signed through him, so he can name them
+        // (Cain 2026-11-17: "I'd rather you see him on tape first").
+        if afm_engine::world::folk::persona::telling::works_for_you(w, him) {
+            for i in afm_engine::world::folk::persona::coaching::named(w, co) {
+                add(&mut c, &mut keys, Them::Player(w.people[i].player.id), "a recruit of his");
+            }
         }
     }
     // One of the older meetings: the players it is about and the men on the
@@ -376,6 +385,7 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
     }
     VoiceCard {
         setting: voice_setting(w, s, room),
+        year: talk::year::words(w, him),
         coach: coach(w),
         them: person(w, him),
         background,
@@ -446,7 +456,11 @@ impl EarCard {
     /// The ear's text: the card, the talk so far and your line.
     pub fn text(&self, today: &str) -> String {
         let mut out = String::from("<card>\n");
-        out.push_str(&format!("Setting: {}.\nToday: {today}.\nCoach: {}.\n", self.setting, self.coach));
+        out.push_str(&format!("Setting: {}.\nToday: {today}.\n", self.setting));
+        if !self.year.is_empty() {
+            out.push_str(&format!("Time of year: {}.\n", self.year));
+        }
+        out.push_str(&format!("Coach: {}.\n", self.coach));
         if !self.them.is_empty() {
             out.push_str(&format!("Across from him: {}.\n", self.them));
         }
@@ -490,6 +504,7 @@ impl VoiceCard {
             }
         };
         put("Setting", &self.setting);
+        put("Time of year (his team's calendar: talk in it)", &self.year);
         put("Coach", &self.coach);
         put("You are", &self.them);
         put("Background", &self.background);
@@ -635,11 +650,18 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
             && h.hit.item == afm_engine::world::folk::persona::ear::Item::HisWord
             && h.hit.how == afm_engine::world::folk::persona::ear::How::Doubted
     };
+    // How you said it is not one of his things: his answer shows how he
+    // took it, and it counts in how the line went over ("respected on his
+    // pride" stood under "First time meeting, nice to meet you", Cain
+    // 2026-11-18).
+    let manner = |h: &afm_engine::world::folk::persona::ear::Sized| {
+        h.hit.item == afm_engine::world::folk::persona::ear::Item::Manner
+    };
     // Each hit by what it touched, once you know that; one on something
     // he hasn't shown you (what he wants) by how it hit alone, so a line
     // to someone whose hits are all on his wants still says how it went.
     let mut bare: Vec<String> = Vec::new();
-    for h in t.hits.iter().filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005 && !dodge(h)) {
+    for h in t.hits.iter().filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005 && !dodge(h) && !manner(h)) {
         let how = format!("{:?}", h.hit.how).to_lowercase();
         let what = if items::known(w, him, &h.hit.item) { items::short(w, him, &h.hit.item) } else { String::new() };
         if !what.is_empty() {
@@ -649,19 +671,12 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
         }
     }
     parts.extend(bare);
-    // What moved with him: the hits, and a commitment he wrote down.
-    let net: f32 = t.hits.iter().filter(|h| h.hit.on == him).map(|h| h.trust + h.mood).sum::<f32>()
-        + t.committed.iter().map(|(_, k)| k.trust()).sum::<f32>();
-    // His own bars: a person in your building moves less in a line than a
-    // player does (`hits::landed_bars`).
-    let (up, down) = talk::hits::landed_bars(him);
-    let landed = if net > up {
-        "it landed"
-    } else if net < down {
-        "it didn't land"
-    } else {
-        "hard to tell how it landed"
-    };
-    parts.push(landed.into());
+    // How it went over, as the game read it (`Turn.landing`: a recruit's
+    // line on your case, anyone else's on his own bars); nothing when the
+    // line touched nothing of his ("Heard as a request.").
+    let landed = t.landing.words(channels::object(w, him));
+    if !landed.is_empty() {
+        parts.push(landed);
+    }
     parts.join("; ")
 }

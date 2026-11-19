@@ -41,6 +41,9 @@ pub mod voice;
 pub struct EarCard {
     /// The meeting: what, where, when, at what level, by what channel.
     pub setting: String,
+    /// The time of year on his team's calendar and the next dates
+    /// (`talk::year::words`).
+    pub year: String,
     /// You.
     pub coach: String,
     /// The man across: name, role, class year.
@@ -177,7 +180,7 @@ impl EarTerm {
 
 /// The things a deal can hold (`terms::Give`), by their keys in the ear's
 /// schema.
-pub const GIVE_KEYS: [&str; 34] = [
+pub const GIVE_KEYS: [&str; 35] = [
     "scholarship",
     "scholarship_for",
     "money",
@@ -213,6 +216,8 @@ pub const GIVE_KEYS: [&str; 34] = [
     "revenue_share",
     "title",
     "play_calling",
+    // Negotiation item 4: "take less and I'll sign you help".
+    "help",
 ];
 
 /// One thing in a deal as the ear reads it: its key, the number you said,
@@ -272,6 +277,7 @@ impl EarGive {
             "revenue_share" => Give::RevenueShare(n?.max(0.0)),
             "title" => Give::Title,
             "play_calling" => Give::Calling,
+            "help" => Give::Help(n.map_or(afm_engine::world::folk::persona::terms::HELP_ANY, small)),
             _ => return None,
         })
     }
@@ -320,6 +326,10 @@ pub struct VoiceCard {
     /// The meeting, the place and the channel (the setting changes how he
     /// talks).
     pub setting: String,
+    /// The time of year on his team's calendar and the next dates
+    /// (`talk::year::words`): out of season there is no game to see
+    /// anything in.
+    pub year: String,
     pub coach: String,
     /// Him: name, role, class year.
     pub them: String,

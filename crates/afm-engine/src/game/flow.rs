@@ -98,6 +98,23 @@ const FORM_SD: f64 = 3.0;
 const EDGE_LINE: f64 = 0.90;
 const EDGE_ALLOW: f64 = 600.0;
 
+/// The staff's rotation of the inside line (engine gaps item 29, the
+/// tackles' side of bug 368). Fatigue alone never rotated them: a tired
+/// starter sits only for a backup above the same energy line, and once the
+/// whole room is under it nobody is fresh, so the top two tackles played
+/// 82% and 74% of snaps however the line or the allowance was set (bug 368's
+/// sweep; this lane's, up to 0.99 and 9,000 points). Real staffs rotate the
+/// tackles by plan, in waves. Each man's planned share of the room's snaps
+/// falls off as e^(-gap / `DT_WAVE_SPREAD`) with his rating gap to the best
+/// man, and on each snap the men furthest behind their share go in, a man on
+/// the field staying `DT_WAVE_STAY` snaps longer, so they come in waves.
+/// The energy rule still spells a man who is spent. Real NFL tackles in a
+/// team game, ranks 1-4 (nflverse snap counts 2021-25, DT and NT): 68%,
+/// 50%, 31%, 16%; on 4-3 teams (ends listed DE, 2023-24) 68%, 54%, 36%, 23%.
+/// Proposed, not confirmed.
+const DT_WAVE_SPREAD: f64 = 40.0;
+const DT_WAVE_STAY: f64 = 2.0;
+
 /// The play clock after an administrative stoppage such as a penalty,
 /// from the ready signal (40 seconds otherwise, from the end of the play).
 const ADMIN_PLAY_CLOCK: f64 = 25.0;
@@ -205,6 +222,9 @@ struct Side<'a> {
     /// these instead of working each rating out again (world speed lane).
     rated: [Vec<f64>; crate::positions::POSITION_COUNT],
     energy: Vec<f64>,
+    /// On the field for the defense's last scrimmage snap (the inside
+    /// line's waves, `line_waves`).
+    last_on: Vec<bool>,
     /// Lungs (Dynamic Links), read once a game: each man's recovery factor
     /// between plays, and his wind (stamina plus the link's edge). His
     /// attributes and links never change during a game.
@@ -393,6 +413,7 @@ impl<'a> Side<'a> {
             depth,
             rated,
             energy: vec![team.prep.fresh.clamp(0.5, 1.0); n],
+            last_on: vec![false; n],
             lungs: team.players.iter().map(|p| 1.0 + 0.1 * p.links.share(&lung)).collect(),
             wind: team.players.iter().map(|p| p.a(Attr::Stamina) + p.links.edge(&lung)).collect(),
             edge: vec![0.0; n],
@@ -958,10 +979,44 @@ impl<'a> Side<'a> {
         out
     }
 
+    /// The staff's rotation of the inside line (item 29, `DT_WAVE_SPREAD`):
+    /// the room's men put in the order they go in on this snap, the man
+    /// furthest behind his planned share first. Only on defense at
+    /// scrimmage; against a no-huddle the men already on stay on; and not
+    /// at all when your own rotation plan (G15) names a man of the room.
+    fn line_waves(&self, pos: Position, list: &mut [(usize, f64)]) {
+        if !self.scrimmage || !self.defending || list.len() < 2 {
+            return;
+        }
+        let room = self.depth.list(pos);
+        if room.iter().any(|&i| self.rot[i] != 0) {
+            return;
+        }
+        if self.frozen {
+            list.sort_by_key(|x| !self.last_on[x.0]);
+            return;
+        }
+        let best = list.iter().map(|x| x.1).fold(f64::MIN, f64::max);
+        let w: Vec<f64> = list.iter().map(|x| (-(best - x.1) / DT_WAVE_SPREAD).exp()).collect();
+        let sum: f64 = w.iter().sum();
+        let played: f64 = room.iter().map(|&i| self.snaps[i] as f64).sum();
+        let key: Vec<f64> = list
+            .iter()
+            .zip(&w)
+            .map(|(x, wk)| {
+                wk / sum * played - self.snaps[x.0] as f64 + if self.last_on[x.0] { DT_WAVE_STAY } else { 0.0 }
+            })
+            .collect();
+        let mut idx: Vec<usize> = (0..list.len()).collect();
+        idx.sort_by(|&a, &b| key[b].total_cmp(&key[a]).then(a.cmp(&b)));
+        let sorted: Vec<(usize, f64)> = idx.iter().map(|&k| list[k]).collect();
+        list.copy_from_slice(&sorted);
+    }
+
     fn pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
         // Each man with his rating here, read once a game (`rated`): the
         // same numbers `rating` gives.
-        let list: Vec<(usize, f64)> = self
+        let mut list: Vec<(usize, f64)> = self
             .depth
             .list(pos)
             .iter()
@@ -969,6 +1024,9 @@ impl<'a> Side<'a> {
             .zip(self.rated[pos.index()].iter().copied())
             .filter(|&(i, _)| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i))
             .collect();
+        if pos == Position::DT {
+            self.line_waves(pos, &mut list);
+        }
         let th = if self.frozen { 0.0 } else { self.threshold(pos) };
         let mut out = Vec::new();
         let mut skipped = Vec::new();
@@ -3962,7 +4020,8 @@ impl<'a> Game<'a> {
             };
             let side = &self.sides[o];
             let again = |rng: &mut Rng| calling::call_offense(&staff_o, &side.mem, &sit, &ctx, rng);
-            if let Some((c, _)) = super::sheet::off_call(&side.card, &sit, &call, sctx, &mut self.rng, again) {
+            let fake = calling::throw_fake_chance(&staff_o, &side.mem, &sit, &ctx);
+            if let Some((c, _)) = super::sheet::off_call(&side.card, &sit, &call, fake, sctx, &mut self.rng, again) {
                 call = c;
             }
         }
@@ -4121,8 +4180,10 @@ impl<'a> Game<'a> {
         for &(_, i) in &off {
             self.sides[o].snaps[i] = self.sides[o].snaps[i].saturating_add(1);
         }
+        self.sides[d].last_on.iter_mut().for_each(|x| *x = false);
         for &(_, i) in &def {
             self.sides[d].snaps[i] = self.sides[d].snaps[i].saturating_add(1);
+            self.sides[d].last_on[i] = true;
         }
         // Before the snap (plays and tactics topic 3): the quarterback reads
         // the numbers in the box and the shell, as far as his coach lets him

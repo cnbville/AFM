@@ -8,6 +8,140 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.636 (18 Nov, shipped): coaches answer with real specifics in live talks (PR #554)
+**TLDR:** The coaches you talk to now give real answers about their scheme and their recruiting. Ask a coordinator what he'll run, or a recruiter who he's working, and you get specifics.
+- Coordinators and candidates name their offense or defense, say how well your roster fits it, and say what it would take to switch. (PR #554)
+- Assistants name the recruits they're working and the players who signed through them. (PR #554)
+- In the holdover staff meeting, each coach answers for himself, and the right man speaks up. (PR #554)
+- Coaches no longer act offended by a fair question. (PR #554)
+- Holdover coaches only boast about what's actually true. (PR #554)
+- Look at: a takeover's holdover meetings. Ask "What offense will you run?" and "Who have you been recruiting?" (PR #554)
+
+## 0.2.635 (18 Nov, shipped): SF1: play action that works (scheme-fit item 3) (PR #545), negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL (PR #567), ground lane G9: the race and the AI on Ground (PR #517)
+**TLDR:** 3 changes ship together. Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do. Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help. Plus 1 more below.
+- SF1: play action that works (scheme-fit item 3) (PR #545): Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do.
+- Any pass play can now come off a run fake, so you'll see play-action crossers, floods and even screens, not just three special plays. (PR #545)
+- Defenders who read the backfield bite for a moment, longer for an undisciplined one and against a quarterback who hides the ball well. (PR #545)
+- Play-action passes are no longer sacked one time in five: the back and the line protect the fake, and bootlegs get a pulling guard while the quarterback rolls away from the rush. (PR #545)
+- Play callers fake most on early downs, in run-first systems like wide zone, and against defenses that keep biting. (PR #545)
+- Negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL (PR #567): Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help.
+- Tell a player or his agent what his season really was, and his ask comes down toward his market. Stretch the truth and he trusts you less. (PR #567)
+- A recruit weighs what you say about his film and who's ahead of him against the truth, and an honest hard answer earns his respect. (PR #567)
+- A short offer to a pro can come back as a one-year prove-it deal with incentives. (PR #567)
+- Promise a veteran help and he'll take a little less, but he'll remember if you don't sign anyone. (PR #567)
+- College prices now read each player's last season on the field. (PR #567)
+- Ground lane G9: the race and the AI on Ground (PR #517): Every rival staff now recruits the way you do, on the ground, and you can see the race for each kid. Watch for the signs when a commit starts to waver, and make your call.
+- Rival recruiters are people with their own styles, areas and favorite schools. (PR #517)
+- You hear about rival visits from the schools and coaches who trust you. (PR #517)
+- A wavering commit comes with a warning and one call from you. (PR #517)
+- What you say about a rival gets checked, and a lie costs you. (PR #517)
+- Other staffs find kids through the people they know, not by magic. (PR #517)
+- Look at: a game's play-by-play for "play-action" calls, and how your quarterback does off the fake. (PR #545) a contract talk with a veteran after you quote his real numbers, then promise him help. (PR #567) the rival recruiters working your areas. (PR #517)
+
+## 0.2.632 (18 Nov, shipped): end a development project when he moves to a new staff (PR #557), talks know the time of year (PR #558), a moved man isn't picked for either project at his first checkpoint (PR #562), and 4 more
+**TLDR:** 7 changes ship together. Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots. The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game. Plus 5 more below.
+- End a development project when he moves to a new staff (PR #557): Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots.
+- A player who transfers, signs or is drafted starts fresh with his new staff. (PR #557)
+- His last staff's project shows as a note on his Development tab and takes no slot. (PR #557)
+- Every staff in the world follows the same rule, so rooms never run past their slots. (PR #557)
+- Talks know the time of year (PR #558): The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game.
+- Every conversation knows where your team is in its year and what's coming next. (PR #558)
+- Players know when their place gets decided: spring practice, fall camp, OTAs or training camp. (PR #558)
+- College players know when the transfer window opens and closes. (PR #558)
+- Asking for proof, a player names the next real moment, not a game that isn't coming. (PR #558)
+- A moved man isn't picked for either project at his first checkpoint (PR #562): no summary in the PR
+- Negotiation lane NG4: each player's own lowest number and one trust (PR #546): Every pro now has his own lowest number, so a player who trusts you, plays for a winner or comes home will take a little less, and a lowball no longer slips past a man who claims not to care about money.
+- Each player's lowest number reads his trust, his bond with the head coach, your club's winning, his home state and how much money matters to him. (PR #546)
+- Before free agency his agent knows what other clubs would pay, and he takes a little less for a sure deal now. (PR #546)
+- A talk that builds his trust in you now counts toward his contract too. (PR #546)
+- Offers under his lowest number fall short, whatever else they promise. (PR #546)
+- Coach bonds: the world measure and its two fixes (PR #564): Players now come to trust the position coach who works with them every day, and more of them follow a coach they were close to when he moves.
+- Trust with an assistant grows over two years together. (PR #564)
+- Close bonds ("in his corner") with position coaches are far more common. (PR #564)
+- Players follow a close head coach or position coach to his new school about as often as before bonds, now for the bond's own reasons. (PR #564)
+- NIL at market price: inherited deals, bids read at the school's level, Group of 5 money fitted to real pay (PR #544): College money now looks like the real market: your inherited stars keep what the market pays them, and every school pays at its own level.
+- The roster you inherit keeps each player's market price or last year's pay, where that beats the roster split. (PR #544)
+- The NIL desk marks the old staff's deals and shows each player's market price beside the roster split. (PR #544)
+- Power conference starters are priced near real starter pay at every position. (PR #544)
+- Group of 5 budgets and pay are now at real levels, with the quarterback paid the most. (PR #544)
+- "Paid last year" counts only school and collective money, not his own brand deals. (PR #544)
+- Talks: "Heard as" says how a line really went (the landing read) (PR #547): Heard as" under your typed lines now tells you plainly how each line went. A recruit's best point now lands on your case even when you say it with care, and a hello is just a hello.
+- Each line reads as landed, helped a little, didn't move him, cost you a little or didn't land, instead of "hard to tell how it landed". (PR #547)
+- With a recruit, the read is about your case with him. It also tells you when you've made your case for the day, or when nothing of yours backs up what you named. (PR #547)
+- Saying your best point warmly to a recruit no longer cancels it. (PR #547)
+- A greeting, a task, news about someone else or a goodbye gets no guess at how it landed, and a greeting is never taken as dodging his question. (PR #547)
+- A warm word to one of your players can land now, and how he's taking things that day counts once a line. (PR #547)
+- Look at: a transfer's Development tab, Focus, then Development projects. (PR #557) a one-on-one with a player in January or February. (PR #558) re-signing a veteran after a winning season, then after a losing one. (PR #546)
+
+## 0.2.625 (18 Nov, shipped): coaches walk you through the season from the world's records (PR #540)
+**TLDR:** Your coaches now really break down a season when you ask them, with the numbers, the games that slipped away and the players who struggled.
+- Ask a coordinator how the year went and he walks you through it: points and yards against the conference, third downs, red zone, big plays, takeaways. (PR #540)
+- He names the games that got away and the starters who struggled or stood out at their spot. (PR #540)
+- A coach hired after last season tells you it wasn't his season, then gives what he saw on the tape. (PR #540)
+- Push for more and he gives you the rest; sharper coaches see more. (PR #540)
+- Ask a coach about one of his players and he knows how the player's numbers rank against the conference's starters. (PR #540)
+- Look at: a staff meeting with a new coordinator at the start of a career. (PR #540)
+
+## 0.2.624 (18 Nov, shipped): name a player's stat line by its year and show the season so far (PR #549), let you start development projects from the Development tab (PR #552), ask before a goodbye closes a live talk (PR #553), and 2 more
+**TLDR:** 5 changes ship together. A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake. You can now start development projects for your own players: a skill project with his position coach, or a body project with the strength staff, with your staff's honest read before you commit. Plus 3 more below.
+- Name a player's stat line by its year and show the season so far (PR #549): A player's card now says which season its stats are from, and shows the season being played so far, so you are not looking at last year's numbers by mistake.
+- The hover card and compare name the season ("2024 season") instead of "Last season". (PR #549)
+- Until a college season's title game is played, its numbers so far show on their own line. (PR #549)
+- NFL players show this year's numbers so far until the regular season ends. (PR #549)
+- A pro's card shows his pro seasons, not his old college year. (PR #549)
+- Let you start development projects from the Development tab (PR #552): You can now start development projects for your own players: a skill project with his position coach, or a body project with the strength staff, with your staff's honest read before you commit.
+- Start or end a skill project or a body project from a player's Development tab, under Focus. (PR #552)
+- Before you confirm, see your staff's read of what it could add as a range, the practice time, what it costs his other technique, and the extra wear. (PR #552)
+- Each position room keeps its real number of project slots, and the strength staff runs one body project a room. (PR #552)
+- The Training screen's Players tab shows every room's projects at a glance. (PR #552)
+- Ask before a goodbye closes a live talk (PR #553): If a line of yours sounds like a goodbye, the talk no longer shuts on you. You get a quick choice to keep talking or end it.
+- When something you say sounds like you are wrapping up, a prompt asks if you want to continue. (PR #553)
+- Continue keeps the talk going, and what you said still counts. (PR #553)
+- End closes the talk the way it did before. (PR #553)
+- Typing "end the talk" still ends it straight away. (PR #553)
+- Support staff as full departments (PR #531): Your support staff are now real departments, and how many good people you can afford changes how your players grow, heal and keep their grades.
+- Trainers, dietitians, sports scientists, tutors and a behavioral health clinician are people on your staff page, each with their own track record. (PR #531)
+- A rich program with a deep staff finds injuries sooner and keeps its backups healthier; a thin one looks after its starters first. (PR #531)
+- A good dietitian gets a young lineman to his playing weight sooner, and a clinician helps a player through a death in the family or a benching. (PR #531)
+- Assistants step up to run departments, and other teams hire your best ones away. (PR #531)
+- High schools have a full-time athletic trainer, a part-time one or none. (PR #531)
+- Make the search bar fast (PR #555): The search bar (⌘K) now answers as you type instead of lagging behind, and tells you when it is still looking or could not finish.
+- Typing no longer queues up a search for every letter. (PR #555)
+- Players, coaches, teams, towns, records, notes and mail are found much faster in a big world. (PR #555)
+- Shows "Searching…" while it works, and a plain message if the game is busy. (PR #555)
+- Look at: hover a player in January, before the title game. (PR #549) a young player's Development tab, Focus, then Development projects. (PR #552) say "okay, that's all for now" in any talk. (PR #553)
+- Docs and tooling merged too, no game change: Revert world additions 1, 6 and 7 (docs) (PR #551); Engine gaps: the 30 agreed items, lanes EG1-EG7, match_check's counts and how-it-works… (PR #541).
+
+## 0.2.619 (18 Nov, shipped): capital lane CS5: the Pecking order screen (PR #539), coach and player bonds (PR #542), scheme-fit lane SF3: a blocked man is out of the play (PR #533)
+**TLDR:** 3 changes ship together. Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans. Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most. Plus 1 more below.
+- Capital lane CS5: the Pecking order screen (PR #539): Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.
+- Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there (PR #539)
+- The drive you know of for each rival: public with how far along it is, a building going up, or a rumor (PR #539)
+- Your own rank over the years as a line (PR #539)
+- A list of what your donors have heard about rivals' quiet campaigns (PR #539)
+- Coach and player bonds (PR #542): Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most.
+- Every player has a bond with you and with your staff that grows through the season, faster with the coaches he sees every day. (PR #542)
+- Being there after a death, an injury or a hard loss moves a bond more than months of practice. (PR #542)
+- Close players follow instructions more often, take your talks to heart, take coaching a little better and are slower to leave. (PR #542)
+- Bonds have a cost: favoritism the room notices, real hurt when a coach leaves, and a colder start for the coach who follows a beloved one. (PR #542)
+- Tell the game how you grew up in setup: a kid raised the same way finds something in common with you. (PR #542)
+- Scheme-fit lane SF3: a blocked man is out of the play (PR #533): Your offensive line now decides how far your backs get. A great line opens real lanes, a weak one leaves its backs meeting tacklers early, and a defender tied up on a block has to get free before he can make the tackle.
+- A defender locked on a block can no longer reach out and drag the runner down: only one who is beating his blocker gets an arm on him. (PR #533)
+- As the back comes, the defender winning his block comes off it fast, and the one losing it stays stuck. (PR #533)
+- Run blocking on your line and block shedding on your front now show in yards a carry. (PR #533)
+- Backs read blocks the same way, so a walled-off defender no longer scares them out of a lane. (PR #533)
+- Coaches pick their runs against each front from the new results. (PR #533)
+- Look at: Capital, then Pecking order, after the July ranking. (PR #539) a player's People tab, "His coaches", and a coach's profile, "Closest to him". (PR #542) your backs' yards before contact behind your best and worst lines, and a run defense with strong block-shedders up front. (PR #533)
+- Docs and tooling merged too, no game change: Negotiation that responds to arguments: the spec and lanes (PR #543); World additions: spec for the agreed items 1, 6 and 7 (docs) (PR #548).
+
+## 0.2.616 (18 Nov, shipped): opening a save closes the open world before reading the file (PR #535)
+**TLDR:** Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.
+- Loading a save while a career or world is open no longer holds two worlds in memory. (PR #535)
+- Big worlds' saves and autosaves load again on 8 GB Macs. (PR #535)
+- If a file can't be opened, you land back on the start page instead of a broken career. (PR #535)
+- Look at: load your latest save from the Load page. (PR #535)
+- Docs and tooling merged too, no game change: Design: coach and player bonds (proposed, not confirmed) (PR #537); Coach bonds: Cain agreed to the design and all 7 questions (PR #538).
+
 ## 0.2.615 (17 Nov, shipped): capital lane CS3: the drive screen (PR #526), capital lane CS2: the Donors screen (PR #525), coach fire: fire by the kind of work, targeting and the spark (PR #530), and 1 more
 **TLDR:** 4 changes ship together. Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours. Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one. Plus 2 more below.
 - Capital lane CS3: the drive screen (PR #526): Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.

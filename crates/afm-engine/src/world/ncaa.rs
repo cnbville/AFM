@@ -236,10 +236,14 @@ pub fn shares_revenue(prog: &Program, year: i32) -> bool {
 /// pay the full cap and give football about 75% (the Texas model). In
 /// 2025 the Group of 5 used the American's floor, $10M over three years.
 /// From 2026 (the new NIL scheme, items 3 and 4) a Group of 5 school pays
-/// football from its own athletic money: $3M × (its athletic budget /
-/// $80M)³, held to $1-8M (on seed 41 $1.1-8M, median $3.4M, 76% under
-/// $5M; real 2026: $1-8M, most under $5M, The Athletic and CBS); an FCS
-/// program that opted in pays
+/// football from its own athletic money: $1M × (its athletic budget /
+/// $80M)³, held to $0.3-3M. The 2b fit (a proxy decision for Cain
+/// 2026-11-18) puts the pay where the College Sports Commission's
+/// payments are, not the press's $1-8M estimates of what schools set
+/// aside (item 3's first sizes, $3M inside $1-8M): non-Power 4 revenue
+/// share among the paid a median $31K for a quarterback (the top tenth
+/// over $260K) and $14-19K at the other spots, a Group of 5 starter about
+/// $10-100K in all. An FCS program that opted in pays
 /// 2.5% of its athletic budget, held to $0.1-1M (thin evidence: no
 /// FCS-only figures, and the College Sports Commission's non-Power 4
 /// numbers include FCS). Sizes proposed, not confirmed, fitted on seed 41.
@@ -252,15 +256,17 @@ pub fn revenue_share(prog: &Program, year: i32) -> f64 {
     match prog.division {
         Division::FBS if prog.power_four() => FOOTBALL_SHARE * cap,
         Division::FBS if year == HOUSE_START => FOOTBALL_SHARE * 10.0e6 / 3.0,
-        Division::FBS => (G5_SHARE * (athletic / G5_AT).powi(3)).clamp(1.0e6, 8.0e6),
+        Division::FBS => (G5_SHARE * (athletic / G5_AT).powi(3)).clamp(G5_LOW, G5_HIGH),
         _ => (FCS_SHARE * athletic).clamp(0.1e6, 1.0e6),
     }
 }
 
 /// A Group of 5 school's football revenue share at an $80M athletic
 /// budget (item 3), and how it moves with the budget.
-const G5_SHARE: f64 = 3.0e6;
+const G5_SHARE: f64 = 1.0e6;
 const G5_AT: f64 = 80.0e6;
+const G5_LOW: f64 = 0.3e6;
+const G5_HIGH: f64 = 3.0e6;
 /// An opted-in FCS program's share of its athletic budget (item 4).
 const FCS_SHARE: f64 = 0.025;
 
@@ -467,13 +473,14 @@ pub(crate) fn before_matching(w: &mut World, recruits: &[usize]) {
         let Some(pot) = w.programs[j].era.rogue.as_ref().map(|r| r.pot) else { continue };
         let mut targets: Vec<(usize, f64)> = Vec::new();
         if !nil_era(year) {
-            let prog = &w.programs[j];
             let pseed = seed ^ (j as u64).wrapping_mul(0x1000_0001);
+            // Lane G9: the kids whose coaches its staff knows.
+            let gindex = super::ground::ai::index(w);
             let mut cands: Vec<(f64, usize)> = ranked
                 .iter()
                 .filter_map(|&i| {
                     let p = &w.people[i];
-                    let reach = prog.footprint[p.home_state];
+                    let reach = super::ground::ai::knows(w, &gindex, j, p.hs);
                     (reach >= 0.3).then(|| (p.stars as f64 + reach + 0.5 * key_uniform(pseed, p.player.id as u64), i))
                 })
                 .collect();
