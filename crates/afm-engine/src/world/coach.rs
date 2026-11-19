@@ -604,9 +604,10 @@ pub fn generate_coach_as(
 
 impl Coach {
     /// A retired coach never comes back: his working part goes (memory
-    /// diet item 9). Called at the year's cleanup and on load.
+    /// diet item 9). Called at the year's cleanup and on load. One who
+    /// still holds an off-field post (`junior_now`) keeps it while he does.
     pub(crate) fn retire_work(&mut self) {
-        if self.retired && !super::stored::kept_whole("coaches") {
+        if self.retired && self.junior_now().is_none() && !super::stored::kept_whole("coaches") {
             self.work = None;
         }
     }

@@ -436,6 +436,23 @@ fn kept_parts(w: &World) {
         p_bytes as f64 / 1e6,
         t_bytes as f64 / 1e6
     );
+    // A Data page's read of every open row (packed rows unpacked).
+    let t = std::time::Instant::now();
+    let (mut n, mut games) = (0usize, 0u64);
+    w.tally_players(w.tally_open_season(), |s| {
+        n += 1;
+        games += s.games as u64;
+    });
+    let mut teams = 0usize;
+    w.tally_teams(w.tally_open_season(), |_| teams += 1);
+    println!(
+        "  reading every open row: {n} players ({games} games) and {teams} teams in {:.1} ms",
+        t.elapsed().as_secs_f64() * 1e3
+    );
+    let t = std::time::Instant::now();
+    let mut last = 0usize;
+    w.tally_players(w.tally_open_season() - 1, |_| last += 1);
+    println!("  reading last season's closed file: {last} players in {:.1} ms", t.elapsed().as_secs_f64() * 1e3);
     // The squad boards' worst case: every kept alumni player unpacked once.
     let t = std::time::Instant::now();
     let ages: u64 = w.alumni.iter().filter_map(|a| a.player.as_ref()).map(|k| k.get().age as u64).sum();
