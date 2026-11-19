@@ -26,8 +26,12 @@
 //! - **Asking him to commit** runs the desk's own commitment rule
 //!   (`college::board_check`, a transfer's `portal::check`): he says yes
 //!   only when he would commit to you today.
-//! - **An invitation to visit** waits on your confirm, then the desk sets
-//!   it on its first open date, and he may still say no (the built rule).
+//! - **An invitation to visit** gets his answer as he hears it, by the
+//!   desk's own rule (`college::visit_reply`), and the voice says that
+//!   answer. A yes waits on your confirm, and the desk then sets the visit
+//!   on that date with his word kept (`college::take_visit`). A no from a
+//!   recruit firm with another school comes with your staff's read of what
+//!   might unsettle him (`case::unsettle`).
 //! - **The family's answer on its day** (`day`): weighed again with their
 //!   say, made real on a yes, and either way a line in your inbox.
 //!
@@ -560,15 +564,27 @@ pub fn visit_day(w: &World, x: &With) -> Option<Date> {
     dates.first().map(|d| d.0)
 }
 
-/// Sets the visit you invited him to, on its first open date. He may
-/// still say no (the desk's own rule).
+/// What he answers when you invite him to an official visit on `d`, by
+/// the desk's own rule (`college::visit_reply`, a transfer's
+/// `portal::visit_reply`), decided as he hears it so his words and the desk
+/// agree: the confirm then sets the visit he said yes to.
+pub fn visit_reply(w: &World, x: &With, d: Date) -> Result<String, String> {
+    if x.transfer {
+        front_office::portal::visit_reply(w, x.id, VisitKind::Official, d)
+    } else {
+        front_office::college::visit_reply(w, x.id, VisitKind::Official, d)
+    }
+}
+
+/// Sets the visit he said yes to in the talk, on its first open date: the
+/// rules checked again, his word kept (he isn't asked twice).
 pub fn set_visit(w: &mut World, s: &Scene) -> String {
     let Some(x) = with(w, s) else { return "That talk is over.".into() };
     let Some(d) = visit_day(w, &x) else { return "There's no open date for his visit.".into() };
     let r = if x.transfer {
-        front_office::portal::set_visit(w, x.id, VisitKind::Official, d)
+        front_office::portal::take_visit(w, x.id, VisitKind::Official, d)
     } else {
-        front_office::college::set_visit(w, x.id, VisitKind::Official, d)
+        front_office::college::take_visit(w, x.id, VisitKind::Official, d)
     };
     match r {
         Ok(t) | Err(t) => t,
@@ -657,11 +673,34 @@ pub fn turn(w: &World, s: &Scene, reading: &Reading, t: &mut Turn) {
                 Some(d) => {
                     // What the coach did, from the recruit's side (it read
                     // "You invite him", the talks audit of 2026-11-16).
-                    t.say.heard.push(format!("He invites you to an official visit; the first open date is {}", d));
+                    t.say.heard.push(format!("He invites you to an official visit on {}", d.pretty()));
                     // The invite is his to take, not one he'll "hear more
                     // about" (the general invite's words).
                     t.say.released.retain(|x| x != "He'll hear more about that once it's set.");
-                    t.confirm.push(super::super::ear::Confirm::Request(Request::Other(VISIT.into())));
+                    // His answer is decided now, by the desk's own rule, and
+                    // the voice says that answer: before, the voice was told
+                    // only the date and said yes, and the desk rolled his
+                    // answer on your confirm (Cain 2026-11-18: "he verbally
+                    // offers a visit but then when I press the confirm
+                    // button it tells me that he is firm").
+                    match visit_reply(w, &x, d) {
+                        Ok(_) => {
+                            t.say
+                                .released
+                                .push(format!("His answer: yes, he'll take the official visit on {}.", d.pretty()));
+                            t.confirm.push(super::super::ear::Confirm::Request(Request::Other(VISIT.into())));
+                        }
+                        Err(no) => {
+                            t.say.released.push(format!("His answer: no. {no}"));
+                            if !x.transfer
+                                && let Some(j) = front_office::program(w)
+                                && let Some(i) = folk::person(w, x.id)
+                                && let Some(c) = front_office::college::firm_with(w, i, j, VisitKind::Official, d)
+                            {
+                                t.notes.push(case::unsettle(w, i, j, c));
+                            }
+                        }
+                    }
                 }
                 None => t.say.released.push("There's no open date for a visit now.".into()),
             }

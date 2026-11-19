@@ -3532,6 +3532,12 @@ const PA_EYES_UC: f64 = 0.2;
 const BOOT_UP: f64 = 0.8;
 const BOOT_PACE: f64 = 0.48;
 const BOOT_AHEAD: f64 = 3.0;
+/// The scramble drill's pace, of his top speed, and how many of its
+/// three-yard steps ahead he aims (minor bug 409; proposed, not confirmed:
+/// 6.7 yd/s, 15 mph, for the NFL's typical starter, the pace every passer
+/// scrambled at before; 6.2 for a 5.2 forty and 7.1 for a 4.5).
+const EXTEND_PACE: f64 = 0.67;
+const EXTEND_AHEAD: f64 = 3.0;
 
 /// The plan keeping a usage promise (`roster::Keep`; proposed, not
 /// confirmed): the quarterback looks first to the man promised shots on 6
@@ -4712,9 +4718,16 @@ fn quarterback(
         sim.go_to(qb, me + v2(-1.0, 0.0), 0.35);
     } else if let Some((side, _)) = ps.extend {
         // Out of the pocket: on the move to his side, a step upfield,
-        // eyes downfield, short of the sideline.
-        let to = me + v2(0.6, 3.0 * side);
-        sim.go_to(qb, v2(to.x, clamp(to.y, 5.0, width() - 5.0)), 0.9);
+        // eyes downfield, short of the sideline. He heads for a spot far
+        // enough ahead that easing in never sets his pace (the spot three
+        // yards away held every passer to 6.7 yd/s, so a quick one
+        // scrambled no faster than a slow one): he slows only as the
+        // sideline stops him, and goes upfield by the same share of what
+        // he gains across.
+        let across = 3.0 * side * EXTEND_AHEAD;
+        let y = clamp(me.y + across, 5.0, width() - 5.0);
+        let up = 0.6 * EXTEND_AHEAD * ((y - me.y) / across).max(0.0);
+        sim.go_to(qb, v2(me.x + up, y), EXTEND_PACE);
     } else if pressure > 0.2 {
         let step = threat.norm().scale(1.0 + 0.01 * feel) + v2(0.6, 0.0);
         sim.go_to(qb, me + step.scale(2.0), 0.6 + 0.004 * feel);
