@@ -99,6 +99,9 @@ pub enum WantKind {
     /// college career ends this year, or one who could declare;
     /// `talk::standing`).
     Draft,
+    /// A high school coach interviewing for your staff: his best players
+    /// recruited as part of the hire (talk replies item 7).
+    Players,
 }
 
 /// One of his wants today and how much it weighs for him, 0-1. An engine

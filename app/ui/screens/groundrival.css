@@ -1,0 +1,78 @@
+/* Lane styles: Ground's rival (lane S6, board 6, GR75, GR79). The glass look
+   with his program's two colors, on ground.css's gd- glass and rows and
+   groundperson.css's gp-stat. Every class is rv- so the app's global names
+   never restyle it. */
+
+.rv-room { padding-bottom: 40px; }
+.rv-body { display: grid; grid-template-columns: 290px minmax(0, 1fr) 318px; gap: 14px; align-items: start; }
+.rv-col { display: grid; gap: 14px; min-width: 0; align-content: start; }
+@media (max-width: 1150px) { .rv-body { grid-template-columns: 1fr; } }
+
+.rv-hero { gap: 12px; }
+.rv-face { width: 100%; aspect-ratio: 330 / 318; border-radius: 20px; overflow: hidden; background: rgba(0, 0, 0, .25); box-shadow: inset 0 0 0 1px var(--edge); display: grid; place-items: center; }
+.rv-face-img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14%; display: block; }
+.rv-mono { width: 100%; height: 100%; display: grid; place-items: center; font-size: 64px; font-weight: 900; font-stretch: 110%; letter-spacing: .02em; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .45); background: linear-gradient(160deg, var(--c1), var(--c2)); }
+.rv-kicker { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.rv-name { margin: 3px 0 0; font-size: 26px; font-weight: 800; line-height: 1.05; letter-spacing: -.01em; }
+.rv-lines { display: grid; gap: 8px; }
+.rv-line { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px; font-size: 12.5px; line-height: 1.38; }
+.rv-line span { color: var(--sl-dim); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding-top: 2px; }
+
+.rv-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.rv-head .dim { font-size: 12px; }
+.rv-head a, .rv-race small a { color: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; }
+.rv-race { gap: 9px; }
+.rv-signs { display: grid; gap: 5px; }
+.rv-sg { display: grid; grid-template-columns: 22px 74px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 10px; border-radius: 12px; background: var(--fill-1); }
+.rv-sg .k { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--hi); color: #140a02; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); }
+.rv-sg .d { font-size: 11.5px; color: var(--fg2); padding-top: 3px; }
+.rv-sg b { font-size: 13.5px; display: block; line-height: 1.35; font-weight: 700; }
+.rv-sg .src { font-size: 11px; color: var(--sl-dim); text-align: right; padding-top: 3px; max-width: 120px; }
+.rv-told { display: grid; gap: 4px; }
+.rv-told p { margin: 0; font-size: 12.5px; font-style: italic; color: var(--fg2); line-height: 1.4; }
+
+.rv-answer { gap: 10px; }
+.rv-claim { display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px; background: rgba(255, 179, 64, .10); box-shadow: inset 0 0 0 1px rgba(255, 179, 64, .38); }
+.rv-claim.yours { background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.rv-q { font-size: 16px; line-height: 1.35; font-style: italic; }
+.rv-q::before { content: "\201C"; } .rv-q::after { content: "\201D"; }
+.rv-claim small { font-size: 12.5px; line-height: 1.4; color: var(--fg2); }
+.rv-ans { box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); text-align: left; font: inherit; color: inherit; border: 0; width: 100%; }
+button.rv-ans { cursor: pointer; }
+button.rv-ans:hover { background: var(--fill-2); }
+.rv-ans b { font-size: 13.5px; display: block; font-weight: 700; }
+.rv-ans small { display: block; font-size: 11.5px; color: var(--fg2); margin-top: 2px; line-height: 1.35; }
+.rv-ans.done { opacity: .75; }
+.gd-chip.amb { background: rgba(255, 179, 64, .12); box-shadow: inset 0 0 0 1px rgba(255, 179, 64, .4); color: var(--gd-amber); }
+
+.rv-map { display: grid; gap: 8px; }
+.rv-svg { width: 100%; height: auto; max-height: 380px; border-radius: 14px; background: var(--gd-sea); box-shadow: inset 0 0 0 1px var(--hair); }
+.rv-pipe { opacity: .85; stroke-linecap: round; }
+.rv-pin circle { fill: var(--hi, #f07a1c); stroke: #fff; stroke-width: 1.4px; }
+.rv-pin text { fill: #140a02; font-weight: 800; text-anchor: middle; }
+.rv-pl, .rv-al { font-weight: 700; fill: #f4f5f7; paint-order: stroke; stroke: var(--gd-sea); }
+.rv-al { text-anchor: middle; fill: var(--fg2); }
+.rv-hist { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 10px; align-items: start; padding: 7px 10px; border-radius: 12px; background: var(--fill-1); font-size: 12.5px; line-height: 1.4; }
+.rv-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hi); margin-top: 6px; }
+.rv-vs { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--hair); }
+.rv-vs:last-child { border-bottom: 0; }
+.rv-vs b { font-size: 13px; display: block; }
+.rv-vs small { display: block; font-size: 11.5px; color: var(--fg2); }
+.rv-lvs { display: grid; grid-template-columns: auto auto; gap: 2px 8px; justify-items: end; align-items: center; }
+.rv-lvs span:not(.gd-lv) { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--sl-dim); }
+
+.rv-listbody { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1000px) { .rv-listbody { grid-template-columns: 1fr; } }
+.rv-list { gap: 6px; }
+.rv-rowlink { display: block; color: inherit; text-decoration: none; cursor: pointer; }
+.rv-row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 12px; border-radius: 12px; background: var(--fill-1); }
+.rv-rowlink:hover .rv-row { background: var(--fill-2); }
+.rv-row b { font-size: 13.5px; display: block; }
+.rv-row small { display: block; font-size: 12px; color: var(--fg2); }
+.rv-sw { width: 10px; height: 28px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--hair); }
+.rv-areas { display: grid; gap: 3px; justify-items: end; font-size: 12px; }
+.rv-areas > span { display: inline-flex; gap: 8px; align-items: center; color: var(--fg2); }
+.rv-wv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--fill-1); }
+.rv-wv b { font-size: 13px; display: block; }
+.rv-wv small { display: block; font-size: 11.5px; color: var(--fg2); margin-top: 2px; line-height: 1.35; }
+.rv-wv small.said { font-style: italic; }

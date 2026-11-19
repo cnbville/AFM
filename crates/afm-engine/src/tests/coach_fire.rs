@@ -32,7 +32,12 @@ fn targeting_follows_each_level_and_era() {
     assert_eq!(at(Level::FCS, 2013), Targeting::Eject, "and an ejection from 2013");
     assert_eq!(at(Level::HS, 2012), Targeting::None);
     assert_eq!(at(Level::HS, 2013), Targeting::Foul, "NFHS: disqualified only when flagrant");
-    assert_eq!(FoulKind::Targeting.yards(), (15.0, true));
+    // 15 yards and a first down in college; NFHS gives the first down
+    // only for roughing the passer, kicker, holder or snapper (EG5).
+    use crate::game::fouls::{Fouls, penalty};
+    let t = |b: Fouls| penalty(b, 2025, FoulKind::Targeting, 1, false);
+    assert_eq!((t(Fouls::Ncaa).yards, t(Fouls::Ncaa).first_down), (15.0, true));
+    assert_eq!((t(Fouls::Nfhs).yards, t(Fouls::Nfhs).first_down), (15.0, false));
     assert!(FoulKind::Targeting.personal() && !FoulKind::Offside.personal());
 }
 

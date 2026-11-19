@@ -21,7 +21,9 @@ fn fumble_rules_by_level() {
     assert_eq!(Rules::for_level(Level::HS).fumble_rule(), FumbleRule::NFHS);
     assert!(!Rules::for_year(Level::HS, 2020, false).fumble_rule().forward_back);
     assert!(Rules::for_year(Level::HS, 2025, false).fumble_rule().forward_back);
-    assert_eq!(Rules::high_school_on_college_rules().fumble_rule(), FumbleRule::NCAA);
+    assert_eq!(Rules::high_school("TX", 2025).fumble_rule(), FumbleRule::NCAA);
+    assert_eq!(Rules::high_school("MA", 2018).fumble_rule(), FumbleRule::NCAA);
+    assert!(!Rules::high_school("MA", 2019).fumble_rule().fourth_down, "MA plays the NFHS book from 2019");
     const { assert!(FumbleRule::NFL.late && !FumbleRule::NCAA.late && !FumbleRule::NFHS.fourth_down) };
 }
 

@@ -12,7 +12,7 @@ use crate::rng::{Rng, clamp};
 use crate::tendencies::Tend;
 
 /// Players on the field at most, for the compact per-tick scans.
-const MAX_AGENTS: usize = 32;
+pub(crate) const MAX_AGENTS: usize = 32;
 
 /// The level's typical hit (engine gaps item 7), as a share of the NFL's:
 /// the mean force of a tackle and of a sack at each level on
@@ -335,6 +335,12 @@ pub struct Agent {
     pub flinch: f64,
 }
 
+/// An offensive lineman, by his label.
+#[inline]
+pub(crate) fn is_off_line(label: &str) -> bool {
+    matches!(label, "LT" | "LG" | "C" | "RG" | "RT")
+}
+
 impl Agent {
     /// A lineman on either side of the ball, by his label.
     #[inline]
@@ -586,6 +592,11 @@ pub struct Engagement {
     pub helper: Option<usize>,
     pub w: f64,
     pub start: f64,
+    /// Where the blocker was when it began, along the field (the snap's
+    /// frame): a lineman may drive a man past his limit downfield only on a
+    /// block begun inside it (EG5, ineligible downfield).
+    #[serde(default)]
+    pub at: f64,
     pub pass: bool,
     pub mv: Move,
     pub over: bool,
@@ -602,6 +613,10 @@ pub struct Engagement {
     #[serde(skip)]
     pub edge_memo: Option<(usize, Option<usize>, Move, bool, f64)>,
 }
+
+/// Of a beaten blocker's flagged grabs, the share that are his hands to the
+/// face (engine gaps lane EG5; proposed, not confirmed).
+pub const OFF_HANDS: f64 = 0.029;
 
 /// A foul during the play.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -628,8 +643,9 @@ pub enum FoulKind {
     DelayOfGame,
     IllegalFormation,
     IntentionalGrounding,
-    /// A lineman more than the level's limit downfield when a pass is
-    /// thrown past the line (an RPO thrown late).
+    /// A lineman more than his book's limit downfield, not locked on a man
+    /// he met inside it, when a pass is thrown past the line
+    /// (`fouls::downfield`; EG5, minor bug 406).
     IneligibleDownfield,
     /// Taunting or an excessive celebration.
     UnsportsmanlikeConduct,
@@ -638,6 +654,27 @@ pub enum FoulKind {
     /// unnecessary roughness): 15 yards and an automatic first down, with
     /// an ejection where the rule has one (`rules::Targeting`).
     Targeting,
+    /// Hands to an opponent's face or neck, or a blocker's hands outside
+    /// the frame (engine gaps lane EG5, item 28): the offense's 10 yards;
+    /// the defense's the NFL's 5 and a first down, holding's 10 elsewhere
+    /// (`fouls::penalty`).
+    IllegalUseOfHands,
+    /// The NFL's 5-yard contact rule: a defender who impedes a receiver
+    /// more than 5 yards past the line before the ball is thrown (EG5).
+    IllegalContact,
+    /// Twelve men on the field at the snap (EG5): 5 yards in the NFL and
+    /// college, illegal participation's 15 under NFHS rules.
+    TooManyMen,
+    /// A defender who moves into the neutral zone and draws a lineman's
+    /// flinch, or touches one before the snap (neutral zone infraction and
+    /// encroachment, EG5): a dead ball.
+    NeutralZone,
+    /// A kickoff out of bounds (EG5): the receiving team's ball where the
+    /// level's rule puts it (`fouls::kick_out_spot`).
+    KickoffOutOfBounds,
+    /// An NFL kickoff that lands short of the landing zone (from 2024): the
+    /// ball at the receiving team's 40.
+    KickoffShort,
 }
 
 impl FoulKind {
@@ -659,6 +696,12 @@ impl FoulKind {
             FoulKind::IneligibleDownfield => "ineligible man downfield",
             FoulKind::UnsportsmanlikeConduct => "unsportsmanlike conduct",
             FoulKind::Targeting => "targeting",
+            FoulKind::IllegalUseOfHands => "illegal use of hands",
+            FoulKind::IllegalContact => "illegal contact",
+            FoulKind::TooManyMen => "too many men on the field",
+            FoulKind::NeutralZone => "neutral zone infraction",
+            FoulKind::KickoffOutOfBounds => "kickoff out of bounds",
+            FoulKind::KickoffShort => "kickoff short of the landing zone",
         }
     }
     /// A personal foul: a hit the league office reviews for a fine, and
@@ -668,24 +711,6 @@ impl FoulKind {
             self,
             FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask | FoulKind::Targeting
         )
-    }
-    /// Yards, and whether it is an automatic first down for the offense.
-    pub fn yards(self) -> (f64, bool) {
-        match self {
-            FoulKind::OffensiveHolding | FoulKind::IllegalBlock | FoulKind::OffensivePassInterference => (10.0, false),
-            FoulKind::DefensiveHolding => (5.0, true),
-            FoulKind::PassInterference => (15.0, true),
-            FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask | FoulKind::Targeting => {
-                (15.0, true)
-            }
-            FoulKind::FalseStart
-            | FoulKind::Offside
-            | FoulKind::DelayOfGame
-            | FoulKind::IllegalFormation
-            | FoulKind::IneligibleDownfield => (5.0, false),
-            FoulKind::IntentionalGrounding => (10.0, false),
-            FoulKind::UnsportsmanlikeConduct => (15.0, false),
-        }
     }
 }
 
@@ -1222,6 +1247,13 @@ pub struct Sim<'a> {
     pub fight_since: f64,
     /// The back on a screen: linemen who leak out block for him before the catch.
     pub screen: Option<usize>,
+    /// On an RPO until the ball is handed off, and after it is pulled: the
+    /// spot along the field the line's run blocks stop at, inside its
+    /// limit downfield (EG5, `scrimmage.rs`, `run_snap`).
+    pub hold_edge: Option<f64>,
+    /// On an RPO, each lineman's own stop against `hold_edge`, drawn at the
+    /// snap: his feel for where the limit is while he blocks (EG5).
+    pub hold_slip: [f64; MAX_AGENTS],
     /// How far a free defender in the open field can reach for the carrier.
     pub open_reach: f64,
     /// On a designed run, the pace every back takes to the line until he
@@ -1259,6 +1291,8 @@ pub struct Sim<'a> {
     pub mood: Mood,
     /// The level's targeting rule (coach fire, item 4).
     pub targeting: super::rules::Targeting,
+    /// Whose foul rules the snap is played under (engine gaps lane EG5).
+    pub fouls: super::fouls::Fouls,
     /// The play's loose ball (engine gaps item 4): set when the ball comes
     /// out, and kept once someone has it or it is dead, for the spot and
     /// the rules.
@@ -1602,9 +1636,18 @@ const FLAGRANT: f64 = 0.02;
 /// the helmet: targeting under the college and high school rules (coach
 /// fire, item 4). Proposed, not confirmed: with the hits at the catch point
 /// and on a slide, fitted so FBS calls about 0.04 targeting fouls a team
-/// game (0.042 on `match_check` seeds 1-12; cfbfastR 2022-2025: 0.031 to
-/// 0.043).
-pub const HIGH_ON_TACKLE: f64 = 0.07;
+/// game (cfbfastR 2022-2025: 0.031 to 0.043). Refitted in engine gaps lane
+/// EG5 (0.07 before): EG5 brought the late hits it rides on down to FBS's
+/// real count of personal fouls, and at 0.07 targeting fell to 0.029 a team
+/// game on `match_check fbs 2000 1` (0.042 at 0.10). The tackle gives nearly
+/// all of it: the hits at the catch point and on a slide flag about 0.01 a
+/// team game together.
+pub const HIGH_ON_TACKLE: f64 = 0.09;
+/// A face mask's and a late hit's chance on a tackle, before his technique
+/// or temper, the crew and the league's restraint (EG5: 0.0087 and 0.023
+/// before; proposed, not confirmed).
+pub const FACE_MASK: f64 = 0.0122;
+pub const LATE_HIT: f64 = 0.0196;
 
 /// Print plays as they run (debug tooling only).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -2229,6 +2272,7 @@ impl<'a> Sim<'a> {
             helper: None,
             w: w0,
             start: self.t,
+            at: self.agents[b].pos.x,
             pass,
             mv,
             over: false,
@@ -2820,12 +2864,27 @@ impl<'a> Sim<'a> {
                 if self.rng.chance(p) {
                     self.eng[k].held = true;
                     self.eng[k].w = 0.35;
-                    let called = 0.42 * self.crew.holding;
+                    // The crew's eye: 0.42 against match_check's old target,
+                    // all plays and every state together; 0.355 against real
+                    // NFL offensive holding and the offense's illegal use of
+                    // hands on scrimmage plays (1.147 flagged a team game,
+                    // nflverse 2021-25, EG5; proposed, not confirmed).
+                    let called = 0.355 * self.crew.holding;
                     if self.rng.chance(called) {
                         let id = self.agents[b].id;
                         let at = self.agents[b].pos.x;
                         let side = self.agents[b].side;
-                        self.notes.fouls.push(Foul { kind: FoulKind::OffensiveHolding, side, player: id, at });
+                        // His hands to the man's face instead of a grab
+                        // (illegal use of hands, EG5: real NFL 0.033 flagged a
+                        // team game against holding's 1.114), the more as his
+                        // hand use is poor.
+                        let hands = clamp(1.0 - 0.02 * (self.agents[b].a(Attr::HandUse) - 60.0), 0.5, 1.6);
+                        let kind = if self.rng.chance(OFF_HANDS * hands) {
+                            FoulKind::IllegalUseOfHands
+                        } else {
+                            FoulKind::OffensiveHolding
+                        };
+                        self.notes.fouls.push(Foul { kind, side, player: id, at });
                     }
                     continue;
                 }
@@ -2908,7 +2967,14 @@ impl<'a> Sim<'a> {
             let v = if fooled {
                 V2::default()
             } else if e.pass {
-                dir.scale(drive.max(-2.0))
+                // A pass block the blocker is winning holds the man where
+                // they met: it never drives him back downfield (engine gaps
+                // lane EG5, minor bug 406). Below w -1.77 the drive turned
+                // backward: at NFL throws 1.7 linemen a team game stood past
+                // the one-yard limit on blocks begun inside it and 0.56 more
+                // on a block begun out there, where real pass sets stay
+                // behind the line.
+                dir.scale(drive.max(0.0))
             } else {
                 // The surge fades (`RUN_PUSH_BACK`, `RUN_PUSH_UP`): the push
                 // along the field stops, the slide toward the runner goes on.
@@ -2920,6 +2986,21 @@ impl<'a> Sim<'a> {
                 }
             };
             let lateral = if e.pass && e.mv == Move::Speed { dir.perp().scale(0.0) } else { V2::default() };
+            // An RPO's line sits on its blocks inside its limit downfield
+            // until the ball is handed off, and after it is pulled (EG5,
+            // minor bug 406): a lineman winning his run block stops driving
+            // his man at the edge (`hold_edge`), as every RPO line is
+            // taught. Driven on, a fifth of RPO throws found a lineman past
+            // the limit (real NFL 2.8%, FTN and nflverse 2022-24).
+            let mut v = v;
+            if let Some(edge) = self.hold_edge
+                && !e.pass
+                && is_off_line(self.agents[b].label)
+                && (bp.x + v.x * DT - edge - self.hold_slip[b]) * self.goal > 0.0
+                && v.x * self.goal > 0.0
+            {
+                v.x = 0.0;
+            }
             let mid = (bp + dp).scale(0.5);
             let off = (dp - bp).norm();
             let mid = mid + (v + lateral).scale(DT);
@@ -3976,9 +4057,12 @@ impl<'a> Sim<'a> {
         }
         // Face masks and late hits ride on the tackle. Unnecessary roughness
         // stands for every 15-yard personal foul after the whistle (late hits,
-        // hits on a defenceless man, horse collars, taunting): real NFL
-        // about 0.47 a team game with them, face masks 0.18 (Claude's
-        // reading of 2023, proposed, not confirmed; they were 0 and 0.09).
+        // hits on a defenceless man, horse collars, taunting): real NFL 0.308
+        // flagged a team game with them on scrimmage plays, face masks 0.134
+        // (nflverse 2021-25, EG5); FBS about 0.40 and 0.19 (cfbfastR 2023-24,
+        // FBS against FBS). The NFL's men hold up more (`hit_restraint`).
+        // Sized against Claude's 2023 reading before (0.47 and 0.18;
+        // proposed, not confirmed).
         if let Some(&i) = self.fight.first() {
             // A face mask is technique (discipline); the late hit after
             // the whistle is temper (hidden temperament).
@@ -3989,9 +4073,10 @@ impl<'a> Sim<'a> {
                 * (1.0 + 0.6 * self.lean(i, Tend::BigHit)).max(0.2)
                 * (1.0 + self.agents[i].heat).max(0.3);
             let (id, side) = (self.agents[i].id, self.agents[i].side);
-            if self.rng.chance(0.0087 * self.crew.personal * technique) {
+            let held = super::fouls::hit_restraint(self.fouls);
+            if self.rng.chance(FACE_MASK * self.crew.personal * technique * held) {
                 self.notes.fouls.push(Foul { kind: FoulKind::FaceMask, side, player: id, at: x });
-            } else if self.rng.chance(0.023 * self.crew.personal * temper) {
+            } else if self.rng.chance(LATE_HIT * self.crew.personal * temper * held) {
                 // Some lead with the crown of the helmet: targeting where
                 // the level's rule has it (coach fire, item 4).
                 self.hit_foul(i, x, HIGH_ON_TACKLE, false);
