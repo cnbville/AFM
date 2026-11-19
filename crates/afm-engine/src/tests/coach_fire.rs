@@ -6,7 +6,7 @@
 use crate::calendar::Level as CalLevel;
 use crate::game::rules::{Rules, Targeting};
 use crate::game::sim::FoulKind;
-use crate::game::stats::HitFlag;
+use crate::game::stats::{HitFlag, PlayRecord, PlayType};
 use crate::game::synthetic::synthetic_league;
 use crate::player::Level;
 use crate::positions::Position;
@@ -47,17 +47,35 @@ fn a_first_half_sitter_comes_back_at_halftime() {
         .unwrap();
     let id = home.players[s].id;
     home.day.first_half = vec![id];
-    let r = crate::game::quick_game(&home, &teams[1], level, 5);
-    let on = |half: bool| {
-        r.stats
-            .plays
-            .iter()
-            .filter(|p| (p.quarter >= 3) == half)
-            .filter(|p| p.on_field.iter().any(|f| f.contains(&id)))
-            .count()
+    // A staff that pulls its starters in a decided game (`garbage`) pulls
+    // him too, so the second half counts the defense's snaps from
+    // scrimmage before his staff has pulled anyone, over a few games (one
+    // of them can be decided by halftime).
+    let on = |p: &PlayRecord| p.on_field.iter().any(|f| f.contains(&id));
+    let defense = |p: &PlayRecord| {
+        p.offense == 1
+            && p.garbage[0] == 0
+            && !matches!(
+                p.kind,
+                PlayType::Punt
+                    | PlayType::FieldGoal
+                    | PlayType::ExtraPoint
+                    | PlayType::TwoPoint
+                    | PlayType::Kickoff
+                    | PlayType::NoPlay
+            )
     };
-    assert_eq!(on(false), 0, "he sits the first half");
-    assert!(on(true) > 10, "and starts the second: {} snaps", on(true));
+    let (mut open, mut his) = (0, 0);
+    for seed in 5..9 {
+        let r = crate::game::quick_game(&home, &teams[1], level, seed);
+        assert!(!r.stats.plays.iter().any(|p| p.quarter < 3 && on(p)), "he sits the first half of game {seed}");
+        for p in r.stats.plays.iter().filter(|p| p.quarter >= 3 && defense(p)) {
+            open += 1;
+            his += usize::from(on(p));
+        }
+    }
+    assert!(open >= 40, "only {open} second-half snaps before a staff pulled its starters");
+    assert!(his * 10 >= open * 9, "and starts the second: {his} of {open} snaps");
 }
 
 fn flag(id: u32, kind: FoulKind, ejected: bool, second_half: bool) -> HitFlag {
