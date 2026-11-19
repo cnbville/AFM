@@ -136,7 +136,8 @@ impl<'de> serde::Deserialize<'de> for Coach {
     }
 }
 
-/// A coach as he is written: the working part's fields only when he has one.
+/// A coach as he is written. A retired coach without his working part
+/// writes it blank, so older games of the same format still read the file.
 #[derive(serde::Serialize)]
 #[serde(rename = "Coach")]
 struct View<'a> {
@@ -146,48 +147,34 @@ struct View<'a> {
     age: u32,
     born: crate::calendar::Date,
     ability: &'a Ability,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    learning_ceiling: Option<f64>,
+    learning_ceiling: f64,
     reputation: f64,
     personality: &'a CoachPersonality,
     mentor: Option<usize>,
     ex_pro: bool,
     job: &'a Option<Job>,
     history: &'a Vec<Stint>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    recent: Option<&'a Vec<f64>>,
+    recent: &'a Vec<f64>,
     wins: u32,
     losses: u32,
     titles: u32,
     career_titles: u32,
     retired: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    prove_it: Option<&'a Option<i32>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ties: Option<&'a HashMap<usize, f64>>,
+    prove_it: &'a Option<i32>,
+    ties: &'a HashMap<usize, f64>,
     came_up: Group,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    units: Option<&'a [UnitRecord; GROUP_COUNT]>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    sportsmanship: Option<f64>,
+    units: &'a [UnitRecord; GROUP_COUNT],
+    sportsmanship: f64,
     home_state: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    decline_from: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    decline_rate: Option<f64>,
+    decline_from: f64,
+    decline_rate: f64,
     show_cause: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    contract: Option<&'a Option<Contract>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    systems: Option<&'a super::systems::Systems>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    stat_buzz: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    style_set: Option<&'a Option<crate::tendencies::Style>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    freedom_norm: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    yours: Option<&'a Option<Yours>>,
+    contract: &'a Option<Contract>,
+    systems: &'a super::systems::Systems,
+    stat_buzz: f64,
+    style_set: &'a Option<crate::tendencies::Style>,
+    freedom_norm: f64,
+    yours: &'a Option<Yours>,
     played: &'a Option<super::former::Played>,
     renown: f64,
     fame: f64,
@@ -196,7 +183,7 @@ struct View<'a> {
 
 impl serde::Serialize for Coach {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        let w = self.work.as_deref();
+        let w = self.work.as_deref().unwrap_or_else(|| super::coach::blank_work());
         View {
             id: self.id,
             name: &self.name,
@@ -204,34 +191,34 @@ impl serde::Serialize for Coach {
             age: self.age,
             born: self.born,
             ability: &self.ability,
-            learning_ceiling: w.map(|w| w.learning_ceiling),
+            learning_ceiling: w.learning_ceiling,
             reputation: self.reputation,
             personality: &self.personality,
             mentor: self.mentor,
             ex_pro: self.ex_pro,
             job: &self.job,
             history: &self.history,
-            recent: w.map(|w| &w.recent),
+            recent: &w.recent,
             wins: self.wins,
             losses: self.losses,
             titles: self.titles,
             career_titles: self.career_titles,
             retired: self.retired,
-            prove_it: w.map(|w| &w.prove_it),
-            ties: w.map(|w| &w.ties),
+            prove_it: &w.prove_it,
+            ties: &w.ties,
             came_up: self.came_up,
-            units: w.map(|w| &w.units),
-            sportsmanship: w.map(|w| w.sportsmanship),
+            units: &w.units,
+            sportsmanship: w.sportsmanship,
             home_state: self.home_state,
-            decline_from: w.map(|w| w.decline_from),
-            decline_rate: w.map(|w| w.decline_rate),
+            decline_from: w.decline_from,
+            decline_rate: w.decline_rate,
             show_cause: self.show_cause,
-            contract: w.map(|w| &w.contract),
-            systems: w.map(|w| &w.systems),
-            stat_buzz: w.map(|w| w.stat_buzz),
-            style_set: w.map(|w| &w.style_set),
-            freedom_norm: w.map(|w| w.freedom_norm),
-            yours: w.map(|w| &w.yours),
+            contract: &w.contract,
+            systems: &w.systems,
+            stat_buzz: w.stat_buzz,
+            style_set: &w.style_set,
+            freedom_norm: w.freedom_norm,
+            yours: &w.yours,
             played: &self.played,
             renown: self.renown,
             fame: self.fame,

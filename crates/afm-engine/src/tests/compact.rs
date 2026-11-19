@@ -411,28 +411,10 @@ const COACH_FIELDS: &[&str] = &[
     "junior",
 ];
 
-/// The working part's fields, which a retired coach is written without.
-const WORK_FIELDS: &[&str] = &[
-    "learning_ceiling",
-    "recent",
-    "prove_it",
-    "ties",
-    "units",
-    "sportsmanship",
-    "decline_from",
-    "decline_rate",
-    "contract",
-    "systems",
-    "stat_buzz",
-    "style_set",
-    "freedom_norm",
-    "yours",
-];
-
 /// Memory diet item 9: a working coach is written flat, every field in the
-/// old order, and reads back to the same bytes; a retired coach is written
-/// without his working part, and one read from an older file (with it)
-/// drops it as he loads. What his page reads stays.
+/// old order, and reads back to the same bytes; a retired coach drops his
+/// working part as he loads and is written with it blank. What his page
+/// reads stays.
 #[test]
 fn coaches_keep_their_file_shape_and_retired_ones_drop_their_working_part() {
     use crate::world::coach::Coach;
@@ -457,13 +439,15 @@ fn coaches_keep_their_file_shape_and_retired_ones_drop_their_working_part() {
         (c.name.as_str(), c.wins, c.career_titles, c.mentor)
     );
     assert_eq!(gone.history.len(), c.history.len());
+    // Written again, the part is blank but every field is there, so older
+    // games of the same format still read the file.
     let short = rmp_serde::to_vec_named(&gone).unwrap();
     let names: Keys = rmp_serde::from_slice(&short).unwrap();
-    let want: Vec<&str> = COACH_FIELDS.iter().copied().filter(|f| !WORK_FIELDS.contains(f)).collect();
-    assert_eq!(names.0, want);
+    assert_eq!(names.0, COACH_FIELDS);
     let again: Coach = rmp_serde::from_slice(&short).unwrap();
     assert!(again.work.is_none());
     assert_eq!(rmp_serde::to_vec_named(&again).unwrap(), short);
+    assert!(again.recent.is_empty() && again.ties.is_empty() && again.contract.is_none());
     // The coach itself is about half the size it was (920 bytes).
     assert!(std::mem::size_of::<Coach>() < 520, "{}", std::mem::size_of::<Coach>());
 }

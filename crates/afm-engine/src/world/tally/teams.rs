@@ -316,9 +316,8 @@ impl Season {
 
 /// The open season's teams. A team without a game through two weekly
 /// sweeps (its season is over) has its row packed (`cold.rs`, memory diet
-/// item 10), without its latest game on its own (`last`: older than any
-/// charting delay by then, so no page leaves it out); `get` and `rows`
-/// read it back whole, and a save writes every row as before.
+/// item 10); `get` and `rows` read it back whole, and a save writes every
+/// row as before.
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct Open {
     pub seasons: HashMap<u64, Season>,
@@ -448,19 +447,11 @@ impl Open {
         add_adv(&mut s.adv_against, adv[1]);
     }
 
-    /// Packs the rows of teams without a game since the sweep before last,
-    /// each without its latest game on its own.
+    /// Packs the rows of teams without a game since the sweep before last.
     fn sweep(&mut self) {
         let keys: Vec<u64> = self.seasons.keys().copied().filter(|&k| self.cold.idle(k)).collect();
         if !keys.is_empty() {
-            let rows: Vec<(u64, Season)> = keys
-                .iter()
-                .filter_map(|k| self.seasons.remove_entry(k))
-                .map(|(k, mut s)| {
-                    s.last = None;
-                    (k, s)
-                })
-                .collect();
+            let rows: Vec<(u64, Season)> = keys.iter().filter_map(|k| self.seasons.remove_entry(k)).collect();
             self.cold.sweep(&rows);
             super::cold::shrink(&mut self.seasons);
         }

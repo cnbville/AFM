@@ -414,7 +414,7 @@ impl Default for Work {
 }
 
 /// The blank working part a retired coach reads (made once).
-fn blank_work() -> &'static Work {
+pub(super) fn blank_work() -> &'static Work {
     static BLANK: std::sync::LazyLock<Work> = std::sync::LazyLock::new(Work::default);
     &BLANK
 }
