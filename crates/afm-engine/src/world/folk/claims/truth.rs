@@ -255,6 +255,17 @@ pub fn is_standing(f: &Stated, him: u32) -> bool {
     STANDING.contains(&f.kind.as_str()) && (f.about.is_none() || f.about == Some(him) || f.kind == "ahead_of_him")
 }
 
+/// Words that put a man at the bottom of his room, or below where he is.
+/// Proposed, not confirmed.
+pub const DEMOTION: [&str; 9] =
+    ["last", "bottom", "third", "3rd", "fourth", "4th", "scout team", "down the chart", "behind everyone"];
+
+/// Whether a depth claim's words drop him (`DEMOTION`).
+pub fn demotion(v: &str) -> bool {
+    let v = v.to_lowercase();
+    DEMOTION.iter().any(|x| v.contains(x))
+}
+
 /// A typed line's claim about where your player stands, heard as the
 /// promise it is (section 11): the first such claim, when the line made no
 /// promise of its own. Its terms are what he'll see: a start for a first
@@ -270,6 +281,12 @@ pub fn standing_promise(w: &World, s: &Scene, heard: &Heard) -> Option<PromiseRe
     let f = heard.facts.iter().find(|f| is_standing(f, him))?;
     let v = f.value.to_lowercase();
     let first = ["start", "1st", "first", "the ones", "number one", "no. 1"].iter().any(|x| v.contains(x));
+    // Telling him he drops ("you'll be the last on the depth chart") is no
+    // promise that his place stays: it was logged as one, so the promise it
+    // went back on showed as kept (talk replies item 6, Justis Sanders Jr.).
+    if f.kind == "depth_rank" && !first && demotion(&v) {
+        return None;
+    }
     let kind = match f.kind.as_str() {
         "depth_rank" if first => "start",
         "depth_rank" => "place",

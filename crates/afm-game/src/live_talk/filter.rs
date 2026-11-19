@@ -136,6 +136,11 @@ pub fn numbers(t: &str) -> Vec<u64> {
             let whole = s.split('.').next().unwrap_or("");
             if let Ok(n) = whole.parse::<u64>() {
                 out.push(n);
+                // "$850,000" said "eight-fifty": a big round number counts
+                // by its leading digits too (talk replies item 4).
+                if n >= 1_000 {
+                    out.push(lead(n));
+                }
             }
             if s.contains('.')
                 && let Ok(n) = s.replace('.', "").parse::<u64>()
@@ -149,12 +154,31 @@ pub fn numbers(t: &str) -> Vec<u64> {
     for w in words(t) {
         let parts: Vec<u64> =
             w.split('-').filter_map(|p| NUMBER_WORDS.iter().find(|(name, _)| *name == p).map(|x| x.1)).collect();
+        // Money the way people say it (talk replies item 4): "two-eight"
+        // is $2.8 million and "eight-fifty" $850,000, by their digits,
+        // never 10 and 58.
+        let said = w.split('-').count();
+        if parts.len() >= 2 && parts.len() == said && parts[0] < 10 && parts[1..].iter().all(|&p| p < 100) {
+            let digits: String = parts.iter().map(|p| p.to_string()).collect();
+            if let Ok(n) = digits.parse::<u64>() {
+                out.push(lead(n));
+            }
+            continue;
+        }
         // "ninety-nine" is 99 alone, never 90 and 9.
         if !parts.is_empty() {
             out.push(parts.iter().sum());
         }
     }
     out
+}
+
+/// A number without its trailing zeros: 850,000 is 85, 2,800,000 is 28.
+fn lead(mut n: u64) -> u64 {
+    while n >= 10 && n.is_multiple_of(10) {
+        n /= 10;
+    }
+    n
 }
 
 /// The least a salvaged reply keeps, in characters. Proposed, not

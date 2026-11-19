@@ -2760,6 +2760,39 @@ pub fn typed_promise(w: &mut World, _scene: u32, him: u32, p: &super::scene::Pro
     }
 }
 
+/// A typed promise as he hears it now, before it is logged: its kind and
+/// his belief in it (talk replies item 2), the same parts P1 sets it with.
+pub fn typed_belief(w: &World, him: u32, p: &super::scene::PromiseRead) -> Option<(PromiseKind, f64)> {
+    let i = super::person(w, him)?;
+    let kind = read_kind(w, i, p)?;
+    let t = read_terms(w, i, kind, p);
+    Some((kind, super::promise::belief_own(w, i, kind, &t, 0)))
+}
+
+/// You went back on an open promise in a talk (talk replies item 6): a
+/// claim or a decision that says the opposite of what you promised him
+/// breaks it on the spot, at the cost a broken promise has when it comes
+/// due (all of it missed, scaled by what he counted on), and it reaches
+/// your log and your inbox. Returns the line, or None for a promise that
+/// isn't open.
+pub fn break_now(w: &mut World, k: usize) -> Option<String> {
+    let p = w.folk.promises.get(k)?.clone();
+    if p.kept.is_some() {
+        return None;
+    }
+    let scale = super::promise::broken_scale(p.belief, 1.0);
+    let public = if p.public { 2.0 } else { 1.0 };
+    w.folk.promises[k].kept = Some(false);
+    w.folk.promises[k].missed = scale;
+    let p = w.folk.promises[k].clone();
+    settle_promise(w, &p, false, scale * public);
+    let text = format!("You went back on the promise of {} you made to {} on {}.", p.words(), p.who, p.made.pretty());
+    super::note(w, "talk", "Your promises".into(), text.clone(), None);
+    let today = w.today;
+    super::post_mine(w, today, Loudness::Small, false, "people: promise", &text);
+    Some(text)
+}
+
 /// The promise a typed line on a promise pick makes (live talks lane 9):
 /// the reading's kind and terms, else the chip's kind and none.
 fn typed_kind(w: &World, s: &Scene, i: usize) -> Option<(PromiseKind, super::promise::Terms)> {

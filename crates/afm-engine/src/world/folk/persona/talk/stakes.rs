@@ -114,6 +114,7 @@ pub fn you_want_as(k: WantKind, staff: bool, boss: bool) -> String {
         WantKind::Booster(x) => format!("what your money buys: {}", x.short()),
         WantKind::Kids => "your kids' futures".into(),
         WantKind::Draft => "the NFL draft: going as high as you can, and what the scouts hear about you".into(),
+        WantKind::Players => "your best players recruited as part of the hire".into(),
     }
 }
 
@@ -223,6 +224,12 @@ fn to_you(w: &World, him: Them, kind: Kind) -> Option<String> {
                 Some(n) => format!("He coaches or recruits {n}, your family: you want what's best for him"),
                 None => "He coaches or recruits your boy: you want what's best for him".into(),
             }
+        }
+        // Interviewing for his staff, he's a candidate first (talk replies
+        // item 7): his players come up as part of the hire, never as a
+        // feeder coach's guard on them.
+        Kind::HsCoach if matches!(him, Them::Coach(c) if super::super::coaching::interviewing(w, c)) => {
+            return None;
         }
         Kind::HsCoach => "He's a college coach after your players: your kids' futures come first".into(),
         Kind::Circle => "He's a coach after a young man you're close to".into(),

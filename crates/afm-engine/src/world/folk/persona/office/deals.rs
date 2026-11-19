@@ -156,10 +156,16 @@ pub fn weigh(w: &World, him: Them, o: &Offer) -> Option<Weighed> {
             }
             // His number, less what the goals are worth to him.
             let worth = t.salary - terms(w, c, role, o).salary;
+            // He names his number, the way it's said across the table (talk
+            // replies item 4: "I'd need more money" left you guessing).
             Some(match hiring::would_take(w, c, role, &t, now) {
                 Some(s) => Weighed::Counter(Counter {
-                    asks: vec!["he'd need more money to take the job".into()],
-                    gives: vec![Give::Money(s - worth)],
+                    asks: vec![format!(
+                        "he names his number: {} a year over {} years to take the job",
+                        super::super::terms::money_words(s - worth),
+                        t.years
+                    )],
+                    gives: vec![Give::Money(s - worth), Give::Years(t.years)],
                     terms: Vec::new(),
                     why: None,
                 }),
