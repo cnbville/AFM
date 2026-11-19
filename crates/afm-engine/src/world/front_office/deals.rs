@@ -585,6 +585,7 @@ pub(crate) fn move_player(w: &mut World, i: usize, from: usize, to: usize, d: Da
         }
     }
     let hurt = trades::trade_hurt(w, i, from);
+    pro::club_lets_go(w, i);
     pro::transfer(w, i, to, "traded");
     crate::world::people::grudge(&mut w.people[i], from, hurt);
     let c = w.people[i].pro.as_mut().unwrap();

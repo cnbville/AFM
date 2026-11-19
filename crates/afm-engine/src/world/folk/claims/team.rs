@@ -315,7 +315,13 @@ pub(super) fn still_playing(r: &Reader, team: Team, last: Date) -> bool {
             let Some((_, rounds, done)) = w.hs_weeks(h) else { return false };
             !done && (w.hs_alive(h) || rounds.first().is_some_and(|&d| last < d && r.today < d))
         }
-        Team::Other(_) => false,
+        // Another league: its season runs until its title game, your club
+        // in it while it is still alive in the playoffs (seeded on their
+        // first day, so a finished regular season waits for it).
+        Team::Other(f) => {
+            let k = crate::world::pro::other::league_of(f);
+            w.others.live.iter().any(|l| l.league == k && !l.done && (l.round == 0 || l.alive.contains(&(f as u16))))
+        }
     }
 }
 

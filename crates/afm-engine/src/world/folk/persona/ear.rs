@@ -232,6 +232,10 @@ pub enum Item {
     /// The team as a whole: a line to the room in a group talk (lane N5d),
     /// heard by each man as one of the room.
     Room,
+    /// One of the room's groups (`crowd::Bloc`, by its code): a line to the
+    /// starters, the defense, the receivers, heard by each man in it as one
+    /// of them (group talks, item 1).
+    Group(u8),
     /// How you said it (coach voice): your manner's own hit on each man,
     /// never one of his things. It makes no line touch him and "Heard as"
     /// never lists it; it counts in how a line that did touch him went over
@@ -466,6 +470,9 @@ pub struct Turn {
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
     /// How each man in the room took your manner (coach voice), sized.
     pub manner: Vec<(Them, super::manner::Took)>,
+    /// A line to a room (`crowd`): who answered and how, who answers after,
+    /// who held back, who walked out.
+    pub crowd: Option<super::crowd::Turned>,
     /// Your staff's notes under his line, never his words (a recruit firm
     /// with another school: what might unsettle him).
     pub notes: Vec<String>,

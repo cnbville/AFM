@@ -422,6 +422,138 @@ impl<'de> serde::Deserialize<'de> for OptF64 {
     }
 }
 
+/// An optional small index (a pro team) in 2 bytes instead of 16 (memory
+/// diet item 5): "none" is `u16::MAX`. Written and read as a plain
+/// `Option<usize>`, and printed as one, so files, fingerprints and the
+/// debug print stay as they were.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct OptIdx(u16);
+
+impl Default for OptIdx {
+    fn default() -> Self {
+        OptIdx::NONE
+    }
+}
+
+impl OptIdx {
+    pub const NONE: OptIdx = OptIdx(u16::MAX);
+
+    #[inline]
+    pub fn get(self) -> Option<usize> {
+        (self.0 != u16::MAX).then_some(self.0 as usize)
+    }
+    #[inline]
+    pub fn is_some(self) -> bool {
+        self.0 != u16::MAX
+    }
+    #[inline]
+    pub fn is_none(self) -> bool {
+        self.0 == u16::MAX
+    }
+}
+
+impl From<Option<usize>> for OptIdx {
+    /// An index past 65,534 (never a team) reads back as none.
+    #[inline]
+    fn from(v: Option<usize>) -> Self {
+        OptIdx(v.and_then(|i| u16::try_from(i).ok()).filter(|&i| i != u16::MAX).unwrap_or(u16::MAX))
+    }
+}
+
+impl PartialEq<Option<usize>> for OptIdx {
+    fn eq(&self, o: &Option<usize>) -> bool {
+        self.get() == *o
+    }
+}
+
+impl std::fmt::Debug for OptIdx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
+impl serde::Serialize for OptIdx {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        self.get().serialize(s)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OptIdx {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Option::<usize>::deserialize(d).map(OptIdx::from)
+    }
+}
+
+/// A season row's depth-chart label ("starter", "WR2", "practice squad")
+/// in 2 bytes instead of 24 and a string (memory diet item 5): the label
+/// is looked up in a small table of every distinct label seen, so any
+/// text round-trips. Written and read as a plain `Option<String>`.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct DepthLabel(u16);
+
+static DEPTH_LABELS: std::sync::Mutex<Vec<&'static str>> = std::sync::Mutex::new(Vec::new());
+
+impl DepthLabel {
+    pub const NONE: DepthLabel = DepthLabel(0);
+
+    /// The code of a label (the table grows by one for a new text).
+    pub fn some(label: &str) -> DepthLabel {
+        let mut t = DEPTH_LABELS.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(i) = t.iter().position(|&x| x == label) {
+            return DepthLabel(i as u16 + 1);
+        }
+        assert!(t.len() < u16::MAX as usize - 1, "too many distinct depth labels");
+        t.push(Box::leak(label.to_string().into_boxed_str()));
+        DepthLabel(t.len() as u16)
+    }
+
+    /// The label, like `Option<String>::as_deref`.
+    pub fn as_deref(self) -> Option<&'static str> {
+        if self.0 == 0 {
+            return None;
+        }
+        DEPTH_LABELS.lock().unwrap_or_else(|e| e.into_inner()).get(self.0 as usize - 1).copied()
+    }
+    #[inline]
+    pub fn is_some(self) -> bool {
+        self.0 != 0
+    }
+    #[inline]
+    pub fn is_none(self) -> bool {
+        self.0 == 0
+    }
+}
+
+impl From<Option<String>> for DepthLabel {
+    fn from(v: Option<String>) -> Self {
+        v.map_or(DepthLabel::NONE, |s| DepthLabel::some(&s))
+    }
+}
+
+impl PartialEq<Option<&str>> for DepthLabel {
+    fn eq(&self, o: &Option<&str>) -> bool {
+        self.as_deref() == *o
+    }
+}
+
+impl std::fmt::Debug for DepthLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_deref().map(str::to_string).fmt(f)
+    }
+}
+
+impl serde::Serialize for DepthLabel {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        self.as_deref().serialize(s)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for DepthLabel {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Option::<String>::deserialize(d).map(DepthLabel::from)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SeasonRecord {
     pub age: u32,
@@ -463,9 +595,9 @@ pub struct SeasonRecord {
     /// the rating he played the season at is `overall_start` plus this.
     pub spring_open: OptF64,
     /// Pro team he spent the season with (index into the league).
-    pub team: Option<usize>,
+    pub team: OptIdx,
     /// Depth chart spot, e.g. "WR2", "practice squad" or "free agent".
-    pub depth: Option<String>,
+    pub depth: DepthLabel,
     /// How his pro surroundings helped (+) or hurt (-) him that season, -1 to 1.
     pub situation: OptF64,
     /// Overall points his game results moved him this season (growth from

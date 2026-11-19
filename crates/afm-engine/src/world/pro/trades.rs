@@ -816,10 +816,12 @@ fn execute(
     let hurt = trade_hurt(w, i, seller);
     let (id, head) = (w.people[i].player.id, w.nfl[seller].head_coach);
     crate::world::folk::bonds::left_him(w, id, head, crate::world::folk::bonds::What::Traded);
+    super::club_lets_go(w, i);
     super::transfer(w, i, buyer, "traded");
     crate::world::people::grudge(&mut w.people[i], seller, hurt);
     for &j in &back {
         let hurt = trade_hurt(w, j, buyer);
+        super::club_lets_go(w, j);
         super::transfer(w, j, seller, "traded");
         crate::world::people::grudge(&mut w.people[j], buyer, hurt);
         let c = w.people[j].pro.as_mut().unwrap();

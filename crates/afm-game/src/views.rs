@@ -2616,7 +2616,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
             let team = match h.level {
                 Level::HS => w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
                 // A pro season with no club: unsigned all year.
-                Level::NFL => Some(h.team.map_or("Unsigned".to_string(), |t| w.nfl_team_name(t))),
+                Level::NFL => Some(h.team.get().map_or("Unsigned".to_string(), |t| w.nfl_team_name(t))),
                 _ => {
                     row += 1;
                     (p.college_staff.len() == college_rows)
