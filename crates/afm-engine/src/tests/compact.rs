@@ -452,7 +452,10 @@ fn coaches_keep_their_file_shape_and_retired_ones_drop_their_working_part() {
     assert_eq!(names.0, COACH_FIELDS, "the part is dropped only at the year's cleanup or a load");
     let gone: Coach = rmp_serde::from_slice(&old_bytes).unwrap();
     assert!(gone.work.is_none());
-    assert_eq!((gone.name.as_str(), gone.wins, gone.career_titles, gone.mentor), (c.name.as_str(), c.wins, c.career_titles, c.mentor));
+    assert_eq!(
+        (gone.name.as_str(), gone.wins, gone.career_titles, gone.mentor),
+        (c.name.as_str(), c.wins, c.career_titles, c.mentor)
+    );
     assert_eq!(gone.history.len(), c.history.len());
     let short = rmp_serde::to_vec_named(&gone).unwrap();
     let names: Keys = rmp_serde::from_slice(&short).unwrap();

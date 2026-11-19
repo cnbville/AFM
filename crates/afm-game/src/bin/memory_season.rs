@@ -299,7 +299,10 @@ fn parts(w: &mut World) {
         w.coaches.iter_mut().filter(|c| c.retired).for_each(|c| c.recent = Vec::new())
     });
     take("alumni: pro playoffs", w, &|w| {
-        w.alumni.iter_mut().filter_map(|a| a.pro.as_mut()).for_each(|c| c.seasons.iter_mut().for_each(|s| s.playoffs = None))
+        w.alumni
+            .iter_mut()
+            .filter_map(|a| a.pro.as_mut())
+            .for_each(|c| c.seasons.iter_mut().for_each(|s| s.playoffs = None))
     });
     take("alumni: pro careers", w, &|w| w.alumni.iter_mut().for_each(|a| a.pro = None));
     take("alumni: players", w, &|w| w.alumni.iter_mut().for_each(|a| a.player = None));
@@ -432,5 +435,22 @@ fn kept_parts(w: &World) {
         kept.iter().sum::<usize>() as f64 / 1e6,
         p_bytes as f64 / 1e6,
         t_bytes as f64 / 1e6
+    );
+    // The squad boards' worst case: every kept alumni player unpacked once.
+    let t = std::time::Instant::now();
+    let ages: u64 = w.alumni.iter().filter_map(|a| a.player.as_ref()).map(|k| k.get().age as u64).sum();
+    let one = t.elapsed().as_secs_f64() * 1e3;
+    let t = std::time::Instant::now();
+    use rayon::prelude::*;
+    let par: u64 = w.alumni.par_iter().filter_map(|a| a.player.as_ref()).map(|k| k.get().age as u64).sum();
+    let most = afm_engine::positions::Position::ALL
+        .iter()
+        .map(|&p| w.alumni.iter().filter(|a| a.position == p && a.player.is_some()).count())
+        .max()
+        .unwrap_or(0);
+    println!(
+        "  unpacking all {} alumni players: {one:.1} ms on one core, {:.1} ms on all (ages {ages} {par}); the biggest position has {most}",
+        kept.len(),
+        t.elapsed().as_secs_f64() * 1e3
     );
 }

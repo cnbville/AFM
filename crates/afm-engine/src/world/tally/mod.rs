@@ -46,8 +46,8 @@
 //! from the first recorded season, as the record books do.
 
 pub mod calls;
-pub mod cold;
 pub mod classes;
+pub mod cold;
 pub mod decide;
 pub mod depth;
 pub mod expect;

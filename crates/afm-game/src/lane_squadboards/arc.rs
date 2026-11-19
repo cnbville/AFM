@@ -137,12 +137,16 @@ fn alikes(w: &World, pos: Position, age: u32, tier: u8, at: f64, me: u32) -> Vec
         out.push(Alike { name: name.to_string(), id, deltas, gap, year, outcome, reached });
     };
     let live = live_pros(w);
-    for a in &w.alumni {
-        let Some(kept) = a.player.as_ref() else { continue };
-        if a.position != pos || live.contains(&(a.name.as_str(), a.class_of)) {
-            continue;
-        }
-        let pl = kept.get();
+    // Alumni players are kept packed (memory diet item 3): unpack the
+    // position's men on every core, then read them in order.
+    use rayon::prelude::*;
+    let past: Vec<(&afm_engine::world::Alumnus, afm_engine::player::Player)> = w
+        .alumni
+        .par_iter()
+        .filter(|a| a.position == pos && !live.contains(&(a.name.as_str(), a.class_of)))
+        .filter_map(|a| a.player.as_ref().map(|k| (a, k.get())))
+        .collect();
+    for (a, pl) in &past {
         let draft = a
             .pro
             .as_ref()

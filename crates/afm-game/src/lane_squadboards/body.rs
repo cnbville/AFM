@@ -197,28 +197,32 @@ fn career_words(c: Option<&afm_engine::world::pro::ProCareer>) -> String {
 /// The world's drafted players at a position (every one it remembers in
 /// full: drafted alumni and today's drafted pros), with their combine.
 fn drafted_pool(w: &World, pos: Position) -> Vec<Past> {
-    let mut out: Vec<Past> = Vec::new();
     // A man playing now is read from his live record below.
     let live = super::arc::live_pros(w);
-    for a in &w.alumni {
-        let (Some(kept), Some(pick)) = (a.player.as_ref(), a.pick) else { continue };
-        if a.position != pos || live.contains(&(a.name.as_str(), a.class_of)) {
-            continue;
-        }
-        let pl = kept.get();
-        let c = afm_engine::body::combine(&pl, &mut afm_engine::rng::Rng::new(pl.id ^ 0x00C0_FFEE));
-        let round = a.pro.as_ref().and_then(|c| c.draft).map(|d| d.1);
-        out.push(Past {
-            vals: values(&pl, &c),
-            name: a.name.clone(),
-            id: None,
-            school: a.colleges.last().map_or(String::new(), |&c| w.program_name(c).to_string()),
-            year: a.year,
-            pick: Some(pick),
-            round: round.or(Some((pick - 1) / 32 + 1)),
-            career: career_words(a.pro.as_deref()),
-        });
-    }
+    // Alumni players are kept packed (memory diet item 3): unpack the
+    // position's drafted men on every core, in the list's order.
+    use rayon::prelude::*;
+    let mut out: Vec<Past> = w
+        .alumni
+        .par_iter()
+        .filter(|a| a.position == pos && !live.contains(&(a.name.as_str(), a.class_of)))
+        .filter_map(|a| {
+            let (Some(kept), Some(pick)) = (a.player.as_ref(), a.pick) else { return None };
+            let pl = kept.get();
+            let c = afm_engine::body::combine(&pl, &mut afm_engine::rng::Rng::new(pl.id ^ 0x00C0_FFEE));
+            let round = a.pro.as_ref().and_then(|c| c.draft).map(|d| d.1);
+            Some(Past {
+                vals: values(&pl, &c),
+                name: a.name.clone(),
+                id: None,
+                school: a.colleges.last().map_or(String::new(), |&c| w.program_name(c).to_string()),
+                year: a.year,
+                pick: Some(pick),
+                round: round.or(Some((pick - 1) / 32 + 1)),
+                career: career_words(a.pro.as_deref()),
+            })
+        })
+        .collect();
     for (j, q) in w.people.iter().enumerate().filter(|(_, q)| q.player.position == pos && q.stage == Stage::Pro) {
         let Some(d) = q.pro.as_ref().and_then(|c| c.draft) else { continue };
         out.push(Past {

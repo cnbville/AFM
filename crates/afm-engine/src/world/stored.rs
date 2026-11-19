@@ -155,19 +155,31 @@ pub struct KeptPlayer {
     pub id: u32,
     /// His position as he left (pages filter on it before unpacking).
     pub position: crate::positions::Position,
+    /// His unpacked length (the decompressor's room).
+    raw: u32,
     bytes: Box<[u8]>,
+}
+
+thread_local! {
+    // One zstd context a thread, reused: a fresh one each call costs more
+    // than the unpacking itself.
+    static PACK: std::cell::RefCell<zstd::bulk::Compressor<'static>> =
+        std::cell::RefCell::new(zstd::bulk::Compressor::new(3).expect("a zstd context"));
+    static UNPACK: std::cell::RefCell<zstd::bulk::Decompressor<'static>> =
+        std::cell::RefCell::new(zstd::bulk::Decompressor::new().expect("a zstd context"));
 }
 
 impl KeptPlayer {
     pub fn new(p: &crate::player::Player) -> KeptPlayer {
         let raw = rmp_serde::to_vec(p).expect("a player packs");
-        let bytes = zstd::bulk::compress(&raw, 3).expect("a player packs").into_boxed_slice();
-        KeptPlayer { id: p.id, position: p.position, bytes }
+        let bytes = PACK.with(|c| c.borrow_mut().compress(&raw)).expect("a player packs").into_boxed_slice();
+        KeptPlayer { id: p.id, position: p.position, raw: raw.len() as u32, bytes }
     }
 
     /// The player, unpacked.
     pub fn get(&self) -> crate::player::Player {
-        let raw = zstd::stream::decode_all(&self.bytes[..]).expect("a kept player unpacks");
+        let raw =
+            UNPACK.with(|c| c.borrow_mut().decompress(&self.bytes, self.raw as usize)).expect("a kept player unpacks");
         rmp_serde::from_slice(&raw).expect("a kept player reads back")
     }
 
