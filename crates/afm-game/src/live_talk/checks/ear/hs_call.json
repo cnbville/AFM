@@ -7,11 +7,13 @@
   "people": [
    {
     "tag": "p1",
-    "text": "Greg Moran, an assistant coach at Fairview State (the man across from you)"
+    "text": "Greg Moran, an assistant coach at Fairview State (the man across from you)",
+    "kind": "coach"
    },
    {
     "tag": "p2",
-    "text": "Jaylen Brooks, WR, senior (your player they are asking about)"
+    "text": "Jaylen Brooks, WR, senior (your player they are asking about)",
+    "kind": "player"
    }
   ],
   "items": [
@@ -79,6 +81,15 @@
     {
      "item": "c2|c3",
      "how": "stung|doubted|threatened|insulted"
+    }
+   ],
+   "may": [
+    {
+     "act": "answer",
+     "what": "refuse"
+    },
+    {
+     "act": "threat"
     }
    ]
   },

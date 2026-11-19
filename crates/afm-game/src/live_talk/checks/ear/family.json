@@ -7,11 +7,13 @@
   "people": [
    {
     "tag": "p1",
-    "text": "Tanya Brooks, his mother (the man across from you)"
+    "text": "Tanya Brooks, his mother (the man across from you)",
+    "kind": "family"
    },
    {
     "tag": "p2",
-    "text": "Jaylen Brooks, WR, high school senior (her son)"
+    "text": "Jaylen Brooks, WR, high school senior (her son)",
+    "kind": "player"
    }
   ],
   "items": [

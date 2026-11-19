@@ -7,11 +7,13 @@
   "people": [
    {
     "tag": "p1",
-    "text": "Tre Jackson, CB, junior (the man across from you)"
+    "text": "Tre Jackson, CB, junior (the man across from you)",
+    "kind": "player"
    },
    {
     "tag": "p2",
-    "text": "Marcus Bell, CB, senior (your starter at his spot)"
+    "text": "Marcus Bell, CB, senior (your starter at his spot)",
+    "kind": "player"
    }
   ],
   "items": [
