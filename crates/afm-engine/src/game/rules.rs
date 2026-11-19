@@ -199,7 +199,12 @@ impl Rules {
                 timeouts: 3,
                 play_clock: 40.0,
                 down_on_fall: true,
-                code: Default::default(),
+                // NFHS goalposts: 23 feet 4 inches between the uprights, the
+                // NCAA's and the NFL's 18 feet 6 inches (engine gaps item 11).
+                code: super::books::Code {
+                    field: super::geom::Field { posts: 3.889, ..super::geom::Field::AMERICAN },
+                    ..Default::default()
+                },
                 targeting: Targeting::Foul,
                 fumbles: None,
             },

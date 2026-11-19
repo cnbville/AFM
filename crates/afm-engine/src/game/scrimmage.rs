@@ -576,6 +576,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         targeting: s.rules.targeting,
         loose: None,
         fumble_rule: s.fumble,
+        grab: 1.0,
         resume: None,
         caught: -9.0,
         tend_memo: super::sim::tend_memo(),
@@ -2244,11 +2245,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 /// and a half yards behind the ball and the punter at his depth (about 15
 /// yards in the NFL, 14 in college, 12 at high school).
 fn punt_spot(f: &Formation, r: ORole, los: f64, by: f64, level: crate::Level) -> V2 {
-    let deep = match level {
-        crate::Level::NFL => 15.0,
-        crate::Level::HS => 12.0,
-        _ => 14.0,
-    };
+    let deep = super::kicking::punt_depth(level);
     match r {
         ORole::QB => v2(los - 5.5, by),
         ORole::RB => v2(los - deep, by),
