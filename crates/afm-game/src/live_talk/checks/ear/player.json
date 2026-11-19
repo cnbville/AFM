@@ -7,15 +7,18 @@
   "people": [
    {
     "tag": "p1",
-    "text": "Marcus Hill, WR, sophomore (the man across from you)"
+    "text": "Marcus Hill, WR, sophomore (the man across from you)",
+    "kind": "player"
    },
    {
     "tag": "p2",
-    "text": "Deion Carter, WR, junior (his friend)"
+    "text": "Deion Carter, WR, junior (his friend)",
+    "kind": "player"
    },
    {
     "tag": "p3",
-    "text": "Terrence Reyes, wide receivers coach (your staff)"
+    "text": "Terrence Reyes, wide receivers coach (your staff)",
+    "kind": "coach"
    }
   ],
   "items": [
@@ -95,7 +98,51 @@
   },
   {
    "text": "First time meeting, nice to meet you.",
-   "no_hits": true
+   "no_hits": true,
+   "dodged": false,
+   "so_far": [
+    {
+     "who": "Marcus Hill",
+     "text": "Walked in with a coffee and a sore back. Ready. Tell me what I'm getting paid and how it's figured."
+    }
+   ]
+  },
+  {
+   "text": "Good to see you. Come on in.",
+   "no_hits": true,
+   "dodged": false,
+   "so_far": [
+    {
+     "who": "Marcus Hill",
+     "text": "Walked in with a coffee and a sore back. Ready. Tell me what I'm getting paid and how it's figured."
+    }
+   ]
+  },
+  {
+   "text": "Nice to meet you. Let's talk about your grades first.",
+   "dodged": true,
+   "so_far": [
+    {
+     "who": "Marcus Hill",
+     "text": "Walked in with a coffee and a sore back. Ready. Tell me what I'm getting paid and how it's figured."
+    }
+   ]
+  },
+  {
+   "text": "I'm not getting into money today.",
+   "dodged": false,
+   "so_far": [
+    {
+     "who": "Marcus Hill",
+     "text": "Walked in with a coffee and a sore back. Ready. Tell me what I'm getting paid and how it's figured."
+    }
+   ],
+   "may": [
+    {
+     "act": "answer",
+     "what": "refuse"
+    }
+   ]
   },
   {
    "text": "You're a self-absorbed baby and everybody in that locker room knows it.",

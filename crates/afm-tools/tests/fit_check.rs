@@ -38,9 +38,14 @@ fn a_tiny_run_plays_reads_and_picks_up() {
         assert!(files.iter().any(|x| x == f), "{f} not written: {files:?}");
         assert!(std::fs::metadata(dir.join("report").join(f)).is_ok_and(|m| m.len() > 0), "{f} empty");
     }
+    // The arm's effects read back: the free safety's own picks (40 games can
+    // leave one man with none, and a count of none has no spread) and the
+    // defense's, which never come that few.
     let eff = read::effects(&run);
     let picks = eff.get("FS-wc-ZoneCoverage+15", "INT/season").expect("picks a season");
-    assert!(picks.base > 0.0 && picks.se > 0.0 && picks.diff.is_finite(), "{picks:?}");
+    assert!(picks.base >= 0.0 && picks.diff.is_finite(), "{picks:?}");
+    let team = eff.get("FS-wc-ZoneCoverage+15", "team INT/season").expect("the defense's picks");
+    assert!(team.base > 0.0 && team.se > 0.0 && team.diff.is_finite(), "{team:?}");
     // The as-recruited draw found a man who plays inside his band.
     let drawn = run.arm("RB1-pg-heavy1").expect("the draw");
     let m = &drawn.men[0];

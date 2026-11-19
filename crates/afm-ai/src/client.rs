@@ -1,10 +1,11 @@
 //! The request and reply types, the `Model` trait and the real client.
 //!
 //! The real client sends one POST to `/v1/messages` on `ureq`, with the
-//! model's fixed rules cached, thinking off and, when the caller gives a
-//! schema, structured output. The whole call, connecting and reading the
-//! answer included, is cut off after `TIMEOUT` (`SCHEMA_TIMEOUT` with a schema). The key is read only here,
-//! and nothing here prints it.
+//! model's fixed rules cached, thinking off unless the call asks for it
+//! (`Request::think`) and, when the caller gives a schema, structured
+//! output. The whole call, connecting and reading the answer included, is
+//! cut off after `TIMEOUT` (`SCHEMA_TIMEOUT` with a schema). The key is
+//! read only here, and nothing here prints it.
 
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -94,6 +95,9 @@ pub struct Request {
     /// A JSON schema for structured output, or none for free text.
     pub schema: Option<Value>,
     pub max_tokens: u32,
+    /// Thinking for this call, at this effort ("low", "medium", "high"), or
+    /// none for thinking off (the default).
+    pub think: Option<String>,
 }
 
 impl Request {
@@ -106,6 +110,7 @@ impl Request {
             user: user.to_string(),
             schema: None,
             max_tokens: 512,
+            think: None,
         }
     }
 
@@ -130,21 +135,36 @@ impl Request {
         self
     }
 
+    /// Lets the model think before it answers, at this effort: adaptive
+    /// thinking, so it thinks as long as the call needs and no more. The
+    /// thinking counts toward `max_tokens` and is billed as output.
+    pub fn think(mut self, effort: &str) -> Request {
+        self.think = Some(effort.to_string());
+        self
+    }
+
     /// The request body, as the API takes it.
     pub fn body(&self) -> Value {
         let mut rules = json!({ "type": "text", "text": self.rules });
         if self.cache_rules {
             rules["cache_control"] = json!({ "type": "ephemeral" });
         }
+        let thinking = match &self.think {
+            Some(_) => json!({ "type": "adaptive" }),
+            None => thinking_off(&self.model),
+        };
         let mut b = json!({
             "model": self.model,
             "max_tokens": self.max_tokens,
-            "thinking": thinking_off(&self.model),
+            "thinking": thinking,
             "system": [rules],
             "messages": [{ "role": "user", "content": self.user }],
         });
         if let Some(s) = &self.schema {
             b["output_config"] = json!({ "format": { "type": "json_schema", "schema": s } });
+        }
+        if let Some(effort) = &self.think {
+            b["output_config"]["effort"] = json!(effort);
         }
         b
     }
@@ -516,6 +536,18 @@ mod tests {
         assert_eq!(sonnet["thinking"]["type"], "between_tools");
         // The label is the game's own note and is never sent.
         assert!(!plain.to_string().contains("test\""));
+        // Thinking on for one call: adaptive, at its effort, beside the schema.
+        let think = Request::new("ear", "R", "U").schema(schema.clone()).think("medium").body();
+        assert_eq!(think["thinking"]["type"], "adaptive");
+        assert_eq!(think["output_config"]["effort"], "medium");
+        assert_eq!(think["output_config"]["format"]["schema"], schema);
+        let free = Request::new("ear", "R", "U").think("low").body();
+        assert_eq!(
+            (free["thinking"]["type"].as_str(), free["output_config"]["effort"].as_str()),
+            (Some("adaptive"), Some("low"))
+        );
+        assert!(free["output_config"].get("format").is_none());
+        assert!(b.pointer("/output_config/effort").is_none(), "thinking stays off unless a call asks");
     }
 
     #[test]

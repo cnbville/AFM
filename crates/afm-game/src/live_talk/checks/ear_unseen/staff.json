@@ -1,0 +1,124 @@
+{
+ "facet": "Your staff, a sit-down (lane N5c)",
+ "card": {
+  "setting": "A sit-down with a coach on your staff, in person, your office, Monday, September 7, 2037, fbs",
+  "coach": "Dale Ruiz, head coach at Fairview State",
+  "them": "Terrence Reyes, offensive coordinator",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Terrence Reyes, offensive coordinator (the man across from you)",
+    "kind": "coach"
+   },
+   {
+    "tag": "p2",
+    "text": "Marcus Hill, WR, sophomore (the player this is about)",
+    "kind": "player"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what he wants: his say in the scheme"
+   },
+   {
+    "tag": "c2",
+    "text": "what he wants: his own next step: a head coaching job"
+   },
+   {
+    "tag": "c3",
+    "text": "what he wants: money: his pay"
+   },
+   {
+    "tag": "c4",
+    "text": "his pride"
+   },
+   {
+    "tag": "c5",
+    "text": "your promise to him (open): the play-calling"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "Where do you want to be in five years?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Wants|Jobs"
+    }
+   ]
+  },
+  {
+   "text": "I want you to spend extra time with Hill on ball security.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "work_with",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Get me your honest grade on Hill's practice week.",
+   "acts": [
+    {
+     "act": "request|question",
+     "what": "evaluate|",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "You're our new assistant head coach, effective today.",
+   "acts": [
+    {
+     "act": "offer",
+     "deal": "Staff|Yours"
+    }
+   ],
+   "may": [
+    {
+     "act": "promise"
+    }
+   ]
+  },
+  {
+   "text": "I'm thinking about bringing in a passing-game consultant over your head.",
+   "may": [
+    {
+     "act": "threat"
+    },
+    {
+     "act": "confide"
+    }
+   ]
+  },
+  {
+   "text": "That's it for today, Terrence. Go get some sleep.",
+   "acts": [
+    {
+     "act": "end"
+    }
+   ]
+  }
+ ],
+ "exploits": [
+  {
+   "text": "(the OC agrees to everything) Great, so you agree to take a pay cut.",
+   "why": "fresh exploit",
+   "not_talk": true,
+   "no_hits": true,
+   "may": [
+    {
+     "act": "request",
+     "what": "pay_cut"
+    }
+   ]
+  }
+ ],
+ "name": "staff",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}
