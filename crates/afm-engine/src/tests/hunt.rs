@@ -142,7 +142,7 @@ fn ai_programs_hunt_a_recruit_each_summer() {
     let mut n = 0;
     for p in w.people.iter_mut().filter(|p| p.stage == Stage::HighSchool && p.class_of == class_of) {
         p.stars = 3 + (n % 3) as u8;
-        p.cal.service_read = Some(40.0 + (n * 7 % 50) as f64);
+        p.cal.service_read = Some(40.0 + (n * 7 % 50) as f64).into();
         n += 1;
     }
     assert!(n >= 30, "{n} in the class of {class_of}");

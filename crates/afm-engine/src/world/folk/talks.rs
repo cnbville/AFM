@@ -226,6 +226,10 @@ pub enum PromiseKind {
     /// adds a starter at this position (its index; 255 any) who starts
     /// next season's opener.
     Help(u8),
+    /// He'll be a captain: judged the day your room names its captains
+    /// (college fall camp, the NFL's veterans report), kept by the vote or
+    /// by you naming him beside it (`captain`, 2026-11-18).
+    Captain,
 }
 
 impl PromiseKind {
@@ -261,6 +265,7 @@ impl PromiseKind {
                 || "that you'd sign him help".into(),
                 |p| format!("that you'd sign him help at {}", p.name()),
             ),
+            PromiseKind::Captain => "that he'd be a captain".into(),
         }
     }
 }
@@ -448,6 +453,9 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
             let d = w.dates.nfl_kickoff.add(4);
             if d > today { d } else { d.add(364) }
         }
+        // The day your room names its captains (`captain::named` judges it
+        // then); a few days' grace for a room that never voted.
+        PromiseKind::Captain => super::captain::next_naming(w).map_or(today.add(330), |d| d.add(super::captain::GRACE)),
     };
     base.add(
         365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32,
@@ -659,6 +667,9 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                 }
                 PromiseKind::Draft(r) => draft_call(w, i, r, p.made) == DraftCall::Kept,
                 PromiseKind::Help(pos) => help_kept(w, pos),
+                PromiseKind::Captain => {
+                    here && Team::seat(w).is_some_and(|t| super::takeover::captains_of(w, t).contains(&i))
+                }
                 _ => true,
             }
         }
@@ -726,7 +737,8 @@ pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
         | PromiseKind::Snaps
         | PromiseKind::Touches
         | PromiseKind::Position(_)
-        | PromiseKind::Usage,
+        | PromiseKind::Usage
+        | PromiseKind::Captain,
     ) = (p.to, p.kind)
     else {
         return false;
@@ -2377,6 +2389,9 @@ fn read_kind(w: &World, i: usize, p: &super::scene::PromiseRead) -> Option<Promi
         "usage" if p.usage.is_some() => PromiseKind::Usage,
         // Only your NFL club, to a man in the coming draft, before it's done.
         "draft" if draft_promise_open(w, i) => PromiseKind::Draft(draft_round(&p.condition_words)),
+        // Only to a man on your college or NFL team, where the room names
+        // captains.
+        "captain" if super::captain::open(w, i) => PromiseKind::Captain,
         _ => return None,
     })
 }
