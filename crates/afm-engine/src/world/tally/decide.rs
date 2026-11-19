@@ -22,6 +22,9 @@
 //! seconds each choice takes, overtime in college and high school left
 //! unweighed, a clear call as one point of win chance.
 
+// Fitted tables: a refit can land a value near a named constant.
+#![allow(clippy::approx_constant)]
+
 use crate::game::playbook::{PASS_CONCEPTS, RUN_CONCEPTS};
 use crate::game::stats::{PlayRecord, PlayType, TeamStats};
 use crate::game::win_chance::{Params, State, chance};
@@ -80,86 +83,87 @@ pub fn fg_band(dist: f64) -> usize {
 /// How often a 3rd or 4th down play gets the first down (or the score),
 /// by yards to go, away from the goal line. The tables below are from
 /// `decide_fit -- 1500 1` (2026-11-04, after lanes NB4-NB6; refitted
-/// 2026-11-07 after minor bugs batch 9): 1,500 engine games a level on
-/// synthetic leagues, garbage time and overtime left out.
+/// 2026-11-07 after minor bugs batch 9 and 2026-11-19 after engine gaps
+/// lane EG5, the rule books and flags, over scheme-fit lane SF2, minor
+/// bugs 409-412 and engine gaps lane EG2, ball security): 1,500 engine
+/// games a level on synthetic leagues, garbage time and overtime left out.
 pub const CONV: [[f64; TOGO_BANDS]; 5] = [
     // High school.
-    [0.825, 0.671, 0.611, 0.496, 0.445, 0.378, 0.264, 0.156, 0.062],
+    [0.842, 0.707, 0.618, 0.517, 0.475, 0.405, 0.279, 0.166, 0.072],
     // FBS.
-    [0.787, 0.639, 0.586, 0.507, 0.479, 0.408, 0.293, 0.189, 0.090],
+    [0.796, 0.682, 0.594, 0.552, 0.479, 0.432, 0.312, 0.207, 0.095],
     // FCS.
-    [0.807, 0.674, 0.572, 0.510, 0.463, 0.419, 0.289, 0.193, 0.092],
+    [0.822, 0.681, 0.601, 0.545, 0.493, 0.428, 0.310, 0.205, 0.094],
     // Small colleges.
-    [0.819, 0.668, 0.572, 0.523, 0.461, 0.402, 0.291, 0.171, 0.081],
+    [0.819, 0.691, 0.615, 0.543, 0.487, 0.443, 0.313, 0.213, 0.096],
     // NFL.
-    [0.757, 0.604, 0.581, 0.544, 0.512, 0.433, 0.312, 0.219, 0.106],
+    [0.766, 0.656, 0.609, 0.574, 0.535, 0.459, 0.342, 0.241, 0.100],
 ];
 
 /// The same with the goal line as the line to gain (goal to go): a
 /// conversion is a touchdown.
 pub const CONV_GOAL: [[f64; TOGO_BANDS]; 5] = [
     // High school.
-    [0.692, 0.531, 0.551, 0.426, 0.442, 0.371, 0.194, 0.121, 0.095],
+    [0.722, 0.629, 0.490, 0.563, 0.365, 0.357, 0.308, 0.164, 0.098],
     // FBS.
-    [0.621, 0.548, 0.444, 0.454, 0.413, 0.419, 0.312, 0.196, 0.093],
+    [0.641, 0.529, 0.448, 0.476, 0.455, 0.391, 0.332, 0.234, 0.100],
     // FCS.
-    [0.662, 0.548, 0.385, 0.435, 0.533, 0.409, 0.257, 0.188, 0.073],
+    [0.701, 0.588, 0.533, 0.551, 0.461, 0.433, 0.300, 0.186, 0.095],
     // Small colleges.
-    [0.654, 0.537, 0.469, 0.488, 0.426, 0.462, 0.320, 0.149, 0.089],
+    [0.652, 0.554, 0.475, 0.521, 0.404, 0.395, 0.297, 0.208, 0.067],
     // NFL.
-    [0.618, 0.500, 0.427, 0.485, 0.419, 0.378, 0.282, 0.204, 0.000],
+    [0.635, 0.502, 0.500, 0.516, 0.466, 0.422, 0.332, 0.212, 0.062],
 ];
 
 /// Yards a converted play gains from the line of scrimmage, by yards to
 /// go (at least the distance itself).
 pub const GAIN: [[f64; TOGO_BANDS]; 5] = [
     // High school.
-    [5.9, 8.0, 9.4, 10.8, 11.6, 13.0, 15.4, 19.7, 26.0],
+    [5.9, 7.5, 9.0, 11.3, 11.6, 13.0, 15.1, 19.5, 27.0],
     // FBS.
-    [5.6, 8.0, 9.5, 11.1, 12.4, 13.6, 17.1, 20.9, 28.2],
+    [5.5, 7.9, 9.3, 11.5, 12.2, 13.9, 16.7, 20.3, 28.1],
     // FCS.
-    [6.2, 8.1, 9.4, 11.6, 12.2, 13.7, 16.5, 20.2, 27.6],
+    [5.8, 8.0, 9.3, 11.7, 12.1, 13.7, 16.5, 19.8, 26.5],
     // Small colleges.
-    [6.0, 8.2, 9.6, 11.3, 12.4, 13.7, 16.4, 20.0, 27.8],
+    [5.8, 7.9, 9.3, 11.5, 11.9, 13.7, 16.3, 19.8, 26.3],
     // NFL.
-    [5.6, 9.2, 9.7, 11.7, 12.4, 14.0, 17.4, 21.9, 28.0],
+    [5.6, 8.5, 9.6, 11.3, 11.8, 14.1, 17.1, 21.3, 26.9],
 ];
 
 /// Where a punt leaves the other side: its yards to the goal it attacks at
 /// its next snap, by the punt's spot (`punt_band`). This table, `FG` and
-/// `XP` were refitted on 2026-11-19 after engine gaps lane EG3 (long kicks,
-/// blocked kicks and returns), `decide_fit -- 1500 1`; the conversion,
-/// gain, two-point and win expectancy tables are the 2026-11-07 fit.
+/// `XP` were refitted again on 2026-11-19 after engine gaps lane EG3 (long
+/// kicks, blocked kicks and returns), over lane EG5, `decide_fit -- 1500 1`.
 pub const PUNT: [[f64; PUNT_BANDS]; 5] = [
     // High school.
-    [85.2, 84.7, 84.4, 83.0, 78.3, 73.9, 69.1, 64.5, 59.4, 53.7, 49.0, 44.0, 40.3, 36.1],
+    [83.3, 84.2, 84.2, 82.0, 78.2, 73.1, 69.1, 64.3, 58.9, 53.7, 48.9, 44.1, 39.6, 33.1],
     // FBS.
-    [86.3, 86.3, 86.5, 86.1, 84.3, 80.1, 76.8, 72.6, 67.4, 62.5, 57.7, 52.9, 47.1, 43.0],
+    [87.4, 86.0, 86.2, 85.8, 83.8, 80.4, 76.5, 71.7, 67.5, 62.7, 57.1, 53.5, 48.0, 42.5],
     // FCS.
-    [86.3, 86.1, 85.8, 85.6, 82.4, 77.8, 74.1, 70.5, 65.3, 60.1, 55.8, 51.2, 45.4, 40.8],
+    [86.2, 85.5, 85.9, 85.1, 82.3, 78.1, 74.6, 69.8, 65.0, 60.3, 55.9, 50.1, 46.1, 41.2],
     // Small colleges.
-    [86.0, 86.3, 85.6, 84.4, 81.5, 77.2, 73.0, 68.7, 64.0, 59.1, 54.7, 49.4, 44.4, 40.1],
+    [85.6, 85.5, 85.0, 84.6, 81.0, 77.1, 72.8, 68.9, 63.3, 58.8, 53.5, 49.2, 44.2, 39.4],
     // NFL.
-    [85.6, 85.6, 87.4, 87.7, 86.7, 84.9, 81.7, 77.4, 72.6, 67.7, 63.2, 58.2, 53.2, 49.5],
+    [88.7, 88.7, 86.2, 87.0, 86.4, 84.6, 81.3, 77.0, 72.4, 67.3, 62.2, 58.3, 53.0, 49.7],
 ];
 
 /// Field goals made, by distance (`fg_band`).
 pub const FG: [[f64; FG_BANDS]; 5] = [
     // High school.
-    [0.883, 0.739, 0.673, 0.541, 0.406, 0.406],
+    [0.872, 0.746, 0.687, 0.529, 0.452, 0.452],
     // FBS.
-    [0.918, 0.826, 0.751, 0.647, 0.576, 0.573],
+    [0.932, 0.844, 0.745, 0.653, 0.565, 0.569],
     // FCS.
-    [0.899, 0.791, 0.664, 0.616, 0.479, 0.562],
+    [0.877, 0.774, 0.685, 0.588, 0.600, 0.500],
     // Small colleges.
-    [0.854, 0.731, 0.659, 0.540, 0.481, 0.481],
+    [0.864, 0.748, 0.676, 0.566, 0.480, 0.480],
     // NFL.
-    [0.979, 0.950, 0.891, 0.832, 0.791, 0.682],
+    [0.981, 0.954, 0.909, 0.834, 0.769, 0.663],
 ];
 
 /// Extra points made and two-point tries converted.
-pub const XP: [f64; 5] = [0.950, 0.967, 0.948, 0.928, 0.956];
-pub const TWO: [f64; 5] = [0.462, 0.402, 0.380, 0.417, 0.468];
+pub const XP: [f64; 5] = [0.952, 0.966, 0.946, 0.927, 0.955];
+pub const TWO: [f64; 5] = [0.443, 0.378, 0.416, 0.416, 0.469];
 
 /// How many terms post-game win expectancy reads.
 pub const PGWE_TERMS: usize = 6;
@@ -193,15 +197,15 @@ pub fn five(a: &Adv) -> [f64; 4] {
 /// Post-game win expectancy's weights by level, from `decide_fit`.
 pub const PGWE: [[f64; PGWE_TERMS]; 5] = [
     // High school.
-    [0.0354, 0.3427, 5.9515, 0.1983, 0.8238, 0.3517],
+    [0.1822, 0.2812, 5.6801, 0.1847, 0.5734, 0.6409],
     // FBS.
-    [0.0031, 0.3827, 7.1211, 0.1862, 0.7156, 0.4742],
+    [0.1390, 0.4123, 7.6307, 0.1540, 0.6135, 0.6956],
     // FCS.
-    [0.0845, 0.3825, 7.0080, 0.2167, 0.7153, 0.6692],
+    [0.0703, 0.3829, 7.4952, 0.2065, 0.5214, 0.5955],
     // Small colleges.
-    [0.2241, 0.3907, 7.7099, 0.1943, 0.6556, 0.6081],
+    [-0.2198, 0.4138, 8.6701, 0.1684, 0.5568, 0.8445],
     // NFL.
-    [0.0149, 0.3281, 6.5872, 0.1205, 0.6859, 0.7615],
+    [0.0907, 0.3258, 6.9714, 0.0628, 0.4170, 0.8497],
 ];
 
 /// The home side's post-game win expectancy (0-1); a neutral site has no

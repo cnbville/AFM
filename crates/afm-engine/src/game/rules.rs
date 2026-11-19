@@ -93,6 +93,14 @@ pub struct Rules {
     /// The targeting rule of the level and season (coach fire).
     #[serde(default)]
     pub targeting: Targeting,
+    /// Whose foul rules the game is played under (engine gaps lane EG5,
+    /// `fouls.rs`): `None` is the level's own; a high school in a state
+    /// that plays college rules takes the NCAA's (`Rules::high_school`).
+    #[serde(default)]
+    pub fouls: Option<super::fouls::Fouls>,
+    /// The season the rule book is read in (0: today's).
+    #[serde(default)]
+    pub year: i32,
     /// The book's fumble rules where they are not the level's own (engine
     /// gaps item 4): a state on college rules, the CFL, a high school
     /// season before 2025. None reads as the level's (`fumble_rule`).
@@ -178,6 +186,8 @@ impl Rules {
                 down_on_fall: false,
                 code: Default::default(),
                 targeting: Targeting::None,
+                fouls: None,
+                year: 0,
                 fumbles: None,
             },
             Level::HS => Rules {
@@ -206,6 +216,8 @@ impl Rules {
                     ..Default::default()
                 },
                 targeting: Targeting::Foul,
+                fouls: None,
+                year: 0,
                 fumbles: None,
             },
             // FBS, FCS, D2 and below play NCAA rules.
@@ -232,6 +244,8 @@ impl Rules {
                 down_on_fall: true,
                 code: Default::default(),
                 targeting: Targeting::Eject,
+                fouls: None,
+                year: 0,
                 fumbles: None,
             },
         }
@@ -245,6 +259,7 @@ impl Rules {
         if year == 0 {
             return r;
         }
+        r.year = year;
         match level {
             Level::NFL => {
                 // Kickoffs from the 30 to 2010, then the 35; the touchback
@@ -322,11 +337,34 @@ impl Rules {
         }
     }
 
-    /// States that play high school football under NCAA rules (Texas,
-    /// Massachusetts): college hashes and clock, still high school length.
-    /// The NCAA's fumble rule too (engine gaps item 4).
-    pub fn high_school_on_college_rules() -> Rules {
-        Rules { hash: 6.667, fumbles: Some(FumbleRule::NCAA), ..Rules::for_level(Level::HS) }
+    /// A high school game in a state in a season (engine gaps lane EG5,
+    /// item 23). Texas plays NCAA rules (with the UIL's own changes) in
+    /// every season and Massachusetts did through 2018 (NFHS from 2019):
+    /// their games take the NCAA's foul, kick and fumble rules (`fouls.rs`,
+    /// engine gaps item 4). Both
+    /// keep college hash marks, the fields they were laid out for; every
+    /// other state plays the NFHS book. Year 0 reads as today's.
+    pub fn high_school(state: &str, year: i32) -> Rules {
+        let mut r = Rules::for_year(Level::HS, year, false);
+        if matches!(state, "TX" | "MA") {
+            r.hash = 6.667;
+        }
+        let college = match state {
+            "TX" => true,
+            "MA" => year != 0 && year <= 2018,
+            _ => false,
+        };
+        if college {
+            r.fouls = Some(super::fouls::Fouls::Ncaa);
+            r.fumbles = Some(FumbleRule::NCAA);
+        }
+        r
+    }
+
+    /// Whose foul rules the game is played under: the NFL's (the other
+    /// leagues too, `books.rs`), the NCAA's, or the NFHS's.
+    pub fn foul_book(&self) -> super::fouls::Fouls {
+        self.fouls.unwrap_or(super::fouls::Fouls::of_level(self.level))
     }
 
     /// The fumble rules in play (engine gaps item 4): the book's own where

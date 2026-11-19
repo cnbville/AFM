@@ -20,7 +20,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
-use afm_ai::{Failure, Request};
+use afm_ai::Failure;
 use afm_engine::world::World;
 use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
@@ -422,9 +422,7 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
             return Step::Done(done(g, id, Outcome { words, heard, marks, confirm, wrap_ask }));
         }
         if g.ai.usable() {
-            let req = Request::new(voice::VOICE, voice::VOICE_RULES, &card_text)
-                .schema(voice::schema())
-                .max_tokens(voice::VOICE_TOKENS);
+            let req = voice::request(&card_text);
             if let Some(f) = g.ai.browser_fake() {
                 let line = vc.released.first().cloned().unwrap_or_else(|| "I hear you, Coach.".into());
                 f.push(
@@ -503,9 +501,7 @@ fn voice_step(
         staff_notes(g, id, &notes);
         if let Some(x) = second {
             let text = x.vc.text();
-            let req = Request::new(voice::VOICE, voice::VOICE_RULES, &text)
-                .schema(voice::schema())
-                .max_tokens(voice::VOICE_TOKENS);
+            let req = voice::request(&text);
             if let Some(f) = g.ai.browser_fake() {
                 let line = x.vc.released.first().cloned().unwrap_or_else(|| "I'm with him, Coach.".into());
                 f.push(
@@ -824,3 +820,7 @@ mod replay_tests;
 #[cfg(test)]
 #[path = "landing_tests.rs"]
 mod landing_tests;
+
+#[cfg(test)]
+#[path = "replies_tests.rs"]
+mod replies_tests;

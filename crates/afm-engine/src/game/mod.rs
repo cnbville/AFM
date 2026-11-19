@@ -12,6 +12,7 @@ pub mod designer;
 pub mod drives;
 pub mod experiment;
 pub mod flow;
+pub mod fouls;
 pub mod garbage;
 pub mod geom;
 pub mod guide;

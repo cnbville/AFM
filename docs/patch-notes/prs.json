@@ -2038,6 +2038,19 @@
   "title": "Make the search bar fast",
   "tldr": "The search bar (⌘K) now answers as you type instead of lagging behind, and tells you when it is still looking or could not finish."
  },
+ "556": {
+  "auto": false,
+  "bullets": [
+   "High schoolers no longer carry college and recruiting records they haven't started yet.",
+   "The game gives memory back after the transfer portal's busy weeks.",
+   "Nothing in your world changes: the same seed plays exactly the same."
+  ],
+  "h": "2b554072c742",
+  "look": "clicking around the screens in season, after loading a save.",
+  "players": true,
+  "title": "Memory diet lane M1: keep a person's college and recruiting parts only once used",
+  "tldr": "The game now needs about a gigabyte less memory in season, so clicks wait less on a Mac with 8 GB."
+ },
  "557": {
   "auto": false,
   "bullets": [
@@ -2074,6 +2087,20 @@
   "title": "A moved man isn't picked for either project at his first checkpoint",
   "tldr": ""
  },
+ "563": {
+  "auto": false,
+  "bullets": [
+   "When you invite a recruit to an official visit, his yes or no in the conversation is his real answer.",
+   "Confirming sets the visit he agreed to. He no longer says yes and then turns you down.",
+   "A recruit firm with another school comes with your staff's read: the ground where a good point might unsettle him, or that he's locked in.",
+   "Making those points really narrows the gap, but only good points on what he cares about can turn a firm commit."
+  ],
+  "h": "e7c2954d96ae",
+  "look": "invite a recruit who is committed elsewhere, read your staff's note, make your point, then ask again.",
+  "players": true,
+  "title": "Make a recruit's answer to a visit the one he says, and read a firm recruit",
+  "tldr": "A recruit now answers your visit invitation in his own words, and what he says is what happens. When he's firm with another school, your staff tells you where you might still unsettle him."
+ },
  "564": {
   "auto": false,
   "bullets": [
@@ -2086,6 +2113,29 @@
   "players": true,
   "title": "Coach bonds: the world measure and its two fixes",
   "tldr": "Players now come to trust the position coach who works with them every day, and more of them follow a coach they were close to when he moves."
+ },
+ "565": {
+  "auto": false,
+  "bullets": [
+   "\"You'll be a captain\" in a talk is now a real promise that shows on your promise list.",
+   "It's judged when your team names its captains at camp.",
+   "If the vote leaves him out, you name him anyway, and the locker room notices who he jumped.",
+   "Your player believes it more when he's already one of the room's leaders."
+  ],
+  "h": "2ffcc776523f",
+  "look": "promise a backup a captaincy in the spring and see what camp brings.",
+  "players": true,
+  "title": "Make captain promises count",
+  "tldr": "Promising a player he'll be a captain now means something. Keep your word when the team votes, or pay for it."
+ },
+ "566": {
+  "auto": false,
+  "bullets": [],
+  "h": "16b5d95a1be9",
+  "look": "",
+  "players": false,
+  "title": "Fix main's Full tests: world log keeps spotlight, holiday hands yesterday's scenes",
+  "tldr": ""
  },
  "567": {
   "auto": false,
@@ -2115,6 +2165,72 @@
   "title": "A rotating defensive line and real weather",
   "tldr": "Defensive tackles now rotate like a real NFL line, and rain and strong wind hurt the passing game as much as they really do."
  },
+ "570": {
+  "auto": false,
+  "bullets": [],
+  "h": "37c892c0fe05",
+  "look": "",
+  "players": false,
+  "title": "Build a world: build the departments check on its own",
+  "tldr": ""
+ },
+ "571": {
+  "auto": false,
+  "bullets": [
+   "Your position coach leaves a note when a project clicks, stalls or ends, and when one the staff before you set is still running.",
+   "The Reports sub-tab shows your staff's clues on how fast a player picks up new technique and how his body takes to the weight room.",
+   "A project now costs the rest of the room a little of the position coach's one-on-one time.",
+   "The Squad's Development view has a Project column, and the Training screen can end a project the staff before you set."
+  ],
+  "h": "910c020999b9",
+  "look": "a player on a project, Development tab, Reports.",
+  "players": true,
+  "title": "Finish the development projects' follow-ups",
+  "tldr": "Development projects now feel like real staff work: your coaches tell you when one clicks or stalls, and you can read how a player takes to new work."
+ },
+ "572": {
+  "auto": false,
+  "bullets": [
+   "The roster split beside each player's box now matches what an AI school would pay him. It no longer reads well under it.",
+   "A raise you give in the spring helps keep a player in the spring portal window. His own brand deals no longer count as pay.",
+   "Rival schools now pay rotation players and backups their market price when it beats the split.",
+   "Group of 5 schools pay their best signees about twice what they did."
+  ],
+  "h": "b26e82a89e84",
+  "look": "the NIL desk's roster split, and Group of 5 signing day offers.",
+  "players": true,
+  "title": "NIL pay gaps after the market fit",
+  "tldr": "The NIL desk's roster split now shows what other schools really pay a player like yours, and your players weigh the deal you set for next year."
+ },
+ "574": {
+  "auto": false,
+  "bullets": [
+   "Your second and third tight ends run real routes and the quarterback reads them, so they earn targets, catches and stat lines, and their hands and route running count.",
+   "Heavy sets with two or three tight ends come out mostly for runs and play action, light sets for straight dropbacks, about as real teams match their groups to the call.",
+   "A head coach who prefers a personnel group leans his calls toward it instead of forcing it onto every down.",
+   "Receivers line up off the ball beside an attached tight end, as in real two-tight-end sets."
+  ],
+  "h": "b7282621a87b",
+  "look": "your tight ends' receiving lines over a season with a two- or three-tight-end playbook.",
+  "players": true,
+  "title": "SF2: personnel that fits the play, tight ends who run routes (scheme-fit items 1 and 2)",
+  "tldr": "Backup tight ends now catch passes, and the personnel your coaches send out fits the play they call."
+ },
+ "575": {
+  "auto": false,
+  "bullets": [
+   "Lines worded in ways nobody planned for are now read right about 19 times in 20, up from about 6 in 10.",
+   "Turn to your scout or your assistant in the middle of a talk and ask him for something: he answers you by name and does it.",
+   "A thank-you only ends a talk when you also say goodbye.",
+   "Run checks in Settings lists every line that was misheard and why. A line whose call failed is left out of the score.",
+   "Each line takes about two seconds longer to be heard."
+  ],
+  "h": "8a8c0ce8cb0a",
+  "look": "a prospect's interview with your scout in the room, then Settings, AI, Run checks.",
+  "players": true,
+  "title": "The ear reads meanings: ear audit items 1 to 7",
+  "tldr": "The people you talk to now understand what you mean, not only the words you pick. Say it your own way and you're heard right far more often, and you can turn to someone else in the room and ask him for something."
+ },
  "576": {
   "auto": false,
   "bullets": [],
@@ -2123,5 +2239,73 @@
   "players": false,
   "title": "Make the 14-year-old tendencies test deterministic",
   "tldr": ""
+ },
+ "577": {
+  "auto": false,
+  "bullets": [],
+  "h": "8c80981bbac9",
+  "look": "",
+  "players": false,
+  "title": "World test: the 2026 early entrant floor back at 30",
+  "tldr": ""
+ },
+ "579": {
+  "auto": false,
+  "bullets": [
+   "Straight dropbacks come from the shotgun almost every time, as in the real league.",
+   "The bootleg, the deep shot and the dig get called off play fakes more often.",
+   "A fast quarterback outruns the rush when he breaks the pocket, and a slow one doesn't.",
+   "Teams that run a lot of play fakes now read as play-action teams to their opponents' film."
+  ],
+  "h": "922998257edc",
+  "look": "how your offense's dropbacks line up, and a fast quarterback's scrambles.",
+  "players": true,
+  "title": "Fix minor engine bugs 409-412: the play action leftovers",
+  "tldr": "Quarterbacks now line up in the shotgun on dropbacks the way real teams do, and fast quarterbacks scramble faster than slow ones."
+ },
+ "582": {
+  "auto": false,
+  "bullets": [],
+  "h": "7d6ef0f46ebb",
+  "look": "",
+  "players": false,
+  "title": "The coaches' season review reads the boss's record",
+  "tldr": "_Generated by Claude Code_"
+ },
+ "583": {
+  "auto": false,
+  "bullets": [],
+  "h": "cb62a7e65451",
+  "look": "",
+  "players": false,
+  "title": "Recentre the five drifted 14-year-old tendencies",
+  "tldr": ""
+ },
+ "584": {
+  "auto": false,
+  "bullets": [],
+  "h": "79ab019406d5",
+  "look": "",
+  "players": false,
+  "title": "Support heads: a ready own assistant wins the head's post (minor bug 422)",
+  "tldr": ""
+ },
+ "585": {
+  "auto": true,
+  "bullets": [],
+  "h": "50bbaa8c3c5f",
+  "look": "",
+  "players": true,
+  "title": "SF2 docs: the league's totals over main 349eefb, lane 9's kid test on the merged tree",
+  "tldr": "The docs follow-up that #574 (scheme-fit lane SF2) promised."
+ },
+ "586": {
+  "auto": false,
+  "bullets": [],
+  "h": "d3588a221ffd",
+  "look": "",
+  "players": false,
+  "title": "Docs: talk replies that match the game, and talks as a shortcut",
+  "tldr": "_Generated by Claude Code_"
  }
 }

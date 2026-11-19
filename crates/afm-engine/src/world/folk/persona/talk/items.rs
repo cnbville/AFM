@@ -38,6 +38,7 @@ pub fn want_words(k: WantKind) -> &'static str {
         WantKind::Booster(_) => "what his money buys",
         WantKind::Kids => "his kids' futures",
         WantKind::Draft => "the draft",
+        WantKind::Players => "his players coming with him",
     }
 }
 

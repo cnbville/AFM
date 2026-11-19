@@ -122,6 +122,7 @@ mod review;
 mod roles;
 mod rooms;
 mod roster_moves;
+mod rule_books;
 mod sandbox;
 mod save;
 mod schedule;
