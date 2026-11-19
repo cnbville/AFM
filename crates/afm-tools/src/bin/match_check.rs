@@ -2610,18 +2610,20 @@ fn slope(rows: &[(f64, f64)]) -> (f64, f64) {
 /// a yard of separation at the catch, picks left out), with the binomial
 /// noise of his counts taken out, beside the real NFL's receiver seasons
 /// (FTN charting 2022-24 joined to nflverse play by play and rosters, the
-/// same cuts), so read it at the NFL.
+/// same cuts), and the forty's slopes of his aDOT and deep targets across
+/// men with 40 or more targets, so read it at the NFL.
 fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game::GameTeam]) {
     use afm_engine::attributes::Attr;
     use afm_engine::positions::Position as P;
-    let who: std::collections::HashMap<u32, (P, f64, f64)> = teams
+    let who: std::collections::HashMap<u32, (P, f64, f64, f64)> = teams
         .iter()
-        .flat_map(|t| t.players.iter().map(|p| (p.id, (p.position, p.height, p.attrs.get(Attr::Speed)))))
+        .flat_map(|t| t.players.iter().map(|p| (p.id, (p.position, p.height, p.attrs.get(Attr::Speed), p.forty()))))
         .collect();
     // Per man: [targets, catches, drops, contested, contested catches, and
     // over the throws not picked (a pick keeps no separation) separation,
-    // its square and the throws].
-    let mut by = std::collections::HashMap::<u32, [f64; 8]>::new();
+    // its square and the throws; then air yards and targets 20+ yards
+    // downfield].
+    let mut by = std::collections::HashMap::<u32, [f64; 10]>::new();
     for r in results {
         for p in &r.stats.plays {
             if p.nullified || p.kind != PlayType::Pass || p.throw_away {
@@ -2641,6 +2643,8 @@ fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game:
                 e[6] += p.separation * p.separation;
                 e[7] += 1.0;
             }
+            e[8] += p.air_yards;
+            e[9] += f64::from(u8::from(p.air_yards >= 20.0));
         }
     }
     println!(
@@ -2650,13 +2654,16 @@ fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game:
     // true sd of the catch rate, contested catch rate (too few real backs
     // reach 12 contested) and drops a target; the height slopes (an inch)
     // of the contested catch rate and share.
+    // The forty's slopes (a 0.1 s) of aDOT and of the share of targets 20+
+    // yards downfield (`data/real-world/ab_real.json`, nflverse 2018-25 with
+    // combine forties, 40+ targets; too few backs ran a forty for it).
     let real = [
-        (P::WR, [0.170, 0.462, 0.0345, 0.0567, 0.0888, 0.0054], Some([0.0072, 0.0107])),
-        (P::TE, [0.137, 0.511, 0.0369, 0.0330, 0.1135, 0.0101], Some([-0.0157, 0.0128])),
-        (P::RB, [0.054, 0.513, 0.0487, 0.0358, f64::NAN, 0.0112], None),
+        (P::WR, [0.170, 0.462, 0.0345, 0.0567, 0.0888, 0.0054], Some([0.0072, 0.0107]), Some([-0.79, -0.0285])),
+        (P::TE, [0.137, 0.511, 0.0369, 0.0330, 0.1135, 0.0101], Some([-0.0157, 0.0128]), Some([-0.31, f64::NAN])),
+        (P::RB, [0.054, 0.513, 0.0487, 0.0358, f64::NAN, 0.0112], None, None),
     ];
-    for (pos, r, ht) in real {
-        let men: Vec<(u32, [f64; 8])> =
+    for (pos, r, ht, fr) in real {
+        let men: Vec<(u32, [f64; 10])> =
             by.iter().filter(|(id, _)| who.get(id).map(|w| w.0) == Some(pos)).map(|(&id, &v)| (id, v)).collect();
         let sum = |k: usize| men.iter().map(|m| m.1[k]).sum::<f64>();
         let rows = |a: usize, b: usize| men.iter().map(|m| (m.1[a], m.1[b])).collect::<Vec<_>>();
@@ -2718,5 +2725,18 @@ fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game:
             10.0 * slope(&sep).0,
             slope(&sep).1
         );
+        if let Some(fr) = fr {
+            let forty_of = |id: u32| who.get(&id).map(|w| w.3).unwrap_or(0.0);
+            let fast: Vec<&(u32, [f64; 10])> = men.iter().filter(|m| m.1[0] >= 40.0).collect();
+            let adot: Vec<(f64, f64)> = fast.iter().map(|m| (forty_of(m.0), m.1[8] / m.1[0])).collect();
+            let deep: Vec<(f64, f64)> = fast.iter().map(|m| (forty_of(m.0), m.1[9] / m.1[0])).collect();
+            let real_deep = if fr[1].is_nan() { String::new() } else { format!(" (real {:+.2})", 100.0 * fr[1]) };
+            println!(
+                "      a 0.1 s slower forty: aDOT {:+.2} yd (real {:+.2}), targets 20+ yards {:+.2} pts{real_deep}",
+                0.1 * slope(&adot).0,
+                fr[0],
+                10.0 * slope(&deep).0,
+            );
+        }
     }
 }

@@ -1024,7 +1024,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     ps.reads.iter().enumerate().map(|(k, &r)| (k, receiving_read(&sim, r))).collect();
                 by.sort_by(|a, b| b.1.total_cmp(&a.1));
                 let gap = by[0].1 - by[1].1;
-                if by[0].0 > 0 && sim.rng.chance(clamp(FEED_BASE + FEED_PER_POINT * gap, 0.0, FEED_MAX)) {
+                if by[0].0 > 0 && sim.rng.chance(feed_chance(gap)) {
                     let r = ps.reads.remove(by[0].0);
                     ps.reads.insert(0, r);
                     fed = true;
@@ -5563,6 +5563,12 @@ const FEED_BASE: f64 = 0.1;
 const FEED_PER_POINT: f64 = 0.02;
 const FEED_MAX: f64 = 0.55;
 
+/// The chance the plan feeds a man who is `gap` points of
+/// `receiving_edge` better than the one it would otherwise look at first.
+pub(crate) fn feed_chance(gap: f64) -> f64 {
+    clamp(FEED_BASE + FEED_PER_POINT * gap, 0.0, FEED_MAX)
+}
+
 /// What the feed reads in a man as a receiver (scheme-fit item 25): his
 /// hands, his routes and getting open, each rating a point about his own
 /// position's typical starter at the level, so a back is fed for his hands
@@ -5582,9 +5588,13 @@ const FEED_READ: [(Attr, f64); 6] = [
 
 /// A man's edge as a receiver over his position's typical starter at the
 /// level, in rating points (`FEED_READ`).
+pub(crate) fn receiving_edge(level: crate::player::Level, p: &GamePlayer) -> f64 {
+    FEED_READ.iter().map(|&(a, w)| w * (p.a(a) - super::synthetic::typical_starter(level, p.position, a))).sum()
+}
+
+/// `receiving_edge` for the man on the field.
 fn receiving_read(sim: &Sim, r: usize) -> f64 {
-    let p = sim.player(r);
-    FEED_READ.iter().map(|&(a, w)| w * (p.a(a) - super::synthetic::typical_starter(sim.level, p.position, a))).sum()
+    receiving_edge(sim.level, sim.player(r))
 }
 
 /// The base chance he throws it away rather than force it to a covered man
