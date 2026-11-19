@@ -1168,7 +1168,9 @@ impl Tone {
 fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
     let roster = team.roster(w);
     let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach);
-    let n = roster.len();
+    // The men in the room, as the talk's room counts them (not the ones
+    // gone for the draft).
+    let n = super::persona::gameday::group::in_room(w, team).len();
     let close: Vec<usize> = roster.iter().copied().filter(|&i| tie_to_old(w, i, old) > 0.45).collect();
     let captains = captains_of(w, team);
     // What the room knows on your first day (talk facts lane L9): the

@@ -84,6 +84,9 @@ pub enum Kind {
     /// A meeting with your leadership council, or your captains (live
     /// talks v3, lane N5d).
     Council,
+    /// A meeting with one position room (group talks, item 9): `a` is the
+    /// room (`coach::Group`).
+    PositionRoom,
     /// A negotiation (live talks v3, lane N5b): a call with a pro's agent,
     /// another club's GM, a prospect in the undrafted rush, or an agent
     /// calling back (`Scene.b`, `persona::negotiate`).
@@ -178,6 +181,7 @@ impl Kind {
             Kind::FamilyCall => "His family calls",
             Kind::OfficialTalk => "Official visit: your case",
             Kind::Council => "The leadership council",
+            Kind::PositionRoom => "A position room",
             Kind::DraftTalk => "The draft side",
             Kind::Sitdown => "A sit-down",
             Kind::Reference => "A reference call",
@@ -326,6 +330,10 @@ pub struct PromiseRead {
     pub condition_words: String,
     /// The teammate he would play ahead of, by id.
     pub against: Option<u32>,
+    /// Who it's made to in a room (group talks, item 3): a man, one of the
+    /// room's groups or the whole room, as the ear tagged it; none for the
+    /// man across.
+    pub to: Option<super::persona::Them>,
     /// The claim it was heard from, when the line stated where he stands
     /// rather than promising it in so many words (the promise design,
     /// section 11: "you're my starter" is a promise about what he'll see).
@@ -883,9 +891,13 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::Press | Kind::PressIntro | Kind::Media => "press",
         Kind::BossFirst | Kind::BossMeeting => "boss",
         Kind::Booster => "boosters",
-        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall | Kind::Council => {
-            "talk"
-        }
+        Kind::OneOnOne
+        | Kind::TeamMeeting
+        | Kind::TeamTalk
+        | Kind::Parents
+        | Kind::ParentCall
+        | Kind::Council
+        | Kind::PositionRoom => "talk",
         Kind::Holdover | Kind::StaffLine | Kind::Interview | Kind::Firing | Kind::Proposal => "staff",
         Kind::Discipline | Kind::Ritual => "rules",
         Kind::ReachOut | Kind::Trip | Kind::JobCall | Kind::Backchannel => "network",
@@ -918,7 +930,8 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         | Kind::Parents
         | Kind::ParentCall
         | Kind::StaffLine
-        | Kind::Council => super::talks::open(w, s),
+        | Kind::Council
+        | Kind::PositionRoom => super::talks::open(w, s),
         Kind::Press | Kind::PressIntro => super::press::open(w, s),
         Kind::BossFirst | Kind::BossMeeting => super::boss::open(w, s),
         Kind::Discipline | Kind::Ritual => super::rules::open(w, s),
@@ -955,7 +968,8 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         | Kind::Parents
         | Kind::ParentCall
         | Kind::StaffLine
-        | Kind::Council => super::talks::answer(w, s, code, picked),
+        | Kind::Council
+        | Kind::PositionRoom => super::talks::answer(w, s, code, picked),
         Kind::Press | Kind::PressIntro => super::press::answer(w, s, code, picked),
         Kind::BossFirst | Kind::BossMeeting => super::boss::answer(w, s, code, picked),
         Kind::Discipline | Kind::Ritual => super::rules::answer(w, s, code, picked),

@@ -950,6 +950,9 @@ const SMALL_EVENT_YEARS: i32 = 5;
 
 /// The last day of a football year has passed: the next one starts.
 fn rollover(w: &mut World) {
+    // Every pro's role is the one his season gave him (code oddity 29),
+    // before the world log takes the year.
+    super::pro::role::write_all(w);
     // The world log takes the year before the calendar drops it.
     super::wlog::year_end(w);
     // The Data section's tallies close the season (lane NB1).

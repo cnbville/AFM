@@ -406,7 +406,7 @@ fn sightings(r: &Reader, m: &Man) -> Vec<Seen> {
             let snaps = |l: &crate::game::stats::StatLine| if offense { l.snaps_off } else { l.snaps_def };
             let line = g.stats.players[side].get(&m.id);
             // A game he wasn't with you for, or missed hurt, says nothing.
-            let hurt = w.training.hurt.iter().any(|h| h.id == m.id && h.from <= g.date && g.date <= h.until);
+            let hurt = crate::world::folk::seen::hurt_in(w, g, m.id);
             if line.is_none() && (hurt || since.is_none_or(|d| d > g.date)) {
                 continue;
             }

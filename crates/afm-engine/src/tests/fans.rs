@@ -72,6 +72,8 @@ fn keep(w: &mut World, ago: i32, level: Level, teams: [usize; 2], stats: GameSta
         spread,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
 }
 

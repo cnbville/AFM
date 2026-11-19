@@ -260,7 +260,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         // Your own read that season beside the staff's (own potential item 4).
         let km = w.career.as_ref().and_then(|c| c.kept_mine(id).iter().find(|r| r.season as i32 == season).copied());
         let stat = seasons_rows.iter().find(|s| s["year"].as_i64() == Some(season as i64));
-        let team = match (h.level, h.team) {
+        let team = match (h.level, h.team.get()) {
             (Level::NFL, Some(t)) => Some(w.nfl_team_name(t)),
             _ => stat.and_then(|s| s["team"]["name"].as_str().map(String::from)).or_else(|| {
                 // A season without games (a redshirt, an injury) still had a school.

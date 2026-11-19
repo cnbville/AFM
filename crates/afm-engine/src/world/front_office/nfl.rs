@@ -1662,6 +1662,7 @@ pub fn release(w: &mut World, id: u32, june1: bool) -> Result<String, String> {
     let (now, later) =
         c.contract.as_ref().map_or((0.0, 0.0), |k| k.dead_if_cut(year, today, june1 || pro::after_june1(w, today)));
     let name = w.people[i].name.clone();
+    pro::club_lets_go(w, i);
     pro::release_with(w, i, today, "released by your front office", june1, true, DeadWhy::Released);
     if june1 {
         w.front_office.nfl.june1.push((id, year));

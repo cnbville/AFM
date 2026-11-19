@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 36] = [
+const COMMANDS: [&str; 37] = [
     "people_agenda",
     "people_sitdown",
     "people_reference",
@@ -47,6 +47,7 @@ const COMMANDS: [&str; 36] = [
     "people_rules_set",
     "people_council",
     "people_council_meet",
+    "people_position_meet",
     "people_boss",
     "people_boss_meeting",
     "people_staff",
@@ -228,6 +229,14 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_council_meet" => {
             afm_engine::world::folk::persona::gameday::group::start_council(w).map(|sid| json!({ "scene": sid }))
         }
+        // A position room's meeting (group talks, item 9): `group` is the
+        // room, 0 quarterbacks to 7 specialists.
+        "people_position_meet" => (|| {
+            use afm_engine::world::coach::Group;
+            let g = num(args, "group")? as usize;
+            let g = *Group::ALL.get(g).ok_or("No such position room.")?;
+            afm_engine::world::folk::persona::crowd::start_position_room(w, g).map(|sid| json!({ "scene": sid }))
+        })(),
         "people_boss" => Ok(boss_page(w)),
         "people_boss_meeting" => boss::request_meeting(w).map(|sid| json!({ "scene": sid })),
         "people_staff" => Ok(staff(w)),
@@ -567,6 +576,8 @@ fn agenda(w: &World) -> Value {
         .enumerate()
         .rev()
         .filter(|(_, p)| p.kept.is_none() || p.due.days_to(w.today) < 60)
+        // Your promises here: the ones made at a job you left closed then.
+        .filter(|(_, p)| p.team.is_none_or(|t| Team::seat(w) == Some(t)))
         .take(12)
         .map(|(k, p)| {
             // A promise on usage: its words, what keeps it, and whether you
@@ -579,7 +590,7 @@ fn agenda(w: &World) -> Value {
                     json!({ "kept_by": "When your room names its captains, you name him one beside the men it votes. Off, you let the vote stand.", "off": p.terms.off })
                 })
             });
-            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public, "plan": plan })
+            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "quiet": p.quiet(), "public": p.public, "plan": plan })
         })
         .collect();
     let due: Vec<Value> =
@@ -685,7 +696,7 @@ fn player(w: &World, id: u32) -> Reply {
         .promises
         .iter()
         .filter(|x| matches!(x.to, PromiseTo::Player(pid) if pid == id))
-        .map(|x| json!({ "what": x.kind.words(), "due": date_text(x.due), "kept": x.kept }))
+        .map(|x| json!({ "what": x.kind.words(), "due": date_text(x.due), "kept": x.kept, "quiet": x.quiet() }))
         .collect();
     let (_, worry) = talks::concern(w, i);
     let trust = (Some(p.trust_in) == you).then_some(p.trust);

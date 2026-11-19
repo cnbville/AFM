@@ -667,6 +667,10 @@ fn promises(w: &World, to: impl Fn(&PromiseTo) -> bool, v: Voice, none: bool, ou
     }
     for p in mine.iter().rev().take(MAX_PROMISES) {
         let stands = match p.kept {
+            // Closed with nothing to judge (`Promise::quiet`): when the coach
+            // left the job he made it at, or it lapsed or let him off.
+            Some(true) if p.quiet() && p.job_closed => "it ended when the coach left that job".to_string(),
+            Some(true) if p.quiet() => "it no longer stands".to_string(),
             Some(true) => "he kept it".to_string(),
             Some(false) => "he broke it".to_string(),
             None => match promise::State::of(p.state) {
