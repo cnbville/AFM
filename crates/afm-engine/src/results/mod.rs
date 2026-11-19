@@ -828,6 +828,7 @@ impl Ledger {
             x.s += (e.centred() / e.n as f64) as f32;
             x.n += e.n;
         }
+        past.shrink_to_fit();
         *self = Ledger { year, past, ..Ledger::default() };
     }
 

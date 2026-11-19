@@ -51,7 +51,7 @@ All in `development.rs`, `develop_season(player, ctx, rng)`. The steps run in th
 13a. The weight room (A4, A14; see [body.md](body.md)) and the season's wear (F14).
 14. Tidy up: settled attributes halve their unreachable ceiling room; a rise past 95 thins (`athlete::top_up`, strength and lower body excepted; see [ratings.md](ratings.md), "Past 99"); ratings and ceilings clamp 1-150 (`RATING_BOUND`, no 99 wall since step 4c); a rating above its ceiling lifts the ceiling.
 15. Tendencies' yearly change (`tendencies.rs`, `develop_year`; see [tendencies.md](tendencies.md)).
-16. Season row pushed (`SeasonRecord`), age + 1, and `grow` (the part of a year the daily clock has already given his body, A16) one less, never below 0. If the overall fell, a `Breakout` event is removed.
+16. Season row pushed (`SeasonRecord`, 104 bytes: the pro team is an `OptIdx` and the depth label a `DepthLabel`, both 2-byte codes written as the plain options; memory diet item 5), age + 1, and `grow` (the part of a year the daily clock has already given his body, A16) one less, never below 0. If the overall fell, a `Breakout` event is removed.
 
 What it reads from the world: `SeasonContext` (`development.rs`): level, coaching (1-20), playing time, trouble, adjustment (first-year dip 0-1), situation (-1..1), payday, real snaps share (NFL, college and high school), style, scheme, tendency centres, morale, physical, medical, physical coaching (the strength staff's mix, 1-20, None without a strength staff) and strength_dev (his strength head against the level's typical one, rating points), focus, defer (minor bug 302).
 

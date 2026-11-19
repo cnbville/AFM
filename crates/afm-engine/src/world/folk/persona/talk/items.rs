@@ -77,7 +77,9 @@ pub fn items(w: &World, him: Them, wants: &[Want]) -> Vec<(Item, String)> {
     out.push((Item::Pride, "his pride".into()));
     let to = him.promise_to();
     for (k, p) in w.folk.promises.iter().enumerate().filter(|(_, p)| Some(p.to) == to) {
+        // One closed with nothing to judge is no word kept (`quiet`).
         let state = match p.kept {
+            Some(true) if p.quiet() => "no longer stands",
             Some(true) => "kept",
             Some(false) => "broken",
             None => "open",
