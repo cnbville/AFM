@@ -9,7 +9,7 @@ use crate::game::flow::CHECK_OFF;
 use crate::game::rules::{Concussion, Rules};
 use crate::game::sim::{Cause, InjuryKind};
 use crate::game::synthetic::synthetic_league;
-use crate::game::{GameResult, GameSetup, play_game, quick_game};
+use crate::game::{GameResult, GameSetup, PlayRecord, PlayType, play_game, quick_game};
 use crate::player::Level;
 use crate::positions::Position;
 
@@ -29,6 +29,14 @@ fn the_concussion_rules_follow_each_level_and_era() {
     assert!(c(Level::NFL, 1995).length < c(Level::NFL, 2005).length && c(Level::NFL, 2005).length < 1.0);
     assert_eq!(c(Level::NFL, 2008).checks, 0.0, "no checks of men who weren't hurt before the rule");
     assert!(c(Level::NFL, 2025).checks > c(Level::NFL, 2010).checks, "spotters from 2011");
+}
+
+/// A snap from scrimmage, where each side's own unit takes the field.
+fn scrimmage(k: PlayType) -> bool {
+    matches!(
+        k,
+        PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble | PlayType::Kneel | PlayType::Spike
+    )
 }
 
 fn games(level: Level, n: u64, rules: Option<Rules>) -> (Vec<GameResult>, HashMap<u32, Position>) {
@@ -68,7 +76,7 @@ fn every_kind_of_collision_hurts_and_linemen_get_hurt() {
 #[test]
 fn hurt_men_come_back_but_never_from_a_torn_ligament_or_a_concussion() {
     let (res, _) = games(Level::NFL, 24, None);
-    let mut back = 0;
+    let (mut back, mut checked) = (0, 0);
     for r in &res {
         // A man can be hurt twice in a game: the nth injury of his is on the
         // nth play that hurt him.
@@ -89,14 +97,33 @@ fn hurt_men_come_back_but_never_from_a_torn_ligament_or_a_concussion() {
                 "{:?} came back in today's NFL",
                 i.kind
             );
-            // He is on the field again after the play he was hurt on.
-            let side = (r.stats.plays.iter().enumerate())
+            // A starter back in is on the field again when his unit has
+            // snaps left after his time on the sideline (a quarterback back
+            // at the two-minute warning may never see the ball again). He
+            // can play from the snap after his last one sitting.
+            let plays = &r.stats.plays;
+            let side = (plays.iter().enumerate())
                 .filter(|(_, p)| p.injuries.iter().any(|x| x.id == i.id))
                 .nth(k)
                 .map(|(n, _)| n)
                 .unwrap();
-            let later = r.stats.plays[side + 1..].iter().any(|p| p.on_field.iter().any(|f| f.contains(&i.id)));
-            assert!(later, "team {team}: {} back after {b} plays but never on the field", i.id);
+            let hurt = &plays[side];
+            let on_offense = hurt.on_field[0].contains(&i.id);
+            let unit = |p: &PlayRecord| scrimmage(p.kind) && (p.offense == *team) == on_offense;
+            let on = |p: &PlayRecord| p.on_field.iter().any(|f| f.contains(&i.id));
+            let before: Vec<&PlayRecord> = plays[..=side].iter().filter(|p| unit(p)).collect();
+            let after: Vec<&PlayRecord> =
+                plays[side + 1..].iter().filter(|p| p.n > hurt.n + b as u32 && unit(p)).collect();
+            let starter = before.len() >= 10 && 2 * before.iter().filter(|p| on(p)).count() >= before.len();
+            if unit(hurt) && starter && after.len() >= 10 {
+                checked += 1;
+                assert!(
+                    after.iter().any(|p| on(p)),
+                    "team {team}: {} back after {b} plays but never on the field in {} snaps",
+                    i.id,
+                    after.len()
+                );
+            }
         }
         // A man cleared by a concussion check sits the exam out first.
         for (_, id, b) in &r.checks {
@@ -106,6 +133,7 @@ fn hurt_men_come_back_but_never_from_a_torn_ligament_or_a_concussion() {
         }
     }
     assert!(back >= 5, "only {back} men came back in 24 games");
+    assert!(checked >= 3, "only {checked} starters came back with snaps left in 24 games");
     let cleared: usize = res.iter().map(|r| r.checks.iter().filter(|c| c.2.is_some()).count()).sum();
     assert!(cleared >= 5, "only {cleared} men cleared by a concussion check came back");
 }
