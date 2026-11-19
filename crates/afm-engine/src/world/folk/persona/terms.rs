@@ -116,8 +116,12 @@ impl Give {
         match self {
             Give::Scholarship(None) => "a scholarship".into(),
             Give::Scholarship(Some(_)) => "a scholarship for someone close to him".into(),
+            // His number, as he'd say it (talk replies item 4): a counter
+            // that said only "more money" left you guessing.
+            Give::Money(x) if *x > 0.0 => format!("{} a year", money_words(*x)),
             Give::Money(_) => "more money".into(),
             Give::Years(y) => format!("{y} years"),
+            Give::Guaranteed(x) if *x > 0.0 => format!("{} guaranteed", money_words(*x)),
             Give::Guaranteed(_) => "more of it guaranteed".into(),
             Give::Role(0) => "a starting job".into(),
             Give::Role(1) => "a real role".into(),
@@ -157,6 +161,28 @@ impl Give {
             },
             Give::RevenueShare(_) => "revenue share".into(),
         }
+    }
+}
+
+/// A sum the way a deal is talked about: "$2.8 million", "$850,000",
+/// "$45,000" (talk replies item 4).
+pub fn money_words(x: f64) -> String {
+    let x = x.max(0.0);
+    if x >= 1_000_000.0 {
+        let m = (x / 100_000.0).round() / 10.0;
+        if (m - m.round()).abs() < 1e-9 { format!("${} million", m.round() as i64) } else { format!("${m:.1} million") }
+    } else {
+        let step = if x >= 100_000.0 { 10_000.0 } else { 1_000.0 };
+        let r = ((x / step).round() * step) as i64;
+        let s = r.to_string();
+        let mut out = String::new();
+        for (k, c) in s.chars().enumerate() {
+            if k > 0 && (s.len() - k).is_multiple_of(3) {
+                out.push(',');
+            }
+            out.push(c);
+        }
+        format!("${out}")
     }
 }
 

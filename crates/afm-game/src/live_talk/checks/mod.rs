@@ -303,9 +303,7 @@ pub fn ai_checks(g: &mut Game, args: &Value) -> Reply {
         for case in voice::cases() {
             for line in &case.lines {
                 let card = case.card.card(&line.text).text();
-                let req = Request::new(persona_voice::VOICE, persona_voice::VOICE_RULES, &card)
-                    .schema(persona_voice::schema())
-                    .max_tokens(persona_voice::VOICE_TOKENS);
+                let req = persona_voice::request(&card);
                 if let Some(f) = &fake {
                     let said = json!({ "line": "I hear you, Coach.", "colour": "" });
                     f.push(persona_voice::VOICE, Ok(afm_ai::fake::body(&said.to_string(), 600, 40)));
