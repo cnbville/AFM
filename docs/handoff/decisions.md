@@ -456,6 +456,14 @@ Cain shared five odd talks and asked what feels off. Diagnosis and items: `docs/
 - **Agreed, lane B (after lane A):** every action a screen can do runs from a talk after one confirm card ("a sophisticated short cut"); a "What he's after" read and Ideas for every person; real haggling round by round, for coaches, agents and your own players.
 - **Proposed, not confirmed:** every size and wording beyond the spec's text.
 
+## 33. NIL money only for next July's paid set (thread "Pay only next year's paid recruits", 2026-11-19)
+
+- **Asked:** the coordinator, from `GAPS.md` (Group of 5 signees under real because every recruit got a small deal): "Should schools offer money only to recruits who'll be in next July's paid set? My pick: yes." Cain, 13:42 UTC: "yes".
+- **Agreed:** a school offers NIL money only to a recruit its next July paid set would take (75% of the roster it expects at a Power 4 school, 29% elsewhere, filled on merit, never a walk-on); the rest sign for the scholarship.
+- **Agreed, 15:22 UTC** (decision card: "Should a paid Group of 5 signee get at least his July paid place's money?", Cain chose "Yes, floor at his place's pay", told first that it raises Power 4 class money too): the offer is never under what his place in that set pays, the school's July revenue share × his first role's weight over the set's.
+- **Built:** the same day (`world/recruiting.rs`, `PaidLine`; how it works and the seed 1 measure in `docs/reference/how-it-works/recruiting.md`, "Who does a school offer money at all?").
+- **Proposed, not confirmed:** how the staff reads the set (the men it expects back by `gone`, its signees, its plan's open places), a recruit's first role from his depth (starter, two deep, else a backup), a keep-him offer's holder ranked by his role, and the floor's sum.
+
 ## Superseded decisions
 
 | Old | Replaced by | When |
