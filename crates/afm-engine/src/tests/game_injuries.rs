@@ -68,9 +68,13 @@ fn every_kind_of_collision_hurts_and_linemen_get_hurt() {
     }
     let line = all.iter().filter(|i| matches!(pos.get(&i.id), Some(Position::OT | Position::IOL))).count();
     assert!(line >= 10, "offensive linemen hurt {line} times in 24 games of {}", all.len());
-    // Nobody touched him: strains go to the men who run.
-    let strains = all.iter().filter(|i| i.cause == Cause::Sprint).count();
-    assert!(strains >= 5, "{strains} sprint strains in 24 games");
+    // About a quarter come with nobody touching him, as in real games:
+    // strains on his running and plants on his cuts. (Ten sets of these 24
+    // games on other seeds run 19-34% of about 100 injuries; sprint
+    // strains alone run 4-16 a set, too few for a floor of their own.)
+    let alone = all.iter().filter(|i| matches!(i.cause, Cause::Sprint | Cause::Plant)).count();
+    let share = alone as f64 / all.len() as f64;
+    assert!((0.12..0.40).contains(&share), "{alone} of {} injuries with nobody touching him", all.len());
 }
 
 #[test]

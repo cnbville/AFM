@@ -4,7 +4,7 @@
 //! the league office.
 
 use crate::calendar::Level as CalLevel;
-use crate::game::GameTeam;
+use crate::game::GameResult;
 use crate::game::rules::{Rules, Targeting};
 use crate::game::sim::FoulKind;
 use crate::game::stats::{HitFlag, PlayRecord, PlayType};
@@ -42,19 +42,9 @@ fn a_first_half_sitter_comes_back_at_halftime() {
     let level = Level::FBS;
     let teams = synthetic_league(level, 2, 11);
     let mut home = teams[0].clone();
-    // The safety who plays most in an ordinary game: the best rating alone
-    // can name a backup on a roster whose flaws drew differently.
-    let plain = crate::game::quick_game(&home, &teams[1], level, 5);
-    let snaps = |id: u32| plain.stats.plays.iter().filter(|p| p.on_field.iter().any(|f| f.contains(&id))).count();
-    let id =
-        home.players.iter().filter(|p| p.position == Position::S).map(|p| p.id).max_by_key(|&id| snaps(id)).unwrap();
-    // Over eight games he never plays a first-half snap, and in the second
-    // half he is back at his usual share (he can be a third safety who
-    // plays the sub packages): the defense's snaps from scrimmage before
-    // he is hurt himself or his staff pulls its starters in a decided game
-    // (`garbage`: a game decided by halftime pulls him from the first snap),
-    // against the same games without the sit.
-    let on = |p: &PlayRecord| p.on_field.iter().any(|f| f.contains(&id));
+    // The defense's snaps from scrimmage while his staff plays its starters
+    // (`garbage`: a game decided by halftime pulls them from the second
+    // half's first snap).
     let defense = |p: &PlayRecord| {
         p.offense == 1
             && p.garbage[0] == 0
@@ -68,12 +58,28 @@ fn a_first_half_sitter_comes_back_at_halftime() {
                     | PlayType::NoPlay
             )
     };
-    let second_half = |team: &GameTeam, sits: bool| {
+    // The safety who plays most of them over eight ordinary games: the best
+    // rating alone can name a backup on a roster whose flaws drew
+    // differently, and one game's busiest man on the field, counting the
+    // kicking units, can be a third safety who played the day his partner
+    // was hurt early, whose share swings with the other side's personnel (on
+    // lane EG2's games it was).
+    let plain: Vec<GameResult> =
+        (1..=8u64).map(|seed| crate::game::quick_game(&home, &teams[1], level, seed)).collect();
+    let snaps = |id: u32| {
+        plain.iter().flat_map(|r| &r.stats.plays).filter(|p| defense(p) && p.on_field[1].contains(&id)).count()
+    };
+    let id =
+        home.players.iter().filter(|p| p.position == Position::S).map(|p| p.id).max_by_key(|&id| snaps(id)).unwrap();
+    // In the same eight games with the sit he never plays a first-half
+    // snap, and in the second half he is back at his usual share of them,
+    // before he is hurt himself, against the games without the sit.
+    let on = |p: &PlayRecord| p.on_field.iter().any(|f| f.contains(&id));
+    let second_half = |games: &[GameResult], sits: bool| {
         let (mut open, mut his) = (0, 0);
-        for seed in 1..=8u64 {
-            let r = crate::game::quick_game(team, &teams[1], level, seed);
+        for (k, r) in games.iter().enumerate() {
             let plays = &r.stats.plays;
-            assert!(!sits || !plays.iter().any(|p| p.quarter < 3 && on(p)), "he sits the first half (seed {seed})");
+            assert!(!sits || !plays.iter().any(|p| p.quarter < 3 && on(p)), "he sits the first half (seed {})", k + 1);
             let hurt = plays.iter().position(|p| p.injuries.iter().any(|x| x.id == id)).unwrap_or(plays.len());
             for p in plays[..hurt].iter().filter(|p| p.quarter >= 3 && defense(p)) {
                 open += 1;
@@ -82,9 +88,10 @@ fn a_first_half_sitter_comes_back_at_halftime() {
         }
         (open, his)
     };
-    let (open0, his0) = second_half(&home, false);
+    let (open0, his0) = second_half(&plain, false);
     home.day.first_half = vec![id];
-    let (open, his) = second_half(&home, true);
+    let sat: Vec<GameResult> = (1..=8u64).map(|seed| crate::game::quick_game(&home, &teams[1], level, seed)).collect();
+    let (open, his) = second_half(&sat, true);
     assert!(open >= 100 && his0 * 2 >= open0, "{open} snaps before a staff pulled its starters; {his0} of {open0} his");
     assert!(
         his * open0 * 20 >= his0 * open * 17,
