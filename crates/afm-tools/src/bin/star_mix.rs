@@ -354,7 +354,7 @@ fn speed(w: &World) {
             .filter_map(|p| {
                 let a = &p.player.attributes;
                 let mix = afm_engine::body::play_speed(pos, a.get(Attr::Speed), a.get(Attr::Acceleration))?;
-                Some((mix, p.last_performance.unwrap_or(p.player.overall()), *p))
+                Some((mix, p.last_performance.get().unwrap_or(p.player.overall()), *p))
             })
             .collect();
         if at.len() < 100 {

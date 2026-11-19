@@ -412,6 +412,7 @@ The game holds the whole world in memory. In season it now fits the agreed 4 GB 
 - A stat book row (`records::SeasonRecord`) keeps only the numbers that aren't zero (`records::StatSet`: a bit per stat and the values in order). A lineman's row has no passing or kicking numbers. The book went from 0.60 to 0.28 GB. It is written as the full list, so world files keep their shape.
 - Last year's college season keeps only what the next year reads (its results, the rivalry series and the academy trophy) once the new season starts. Its games, rosters and stat lines went with it before.
 - The new class of 14-year-olds is built straight into the people list's room, in order, not in a list of its own first.
+- Memory diet lane M1 (2026-11-17): a person's college-and-later fields and the rest of his calendar are kept only once used (`world/stored.rs`), the portal-lean list's room is handed back at the season's reset, the stat book grows by exactly a season, and a few optional numbers and an index are smaller. World files keep their shape (`world/person_form.rs`). Measured in `docs/game.md`, "Memory diet, lane M1".
 
 ### Decided in the final build (Claude's pick)
 

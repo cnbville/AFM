@@ -121,7 +121,7 @@ fn college(w: &mut World, d: Date) {
                 && p.stars >= 3
                 && p.cal.signed.is_none()
         })
-        .map(|(i, p)| (i, p.cal.service_read.unwrap_or(0.0)))
+        .map(|(i, p)| (i, p.cal.service_read.get().unwrap_or(0.0)))
         .collect();
     if cands.is_empty() {
         return;

@@ -1,7 +1,10 @@
 //! Memory in season (final build, lane 1): opens a world file the way the
 //! game does, starts a career, and presses Continue to the first game,
 //! printing the live heap and resident memory at every stop. At the end it
-//! weighs the world's stores by dropping them, biggest first.
+//! weighs the world's stores by dropping them, biggest first. With the
+//! fingerprint it prints the world log's print of every store (`wlog::why::
+//! fingerprints`, each store's whole serde form): two builds that print the
+//! same lines played the same season, field for field.
 //! Usage: memory_season <world file> [college|nfl|hs] [team id] [weigh: open|end|none|monthN|days]
 //! (`days` steps a day at a time and prints each day that raised the peak;
 //! `AFM_TRIM=1` also prints resident memory after the allocator lets go).
@@ -215,6 +218,10 @@ fn main() {
         let _ = g.call("film_close", &json!({}));
     }
     println!("fingerprint {:016x}", fingerprint(g.world.as_ref().expect("world")));
+    for (store, print) in afm_engine::world::wlog::why::fingerprints(g.world.as_ref().expect("world")) {
+        println!("  store print {store:<14} {print}");
+    }
+    kept_parts(g.world.as_ref().expect("world"));
     if weigh_at == "end" {
         weigh(g.world.as_mut().expect("world"));
     }
@@ -299,4 +306,22 @@ fn weigh(w: &mut World) {
         println!("| {name} | {gb:.3} |");
     }
     println!("| everything else | {rest:.3} |");
+}
+
+/// How many people keep their calendar's rest and their college part
+/// (memory diet, lane M1: kept only once used), and how many of them are
+/// high schoolers.
+fn kept_parts(w: &World) {
+    use afm_engine::world::Stage;
+    let count = |f: &dyn Fn(&afm_engine::world::Person) -> bool| {
+        let all = w.people.iter().filter(|p| f(p)).count();
+        let hs = w.people.iter().filter(|p| p.stage == Stage::HighSchool && f(p)).count();
+        (all, hs)
+    };
+    let (cal, cal_hs) = count(&|p| p.cal.more.stored().is_some());
+    let (later, later_hs) = count(&|p| p.later.stored().is_some());
+    println!(
+        "  kept parts of {} people: calendar rest {cal} ({cal_hs} high schoolers), college part {later} ({later_hs} high schoolers)",
+        w.people.len()
+    );
 }

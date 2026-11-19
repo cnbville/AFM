@@ -1120,7 +1120,7 @@ fn ranked(w: &World, class: i32, keep: impl Fn(&crate::world::Person) -> bool) -
         .iter()
         .enumerate()
         .filter(|(_, p)| p.class_of == class && keep(p))
-        .map(|(i, p)| (p.stars, p.cal.service_read.unwrap_or(0.0), p.player.id, i))
+        .map(|(i, p)| (p.stars, p.cal.service_read.get().unwrap_or(0.0), p.player.id, i))
         .collect();
     v.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.total_cmp(&a.1)).then(a.2.cmp(&b.2)));
     v.into_iter().map(|x| x.3).collect()
