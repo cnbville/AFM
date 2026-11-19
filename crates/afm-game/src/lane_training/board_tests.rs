@@ -122,27 +122,41 @@ fn a_spot_set_with_positions_saves_only_those_positions() {
 #[test]
 fn a_man_who_is_out_keeps_the_place_you_give_him() {
     let (mut g, dir) = head_coach_world("hurt");
+    // A one-starter position the seat team has three men at: the tiny test
+    // world's rooms move with every change to the world's draws, so a
+    // tight end room of two is not a bug (it was the test's fixed pick).
+    let room = |g: &mut Game, key: &str| -> usize {
+        let d = g.call("depth", &json!({})).unwrap();
+        d["positions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["pos"] == key)
+            .map_or(0, |p| p["players"].as_array().unwrap().len())
+    };
+    let key = ["TE", "RB"].into_iter().find(|k| room(&mut g, k) >= 3).expect("a TE or RB room of three men");
+    let pos = if key == "TE" { Position::TE } else { Position::RB };
     let flat = |g: &mut Game| -> Vec<u32> {
         let d = g.call("depth", &json!({})).unwrap();
-        let p = d["positions"].as_array().unwrap().iter().find(|p| p["pos"] == "TE").unwrap().clone();
+        let p = d["positions"].as_array().unwrap().iter().find(|p| p["pos"] == key).unwrap().clone();
         p["players"].as_array().unwrap().iter().map(|x| x["id"].as_u64().unwrap() as u32).collect()
     };
     let sb = |g: &mut Game| -> Vec<Option<u32>> {
         let v = g.call("sb_depth", &json!({ "tab": "offense", "form": "offense" })).unwrap();
-        let s = v["slots"].as_array().unwrap().iter().find(|s| s["pos"] == "TE").unwrap().clone();
+        let s = v["slots"].as_array().unwrap().iter().find(|s| s["pos"] == key).unwrap().clone();
         s["picks"].as_array().unwrap().iter().map(|p| p["id"].as_u64().map(|x| x as u32)).collect()
     };
     let board_te = |g: &mut Game| {
-        offense(g)["slots"].as_array().unwrap().iter().find(|s| s["pos"] == "TE").unwrap()["player"]["id"]
+        offense(g)["slots"].as_array().unwrap().iter().find(|s| s["pos"] == key).unwrap()["player"]["id"]
             .as_u64()
             .map(|x| x as u32)
     };
     let game_te = |g: &Game| -> Vec<u32> {
-        g.w().unwrap().seat_game_depth().unwrap().into_iter().find(|x| x.0 == Position::TE).unwrap().1
+        g.w().unwrap().seat_game_depth().unwrap().into_iter().find(|x| x.0 == pos).unwrap().1
     };
     // The staff's first tight end, sent off hurt for two months.
     let before = flat(&mut g);
-    assert!(before.len() >= 3, "three tight ends: {before:?}");
+    assert!(before.len() >= 3, "three men at {key}: {before:?}");
     let te = before[0];
     {
         let w = g.wm().unwrap();
@@ -164,7 +178,7 @@ fn a_man_who_is_out_keeps_the_place_you_give_him() {
     while at > 0 {
         let mut ids = flat(&mut g);
         ids.swap(at, at - 1);
-        g.call("set_depth", &json!({ "pos": "TE", "ids": ids })).unwrap();
+        g.call("set_depth", &json!({ "pos": key, "ids": ids })).unwrap();
         let now = flat(&mut g).iter().position(|&x| x == te).unwrap();
         assert_eq!(now, at - 1, "he moved up one place and stayed there");
         at = now;
@@ -199,7 +213,7 @@ fn a_man_who_is_out_keeps_the_place_you_give_him() {
     g.call("sb_depth_reset", &json!({ "tab": "offense", "form": "offense" })).unwrap();
     assert_ne!(sb(&mut g)[0], Some(te), "the staff starts the next man");
     let v = g.call("sb_depth", &json!({ "tab": "offense", "form": "offense" })).unwrap();
-    let k = v["slots"].as_array().unwrap().iter().position(|s| s["pos"] == "TE").unwrap();
+    let k = v["slots"].as_array().unwrap().iter().position(|s| s["pos"] == key).unwrap();
     g.call("sb_depth_put", &json!({ "tab": "offense", "form": "offense", "slot": k, "n": 2, "pid": te })).unwrap();
     assert_eq!(sb(&mut g)[1], Some(te), "dropped into the second string, he holds it");
     g.call("sb_depth_up", &json!({ "tab": "offense", "form": "offense", "slot": k, "n": 2 })).unwrap();

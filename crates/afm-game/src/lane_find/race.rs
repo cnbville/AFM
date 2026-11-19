@@ -477,7 +477,7 @@ fn ties_words(w: &World, i: usize, j: usize, known: bool) -> String {
     if p.cal.visits.iter().any(|x| x.0 == j && x.2 == Visit::Official && x.1 <= w.today) {
         v.push("official visit".into());
     }
-    if known && p.childhood_team == Some(j) {
+    if known && p.childhood_team.map(usize::from) == Some(j) {
         v.push("grew up a fan".into());
     }
     if p.family().older_brother_at == Some(j) {
@@ -511,7 +511,7 @@ fn ties_score(w: &World, i: usize, j: usize, known: bool) -> f64 {
         x += 0.15;
     }
     x += 0.05 * past(Visit::Unofficial).min(2) as f64;
-    if known && p.childhood_team == Some(j) {
+    if known && p.childhood_team.map(usize::from) == Some(j) {
         x += 0.15;
     }
     if p.family().older_brother_at == Some(j) {

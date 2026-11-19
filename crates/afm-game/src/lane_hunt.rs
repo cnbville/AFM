@@ -354,7 +354,7 @@ fn suggest(w: &World, s: Seat, team: usize) -> Vec<Value> {
                         && p.stars >= 4
                         && p.cal.signed.is_none()
                 })
-                .map(|p| (p.cal.service_read.unwrap_or(0.0), p.player.id))
+                .map(|p| (p.cal.service_read.get().unwrap_or(0.0), p.player.id))
                 .collect();
             top.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
             ids.extend(top.into_iter().take(40).map(|x| (x.1, "The services' best")));
