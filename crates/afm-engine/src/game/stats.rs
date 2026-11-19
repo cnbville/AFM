@@ -104,6 +104,9 @@ pub struct PlayRecord {
     pub penalties: Vec<(FoulKind, usize, u32, f64, bool)>,
     /// Blocks: (blocker, defender, pass, won, seconds, gave up pressure).
     pub blocks: Vec<(u32, u32, bool, bool, f64, bool)>,
+    /// Laterals on the play (engine gaps item 16).
+    #[serde(default)]
+    pub laterals: u8,
     pub rush_wins: Vec<(u32, Move, f64)>,
     /// Every move a pass rusher tried (his counter too), on plays that keep
     /// frames only; never written (minor bug 317, `film::tape`).
@@ -292,6 +295,7 @@ impl PlayRecord {
             kick_pressure: 0.0,
             penalties: Vec::new(),
             blocks: Vec::new(),
+            laterals: 0,
             rush_wins: Vec::new(),
             rush_moves: Vec::new(),
             craft: Vec::new(),

@@ -1443,11 +1443,20 @@ pub struct OffCall {
     /// The library's own play-action concepts always fake.
     #[serde(default)]
     pub fake: bool,
+    /// A Hail Mary on a half's last snap (engine gaps item 15): every
+    /// receiver floods the end zone, the passer buys time and throws it up
+    /// among them.
+    #[serde(default)]
+    pub hail: bool,
+    /// The last play from too far out for a Hail Mary (engine gaps item
+    /// 16): a catch, then laterals until a man breaks free or is caught.
+    #[serde(default)]
+    pub laterals: bool,
 }
 
 impl OffCall {
     pub fn new(formation: Formation, kind: PlayKind, dir: f64, tempo: bool) -> OffCall {
-        OffCall { formation, kind, dir, tempo, alt: None, why: "", fake: false }
+        OffCall { formation, kind, dir, tempo, alt: None, why: "", fake: false, hail: false, laterals: false }
     }
     /// A throw off a run fake: the tag, or a play-action concept.
     pub fn play_action(&self) -> bool {
