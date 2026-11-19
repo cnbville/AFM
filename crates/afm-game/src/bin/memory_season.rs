@@ -401,4 +401,17 @@ fn kept_parts(w: &World) {
         "  kept parts of {} people: calendar rest {cal} ({cal_hs} high schoolers), college part {later} ({later_hs} high schoolers)",
         w.people.len()
     );
+    // Lane M2 (items 3, 9, 10): what is packed or dropped now.
+    let retired = w.coaches.iter().filter(|c| c.retired).count();
+    let kept: Vec<usize> = w.alumni.iter().filter_map(|a| a.player.as_ref().map(|k| k.packed_len())).collect();
+    let (p_hot, p_cold, p_bytes) = w.tallies.players.held();
+    let (t_hot, t_cold, t_bytes) = w.tallies.teams.held();
+    println!(
+        "  retired coaches {retired} of {}; alumni players packed {} ({:.1} MB); open tallies: players {p_hot} rows, {p_cold} packed ({:.1} MB), teams {t_hot} rows, {t_cold} packed ({:.1} MB)",
+        w.coaches.len(),
+        kept.len(),
+        kept.iter().sum::<usize>() as f64 / 1e6,
+        p_bytes as f64 / 1e6,
+        t_bytes as f64 / 1e6
+    );
 }

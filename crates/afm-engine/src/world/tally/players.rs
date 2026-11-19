@@ -365,15 +365,10 @@ pub struct Season {
     pub game_snaps: Vec<[u16; 2]>,
 }
 
-/// The open season's players, by level and id.
-///
-/// A man's season is a running sum every game he dresses for adds to, and
-/// the Data pages read it while the season runs. Once he has gone two
-/// weekly sweeps without a game (his team's season is over, or he is out),
-/// his row is packed (`cold`: named MessagePack in a zstd frame, memory
-/// diet item 10) and unpacked again if he plays. Reads see the same
-/// season either way (`get`, `rows`, `each`); a save writes every row as
-/// before.
+/// The open season's players, by level and id. A man without a game
+/// through two weekly sweeps has his row packed (`cold.rs`, memory diet
+/// item 10); `get` and `rows` read it back whole, and a save writes every
+/// row as before.
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct Open {
     pub seasons: HashMap<u32, Season>,
@@ -390,26 +385,9 @@ pub struct Open {
     /// walks `recent` when a day has dropped off (world speed lane).
     #[serde(skip)]
     oldest: Option<i32>,
-    /// Packed seasons by key (`key`), of men without a game in two sweeps.
+    /// Seasons of men without a game in two sweeps, packed (`cold`).
     #[serde(skip)]
-    cold: HashMap<u64, Box<[u8]>>,
-    /// Keys that played since the last sweep, and in the sweep before.
-    #[serde(skip)]
-    touched: [HashSet<u64>; 2],
-    /// The day of the next sweep (a week after the last).
-    #[serde(skip)]
-    next_sweep: i32,
-}
-
-/// Days between sweeps.
-const SWEEP_DAYS: i32 = 7;
-
-fn pack(s: &Season) -> Box<[u8]> {
-    zstd::bulk::compress(&super::file::encode(s), 3).unwrap_or_default().into_boxed_slice()
-}
-
-fn unpack(b: &[u8]) -> Season {
-    zstd::stream::decode_all(b).ok().and_then(|raw| super::file::decode(&raw)).unwrap_or_default()
+    cold: super::cold::Cold,
 }
 
 /// Written as before: every row, packed or not, in `seasons` and `nfl`.
@@ -430,12 +408,12 @@ impl serde::Serialize for Open {
                 m.end()
             }
         }
+        let packed: Vec<(u64, Season)> = self.cold.all();
         let cold = |level: Level| -> Vec<(u32, Season)> {
-            let mut v: Vec<(u32, Season)> = self
-                .cold
+            let mut v: Vec<(u32, Season)> = packed
                 .iter()
                 .filter(|(k, _)| (*k >> 32) as u8 == level as u8)
-                .map(|(k, b)| (*k as u32, unpack(b)))
+                .map(|(k, s)| (*k as u32, s.clone()))
                 .collect();
             v.sort_by_key(|x| x.0);
             v
@@ -463,13 +441,10 @@ impl Open {
             self.recent.push((date.0, level as u8, g.id, g.depth.clone()));
             self.oldest = Some(self.oldest.map_or(date.0, |o| o.min(date.0)));
         }
-        if date.0 >= self.next_sweep {
+        if self.cold.due(date.0) {
             self.sweep();
-            self.next_sweep = date.0 + SWEEP_DAYS;
         }
-        let k = self::key(level, g.id);
-        self.touched[0].insert(k);
-        let warm = self.cold.remove(&k).map(|b| unpack(&b));
+        let warm: Option<Season> = self.cold.touch(self::key(level, g.id));
         let m = if level == Level::Nfl { &mut self.nfl } else { &mut self.seasons };
         if let Some(s) = warm {
             m.insert(g.id, s);
@@ -505,25 +480,19 @@ impl Open {
     }
 
     /// Packs the rows of men without a game since the sweep before last
-    /// (memory diet item 10), on all cores, and hands the maps' room back.
+    /// (memory diet item 10) and hands the maps' room back.
     fn sweep(&mut self) {
-        use rayon::prelude::*;
-        let [now, before] = &self.touched;
-        let idle = |k: u64| !now.contains(&k) && !before.contains(&k);
         for (level, m) in [(Level::College, &mut self.seasons), (Level::Nfl, &mut self.nfl)] {
-            let keys: Vec<u32> = m.keys().copied().filter(|&id| idle(key(level, id))).collect();
+            let keys: Vec<u32> = m.keys().copied().filter(|&id| self.cold.idle(key(level, id))).collect();
             if keys.is_empty() {
                 continue;
             }
-            let rows: Vec<(u32, Season)> = keys.iter().filter_map(|id| m.remove_entry(id)).collect();
-            let packed: Vec<(u64, Box<[u8]>)> = rows.par_iter().map(|(id, s)| (key(level, *id), pack(s))).collect();
-            self.cold.extend(packed);
-            if m.len() < m.capacity() / 2 {
-                m.shrink_to_fit();
-            }
+            let rows: Vec<(u64, Season)> =
+                keys.iter().filter_map(|id| m.remove(id)).map(|s| (key(level, s.id), s)).collect();
+            self.cold.sweep(&rows);
+            super::cold::shrink(m);
         }
-        self.touched.swap(0, 1);
-        self.touched[0].clear();
+        self.cold.turn();
     }
 
     /// Every season for the file, by key (`key`): packed rows unpacked.
@@ -534,7 +503,7 @@ impl Open {
             .values()
             .map(|s| (key(Level::College, s.id), Cow::Borrowed(s)))
             .chain(self.nfl.values().map(|s| (key(Level::Nfl, s.id), Cow::Borrowed(s))))
-            .chain(self.cold.iter().map(|(k, b)| (*k, Cow::Owned(unpack(b)))))
+            .chain(self.cold.all::<Season>().into_iter().map(|(k, s)| (k, Cow::Owned(s))))
             .collect();
         v.sort_by_key(|x| x.0);
         v
@@ -546,14 +515,15 @@ impl Open {
         let hot = if level == Level::Nfl { self.nfl.get(&id) } else { self.seasons.get(&id) };
         match hot {
             Some(s) => Some(Cow::Borrowed(s)),
-            None => self.cold.get(&key(level, id)).map(|b| Cow::Owned(unpack(b))),
+            None => self.cold.get(key(level, id)).map(Cow::Owned),
         }
     }
 
     /// Rows and packed bytes held (memory checks): (rows, packed rows,
     /// packed bytes).
     pub fn held(&self) -> (usize, usize, usize) {
-        (self.seasons.len() + self.nfl.len(), self.cold.len(), self.cold.values().map(|b| b.len()).sum())
+        let (n, bytes) = self.cold.held();
+        (self.seasons.len() + self.nfl.len(), n, bytes)
     }
 }
 

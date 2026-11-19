@@ -46,6 +46,7 @@
 //! from the first recorded season, as the record books do.
 
 pub mod calls;
+pub mod cold;
 pub mod classes;
 pub mod decide;
 pub mod depth;
@@ -307,7 +308,7 @@ impl World {
         files.push(("players", f.file_bytes("players", season)));
         // The latest games kept for the charting delay are the open
         // season's only.
-        for s in self.tallies.teams.seasons.values_mut() {
+        for s in self.tallies.teams.values_mut() {
             s.last = None;
         }
         // Lane NB7: each team's closing rating and what its roster brought.
@@ -548,7 +549,7 @@ impl World {
     pub fn tally_team(&self, level: Level, season: i32, team: u32) -> Option<teams::Season> {
         let k = teams::key(level, team);
         if season == self.tallies.season {
-            return self.tallies.teams.seasons.get(&k).cloned();
+            return self.tallies.teams.get(k).map(|s| s.into_owned());
         }
         let mut out = None;
         let _ = self.tally_get("teams", season, &[k], |_, r| out = file::decode(r));
@@ -559,7 +560,7 @@ impl World {
     pub fn tally_teams(&self, season: i32, mut f: impl FnMut(&teams::Season)) {
         if season == self.tallies.season {
             for (_, s) in self.tallies.teams.rows() {
-                f(s);
+                f(&s);
             }
             return;
         }

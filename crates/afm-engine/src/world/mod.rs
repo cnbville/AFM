@@ -2336,6 +2336,24 @@ impl World {
         }
     }
 
+    /// Men who left football this year (memory diet item 6) hand back the
+    /// lists only a man still being recruited, deciding or talked to uses:
+    /// each school's case, the lean toward the portal and what moved it,
+    /// and his talks at home. His offers, visits, commitment, signing and
+    /// portal entry stay for his record, his page and the world log; the
+    /// year's cleanup drops him (or keeps him as an alumnus) as before.
+    pub(crate) fn leavers_compact(&mut self) {
+        use rayon::prelude::*;
+        self.people.par_iter_mut().filter(|p| p.stage == Stage::Done).for_each(|p| {
+            if let Some(m) = p.cal.more.stored_mut() {
+                m.cases = Vec::new();
+                m.lean_events = Vec::new();
+                m.home_talks = Vec::new();
+            }
+            p.cal.more.tidy();
+        });
+    }
+
     /// First-year dip for a step up (shared with the career model).
     pub(crate) fn adjustment(p: &mut Person, step: Step) -> f64 {
         first_year_adjustment(&p.player, step, &mut p.rng).dip
