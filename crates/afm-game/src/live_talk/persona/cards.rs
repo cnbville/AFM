@@ -633,6 +633,11 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
     if !t.asked.is_empty() {
         parts.push("a request".into());
     }
+    // An ask put to someone else in the room, by his name (ear audit item
+    // 4): "a request to Gil Foster".
+    for (doer, _, _) in &t.asked_of {
+        parts.push(format!("a request to {}", folk::plain(&channels::name(w, *doer))));
+    }
     if t.confirm.iter().any(|c| matches!(c, Confirm::Decision(_))) {
         parts.push("a decision".into());
     }

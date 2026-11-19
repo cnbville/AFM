@@ -846,6 +846,61 @@ fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec
     by
 }
 
+/// The share of his position coach's one-on-one time each man keeps once
+/// this checkpoint's project changes land (design item 8,
+/// `progression::room_time`): every college program's and high school's
+/// rooms, yours too. By person; 1 for a man on a project or in no room.
+fn room_times(
+    w: &World,
+    role_of: &[Option<PlayingTime>],
+    changes: &HashMap<usize, Vec<crate::progression::Change>>,
+) -> Vec<f64> {
+    use crate::progression::{Room, room_time, runs_after};
+    let mut rooms: HashMap<(bool, usize, Room), (usize, usize)> = HashMap::new();
+    type Key = (bool, usize, Room);
+    let mut key_of: Vec<Option<(Key, bool)>> = vec![None; w.people.len()];
+    for (i, p) in w.people.iter().enumerate() {
+        if role_of[i].is_none() {
+            continue;
+        }
+        let Some(room) = Room::of(p.player.position) else { continue };
+        let key = match p.stage {
+            Stage::College => match p.college {
+                Some(c) => (true, c, room),
+                _ => continue,
+            },
+            Stage::HighSchool => (false, p.hs, room),
+            _ => continue,
+        };
+        let on = runs_after(&p.player, changes.get(&i).map_or(&[][..], |v| &v[..]));
+        let e = rooms.entry(key).or_default();
+        e.0 += 1;
+        e.1 += usize::from(on);
+        key_of[i] = Some((key, on));
+    }
+    key_of
+        .iter()
+        .map(|k| match k {
+            Some((key, false)) => {
+                let (n, on) = rooms[key];
+                room_time(n, on)
+            }
+            _ => 1.0,
+        })
+        .collect()
+}
+
+/// Your staff's notes on your men's projects after their checkpoint (a
+/// click, a dead end, one dropped, a body project done).
+pub(crate) fn project_notes(w: &mut World, news: Vec<(u32, crate::progression::News)>) {
+    let d = w.today;
+    for (id, n) in news {
+        let (dept, text) = n.words();
+        let name = w.people.iter().find(|p| p.player.id == id).map_or(String::new(), |p| p.name.clone());
+        w.training.note(d, id, dept, format!("[[p:{id}|{name}]] {text}."));
+    }
+}
+
 pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     super::coach::set_freedom_norms(w);
     let year = w.year as u64;
@@ -929,6 +984,10 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     // The AI staffs' skill projects (the progression update, design items
     // 8 and 13-15), room by room; your own staff's are yours to set.
     let projects = ai_projects(w, &role_of);
+    // A project takes the position coach's one-on-one minutes, so the rest
+    // of the room gets a little less (design item 8).
+    let room_time = room_times(w, &role_of, &projects);
+    let news: std::sync::Mutex<Vec<(u32, crate::progression::News)>> = std::sync::Mutex::new(Vec::new());
     // Each player's real injuries since his last step (audit item 1), for
     // a stage whose last season played on the engine.
     let real = [Stage::HighSchool, Stage::College].map(|s| real_hurts(w, s));
@@ -1199,6 +1258,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             },
             hurt: hurts[i].map(|h| hurt_for_step(&mut p.player, h, today)),
             bond: bond_lift[i],
+            room_time: room_time[i],
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         // Last season's results name its row (growth from results).
@@ -1214,7 +1274,15 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         for &c in projects.get(&i).into_iter().flatten() {
             crate::progression::apply(&mut p.player, c);
         }
+        let before = (p.player.prog.project(), p.player.prog.body_project());
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
+        if ctx.seat_plan {
+            let n = crate::progression::news(before.0, before.1, &p.player, report.project_click);
+            if !n.is_empty() {
+                let id = p.player.id;
+                news.lock().unwrap().extend(n.into_iter().map(|x| (id, x)));
+            }
+        }
         if ctx.hurt.is_some() && report.rehab_due {
             rehab_due.lock().unwrap().push(p.player.id);
         }
@@ -1288,6 +1356,12 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         book.insert(id, crate::development::YearHurt { rehab: true, on: today, ..Default::default() });
     }
     w.training.year_hurt = book;
+    // Your staff's word on your men's projects (a click, a dead end, one
+    // dropped, a body project done), by id so any core count writes the
+    // same order.
+    let mut news = news.into_inner().unwrap();
+    news.sort_by_key(|x| x.0);
+    project_notes(w, news);
     // Each closed ledger starts the new season, its reads kept as his past.
     for (id, mut l) in closing {
         l.roll(w.year);

@@ -542,7 +542,7 @@ pub fn official_talk(g: &mut Game, args: &Value) -> crate::Reply {
     };
     let today = crate::views::date_text(w.today);
     let body = card.text(&today);
-    let req = Request::new(ear::EAR, ear::EAR_RULES, &body).schema(ear::schema()).max_tokens(ear::EAR_TOKENS);
+    let req = ear::request(&body);
     if let Some(f) = g.ai.browser_fake() {
         let v = json!({ "acts": [], "hits": [], "dodged": false, "not_talk": false });
         f.push(ear::EAR, Ok(afm_ai::fake::body(&v.to_string(), 600, 40)));
