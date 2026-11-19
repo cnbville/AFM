@@ -3170,7 +3170,9 @@ impl<'a> Game<'a> {
             return over(self, r, goal() - at, "Past the line, the receiving team's ball.");
         }
         let gained = x - los;
-        if gained >= self.togo || self.down < 4 {
+        // A down left in this league's book (three in the CFL): the next
+        // down from where he came up with it, else over on downs.
+        if gained >= self.togo || self.down < self.rules().downs() {
             let first = gained >= self.togo;
             r.why = format!(
                 "{} Recovered by the kicking team{}.",
