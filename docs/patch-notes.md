@@ -8,6 +8,9 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.637 (19 Nov, shipped): make the 14-year-old tendencies test deterministic (PR #576)
+**TLDR:** Make the 14-year-old tendencies test deterministic
+
 ## 0.2.636 (18 Nov, shipped): coaches answer with real specifics in live talks (PR #554)
 **TLDR:** The coaches you talk to now give real answers about their scheme and their recruiting. Ask a coordinator what he'll run, or a recruiter who he's working, and you get specifics.
 - Coordinators and candidates name their offense or defense, say how well your roster fits it, and say what it would take to switch. (PR #554)
