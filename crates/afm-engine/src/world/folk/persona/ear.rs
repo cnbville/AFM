@@ -473,6 +473,9 @@ pub struct Turn {
     /// A line to a room (`crowd`): who answered and how, who answers after,
     /// who held back, who walked out.
     pub crowd: Option<super::crowd::Turned>,
+    /// Your staff's notes under his line, never his words (a recruit firm
+    /// with another school: what might unsettle him).
+    pub notes: Vec<String>,
     /// The stat points made in a money talk and what his season says of
     /// each (negotiation item 3a), kept in `apply`.
     pub points: Vec<super::negotiate::points::Read>,
