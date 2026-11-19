@@ -47,10 +47,11 @@ fn a_first_half_sitter_comes_back_at_halftime() {
         .unwrap();
     let id = home.players[s].id;
     home.day.first_half = vec![id];
-    // A staff that pulls its starters in a decided game (`garbage`) pulls
-    // him too, so the second half counts the defense's snaps from
-    // scrimmage before his staff has pulled anyone, over a few games (one
-    // of them can be decided by halftime).
+    // Over eight games he never plays a first-half snap, and in the second
+    // half he plays the defense's snaps from scrimmage until he is hurt
+    // himself or his staff pulls its starters in a decided game (`garbage`;
+    // seed 5 here is decided by halftime, so one game alone read the score,
+    // not the rule).
     let on = |p: &PlayRecord| p.on_field.iter().any(|f| f.contains(&id));
     let defense = |p: &PlayRecord| {
         p.offense == 1
@@ -66,15 +67,17 @@ fn a_first_half_sitter_comes_back_at_halftime() {
             )
     };
     let (mut open, mut his) = (0, 0);
-    for seed in 5..9 {
+    for seed in 1..=8u64 {
         let r = crate::game::quick_game(&home, &teams[1], level, seed);
-        assert!(!r.stats.plays.iter().any(|p| p.quarter < 3 && on(p)), "he sits the first half of game {seed}");
-        for p in r.stats.plays.iter().filter(|p| p.quarter >= 3 && defense(p)) {
+        let plays = &r.stats.plays;
+        assert!(!plays.iter().any(|p| p.quarter < 3 && on(p)), "he sits the first half (seed {seed})");
+        let hurt = plays.iter().position(|p| p.injuries.iter().any(|x| x.id == id)).unwrap_or(plays.len());
+        for p in plays[..hurt].iter().filter(|p| p.quarter >= 3 && defense(p)) {
             open += 1;
             his += usize::from(on(p));
         }
     }
-    assert!(open >= 40, "only {open} second-half snaps before a staff pulled its starters");
+    assert!(open >= 100, "only {open} second-half snaps before a staff pulled its starters");
     assert!(his * 10 >= open * 9, "and starts the second: {his} of {open} snaps");
 }
 
