@@ -251,10 +251,17 @@ impl Resolving for Conversation<'_> {
         let Some(him) = across(room) else { return t };
         let mut open =
             store::open(w, self.said.scene).cloned().unwrap_or_else(|| store::Open::new(self.said.scene, room));
+        // A room (group talks, items 5 and 7): the man who answers this
+        // line, or none when a full room you asked stays quiet. The ear's
+        // reading here already reaches each man (`crowd::expand`).
+        let crowd = super::crowd::plays(room);
+        let voices = crowd.then(|| super::crowd::voices(w, scene(w, self.said.scene), room, reading, &open));
+        let him = voices.as_ref().and_then(|v| v.first).unwrap_or(him);
         // A fresh talk starts from his own patience (lower after a hot
-        // talk lately).
+        // talk lately); a room's from its men's.
         if open.lines == 0 {
-            open.patience = self.parts.feel.start(w, him);
+            open.patience =
+                if crowd { super::crowd::start(w, room, self.parts.feel) } else { self.parts.feel.start(w, him) };
         }
         let allows = channels::allows(room.channel);
         t.heat = open.heat;
@@ -546,22 +553,29 @@ impl Resolving for Conversation<'_> {
                     // Only one that has a home with him (`promise_home`): a
                     // promise to a player, to a parent about his son, or a
                     // stay or a raise to someone in your building.
+                    // Made in a room, it's to every man it covers (group
+                    // talks, item 3): one mark for the line.
                     if let Some(p) = self.said.promises.get(promise_k)
-                        && let Some(home) = promise_home(w, him, p)
+                        && (crowd || promise_home(w, him, p).is_some())
                     {
                         t.promised.push((w.folk.promises.len() + t.promised.len()) as u32);
                         // His take on it, from his belief in your word (talk
                         // replies item 2): before this the voice heard
                         // nothing and fell back on "I've heard promises
-                        // before".
-                        let (what, belief) = match home {
-                            Home::Player(pid) => talks::typed_belief(w, pid, p)
-                                .map(|(k, b)| (k.words(), b))
-                                .unwrap_or_else(|| (folk::plain(words), f64::from(trust_of(w, him)))),
-                            Home::To(_, k) => (k.words(), f64::from(trust_of(w, him))),
-                        };
-                        t.say.released.extend(promise_take(w, him, &what, belief));
-                        t.settled.push(format!("the coach promised you {what}"));
+                        // before". A room's promise is the room's to take.
+                        match promise_home(w, him, p) {
+                            Some(home) if !crowd => {
+                                let (what, belief) = match home {
+                                    Home::Player(pid) => talks::typed_belief(w, pid, p)
+                                        .map(|(k, b)| (k.words(), b))
+                                        .unwrap_or_else(|| (folk::plain(words), f64::from(trust_of(w, him)))),
+                                    Home::To(_, k) => (k.words(), f64::from(trust_of(w, him))),
+                                };
+                                t.say.released.extend(promise_take(w, him, &what, belief));
+                                t.settled.push(format!("the coach promised you {what}"));
+                            }
+                            _ => t.settled.push(format!("the coach promised the room {}", folk::plain(words))),
+                        }
                     }
                     promise_k += 1;
                 }
@@ -652,6 +666,10 @@ impl Resolving for Conversation<'_> {
                     }
                     t.asked.push((r.clone(), wl, None));
                 }
+                // To a room, a decision names no one man: "every job is
+                // open" benches nobody (group talks, the replay). A decision
+                // on one man is made with him, or on the depth chart.
+                Act::Decision(_) if crowd => {}
                 Act::Decision(d) => {
                     t.confirm.push(Confirm::Decision(*d));
                     // What he heard, to react to: his to take or to fight
@@ -663,7 +681,8 @@ impl Resolving for Conversation<'_> {
                     ));
                 }
                 Act::Threat { ultimatum, .. } => {
-                    if *ultimatum {
+                    // To a room, no one man holds the call.
+                    if *ultimatum && !crowd {
                         t.say.released.push("You've put it to him: his call.".into());
                     }
                 }
@@ -862,6 +881,11 @@ impl Resolving for Conversation<'_> {
         let opening = open.lines == 0 || (open.greeted && open.lines == 1);
         let on_table = !t.greeting
             && ((open.asking().is_some() && s.is_none_or(asked_last)) || (opening && s.is_some_and(asked_last)));
+        // A room: a man called out in front of it, and the leaders' pull
+        // (group talks, items 2 and 4), before the caps.
+        if crowd {
+            super::crowd::adjust(w, s, room, &mut t.hits);
+        }
         if reading.dodged && on_table {
             t.dodged = true;
             t.hits.push(hits::dodged(w, him));
@@ -927,7 +951,11 @@ impl Resolving for Conversation<'_> {
         let bar = if open_floor { OPEN_FLOOR_ASK } else { ASK_WEIGHT };
         if t.ends.is_none()
             && !put_to_him
-            && !in_group
+            // A man who speaks for himself in a small room, or one you gave
+            // the floor, may raise what's on his mind (group talks, items 5
+            // and 7).
+            && (!in_group
+                || voices.as_ref().is_some_and(|v| v.own && (open_floor || !super::crowd::big(room))))
             && let Some(want) = wants
                 .iter()
                 .find(|x| !x.met && x.weight >= bar && !open.raised(x.kind) && !asked_about(reading, &open, x.kind))
@@ -963,7 +991,11 @@ impl Resolving for Conversation<'_> {
         }
         // The stand-in for a lie he catches as you say it.
         let caught = t.claims.iter().filter(|(_, x)| *x == Truth::False).count();
-        t.heat = self.parts.feel.heat(w, him, &open, &t, caught);
+        t.heat = if crowd {
+            super::crowd::heat(w, room, self.parts.feel, &open, &t, caught)
+        } else {
+            self.parts.feel.heat(w, him, &open, &t, caught)
+        };
         let moved =
             t.hits.iter().enumerate().any(|(k, h)| !pushed_hits.contains(&k) && (h.trust + h.mood).abs() > 0.01);
         let progress = if moved || answered {
@@ -973,8 +1005,29 @@ impl Resolving for Conversation<'_> {
         } else {
             feel::Progress::Nowhere
         };
-        t.patience = self.parts.feel.patience(w, him, &open, &t, progress);
-        if t.ends.is_none() {
+        t.patience = if crowd {
+            super::crowd::patience(w, room, self.parts.feel, &open, &t, progress)
+        } else {
+            self.parts.feel.patience(w, him, &open, &t, progress)
+        };
+        // A room is lost when most of it is, never on one man's temper: a
+        // hothead past his point walks out alone and the meeting goes on
+        // (group talks, item 6).
+        let mut turned = super::crowd::Turned::default();
+        if crowd && t.ends.is_none() {
+            turned.walked = super::crowd::walks(w, room, self.parts.feel, &open, &t);
+            turned.walked.retain(|x| Some(*x) != voices.as_ref().and_then(|v| v.first));
+            if t.patience.0 <= 0.0 {
+                t.ends = Some(Ends::Him(None));
+                t.say.released.push("You've lost the room.".into());
+            } else if line + 1 >= allows.lines.min(MAX_LINES) || talks::hours_left(w) <= 0.0 {
+                t.ends = Some(Ends::Time);
+                t.his_asks.clear();
+            } else {
+                turned.drift = open.patience.0 > super::crowd::DRIFT && t.patience.0 <= super::crowd::DRIFT;
+            }
+        }
+        if !crowd && t.ends.is_none() {
             if let Some(b) = self.parts.feel.boil(w, him, &open, t.heat) {
                 if b == Boil::WalksOut {
                     t.ends = Some(Ends::Him(Some(b)));
@@ -995,6 +1048,26 @@ impl Resolving for Conversation<'_> {
         }
         settle_words(w, him, &mut t);
         t.speaker = channels::speaker(room, reading);
+        // A room: who answered, who answers after, who held back; no one
+        // man's tell stands for the room (group talks, items 5, 7 and 8).
+        if let Some(v) = &voices {
+            turned.own = v.own;
+            turned.held = v.held.clone();
+            turned.silent = v.first.is_none();
+            if turned.silent {
+                t.say.released.clear();
+                t.his_asks.clear();
+            } else {
+                t.speaker = Some((him, super::room::Seat::Listener));
+                // Asked in front of the whole team, the rest keep it for
+                // later: no second man stands up after the leader.
+                let floor = super::crowd::asks_room(reading) && super::crowd::big(room);
+                turned.second =
+                    super::crowd::second(w, room, &t.hits, him).filter(|x| !floor && !turned.walked.contains(x));
+            }
+            t.say.tell.clear();
+            t.crowd = Some(turned);
+        }
         if let Some(s) = s
             && s.kind == SceneKind::OneOnOne
         {
@@ -1011,7 +1084,8 @@ impl Resolving for Conversation<'_> {
                 hits::landing(him, &t.hits, &committed)
             }
         };
-        if t.say.tell.is_empty() {
+        // A room carries no one man's tell (group talks, item 8).
+        if t.say.tell.is_empty() && !crowd {
             t.say.tell = hits::tell(w, him, t.landing);
         }
         let _ = facts;
@@ -1023,6 +1097,9 @@ impl Resolving for Conversation<'_> {
         let Some(s) = scene(w, id).cloned() else { return };
         let room = store::room(w, id).unwrap_or_else(|| channels::room_for(w, &s));
         let Some(him) = across(&room) else { return };
+        // A room: the man who answered this line (group talks, item 5).
+        let crowd = super::crowd::plays(&room);
+        let him = if crowd { t.speaker.map_or(him, |x| x.0) } else { him };
         let facet = Facet::of(&s);
         let wants = self.parts.wanting.wants(w, him);
         // What a recruit's talk held before the line (lane 10: a claim he
@@ -1106,7 +1183,23 @@ impl Resolving for Conversation<'_> {
         // (a recruit's through the recruiting desk, above): to a player, to
         // a parent about his son, a stay or a raise to someone in your
         // building (`promise_home`).
-        if facet == Facet::Other {
+        if facet == Facet::Other && crowd {
+            // Made in a room, a promise is to every man it covers: the man
+            // or the group you named, else everyone (group talks, item 3).
+            for p in &self.said.promises {
+                let mut p = p.clone();
+                if p.kind != "ahead_of" {
+                    p.against = None;
+                }
+                for x in super::crowd::covers(w, &room, p.to, &p.kind, him) {
+                    match promise_home(w, x, &p) {
+                        Some(Home::Player(pid)) => talks::typed_promise(w, id, pid, &p),
+                        Some(Home::To(to, kind)) => talks::promise(w, to, kind, 0),
+                        None => {}
+                    }
+                }
+            }
+        } else if facet == Facet::Other {
             for p in self.said.promises.iter().chain(standing.iter()) {
                 match promise_home(w, him, p) {
                     Some(Home::Player(pid)) => talks::typed_promise(w, id, pid, p),
@@ -1237,6 +1330,16 @@ impl Resolving for Conversation<'_> {
             Line { you: self.said.words.clone(), reading: self.said.reading.clone(), his: String::new() },
         );
         store::advance(w, id, &room, t, &self.said, point);
+        // A room: the men who walked out leave it, and a man who held back
+        // asks to see you tomorrow (group talks, items 6 and 7).
+        if let Some(c) = &t.crowd {
+            if !c.walked.is_empty()
+                && let Some(o) = w.folk.live.persona.open.iter_mut().find(|o| o.scene == id)
+            {
+                o.room.present.retain(|p| !c.walked.contains(&p.who));
+            }
+            super::crowd::held(w, &c.held);
+        }
         // The promises this line made stay "earlier in this talk" on his
         // card, out of his history with you, until the talk ends (item 5).
         let made_to = w.folk.promises.len();
@@ -1758,7 +1861,7 @@ pub fn reply(w: &mut World, id: u32, words: &str, by: Option<Them>, tell: Option
     }
     let today = w.today;
     let m = &mut w.folk.live.persona;
-    store::his_words(m, him, s.date, &words);
+    store::his_words(m, by.unwrap_or(him), s.date, &words);
     if let Some(c) = colour {
         store::note(m, him, today, c);
     }

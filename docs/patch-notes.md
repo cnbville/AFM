@@ -8,6 +8,13 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.638 (19 Nov, shipped): a rotating defensive line and real weather (PR #568)
+**TLDR:** Defensive tackles now rotate like a real NFL line, and rain and strong wind hurt the passing game as much as they really do.
+- Staffs rotate their tackles in waves. A star still plays most snaps, while a room of equals shares them. (PR #568)
+- Rain makes long throws much harder to complete than short ones. (PR #568)
+- A light breeze barely matters, but a 15-20 mph wind cuts passing the way it does in real games. (PR #568)
+- Look at: a rainy or windy game's passing line, and your tackles' snap counts in the box score. (PR #568)
+
 ## 0.2.637 (19 Nov, shipped): make the 14-year-old tendencies test deterministic (PR #576)
 **TLDR:** Make the 14-year-old tendencies test deterministic
 
