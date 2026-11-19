@@ -406,6 +406,11 @@ pub struct Scene {
     /// stop).
     #[serde(default)]
     pub minute: Option<u16>,
+    /// The moment the scene was added. A meeting born in a step isn't
+    /// handed to your staff by that same step's end-of-day sweep
+    /// (`scene::day`): you get the day to hold it first.
+    #[serde(default)]
+    pub born: Option<crate::calendar::Moment>,
     /// The options behind "bring up something else" (talk facts design,
     /// section 14): a talk shows a few answers at a time and keeps the
     /// rest here, so a typed line can reach every one of them.
@@ -446,6 +451,7 @@ impl Scene {
             f: [0.0; 4],
             team: None,
             minute: None,
+            born: None,
             reach: Vec::new(),
             made: Vec::new(),
             heard: None,
@@ -514,6 +520,7 @@ pub fn add(w: &mut World, mut s: Scene) -> u32 {
     w.folk.next_scene += 1;
     s.id = w.folk.next_scene;
     s.team = s.team.or(Team::seat(w));
+    s.born = Some(w.calendar.now.map_or_else(|| w.now(), |(_, m)| m));
     if s.minute.is_none() {
         s.minute = hour_in(&s.place).or_else(|| default_hour(w, &s));
     }
@@ -858,9 +865,16 @@ pub(crate) fn day(w: &mut World, d: Date) {
     // hours at the latest.
     let now = crate::calendar::zone::moment(d, super::super::clock::hour::OFFICE);
     let z = w.seat_zone();
-    let due = |s: &Scene| match s.minute {
-        Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
-        _ => s.date <= d,
+    // A scene born in this very step (the desk's family call, made at the
+    // same office hour) is yours for the day: it can't have waited.
+    let due = |s: &Scene| {
+        if s.born.is_some_and(|b| b >= now) {
+            return false;
+        }
+        match s.minute {
+            Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
+            _ => s.date <= d,
+        }
     };
     let late: Vec<u32> = w
         .folk
