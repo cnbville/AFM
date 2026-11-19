@@ -21,6 +21,7 @@ pub(crate) mod chemistry;
 pub(crate) mod clock;
 pub use clock::portal_windows_for;
 pub mod coach;
+mod coach_form;
 pub(crate) mod college;
 pub mod craft_work;
 pub mod data;
@@ -796,8 +797,9 @@ pub struct Alumnus {
     pub gpa_at_signing: Option<f64>,
     /// His college coaches each season: (year, program, head coach, position coach).
     pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
-    /// The full player as he left, kept for drafted players and blue-chips (trial player pages).
-    pub player: Option<Box<crate::player::Player>>,
+    /// The full player as he left, kept for drafted players and blue-chips
+    /// (trial player pages), packed with his id at hand (memory diet item 3).
+    pub player: Option<crate::world::stored::KeptPlayer>,
     /// His pro career, written when he retires (section 5).
     pub pro: Option<Box<pro::ProCareer>>,
 }
@@ -841,7 +843,7 @@ impl Alumnus {
             nfl_team: None,
             gpa_at_signing: p.gpa_at_signing,
             college_staff: p.college_staff.clone(),
-            player: (pick.is_some() || p.stars >= 4).then(|| Box::new(p.player.clone())),
+            player: (pick.is_some() || p.stars >= 4).then(|| crate::world::stored::KeptPlayer::new(&p.player)),
             pro: None,
         }
     }
@@ -2327,6 +2329,11 @@ impl World {
         self.announcements.clear();
         pro::remap_people(self, &map);
         pro::rebuild(self);
+        // Retired coaches never come back: their working part goes (memory
+        // diet item 9); their record, history and tree stay.
+        for c in self.coaches.iter_mut() {
+            c.retire_work();
+        }
     }
 
     /// First-year dip for a step up (shared with the career model).

@@ -145,6 +145,10 @@ fn main() {
         weigh(g.world.as_mut().expect("world"));
         return;
     }
+    if weigh_at == "parts" {
+        parts(g.world.as_mut().expect("world"));
+        return;
+    }
     g.call("start_career", &json!({ "job": { "kind": kind, "id": id }, "seed": 7 })).expect("start");
     line("career started", &t);
     let year = g.world.as_ref().expect("world").today.parts().0;
@@ -224,6 +228,79 @@ fn main() {
     kept_parts(g.world.as_ref().expect("world"));
     if weigh_at == "end" {
         weigh(g.world.as_mut().expect("world"));
+    }
+    if weigh_at == "endparts" {
+        parts(g.world.as_mut().expect("world"));
+    }
+}
+
+/// The memory diet's lane M2 parts (items 3, 6, 9, 10), each weighed by
+/// dropping it: men who left football, retired coaches, the alumni's parts
+/// and the tallies' open stores.
+fn parts(w: &mut World) {
+    use afm_engine::world::Stage;
+    let done = w.people.iter().filter(|p| p.stage == Stage::Done).count();
+    let retired = w.coaches.iter().filter(|c| c.retired).count();
+    println!(
+        "  left football {done} ({} B inline each), retired coaches {retired} of {} ({} B inline each), alumni {} ({} B inline), pro seasons {} B",
+        std::mem::size_of::<afm_engine::world::Person>(),
+        w.coaches.len(),
+        std::mem::size_of::<afm_engine::world::coach::Coach>(),
+        w.alumni.len(),
+        std::mem::size_of::<afm_engine::world::Alumnus>(),
+        std::mem::size_of::<afm_engine::world::pro::ProSeason>(),
+    );
+    let mut rows: Vec<(String, f64)> = Vec::new();
+    let mut take = |name: &str, w: &mut World, f: &dyn Fn(&mut World)| {
+        let before = heap_gb();
+        f(w);
+        rows.push((name.to_string(), before - heap_gb()));
+    };
+    let gone = |p: &afm_engine::world::Person| p.stage == Stage::Done;
+    take("left: season rows", w, &|w| {
+        w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.player.history = Vec::new())
+    });
+    take("left: hs lines", w, &|w| w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.hs_lines = Vec::new()));
+    take("left: notes", w, &|w| w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.notes = Vec::new()));
+    take("left: college part", w, &|w| {
+        w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.later = Default::default())
+    });
+    take("left: calendar rest", w, &|w| {
+        w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.cal.more = Default::default())
+    });
+    take("left: pro careers", w, &|w| w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.pro = None));
+    take("left: tests", w, &|w| w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.tests = Default::default()));
+    take("retired coaches: history", w, &|w| {
+        w.coaches.iter_mut().filter(|c| c.retired).for_each(|c| c.history = Vec::new())
+    });
+    take("retired coaches: ties", w, &|w| {
+        w.coaches.iter_mut().filter(|c| c.retired).for_each(|c| c.ties = Default::default())
+    });
+    take("retired coaches: recent", w, &|w| {
+        w.coaches.iter_mut().filter(|c| c.retired).for_each(|c| c.recent = Vec::new())
+    });
+    take("alumni: pro playoffs", w, &|w| {
+        w.alumni.iter_mut().filter_map(|a| a.pro.as_mut()).for_each(|c| c.seasons.iter_mut().for_each(|s| s.playoffs = None))
+    });
+    take("alumni: pro careers", w, &|w| w.alumni.iter_mut().for_each(|a| a.pro = None));
+    take("alumni: players", w, &|w| w.alumni.iter_mut().for_each(|a| a.player = None));
+    take("alumni: notes and summaries", w, &|w| {
+        w.alumni.iter_mut().for_each(|a| {
+            a.notes = Vec::new();
+            a.background_summary = String::new();
+        })
+    });
+    take("tallies: players", w, &|w| w.tallies.players = Default::default());
+    take("tallies: teams", w, &|w| w.tallies.teams = Default::default());
+    take("tallies: squads", w, &|w| w.tallies.squads = Default::default());
+    take("tallies: calls", w, &|w| w.tallies.calls = Default::default());
+    take("tallies: prospects", w, &|w| w.tallies.prospects = Default::default());
+    take("tallies: classes", w, &|w| w.tallies.classes = Default::default());
+    take("tallies: moves", w, &|w| w.tallies.moves = Default::default());
+    take("tallies: games", w, &|w| w.tallies.games = Default::default());
+    println!("\n| part | MB |\n|---|---|");
+    for (name, gb) in &rows {
+        println!("| {name} | {:.1} |", gb * 1000.0);
     }
 }
 

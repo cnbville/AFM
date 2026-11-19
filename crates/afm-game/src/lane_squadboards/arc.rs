@@ -138,10 +138,11 @@ fn alikes(w: &World, pos: Position, age: u32, tier: u8, at: f64, me: u32) -> Vec
     };
     let live = live_pros(w);
     for a in &w.alumni {
-        let Some(pl) = a.player.as_ref() else { continue };
+        let Some(kept) = a.player.as_ref() else { continue };
         if a.position != pos || live.contains(&(a.name.as_str(), a.class_of)) {
             continue;
         }
+        let pl = kept.get();
         let draft = a
             .pro
             .as_ref()

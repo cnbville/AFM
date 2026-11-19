@@ -201,14 +201,15 @@ fn drafted_pool(w: &World, pos: Position) -> Vec<Past> {
     // A man playing now is read from his live record below.
     let live = super::arc::live_pros(w);
     for a in &w.alumni {
-        let (Some(pl), Some(pick)) = (a.player.as_ref(), a.pick) else { continue };
+        let (Some(kept), Some(pick)) = (a.player.as_ref(), a.pick) else { continue };
         if a.position != pos || live.contains(&(a.name.as_str(), a.class_of)) {
             continue;
         }
-        let c = afm_engine::body::combine(pl, &mut afm_engine::rng::Rng::new(pl.id ^ 0x00C0_FFEE));
+        let pl = kept.get();
+        let c = afm_engine::body::combine(&pl, &mut afm_engine::rng::Rng::new(pl.id ^ 0x00C0_FFEE));
         let round = a.pro.as_ref().and_then(|c| c.draft).map(|d| d.1);
         out.push(Past {
-            vals: values(pl, &c),
+            vals: values(&pl, &c),
             name: a.name.clone(),
             id: None,
             school: a.colleges.last().map_or(String::new(), |&c| w.program_name(c).to_string()),

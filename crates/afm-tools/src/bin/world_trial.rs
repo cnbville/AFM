@@ -1607,7 +1607,7 @@ fn trial1_notes(w: &World, years: u32) {
         let (mut h, mut wt, mut f, mut v) = (0.0, 0.0, 0.0, 0.0);
         let (mut be, mut br, mut co, mut sh) = (0.0, 0.0, 0.0, 0.0);
         for a in &sel {
-            let p = a.player.as_ref().unwrap();
+            let p = &a.player.as_ref().unwrap().get();
             let b = afm_engine::body::body_now(p);
             let mut rng = afm_engine::rng::Rng::new(p.id ^ 0xC0B1);
             let c = afm_engine::body::combine(p, &mut rng);

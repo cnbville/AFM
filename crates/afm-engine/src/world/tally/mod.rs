@@ -302,7 +302,7 @@ impl World {
         let mut files: Vec<(&'static str, Vec<u8>)> = Vec::new();
         let mut f = file::Frames::new(file::LEVEL_CLOSE);
         for (k, s) in self.tallies.players.rows() {
-            f.push(k, &file::encode(s));
+            f.push(k, &file::encode(&*s));
         }
         files.push(("players", f.file_bytes("players", season)));
         // The latest games kept for the charting delay are the open
@@ -522,7 +522,7 @@ impl World {
     /// A player's season at a level.
     pub fn tally_player(&self, level: Level, season: i32, id: u32) -> Option<players::Season> {
         if season == self.tallies.season {
-            return self.tallies.players.get(level, id).cloned();
+            return self.tallies.players.get(level, id).map(|s| s.into_owned());
         }
         let mut out = None;
         let _ = self.tally_get("players", season, &[players::key(level, id)], |_, r| out = file::decode(r));
@@ -533,7 +533,7 @@ impl World {
     pub fn tally_players(&self, season: i32, mut f: impl FnMut(&players::Season)) {
         if season == self.tallies.season {
             for (_, s) in self.tallies.players.rows() {
-                f(s);
+                f(&s);
             }
             return;
         }
