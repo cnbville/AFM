@@ -1525,6 +1525,27 @@ The coaches' call table (`call_values 2000`, 2,000 snaps a cell, main and after)
 
 Speed: the same within noise. Back to back on the same machine over main 4b7fb86 (main, then the branch, twice at each level, `AFM_GAPS=1`, 4 cores), the NFL took 9.2 and 9.2 ms a game on main against 9.2 and 9.3 after, FBS 10.3 and 9.8 against 10.2 and 10.0, and high school 6.9 and 7.4 against 6.9 and 7.0. Before main's SF1 merge it was 9.0 and 9.0 against 8.9 and 9.1 at the NFL, 9.6 and 9.3 against 9.6 and 9.4 at FBS, and 6.7 and 6.9 against 6.7 and 7.0 in high school.
 
+Measured again over main 590101e (with engine gaps items 29 and 30, the inside line's rotation and the weather's size, which merged first), the same games and seeds:
+
+| NFL, a team game | main | after | real |
+|---|---|---|---|
+| accepted penalties on scrimmage plays | 5.59 | 5.01 | 5.24 |
+| their yards | 48.1 | 40.4 | 42.6 |
+| pass interference, accepted (flagged) | 0.361 (0.665) | 0.579 (0.618) | 0.497 (0.561) |
+| the same, yards an accepted one | 12.2 | 14.3 | 15.8 |
+| ineligible man downfield | 0.344 | 0.055 | 0.106 |
+| illegal block in the back | 0.284 | 0.030 | 0.031 |
+| unnecessary roughness; yards an accepted one | 0.436; 19.7 | 0.261; 13.2 | 0.271; 13.1 |
+| points, seeds 1-4 | 25.80, 26.62, 26.04, 24.77 | 26.55, 27.37, 26.67, 25.52 | 22.51 |
+| sacks; third downs converted (seed 1) | 1.64; 43.0% | 1.51; 43.4% | 2.41; 39.8% |
+
+- Every kind of foul moves 0.05 a team game or less from the runs over 4b7fb86 (0.03 or less at the NFL and FBS), at each level and on main and the branch alike, so the tables and counts above stand.
+- EG5 adds 0.63-0.76 points a team game at the NFL over the four seeds (0.39-0.71 over 4b7fb86), and accepted penalties on scrimmage plays come to 4.96-5.09 (real 5.24).
+- FBS: accepted penalties 6.70 to 5.78 a team game (seeds 2 and 3 after: 5.75 and 5.92), their yards 54.9 to 47.3, points 24.2 to 25.5 (+0.96 to +1.32 over seeds 1-3; real 27.0), and targeting 0.046, 0.032 and 0.038 on seeds 1-3, 0.039 on average (main 0.041, 0.039 and 0.041; real 0.031-0.043).
+- High school: accepted penalties 6.15 to 5.01 and their yards 48.7 to 41.7; points 19.1 to 20.2.
+- The call table: EG5 moves it as it did over 4b7fb86 (run cells -0.005 on average with a spread of 0.18, pass cells -0.16 with a spread of 1.15), so it stays. The analysts' tables are refitted again on this merge (`decide_fit -- 1500 1`).
+- Speed, back to back on another machine (main, then the branch, twice at each level): the NFL 6.4 and 6.4 ms a game on main against 6.4 and 6.7 after, FBS 6.8 and 6.7 against 6.7 and 6.9, high school 4.7 and 4.7 against 4.9 and 4.7.
+
 Tried and dropped (seed 1):
 
 - **A flat chance to back up a punt** (0.32 a punt from the 30-50): it backed up from the 48 as often as from the 31, where real coaches do it half the time from the 30-35 and one time in twenty from the 46-50.
