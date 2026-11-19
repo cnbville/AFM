@@ -100,7 +100,13 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **The voice still makes up details of his own life** (low). A high school coach interviewing for a coordinator's job talked of building "a defense" and of his wife's folks in Columbia, none of it on his card. The rules forbid it; Haiku still does it now and then. Same thread.
 - **Money said as "eleven hundred thousand" or "eight-hundred" is cut** (low). The filter reads spoken money only as the leading digits ("two-eight", "eight-fifty", `filter::numbers`), so other spoken forms of a figure the card holds drop the sentence. Same thread.
 
+- **The ear read a promise about an alum's visit as an official visit invite** (high). "I'll make sure Christian Shipman Jr. comes for a visit in July so he can work with you" came back as `Act::Invite(Visit)`, so the recruit answered an official visit nobody offered (Cain 2026-11-18). For the ear fix thread. Thread "Make recruits' words match their visit choice".
+- **"I'll show you the film" on a call gets "I can't show you that from here"** (medium). The ear reads an offer to show film later as a show-now act, and the call's channel refuses it, though the coach meant sending it. For the ear fix thread. Same thread.
+- **"He gives you nothing either way" under a warm reply** (medium). The read under his line comes from the line's hits (`hits::tell`), not the words the voice gave him, so a warm "that's exactly what I'm looking for" can carry a flat read. For the ear fix thread. Same thread.
+- **A visit asked in the same line as a point is answered before the point lands** (low). `recruit::turn` reads his answer before `apply` lands the line's point on your case, so "great fit for you, come visit" answers on the case as it stood. Make the point, then ask. Same thread.
+
 ## UI
 
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
 - **No pecking order for high school or NFL seats** (medium). The tab row reads "Your seat" for them (CS6), but nothing ranks a district's or an owner's rooms. Same thread.
+- **A firm commit shows only when you ask him to visit** (medium). Your board and his page don't say whether a recruit committed elsewhere would hear you out, so you learn he's firm only from a no (the staff's read then says what might unsettle him). Same thread.
