@@ -131,7 +131,7 @@ fn successors(w: &mut World, prog: usize, d: Date) {
             if !(sat_in || told) {
                 continue;
             }
-            let start = standing::derived(w, new, holder);
+            let start = standing::base(w, new, holder);
             let m = standing::entry(&mut w.ground, start, new, holder, d);
             if m.points < Level::Known.floor() {
                 m.points = Level::Known.floor();

@@ -739,7 +739,7 @@ fn told_coach(w: &mut World, i: usize, name: &str, d: Date) {
     let Some(you) = w.career.as_ref().map(|c| c.coach) else { return };
     let Some(coach) = people::head_coach_of(w, w.people[i].hs) else { return };
     let holder = Holder::Coach(you as u32);
-    let start = standing::derived(w, coach, holder);
+    let start = standing::base(w, coach, holder);
     let m = standing::entry(&mut w.ground, start, coach, holder, d);
     let by = 3.0;
     standing::gain(m, by, d);

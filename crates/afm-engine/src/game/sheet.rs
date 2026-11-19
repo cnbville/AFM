@@ -23,7 +23,9 @@
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use super::calling::Situation;
-use super::playbook::{Coverage, DefCall, DefPersonnel, OffCall, PlayKind, Pressure, Stunt, pass_concept};
+use super::playbook::{
+    Coverage, DefCall, DefPersonnel, OffCall, PlayKind, Pressure, Set, Stunt, pass_concept, takes_fake,
+};
 use super::roster::{DefSheetCall, Prep, SheetCall};
 use crate::rng::Rng;
 
@@ -277,7 +279,24 @@ fn same_play(x: PlayKind, k: PlayKind) -> bool {
     }
 }
 
-fn to_call(own: &OffCall, x: SheetCall, why: &'static str) -> OffCall {
+/// Whether the sheet's throw comes off a run fake (scheme-fit item 3): the
+/// sheet names the play, and the fake is the play caller's on the snap, as
+/// on any throw. His own call's when it was a throw; else, for a throw that
+/// can carry it, his habit here (`fake`, his chance of a fake on a throw,
+/// `calling::throw_fake_chance`). Taking the fake of the call it replaced,
+/// which a run never has, made the opening script's throws fake half as
+/// often as his own (this lane's first build): NFL play action came to
+/// 16.3% of dropbacks (real 21.2%), 20.6% with no sheets; 19.8% with this
+/// (`match_check nfl 2000`).
+fn faked(own: &OffCall, x: &SheetCall, fake: f64, rng: &mut Rng) -> bool {
+    match (own.kind, x.3) {
+        (PlayKind::Pass(_), _) => own.play_action(),
+        (_, PlayKind::Pass(i)) if takes_fake(pass_concept(i)) && x.2 != Set::Empty => rng.chance(fake),
+        _ => false,
+    }
+}
+
+fn to_call(own: &OffCall, x: SheetCall, why: &'static str, fake: bool) -> OffCall {
     let (pers, back, set, kind) = x;
     let mut f = own.formation;
     f.personnel = pers;
@@ -290,6 +309,8 @@ fn to_call(own: &OffCall, x: SheetCall, why: &'static str) -> OffCall {
         _ => kind,
     };
     let mut c = OffCall::new(f, kind, own.dir, own.tempo);
+    // The run fake goes with a throw that can carry it (scheme-fit item 3).
+    c.fake = fake && f.set != Set::Empty && matches!(kind, PlayKind::Pass(i) if takes_fake(pass_concept(i)));
     // The quarterback's kill call stays with the call: the other kind of
     // play, his to pick at the line.
     c.alt = own.alt.filter(|a| runs(*a) != runs(kind));
@@ -298,12 +319,15 @@ fn to_call(own: &OffCall, x: SheetCall, why: &'static str) -> OffCall {
 }
 
 /// The offense's call from the sheet for this snap (None: the play
-/// caller's own call stands), and whether it was the script's. `redraw`
-/// is the play caller thinking the snap over (his own call again).
+/// caller's own call stands), and whether it was the script's. `fake` is
+/// his chance of a run fake on a throw here (`calling::throw_fake_chance`),
+/// and `redraw` the play caller thinking the snap over (his own call
+/// again).
 pub fn off_call(
     card: &Card,
     sit: &Situation,
     own: &OffCall,
+    fake: f64,
     ctx: Ctx,
     rng: &mut Rng,
     mut redraw: impl FnMut(&mut Rng) -> OffCall,
@@ -321,7 +345,9 @@ pub fn off_call(
         && !ctx.two_point
         && !ctx.forced;
     if normal && ctx.scripted < script.len() && ctx.scripted < 20 {
-        return Some((to_call(own, script[ctx.scripted], "the opening script"), true));
+        let x = script[ctx.scripted];
+        let f = faked(own, &x, fake, rng);
+        return Some((to_call(own, x, "the opening script", f), true));
     }
     // A shot play (G9): on second and short in the middle of the field, now
     // and then on first down there; never when the clock or the score says
@@ -336,7 +362,8 @@ pub fn off_call(
         };
         if p > 0.0 && !runs(own.kind) && rng.chance(p) {
             let i = ordered(&shots, rng);
-            return Some((to_call(own, shots[i], "a shot play off the call sheet"), false));
+            let f = faked(own, &shots[i], fake, rng);
+            return Some((to_call(own, shots[i], "a shot play off the call sheet", f), false));
         }
     }
     for k in boxes(sit, ctx.two_point) {
@@ -375,7 +402,8 @@ pub fn off_call(
         }
         found(2);
         let i = closest(&pool, |x| likeness(x, own), rng);
-        return Some((to_call(own, pool[i], "on the call sheet"), false));
+        let f = faked(own, &pool[i], fake, rng);
+        return Some((to_call(own, pool[i], "on the call sheet", f), false));
     }
     None
 }

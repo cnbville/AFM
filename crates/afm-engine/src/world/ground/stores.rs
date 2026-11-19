@@ -61,7 +61,7 @@ pub(crate) fn sync(w: &mut World) {
         let Some(who) = ground_who(w, &w.folk.network.contacts[k]) else { continue };
         let x = w.folk.network.contacts[k].clone();
         let words = new_favors(w, &x);
-        let start = standing::derived(w, who, yh);
+        let start = standing::base(w, who, yh);
         let m = standing::entry(&mut w.ground, start, who, yh, d);
         match m.seen {
             None => {

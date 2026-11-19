@@ -35,6 +35,13 @@ pub const ASK_ABOUT: usize = 3;
 pub fn is_group(s: &Scene) -> bool {
     matches!(s.kind, Kind::TeamTalk | Kind::TeamMeeting | Kind::Council | Kind::PositionRoom)
         || super::super::meetings::is_group(s)
+        || holdover_room(s)
+}
+
+/// The takeover's meeting with the whole holdover staff (Cain 2026-11-17:
+/// it had nobody in it, and one nameless "he" answered for the room).
+pub fn holdover_room(s: &Scene) -> bool {
+    s.kind == Kind::Holdover && s.a == u64::MAX
 }
 
 /// The council's members on the roster: your leadership council, else the
@@ -85,6 +92,10 @@ pub fn room(w: &World, s: &Scene) -> Option<Room> {
     // The captains, the parents, the feeder coaches (the older meetings).
     if super::super::meetings::is_group(s) {
         return super::super::meetings::room(w, s);
+    }
+    // The holdover staff, each coach himself.
+    if holdover_room(s) {
+        return super::super::coaching::holdover_room(w);
     }
     let team = s.team.or(Team::seat(w))?;
     let room_men = in_room(w, team);
@@ -222,6 +233,7 @@ pub fn read_of(w: &World, members: &[usize], pool: &[usize]) -> Vec<(Option<Stri
             interest: 0.0,
             room: 1.0,
             pushed: 0,
+            stung: false,
         };
         let told = People.tell(w, who, &known, &parts);
         let name = w.people[m].name.clone();
