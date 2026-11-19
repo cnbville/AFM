@@ -341,6 +341,8 @@ pub fn confirm(w: &mut World, id: u32, him: Them, c: &Confirm) -> Option<Vec<Str
     match c {
         Confirm::Offer(o) => deals::agree(w, id, him, o),
         Confirm::Request(r) => asks::run(w, him, r).map(|r| r.done),
+        // An ask you put to someone else in the room runs on him.
+        Confirm::RequestOf(doer, r) => asks::run(w, *doer, r).map(|r| r.done),
         Confirm::Decision(super::terms::Decision::CoachLetGo) => {
             let Them::Coach(c) = him else { return None };
             if !asks::on_your_staff(w, c) {

@@ -497,7 +497,7 @@ fn a_typed_money_ask_to_your_boss_is_weighed_as_said() {
 fn the_ear_reads_your_manner_and_the_voice_hears_how_he_took_it() {
     let schema = super::super::ear::schema();
     assert!(schema["required"].as_array().unwrap().iter().any(|x| x == "manner"), "{schema}");
-    assert!(super::super::ear::EAR_RULES.contains("manner: how the coach said the line"));
+    assert!(super::super::ear::EAR_RULES.contains("MANNER: how the coach said the line"));
     let (mut g, f, him) = game("manner", true);
     let f = f.unwrap();
     let id = talk(&mut g, him, "role");

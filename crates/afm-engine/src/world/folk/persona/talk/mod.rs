@@ -704,6 +704,27 @@ impl Resolving for Conversation<'_> {
                 }
             }
         }
+        // Asks put to someone else in the room by name (ear audit item 4):
+        // weighed and answered by that man, never by the man across ("Gil,
+        // find out what his old coach thinks of his work ethic", to your
+        // scout in a prospect's interview). The man across only hears you
+        // ask; the answer is the other man's, on the scene (`apply`). One
+        // who isn't in the room is asked nothing.
+        for (doer, r) in &reading.asks_of {
+            if !room.present.iter().any(|p| p.who == *doer) {
+                continue;
+            }
+            let wl = self.parts.acting.willing(w, *doer, r);
+            if wl == Willing::Yes && super::asks::costs_you(r) {
+                t.confirm.push(Confirm::RequestOf(*doer, r.clone()));
+            }
+            t.say.heard.push(format!(
+                "He hears you ask {} to {}",
+                folk::plain(&channels::name(w, *doer)),
+                super::asks::request_words(r)
+            ));
+            t.asked_of.push((*doer, r.clone(), wl));
+        }
         // Every hit on every listener, sized (question 1), then held inside
         // today's caps per person.
         let line = open.lines;
@@ -780,7 +801,11 @@ impl Resolving for Conversation<'_> {
         // owes the answer if he asks it again; one hello, not a string of
         // them. A goodbye the game held back to ask about first still made
         // its act (`Reading::wrapped`): it can dodge his question.
-        t.greeting = open.lines == 0 && reading.acts.is_empty() && !reading.wrapped && sized.is_empty();
+        t.greeting = open.lines == 0
+            && reading.acts.is_empty()
+            && reading.asks_of.is_empty()
+            && !reading.wrapped
+            && sized.is_empty();
         let opening = open.lines == 0 || (open.greeted && open.lines == 1);
         let on_table = !t.greeting
             && ((open.asking().is_some() && s.is_none_or(asked_last)) || (opening && s.is_some_and(asked_last)));
@@ -1086,6 +1111,19 @@ impl Resolving for Conversation<'_> {
                 }
             }
         }
+        // An ask put to someone else in the room: his answer, and what he
+        // agreed to that costs you nothing runs now (ear audit item 4).
+        for (doer, r, wl) in &t.asked_of {
+            let mut lines = vec![asked_of_words(&folk::plain(&channels::name(w, *doer)), wl)];
+            if *wl == Willing::Yes && !super::asks::costs_you(r) {
+                lines.extend(self.parts.acting.run(w, *doer, r).done);
+            }
+            if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+                for l in lines {
+                    sc.narrate(l);
+                }
+            }
+        }
         let today = w.today;
         let m = &mut w.folk.live.persona;
         m.his_lies.extend(t.lies.iter().cloned());
@@ -1109,6 +1147,9 @@ impl Resolving for Conversation<'_> {
                 Act::Request(_) => store::treat(m, him, Treated::Asked, today),
                 _ => {}
             }
+        }
+        for (doer, _, _) in &t.asked_of {
+            store::treat(m, *doer, Treated::Asked, today);
         }
         // Only a dodge the game counted (his own last line asked).
         if t.dodged {
@@ -1252,6 +1293,18 @@ fn want_topics(k: WantKind) -> &'static [Topic] {
         WantKind::Role => &[Topic::Wants, Topic::Job],
         WantKind::Draft => &[Topic::Market, Topic::ScoutFile],
         _ => &[],
+    }
+}
+
+/// The answer of a man you asked by name in front of the man across, as
+/// the scene shows it (ear audit item 4). His terms are his to raise with
+/// you himself, never the man across's counter.
+pub fn asked_of_words(name: &str, wl: &Willing) -> String {
+    match wl {
+        Willing::Yes => format!("{name} will do it."),
+        Willing::If(_) => format!("{name} wants something back for that first."),
+        Willing::Later(d) => format!("{name} will let you know by {d}."),
+        Willing::No => format!("{name} won't do that."),
     }
 }
 
