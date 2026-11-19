@@ -66,6 +66,7 @@ pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
 }
 pub mod departments;
 pub mod people;
+mod person_form;
 pub mod plans;
 pub(crate) mod polls;
 pub mod power;
@@ -86,6 +87,7 @@ pub mod sections;
 pub mod staff;
 pub mod staff_read;
 pub mod stay_read;
+pub mod stored;
 pub mod stories;
 pub mod storylines;
 pub mod systems;
@@ -241,7 +243,8 @@ pub struct Reps {
     pub share: f32,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
+#[serde(from = "crate::world::person_form::file::Person")]
 pub struct Person {
     pub name: String,
     pub ethnicity: ethnicity::Ethnicity,
@@ -258,21 +261,17 @@ pub struct Person {
     /// His date of birth (A1): every age the game shows counts from it. A
     /// class runs from September to August birthdays; a boy born a year
     /// before his class was held back (A2, `calendar::born`).
-    #[serde(default = "crate::calendar::born::unknown")]
     pub born: crate::calendar::Date,
     /// Social media followers, all platforms (`fame`): public, they grow
     /// with fame and Aura from the late 2000s.
-    #[serde(default)]
     pub followers: u32,
     /// His following as a share of his high school class's biggest, 0-1
     /// (`following::class_tops`, set at the year's book): how much a
     /// program's brand exposure weighs in his pick (GR45). 0 out of high
     /// school.
-    #[serde(default)]
     pub spotlight: f32,
     /// His yearly money from ads, brand NIL deals and endorsements, in
     /// dollars (`fame::brand_money`), last set at the year's book.
-    #[serde(default)]
     pub brand: f32,
     /// The recruiting services' stars (their latest rating). They rate
     /// kickers, punters and long snappers 3 stars at most.
@@ -284,51 +283,27 @@ pub struct Person {
     /// `ethnicity::SNAPPER_TOP` or above): his race odds were drawn at his
     /// own position, never a snapper's, so the camps never make him a long
     /// snapper (A25). False in older saves.
-    #[serde(default)]
     pub(crate) regular_talent: bool,
     /// Hidden visibility to college recruiters, 0-1 (topic 4).
     pub(crate) visibility: f64,
-    pub college_seasons: u32,
-    pub redshirt_used: bool,
+    /// His college-and-later part (`Later`), kept only once he uses it; read
+    /// and written as his own fields through `Deref`.
+    pub later: crate::world::stored::Stored<Later>,
     /// Share of next season he must sit after a high school transfer.
     pub sit_out: f64,
-    /// Signed where his parent or handler wanted, not where he wanted (topic 5).
-    pub steered: bool,
-    pub nil_income: f64,
-    pub pending_dip: Option<f64>,
     pub last_role: Option<PlayingTime>,
     /// His high school seasons' stat lines, from the seasons played on the
     /// match engine (section 8, choice 2).
     pub hs_lines: Vec<hs_year::HsLine>,
-    /// Offensive and defensive snaps in his last college season and in his
-    /// whole college career (dynasty item 3: backups' garbage-time snaps
-    /// count as game experience).
-    pub last_snaps: u32,
-    pub college_snaps: u32,
     /// His last season's game reps on the engine, for his next step (minor
     /// bug 247). None after a season on the stand-in, a planned redshirt or
     /// sit-out year, or at a kicking spot: then his depth chart role decides.
-    #[serde(default)]
     pub reps: Option<Reps>,
-    pub last_performance: Option<f64>,
-    pub transfers: u32,
-    pub juco: bool,
-    /// Every college he played for, in order.
-    pub path: Vec<usize>,
+    pub last_performance: crate::player::OptF64,
     /// A dismissal or suspension at his current school.
     pub on_notice: bool,
     /// How his grades move each high school year (hidden), GPA points.
     pub(crate) gpa_trend: f64,
-    /// Core GPA when he signed out of high school (note 6).
-    pub gpa_at_signing: Option<f64>,
-    /// Signed as an academic redshirt: practices but can't play his first year (note 6).
-    pub academic_redshirt: bool,
-    /// On the roster without a scholarship (fix list 1.6: specialist walk-ons).
-    pub walk_on: bool,
-    /// His role before he transferred, until his first season at the new school is logged.
-    pub(crate) transfer_from: Option<PlayingTime>,
-    /// His college coaches each season: (year, program, head coach, position coach).
-    pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
     /// Off-field incidents this season (for the locker room).
     pub incident: bool,
     pub notes: Vec<String>,
@@ -337,10 +312,9 @@ pub struct Person {
     /// local fame. Added to every school in it.
     pub stay_home: f64,
     /// The school he grew up cheering for (fix list 2.3), usually in his state.
-    pub childhood_team: Option<usize>,
+    pub childhood_team: Option<u16>,
     pub cal: PersonCal,
     /// His testing days at his team, the team's records (`training::testing`).
-    #[serde(default)]
     pub tests: crate::training::testing::TestBook,
     /// His pro career (section 5): None until he joins the league.
     pub pro: Option<Box<pro::ProCareer>>,
@@ -352,21 +326,67 @@ pub struct Person {
     /// coach starts it fresh).
     pub trust: f32,
     pub trust_in: u32,
-    /// His road through college (A3, S11): years away, years added to his
-    /// clock, the COVID year, seasons lost to injury, a mission or a
-    /// military term in progress.
-    #[serde(default)]
-    pub roads: eligibility::Roads,
     /// His face recipe (faces F3): one number his genes, looks and
     /// headshots are read from (`looks.rs`). 0 in a world written before
     /// faces, until `World::faces_after_load` sets it.
-    #[serde(default)]
     pub looks: looks::Looks,
+}
+
+/// A person's college-and-later part (memory diet item 2): kept only once
+/// something in it is set, so a high schooler, who never uses it, carries
+/// none of it. `Person` reads and writes it as his own fields (`p.path`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Later {
+    pub college_seasons: u32,
+    pub redshirt_used: bool,
+    /// Signed where his parent or handler wanted, not where he wanted (topic 5).
+    pub steered: bool,
+    pub nil_income: f64,
+    pub pending_dip: Option<f64>,
+    /// Offensive and defensive snaps in his last college season and in his
+    /// whole college career (dynasty item 3: backups' garbage-time snaps
+    /// count as game experience).
+    pub last_snaps: u32,
+    pub college_snaps: u32,
+    pub transfers: u32,
+    pub juco: bool,
+    /// Every college he played for, in order.
+    pub path: Vec<usize>,
+    /// Core GPA when he signed out of high school (note 6).
+    pub gpa_at_signing: Option<f64>,
+    /// Signed as an academic redshirt: practices but can't play his first year (note 6).
+    pub academic_redshirt: bool,
+    /// On the roster without a scholarship (fix list 1.6: specialist walk-ons).
+    pub walk_on: bool,
+    /// His role before he transferred, until his first season at the new school is logged.
+    pub(crate) transfer_from: Option<PlayingTime>,
+    /// His college coaches each season: (year, program, head coach, position coach).
+    pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
+    /// His road through college (A3, S11): years away, years added to his
+    /// clock, the COVID year, seasons lost to injury, a mission or a
+    /// military term in progress.
+    pub roads: eligibility::Roads,
+}
+crate::world::stored::blank!(Later);
+
+impl std::ops::Deref for Person {
+    type Target = Later;
+    #[inline]
+    fn deref(&self) -> &Later {
+        &self.later
+    }
+}
+
+impl std::ops::DerefMut for Person {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Later {
+        &mut self.later
+    }
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
 /// grade, his board score, and the round it projects to (8 = undrafted).
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DraftRead {
     pub grade: f64,
     pub score: f64,
@@ -386,7 +406,7 @@ pub enum CommitTiming {
 
 /// A signed recruit before he enrolls: the program, a walk-on spot or not,
 /// the day he signed, and whether he enrolls in January.
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Signed {
     pub program: usize,
     pub walk_on: bool,
@@ -402,7 +422,7 @@ pub struct Signed {
 
 /// A portal entrant's dates (T3): the day he entered and the day his
 /// decision is due.
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortalEntry {
     pub entered: crate::calendar::Date,
     pub decide_by: crate::calendar::Date,
@@ -428,7 +448,8 @@ impl PortalEntry {
 
 /// A person's calendar state (section 4). Per-season flags reset at his
 /// season's start.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, serde::Deserialize)]
+#[serde(from = "crate::world::person_form::file::PersonCal")]
 pub struct PersonCal {
     /// This season counts against his eligibility unless he plays four games
     /// or fewer (2018 rule); settled January 2.
@@ -442,9 +463,46 @@ pub struct PersonCal {
     /// Failed the fall term's check: out of the postseason and spring
     /// practice, until the spring term's grades (A23).
     pub fall_ineligible: bool,
+    /// His recruitment and his college and pro calendar (`CalMore`), kept
+    /// only once used; read and written as the calendar's own fields.
+    pub more: crate::world::stored::Stored<CalMore>,
+    pub commit_timing: Option<CommitTiming>,
+    /// A spring practice notice is out (T4.1): a breakout may land by the spring game.
+    pub spring_notice: bool,
+    /// Best SAT-scale test score so far (A30).
+    pub test_score: Option<u32>,
+    /// High school games missed this season for grades (A29).
+    pub hs_grade_out: u32,
+    /// Graduated (a December graduate can transfer without sitting).
+    pub graduated: bool,
+    /// All-state selections in high school (A32): 1 = honorable mention or
+    /// second team, 2 = first team.
+    pub all_state: u8,
+    /// The services' running read of his upside: each new look moves it
+    /// halfway toward what they saw (part B 6).
+    pub service_read: crate::player::OptF64,
+    /// Graduated at this May's commencement: the graduate-transfer choice
+    /// is open (part B 36).
+    pub may_graduate: bool,
+    /// A big NIL deal came this year (fix list 4.5): read by the season's
+    /// development step, then cleared.
+    pub payday: bool,
+    /// Still unsigned after February's signing day and still looking (lane
+    /// B, the Jan 1 start): a senior, prep school or junior college player
+    /// the late signing days weigh until summer enrollment.
+    pub late: bool,
+}
+
+/// The rest of a person's calendar (memory diet items 2 and 4): his
+/// recruitment (offers, visits, commitment, signing, each school's case)
+/// and his college and pro calendar (the portal, the draft read, NIL, a
+/// cut, the lean to leave). Kept only once something in it is set: two in
+/// three high schoolers never have one. `PersonCal` reads and writes it as
+/// its own fields (`p.cal.portal`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CalMore {
     /// Lean toward leaving through the portal, as a chance (T3), and what moved it.
     pub lean: f64,
-    #[serde(deserialize_with = "crate::save::leaked")]
     pub lean_events: Vec<(crate::calendar::Date, &'static str, f64)>,
     /// A whisper about his leaving is out (T3).
     pub whispered: bool,
@@ -460,112 +518,90 @@ pub struct PersonCal {
     /// walk-on place.
     pub commit: Option<(usize, crate::calendar::Date, bool)>,
     pub signed: Option<Signed>,
-    pub commit_timing: Option<CommitTiming>,
-    /// A spring practice notice is out (T4.1): a breakout may land by the spring game.
-    pub spring_notice: bool,
     /// An early enrollee's college spring step, taken before his first
     /// college row: that row opens with it at fall camp (F2).
     pub spring_gain_ahead: Option<f64>,
     /// Invited to the NFL combine (A10) or a college all-star game (A9).
     pub combine_invite: bool,
-    #[serde(deserialize_with = "crate::save::leaked")]
     pub all_star: Option<crate::save::Text>,
     /// The high school all-star game he played in (January of his senior
     /// year), kept apart from the college invite.
-    #[serde(deserialize_with = "crate::save::leaked")]
     pub hs_all_star: Option<crate::save::Text>,
-    /// Best SAT-scale test score so far (A30).
-    pub test_score: Option<u32>,
     /// Must sit next season under the transfer rules of the day.
     pub transfer_sit: bool,
     /// Sitting out this season as a transfer (practice only).
     pub sitting_transfer: bool,
     pub portal: Option<PortalEntry>,
-    /// High school games missed this season for grades (A29).
-    pub hs_grade_out: u32,
     /// Plans to enter the draft if the reads hold (drawn in December).
     pub declare_plan: Option<bool>,
     /// What weighed most in that plan (`early_entry::Why`), for his note.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub declare_why: Option<u8>,
-    /// Graduated (a December graduate can transfer without sitting).
-    pub graduated: bool,
-    /// All-state selections in high school (A32): 1 = honorable mention or
-    /// second team, 2 = first team.
-    pub all_state: u8,
     /// Programs that offered him at the last recruiting stage, best first (T5).
     pub offers: Vec<usize>,
     /// Dated recruiting contact (T5.3, T5.4): program, day and kind.
     pub visits: Vec<(usize, crate::calendar::Date, Visit)>,
-    /// The services' running read of his upside: each new look moves it
-    /// halfway toward what they saw (part B 6).
-    pub service_read: Option<f64>,
     /// Scholarship offers made before his class's first commitment wave,
     /// with their days (part B 34): from his sophomore year for the best.
     pub early_offers: Vec<(usize, crate::calendar::Date)>,
     /// The NFL advisory committee's grade (part B 37): the round, 8 for
     /// "return to school".
     pub advisory: Option<u8>,
-    /// Graduated at this May's commencement: the graduate-transfer choice
-    /// is open (part B 36).
-    pub may_graduate: bool,
-    /// A big NIL deal came this year (fix list 4.5): read by the season's
-    /// development step, then cleared.
-    pub payday: bool,
     /// A transfer's place at his new school until he plays a season there:
     /// the role and the edge over its starters (points) his collective
     /// paid him on when he landed, which its July split keeps (minor bug
     /// 100). Cleared at fall camp.
-    #[serde(default)]
     pub nil_role: Option<(PlayingTime, f32)>,
     /// His deal for the coming money year (the new NIL scheme, items 5 and
     /// 9): what he signed for, landed on, or was offered to stay. Paid on
     /// July 1, then cleared.
-    #[serde(default)]
     pub nil_deal: Option<nil_bid::NilDeal>,
     /// December's keep-him offer before the January window (item 9): (his
     /// offer, the best rival's top bid for him). Cleared on July 1.
-    #[serde(default)]
     pub nil_keep: Option<(f64, f64)>,
     /// The buyout he carries into the portal from a multi-year deal (the
     /// new NIL scheme, item 12): half of what it still owed him, which the
     /// school that takes him pays his old one. Cleared when he lands or
     /// goes back.
-    #[serde(default)]
     pub nil_buyout: f64,
     /// His school's revenue share in July's money (item 13: who is paid it).
-    #[serde(default)]
     pub nil_school: f32,
     /// What his school and collective paid him in July's money, his own
     /// brand deals apart (`Person::nil_income` counts both). 0 in a world
     /// from before it was kept (`Person::nil_paid`).
-    #[serde(default)]
     pub nil_paid: f32,
     /// Cut from a college team (minor bug 60): it holds while he is still
     /// at that program (`Person::cut_here`), until the next window moves him.
-    #[serde(default)]
     pub cut: Option<CollegeCut>,
-    /// Still unsigned after February's signing day and still looking (lane
-    /// B, the Jan 1 start): a senior, prep school or junior college player
-    /// the late signing days weigh until summer enrollment.
-    #[serde(default)]
-    pub late: bool,
     /// What each head coach's living-room talk did for him (lane 14, D7):
     /// program, lean. It weighs in his choice like the rest of the
     /// relationship.
-    #[serde(default)]
     pub home_talks: Vec<(usize, f32)>,
     /// Each school's case with him (talk facts, lane L5; `folk::case`):
     /// the best point it made in each group across every call, message and
     /// visit, under one cap. It replaces `home_talks`, which a save from
     /// before it still reads. Cleared when he enrolls.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cases: Vec<crate::world::folk::case::Case>,
+}
+crate::world::stored::blank!(CalMore);
+
+impl std::ops::Deref for PersonCal {
+    type Target = CalMore;
+    #[inline]
+    fn deref(&self) -> &CalMore {
+        &self.more
+    }
+}
+
+impl std::ops::DerefMut for PersonCal {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut CalMore {
+        &mut self.more
+    }
 }
 
 /// A college cut (minor bug 60): the program, the day, and whether his
 /// scholarship stays with him while he stays in school (`ncaa::aid_kept`).
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CollegeCut {
     pub program: u16,
     pub date: crate::calendar::Date,
@@ -590,17 +626,26 @@ impl PersonCal {
     /// A new season's start: last season's flags go.
     pub fn season_reset(&mut self) {
         self.academic_sit = false;
-        self.sitting_transfer = false;
         self.trouble = false;
-        self.opted_out = false;
-        self.opt_out_on = None;
-        self.redshirt_trick = false;
-        self.whispered = false;
-        self.lean = 0.0;
-        self.lean_events.clear();
         self.hs_grade_out = 0;
         self.spring_notice = false;
         self.may_graduate = false;
+        // The rest only where it is kept (`CalMore`): a reset never makes it.
+        if let Some(m) = self.more.stored_mut() {
+            m.sitting_transfer = false;
+            m.opted_out = false;
+            m.opt_out_on = None;
+            m.redshirt_trick = false;
+            m.whispered = false;
+            m.lean = 0.0;
+            // Handed back, not cleared (memory diet item 1): a portal window
+            // can grow the list to hundreds of entries, and `clear()` kept
+            // that room for the rest of the year on every player who ever
+            // read his situation (20.6 million entries of room for 1.76
+            // million).
+            m.lean_events = Vec::new();
+        }
+        self.more.tidy();
     }
 }
 
@@ -2133,7 +2178,8 @@ impl World {
             };
             let local = &by_state[person.home_state];
             let list = if local.is_empty() || season::key_uniform(seed ^ 0x57A4, id) < 0.2 { &national } else { local };
-            person.childhood_team = pick(list, season::key_uniform(seed ^ 0x57A5, id));
+            person.childhood_team =
+                pick(list, season::key_uniform(seed ^ 0x57A5, id)).map(|t| u16::try_from(t).expect("a program index"));
         }
     }
 
@@ -2202,7 +2248,7 @@ impl World {
                 if p.stage == Stage::HighSchool {
                     p.bg.gpa = clamp(p.bg.gpa + p.gpa_trend + p.rng.normal(0.0, 0.05), 0.0, 4.0);
                 }
-                let ev = background::roll_life_event(&mut p.bg, age, p.nil_income, &mut p.rng);
+                let ev = background::roll_life_event(&mut p.bg, age, p.later.nil_income, &mut p.rng);
                 if let Some(background::LifeEvent::FamilyMove) = ev {
                     // A family move changes his high school's area for good.
                     p.bg.money = clamp(p.bg.money + p.rng.normal(0.0, 0.1), 0.0, 1.0);
@@ -2489,28 +2535,13 @@ fn new_kid(
         camp_stars: 0,
         regular_talent: ethnicity::regular_talent(z),
         visibility: 0.0,
-        college_seasons: 0,
-        redshirt_used: false,
         sit_out: 0.0,
-        steered: false,
-        nil_income: 0.0,
-        pending_dip: None,
         last_role: None,
         hs_lines: Vec::new(),
-        last_snaps: 0,
-        college_snaps: 0,
         reps: None,
-        last_performance: None,
-        transfers: 0,
-        juco: false,
-        path: Vec::new(),
+        last_performance: crate::player::OptF64::NONE,
         on_notice: false,
         gpa_trend,
-        gpa_at_signing: None,
-        academic_redshirt: false,
-        walk_on: false,
-        transfer_from: None,
-        college_staff: Vec::new(),
         incident: false,
         notes: Vec::new(),
         stay_home: 0.0,
@@ -2522,7 +2553,7 @@ fn new_kid(
         mood_why: 0,
         trust: 0.6,
         trust_in: u32::MAX,
-        roads: eligibility::Roads::default(),
         looks: looks::Looks::new(seed_world, id),
+        later: Default::default(),
     }
 }

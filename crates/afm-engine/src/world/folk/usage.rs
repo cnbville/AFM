@@ -1672,14 +1672,19 @@ pub fn kept_by(u: &Usage) -> &'static str {
 
 /// Turn the plan setting that keeps promise `k` (an index in
 /// `Folk.promises`) off, or back on. Your staff stops keeping it and warns
-/// you before each game while it is off. Err for a promise that isn't an
-/// open usage promise.
+/// you before each game while it is off. A captaincy's setting is whether
+/// you name him beside the room's vote. Err for a promise that isn't an
+/// open usage or captain promise.
 pub fn set_off(w: &mut World, k: usize, off: bool) -> Result<(), String> {
     use super::talks::PromiseKind;
     let p = w.folk.promises.get(k).ok_or("No such promise.")?;
-    if p.kept.is_some()
-        || p.terms.usage.is_none()
-        || !matches!(p.kind, PromiseKind::Usage | PromiseKind::Recruit(super::pledge::USAGE, _))
+    // A captaincy's setting: you name him beside the room's vote, or you
+    // let the vote stand (`captain`).
+    let captain = p.kind == PromiseKind::Captain && p.kept.is_none();
+    if !captain
+        && (p.kept.is_some()
+            || p.terms.usage.is_none()
+            || !matches!(p.kind, PromiseKind::Usage | PromiseKind::Recruit(super::pledge::USAGE, _)))
     {
         return Err("That promise has no plan setting.".into());
     }

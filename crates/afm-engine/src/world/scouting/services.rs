@@ -221,7 +221,7 @@ pub(crate) fn record(w: &mut World, class_of: i32, d: Date) {
                 && (matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
                     || (p.stage == Stage::College && p.college_seasons == 0))
         })
-        .map(|p| (p.stars, p.cal.service_read.unwrap_or(0.0), p.player.id))
+        .map(|p| (p.stars, p.cal.service_read.get().unwrap_or(0.0), p.player.id))
         .collect();
     list.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.total_cmp(&a.1)).then(a.2.cmp(&b.2)));
     let ids: Vec<u32> = list.into_iter().map(|x| x.2).collect();
