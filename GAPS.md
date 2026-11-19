@@ -112,8 +112,11 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **"He gives you nothing either way" under a warm reply** (medium). The read under his line comes from the line's hits (`hits::tell`), not the words the voice gave him, so a warm "that's exactly what I'm looking for" can carry a flat read. For the ear fix thread. Same thread.
 - **A visit asked in the same line as a point is answered before the point lands** (low). `recruit::turn` reads his answer before `apply` lands the line's point on your case, so "great fit for you, come visit" answers on the case as it stood. Make the point, then ask. Same thread.
 
+- **A call can't be let go to voicemail** (medium). When a call rings you take it or hand it to your staff; real coaches also let it ring and call back later, and a family or recruit left waiting reads that. A "let it ring" choice with a call back would need its own cost by who is calling. Found 2026-11-19 (thread "Let me answer calls during Continue").
+
 ## UI
 
+- **A call that rings looks like any other stop** (low). Continue now stops as a call comes in and opens its room, but the card only names it on its Now line: no ringing look and no answer or hand-on buttons on the card itself. Same thread.
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
 - **No pecking order for high school or NFL seats** (medium). The tab row reads "Your seat" for them (CS6), but nothing ranks a district's or an owner's rooms. Same thread.
 - **A firm commit shows only when you ask him to visit** (medium). Your board and his page don't say whether a recruit committed elsewhere would hear you out, so you learn he's firm only from a no (the staff's read then says what might unsettle him). Same thread.

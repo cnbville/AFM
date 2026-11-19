@@ -520,7 +520,13 @@ pub fn add(w: &mut World, mut s: Scene) -> u32 {
     w.folk.next_scene += 1;
     s.id = w.folk.next_scene;
     s.team = s.team.or(Team::seat(w));
-    s.born = Some(w.calendar.now.map_or_else(|| w.now(), |(_, m)| m));
+    // The step's own moment; dawn's lines are stamped "all day", so a
+    // scene made then is born at dawn's minute.
+    s.born = Some(match w.calendar.now {
+        Some((_, m)) if m.timed() => m,
+        Some((d, _)) => crate::calendar::zone::moment(d, super::super::clock::hour::DAWN),
+        None => w.now(),
+    });
     if s.minute.is_none() {
         s.minute = hour_in(&s.place).or_else(|| default_hour(w, &s));
     }
@@ -831,6 +837,30 @@ pub fn waiting(w: &World) -> Vec<&Scene> {
     v
 }
 
+/// The moment a meeting that stops you starts to wait for you: its hour
+/// (a scene with no hour, your first section of its day), or the moment it
+/// was made when that came later (a call made after its hour rings as it
+/// is made).
+pub fn rings(w: &World, s: &Scene) -> crate::calendar::Moment {
+    let z = w.seat_zone();
+    let at = match s.minute {
+        Some(m) => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)),
+        None => crate::calendar::zone::moment(s.date, z.stops(s.date)[0]),
+    };
+    s.born.map_or(at, |b| at.max(b))
+}
+
+/// A meeting or call that has started to ring since the clock last stood
+/// (any not in `before`, the ones already waiting): Continue stands for it
+/// at once (`clock::continue_until_needed`).
+pub fn rings_now(w: &World, before: &[u32]) -> bool {
+    let now = w.now();
+    w.folk
+        .scenes
+        .iter()
+        .any(|s| !s.done && s.stops && s.date <= w.today && !before.contains(&s.id) && rings(w, s) <= now)
+}
+
 /// The end of the clock's day (1 AM, the day runs from 5 AM): a meeting
 /// that stops you and whose hour has passed is handed to your staff. A
 /// holiday or a jump comes back at the first section of the next day,
@@ -845,6 +875,8 @@ pub(crate) fn overnight(w: &mut World, d: Date) {
         .scenes
         .iter()
         .filter(|s| !s.done && s.stops && s.date <= d)
+        // One made in this same step (a call at 1 AM) can't have waited.
+        .filter(|s| !s.born.is_some_and(|b| b >= now))
         .filter(|s| match s.minute {
             Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
             _ => true,
