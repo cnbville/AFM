@@ -1,6 +1,6 @@
 # Saves and world files: how it works today
 
-Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06. The Jan 1 start (lane A) checked on 2026-11-08, before it merged to main. The notebook beside each save over main 5247199 on 2026-11-12; per career, never shared, over main 8e62944 on 2026-11-13. The plan ahead file beside each save over main 0ca3b43 on 2026-11-14. The autosave over main ddc308e on 2026-11-14. A newer world on an older game over main fc57156 on 2026-11-15. Going back to an older version added on 2026-11-16 (before it merged to main). Days wait for a running autosave added on 2026-11-17 over main 75c5a35. Opening closes the open world first, over main dd1fdf1 on 2026-11-17.
+Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06. The Jan 1 start (lane A) checked on 2026-11-08, before it merged to main. The notebook beside each save over main 5247199 on 2026-11-12; per career, never shared, over main 8e62944 on 2026-11-13. The plan ahead file beside each save over main 0ca3b43 on 2026-11-14. The autosave over main ddc308e on 2026-11-14. A newer world on an older game over main fc57156 on 2026-11-15. Going back to an older version added on 2026-11-16 (before it merged to main). Days wait for a running autosave added on 2026-11-17 over main 75c5a35. Opening closes the open world first, over main dd1fdf1 on 2026-11-17. People kept in parts (memory diet lane M1) added on 2026-11-17 over main b8438f5, before it merged.
 
 ## Quick answers
 
@@ -25,6 +25,12 @@ Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies f
 - Is a half-written save possible? No: the game writes `name.partial` and renames it over the old save when done (`crates/afm-game/src/files.rs`, `write_world`).
 - Is the file the same bytes each time? No: parts land in the order they finish and hash maps keep no fixed order. The table says where each part is (`save.rs`, `write_world`).
 - How long does it take? On the 30-year world at the first game, 4-core Linux: save 17-18 s, load 14.4 s with `after_load`, peak 3.77 GB (`docs/game.md`, "Lane 19").
+
+## People in files (memory diet lane M1)
+
+- In memory a person keeps his college-and-later fields (`Later`) and the rest of his calendar (`CalMore`) only once he uses them (`world/stored.rs`, `Stored`). In files nothing changed: a person and his calendar are written field by field, in the old order and shape, through a flat view (`world/person_form.rs`, `view::Person`, `view::PersonCal`), and read through a flat file form (`file::Person`, `file::PersonCal`) that is split as it comes in. A part that reads blank is not kept (`Stored::new`).
+- So any file opens in this game, and the game's files open in older games of format 2 as before. The world log's store prints and the World Reader's tables see the same fields.
+- A new field on `Person` or `PersonCal` goes in three places: the struct (or `Later`/`CalMore`), `file::*` and `view::*`; the conversions name every field, so a field missing from one doesn't build. `tests/compact.rs` holds the field order files have.
 
 ## Autosave
 

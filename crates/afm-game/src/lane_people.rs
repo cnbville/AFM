@@ -572,6 +572,13 @@ fn agenda(w: &World) -> Value {
             // A promise on usage: its words, what keeps it, and whether you
             // turned its plan setting off (lane N2).
             let plan = p.terms.usage.map(|u| json!({ "kept_by": folk::usage::kept_by(&u), "off": p.terms.off }));
+            // A captaincy: you name him beside the room's vote, unless you
+            // let the vote stand.
+            let plan = plan.or_else(|| {
+                (p.kind == folk::talks::PromiseKind::Captain && p.kept.is_none()).then(|| {
+                    json!({ "kept_by": "When your room names its captains, you name him one beside the men it votes. Off, you let the vote stand.", "off": p.terms.off })
+                })
+            });
             json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public, "plan": plan })
         })
         .collect();

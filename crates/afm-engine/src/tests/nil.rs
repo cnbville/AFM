@@ -783,7 +783,7 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     // No season's play to read: no rival bids, so the sums are plain.
     for id in [star, signed, rest] {
         let x = at(&w, id);
-        w.people[x].last_performance = None;
+        w.people[x].last_performance = crate::player::OptF64::NONE;
         w.people[x].cal.nil_deal = None;
         w.people[x].cal.nil_paid = 0.0;
         w.people[x].nil_income = 0.0;
