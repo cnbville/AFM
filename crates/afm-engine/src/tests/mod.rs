@@ -12,6 +12,7 @@ mod capital_race;
 mod capital_rooms;
 mod capital_seats;
 mod capital_week;
+mod captain_promise;
 mod carousel;
 mod cfl_draft;
 mod chain;

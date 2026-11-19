@@ -345,7 +345,7 @@ fn starters(w: &World) {
                 && played(p)
                 && p.college.is_some_and(|j| group(w, j) == Some(g))
         }) {
-            if let Some(x) = p.last_performance {
+            if let Some(x) = p.last_performance.get() {
                 medians.entry(p.player.position).or_insert_with(Vec::new).push(x);
             }
         }
@@ -380,7 +380,7 @@ fn starters(w: &World) {
                 };
                 star.push(f.sqrt());
                 stars.push(p.stars as f64);
-                let edge = p.last_performance.map_or(0.0, |x| x - mid).clamp(-15.0, 15.0);
+                let edge = p.last_performance.get().map_or(0.0, |x| x - mid).clamp(-15.0, 15.0);
                 play.push(edge);
             }
             println!(

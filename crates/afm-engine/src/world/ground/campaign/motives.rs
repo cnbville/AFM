@@ -40,10 +40,10 @@ fn generational(w: &World, st: usize, class: i32) -> Option<usize> {
     if p.stars < 5 {
         return None;
     }
-    let me = p.cal.service_read.unwrap_or(0.0);
+    let me = p.cal.service_read.get().unwrap_or(0.0);
     for c in class - 10..class {
         if let Some(&j) = crate::world::legacy::college::state_top(w, st, c, 1).first()
-            && w.people[j].cal.service_read.unwrap_or(0.0) >= me
+            && w.people[j].cal.service_read.get().unwrap_or(0.0) >= me
         {
             return None;
         }
@@ -102,7 +102,7 @@ trait ReadCmp {
 
 impl ReadCmp for crate::world::Person {
     fn cmp_read(&self, o: &Self) -> std::cmp::Ordering {
-        self.cal.service_read.unwrap_or(0.0).total_cmp(&o.cal.service_read.unwrap_or(0.0))
+        self.cal.service_read.get().unwrap_or(0.0).total_cmp(&o.cal.service_read.get().unwrap_or(0.0))
     }
 }
 
