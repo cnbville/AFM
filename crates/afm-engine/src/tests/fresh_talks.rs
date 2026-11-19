@@ -64,7 +64,12 @@ fn every_talk_at_the_start_of_a_career_knows_last_season() {
     let team = Team::College(p);
     assert!(w.seat_games.is_empty(), "no game under you yet");
     let (season, row) = review::season_of(&w, team).unwrap();
-    let record = format!("{}-{}", row.wins, row.losses);
+    // The record the boss gives, and the coaches' review must give too.
+    let (wins, losses) = facts::seasons(&w, team, 3)
+        .into_iter()
+        .find(|s| s.year == season)
+        .map_or((row.wins, row.losses), |s| (s.wins, s.losses));
+    let record = format!("{wins}-{losses}");
 
     // Every coach on your staff, asked about his unit: a season review with
     // numbers; one hired after it says so. His case never claims a season
