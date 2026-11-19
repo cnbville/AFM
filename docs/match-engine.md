@@ -1616,20 +1616,20 @@ Still off (`GAPS.md`): fumbles go out of bounds less than half as often as real 
 
 ## The QB's reads and the receivers (scheme-fit lane SF4, items 5, 6 and 25, 2026-11-19)
 
-Design: `docs/design/scheme-fit.md`, items 5, 6 and 25, in Cain's words: Decisions makes a better passer, not just a careful one, keeping the split (Football IQ stays the pre-snap and protection read, Decisions becomes picking the right throw); route running and hands drive a receiver's results ("absolutely, that diversity is pivotal"); and the quarterback feeds his receivers by their receiving. The targets: fewer picks without losing depth, and more points; route running beats zone too; hands decide drops and contested balls at their real size; speed pays deep and after the catch, not in separation; height pays in contested catches and the red zone; who is looked at first reads hands, routes and getting open, each man against his own position's typical starter. Built on lanes SF1 and SF2 and engine gaps items 29 and 30 (main dcdde89) and measured again over main 36b6367, which brings minor bugs 409-412 (the play action leftovers) and the recentred 14-year-old habits (they redraw every synthetic roster's flaws); it takes SF2's hand-off: the second tight end out-drew the first in 13 personnel. How it works: `docs/reference/how-it-works/match-engine.md` (the first read, the window, the reaction to the throw, the catch point). Every size is Claude's, proposed, not confirmed.
+Design: `docs/design/scheme-fit.md`, items 5, 6 and 25, in Cain's words: Decisions makes a better passer, not just a careful one, keeping the split (Football IQ stays the pre-snap and protection read, Decisions becomes picking the right throw); route running and hands drive a receiver's results ("absolutely, that diversity is pivotal"); and the quarterback feeds his receivers by their receiving. The targets: fewer picks without losing depth, and more points; route running beats zone too; hands decide drops and contested balls at their real size; speed pays deep and after the catch, not in separation; height pays in contested catches and the red zone; who is looked at first reads hands, routes and getting open, each man against his own position's typical starter. Built on lanes SF1 and SF2 and engine gaps items 29 and 30 (main dcdde89), measured again over main 36b6367 (minor bugs 409-412, the play action leftovers, and the recentred 14-year-old habits, which redraw every synthetic roster's flaws) and again over main 569e61f, which brings engine gaps lane EG2 (ball security: live fumbles, fumbled snaps, strip sacks); every number below is over 569e61f. It takes SF2's hand-off: the second tight end out-drew the first in 13 personnel. How it works: `docs/reference/how-it-works/match-engine.md` (the first read, the window, the reaction to the throw, the catch point). Every size is Claude's, proposed, not confirmed.
 
-How it was measured: `fit_check` (team 0 the typical team, one change an arm on the same games; FBS seeds 151 and 171 at 3,000 games an arm, NFL seed 161 at 2,400; "past the noise" is |z| of 1.96 or more), main 36b6367 and after, on the lane's 33 arms. The league: `match_check` with `AFM_RECDIAG=1` and `AFM_GAPS=1` on the test rosters (4,000 games at the NFL on seeds 11, 12 and 13 and at FBS on seed 11, 2,000 in high school on seed 11) and on world seed 1's NFL clubs (4,000 games on each of game seeds 1-4), and SF2's league tally for the tight ends (the test league with every team set firmly to 12 or 13, 2,000 NFL games, seed 1).
+How it was measured: `fit_check` (team 0 the typical team, one change an arm on the same games; FBS seeds 151 and 171 at 3,000 games an arm, NFL seed 161 at 2,400; "past the noise" is |z| of 1.96 or more), main 569e61f and after, on the lane's 33 arms. The league: `match_check` with `AFM_RECDIAG=1` and `AFM_GAPS=1` on the test rosters (4,000 games at the NFL on seeds 11, 12 and 13 and at FBS on seed 11, 2,000 in high school on seed 11) and on world seed 1's NFL clubs (4,000 games on each of game seeds 1-4), and SF2's league tally for the tight ends (the test league with every team set firmly to 12 or 13, 2,000 NFL games, seed 1).
 
 One caution on `fit_check` and the feed: on the typical team every receiver reads the same as a receiver (each at his position's typical starter), so any rating the feed reads breaks the tie for the man who changes, and his chance of the first look goes from none to 10% plus 2% a point of his edge (19% for Catching or Route Running +15, which give him 4.5 points). In a league somebody is always the best receiver, and a point of edge is worth 0.02 there. So the feed's effects in these tables are bigger than a point is in a league. Main's feed had no such tie: it read each man's overall at his spot, which differs by position, so main's typical team fed its best-rated receiver, and the base arms differ between main and the lane partly for that (`GAPS.md`, "`fit_check`'s typical team feeds nobody").
 
 What was wrong on main:
 
-- **A better reader was a careful one.** The misread worked both ways (minor bug 283): a passer above his level's typical starter's field read saw every window tighter than it was, each defender who saw his eyes breaking on the ball sooner than he would and each man in his lane taking more room than he did. So Decisions +15 cut picks (-0.09 to -0.19 points of throws over the 12 arms, 8 past the noise) by throwing shorter (-0.22 to -0.40 yards of air a throw, all 12) and holding the ball longer (+0.004 to +0.022 s, 11 of 12), and scored no more (-0.50 to +0.17 points a game; the 1 past the noise a loss).
-- **Against zone, route running only read where he sat down.** Route Running +15 drew 0.5 to 3.7 more targets a 100 routes against zone (all 21 arms) into tighter windows: his catch rate against zone fell 0.5 to 3.5 points (16 past the noise) and his separation against zone moved -0.15 to +0.09 yards. Against man it gave him 0.43 to 0.82 yards (all 21).
-- **Hands were small.** The catch read 0.00095 a point of Catching from none, so Catching +15 took 0.08 to 0.93 drops off 100 targets (11 of 15 arms past the noise). On world seed 1's NFL clubs (four game seeds) the drops a target spread 0.40 points between wide receivers (men with 40 or more targets, the binomial noise taken out; real 0.54, FTN charting 2022-24), 0.80 between tight ends (real 1.01) and 0.44 between backs (real 1.12).
-- **A contested ball never read the receiver's own skill.** The breakup read the defender's Contested Catch, Jumping and coverage and both men's reach; the receiver's Contested Catch came in only in the fight after the ball was out. So Contested Catch +15 moved his contested catch rate -2.2 to +1.7 points (9 arms, none past the noise), and on world seed 1's NFL clubs wide receivers' contested catch rate spread 2.7 points between them (men with 12 or more contested balls; real 8.9).
-- **The feed read a man's spot rating.** A back's leans on his running, so any of his running ratings +15 raised his targets a route by half (+5.3 to +6.8 a 100 routes on 9.6 to 12.0, all 9 arms; +0.8 to +1.2 targets a game), and a tight end's Run Blocking +15 fed him 0.6 to 1.3 more a 100 routes (all 6 arms past the noise), about what his Catching, Contested Catch or Route Running +15 did (0.3 to 1.2).
-- **In 13 personnel the second tight end out-drew the first** (SF2's hand-off). With every team of the test league set firmly to 13, the first, second and third tight ends on the field drew 33%, 46% and 21% of the tight ends' targets (NFL, 2,000 games; real 47%, 29% and 24%): the depth chart's second takes the flanker's place, which many concepts read before the first tight end's. Set to 12, the second drew 53% (real 43%).
+- **A better reader was a careful one.** The misread worked both ways (minor bug 283): a passer above his level's typical starter's field read saw every window tighter than it was, each defender who saw his eyes breaking on the ball sooner than he would and each man in his lane taking more room than he did. So Decisions +15 cut picks (-0.06 to -0.28 points of throws over the 12 arms, 9 past the noise) by throwing shorter (-0.22 to -0.42 yards of air a throw, all 12) and holding the ball longer (+0.010 to +0.019 s, all 12), and scored no more (-0.56 to +0.35 points a game, -0.09 on average; the 1 past the noise a loss).
+- **Against zone, route running only read where he sat down.** Route Running +15 drew 0.8 to 3.9 more targets a 100 routes against zone (all 21 arms) into tighter windows: his catch rate against zone moved -2.9 to +0.1 points (13 past the noise, all falls) and his separation against zone -0.18 to +0.09 yards. Against man it gave him 0.32 to 0.80 yards (all 21).
+- **Hands were small.** The catch read 0.00095 a point of Catching from none, so Catching +15 took 0.09 to 1.00 drops off 100 targets (12 of 15 arms past the noise). On world seed 1's NFL clubs (four game seeds) the drops a target spread 0.62 points between wide receivers (men with 40 or more targets, the binomial noise taken out; real 0.54, FTN charting 2022-24), 0.76 between tight ends (real 1.01) and 0.60 between backs (real 1.12), and Catching alone gave only 0.27, 0.34 and 0.41 of it.
+- **A contested ball never read the receiver's own skill.** The breakup read the defender's Contested Catch, Jumping and coverage and both men's reach; the receiver's Contested Catch came in only in the fight after the ball was out. So Contested Catch +15 moved his contested catch rate -1.5 to +2.3 points (9 arms, none past the noise), and on world seed 1's NFL clubs wide receivers' contested catch rate spread 2.8 points between them (men with 12 or more contested balls; real 8.9).
+- **The feed read a man's spot rating.** A back's leans on his running, so any of his running ratings +15 raised his targets a route by half (+5.4 to +7.1 a 100 routes on 9.7 to 12.1, all 9 arms; +0.8 to +1.2 targets a game), and a tight end's Run Blocking +15 fed him 0.7 to 1.8 more a 100 routes (all 6 arms past the noise), as much as his Catching, Contested Catch or Route Running +15 did (0.2 to 1.3).
+- **In 13 personnel the second tight end out-drew the first** (SF2's hand-off). With every team of the test league set firmly to 13, the first, second and third tight ends on the field drew 33%, 47% and 20% of the tight ends' targets (NFL, 2,000 games; real 47%, 29% and 24%): the depth chart's second takes the flanker's place, which many concepts read before the first tight end's. Set to 12, the second drew 52% (real 43%).
 
 What changed (`game/scrimmage.rs`, `game/flow.rs`; every size proposed, not confirmed):
 
@@ -1641,92 +1641,92 @@ What changed (`game/scrimmage.rs`, `game/flow.rs`; every size proposed, not conf
 - **The best receiving tight end where the throw reads first** (`game/flow.rs`, `lineup`; SF2's hand-off). On a throw whose reads hold a tight end past the first (12, 13 and 22 personnel, where the extra tight ends take missing receivers' places), the staff puts its best receiving tight end (by the feed's read, `receiving_edge`) in the tight ends' place the play reads first, at the feed's chance: 10% plus 2% a point of his edge over the man the depth chart puts there, at most 55% (a keyed draw, so the game's own stream is untouched). By the depth chart alone the second tight end always took the first missing receiver's place, the flanker's in 13 personnel, which many concepts read before the first tight end's. A run, an RPO and a throw whose reads hold no tight end past the first keep the depth chart's places.
 - **Tools:** `match_check` with `AFM_RECDIAG=1` prints the receivers' spreads against real (catch rate, contested catch rate and drops between men, an inch of height against contested balls, separation and its slope on Speed, drops' slope on Catching, and the forty's slopes of aDOT and of deep targets). `fit_check` reads each receiver's catch rate against man and zone, his targets and yards a route against zone, his contested balls (under a yard of separation; picks are left out, since a pick has no separation on the play record) and his touchdowns on red zone targets.
 
-Item 5, the passer (`fit_check`: Decisions +15 in the West Coast, Air Raid, wide zone and spread option contexts, Football IQ +15 in the West Coast, on the three seeds; main 36b6367, then after; each cell is the range over the arms and seeds, with how many are past the noise):
+Item 5, the passer (`fit_check`: Decisions +15 in the West Coast, Air Raid, wide zone and spread option contexts, Football IQ +15 in the West Coast, on the three seeds; main 569e61f, then after; each cell is the range over the arms and seeds, with how many are past the noise):
 
 | | main | after |
 |---|---|---|
-| Decisions +15: points a game | -0.50 to +0.17 (1 of 12) | +0.08 to +0.88 (6 of 12) |
-| interceptions, points of throws | -0.19 to -0.09 (8 of 12) | -0.10 to +0.03 (1 of 12) |
-| air yards a throw | -0.40 to -0.22 (all 12) | +0.01 to +0.22 (9 of 12) |
-| completion rate, points | +0.0 to +0.9 (6 of 12) | -0.5 to +0.2 (1 of 12) |
-| time to throw, s | +0.004 to +0.022 (11 of 12) | -0.034 to -0.015 (all 12) |
-| sacks, points of dropbacks | -0.03 to +0.22 (3 of 12) | -0.51 to -0.31 (all 12) |
-| team EPA a dropback | -0.020 to +0.006 (3 of 12) | +0.003 to +0.029 (6 of 12) |
-| Football IQ +15: points a game | +0.12 to +0.44 (0 of 3) | -0.14 to +0.72 (1 of 3) |
-| sacks, points of dropbacks | -0.74 to -0.59 (all 3) | -0.71 to -0.61 (all 3) |
-| pressure, points of dropbacks | -1.9 to -1.5 (all 3) | -2.0 to -1.7 (all 3) |
-| interceptions, points of throws | -0.06 to +0.03 (0 of 3) | -0.10 to -0.01 (0 of 3) |
-| air yards a throw | -0.22 to -0.15 (all 3) | -0.17 to -0.09 (all 3) |
+| Decisions +15: points a game | -0.56 to +0.35 (1 of 12) | -0.01 to +0.73 (2 of 12) |
+| interceptions, points of throws | -0.28 to -0.06 (9 of 12) | -0.13 to +0.06 (1 of 12) |
+| air yards a throw | -0.42 to -0.22 (all 12) | +0.04 to +0.19 (7 of 12) |
+| completion rate, points | +0.2 to +0.9 (9 of 12) | -0.4 to +0.5 (2 of 12) |
+| time to throw, s | +0.010 to +0.019 (all 12) | -0.030 to -0.014 (all 12) |
+| sacks, points of dropbacks | -0.10 to +0.26 (3 of 12) | -0.54 to -0.28 (all 12) |
+| team EPA a dropback | -0.013 to +0.015 (2 of 12) | -0.005 to +0.022 (5 of 12) |
+| Football IQ +15: points a game | +0.04 to +0.68 (2 of 3) | -0.30 to +0.40 (1 of 3) |
+| sacks, points of dropbacks | -0.78 to -0.65 (all 3) | -0.76 to -0.52 (all 3) |
+| pressure, points of dropbacks | -1.8 to -1.4 (all 3) | -2.0 to -1.3 (all 3) |
+| interceptions, points of throws | -0.02 to +0.05 (0 of 3) | -0.03 to -0.02 (0 of 3) |
+| air yards a throw | -0.14 to -0.09 (all 3) | -0.17 to -0.07 (2 of 3) |
 
-Why: on main a better reader saw every window tighter than it was, so he threw short and held the ball. Now he sees the breaks and the lanes as they are, so he keeps his depth, gets the ball out sooner and takes fewer sacks. His team scores more on all 12 arms (+0.47 a game on average, main -0.24), and the 6 past the noise are all gains. His picks fall only a little (-0.04 points of throws on average; the 1 past the noise is fewer), where main's fell 0.12 by throwing short. Most of the throws a passer has picked are ones he saw open (`GAPS.md`, "Picks come from the wrong throws"), so seeing the field better can't cut them; that part of item 5 is lane SF5's, where picks and breakups come from.
+Why: on main a better reader saw every window tighter than it was, so he threw short and held the ball. Now he sees the breaks and the lanes as they are, so he keeps his depth, gets the ball out sooner and takes fewer sacks (all 12 arms). His team scores more on 11 of the 12 (+0.26 a game on average, main -0.09), and the 2 past the noise are both gains. His picks fall only a little (-0.03 points of throws on average; the 1 past the noise is fewer), where main's fell 0.16 by throwing short. Most of the throws a passer has picked are ones he saw open (`GAPS.md`, "Picks come from the wrong throws"), so seeing the field better can't cut them; that part of item 5 is lane SF5's, where picks and breakups come from.
 
-Football IQ stays the pre-snap and protection read: its +15 cuts sacks and pressure about as much as on main, and its points move inside the noise, as on main (-0.14 to +0.72 a game, main +0.12 to +0.44). Over main dcdde89 its points had fallen (+0.25 to +0.61 a game on main, -0.11 to +0.16 on the lane). Putting main's feed back on that build (each man's overall at his spot, so the typical team feeds its best-rated receiver) brought about half of it back (+0.34, -0.13 and +0.41 a game on the three seeds): a typical team that feeds nobody moves what other arms measure too (`GAPS.md`, "`fit_check`'s typical team feeds nobody").
+Football IQ stays the pre-snap and protection read: its +15 cuts sacks and pressure about as much as on main. Its points come out lower than on main on each seed (+0.37, +0.40 and -0.30 a game on FBS 151, FBS 171 and NFL 161; main +0.68, +0.53 and +0.04), 0.26 a game on average. Over main dcdde89 they had fallen more (+0.25 to +0.61 a game on main, -0.11 to +0.16 on the lane). Putting main's feed back on that build (each man's overall at his spot, so the typical team feeds its best-rated receiver) brought about half of it back (+0.34, -0.13 and +0.41 a game on the three seeds): a typical team that feeds nobody moves what other arms measure too (`GAPS.md`, "`fit_check`'s typical team feeds nobody").
 
 Item 6, the receivers (the X, Z, slot, first tight end and back in the contexts the audit gives each, on the three seeds):
 
 | | main | after |
 |---|---|---|
-| Route Running +15: separation against zone, yards | -0.15 to +0.09 (7 of 21) | -0.11 to +0.28 (13 of 21) |
-| catch rate against zone, points | -3.5 to -0.5 (16 of 21) | -3.8 to +0.7 (11 of 21) |
-| yards a route against zone | +0.03 to +0.32 (19 of 21) | +0.24 to +0.60 (all 21) |
-| separation against man, yards | +0.43 to +0.82 (all 21) | +0.34 to +0.81 (all 21) |
-| team EPA a dropback | -0.016 to +0.018 (3 of 21) | -0.004 to +0.020 (5 of 21) |
-| points a game | -0.52 to +0.49 (2 of 21) | -0.04 to +0.75 (5 of 21) |
-| Catching +15: drops a 100 targets | -0.93 to -0.08 (11 of 15) | -1.39 to -0.62 (all 15) |
-| catch rate, points | -1.6 to +3.5 (11 of 21) | -1.8 to +5.9 (14 of 21) |
-| yards a route | +0.03 to +0.35 (20 of 21) | +0.14 to +0.62 (all 21) |
-| points a game | -0.51 to +0.34 (1 of 21) | -0.82 to +0.56 (5 of 21) |
-| Contested Catch +15: contested catch rate, points | -2.2 to +1.7 (0 of 9) | +4.8 to +11.1 (all 9) |
-| contested share of his targets, points | -0.3 to +0.9 (2 of 9) | -0.5 to +1.3 (5 of 9) |
-| yards a route | +0.01 to +0.20 (5 of 9) | +0.10 to +0.37 (all 9) |
-| red zone touchdowns a target, points | -1.8 to +1.3 (0 of 9) | -1.2 to +3.2 (1 of 9) |
-| Speed +15: air yards a target | +0.81 to +2.12 (all 6) | +0.27 to +0.94 (all 6) |
-| targets 20+ yards downfield a season | +2.5 to +10.1 (all 6) | +1.2 to +3.6 (all 6) |
-| yards after the catch | +0.29 to +0.85 (all 6) | +0.61 to +0.77 (all 6) |
-| separation against man, yards | +0.78 to +1.12 (all 6) | +0.51 to +1.02 (all 6) |
-| separation against zone, yards | -0.24 to -0.06 (5 of 6) | -0.18 to +0.03 (2 of 6) |
-| catch rate, points | -4.0 to -0.4 (5 of 6) | -2.6 to -1.0 (5 of 6) |
-| 6'4" X: contested share of his targets, points | +0.8 to +1.4 (all 3) | +0.8 to +1.6 (all 3) |
-| contested catch rate, points | -1.0 to +1.3 (0 of 3) | -1.1 to +1.7 (0 of 3) |
-| red zone touchdowns a target, points | -0.2 to +1.7 (0 of 3) | +0.1 to +1.4 (0 of 3) |
-| 5'10" X: contested share, points | -1.4 to -0.1 (1 of 3) | -1.2 to -0.2 (2 of 3) |
-| contested catch rate, points | -1.3 to -0.5 (0 of 3) | -1.1 to +2.2 (0 of 3) |
+| Route Running +15: separation against zone, yards | -0.18 to +0.09 (13 of 21) | -0.14 to +0.23 (13 of 21) |
+| catch rate against zone, points | -2.9 to +0.1 (13 of 21) | -3.5 to +1.1 (14 of 21) |
+| yards a route against zone | +0.06 to +0.31 (all 21) | +0.28 to +0.52 (all 21) |
+| separation against man, yards | +0.32 to +0.80 (all 21) | +0.33 to +0.86 (all 21) |
+| team EPA a dropback | -0.003 to +0.020 (4 of 21) | -0.000 to +0.023 (6 of 21) |
+| points a game | -0.27 to +0.51 (2 of 21) | -0.13 to +0.86 (9 of 21) |
+| Catching +15: drops a 100 targets | -1.00 to -0.09 (12 of 15) | -1.35 to -0.68 (all 15) |
+| catch rate, points | -1.1 to +4.6 (10 of 21) | -1.6 to +4.7 (15 of 21) |
+| yards a route | +0.05 to +0.37 (all 21) | +0.19 to +0.63 (all 21) |
+| points a game | -0.42 to +0.77 (1 of 21) | -0.40 to +0.77 (4 of 21) |
+| Contested Catch +15: contested catch rate, points | -1.5 to +2.3 (0 of 9) | +3.9 to +11.2 (all 9) |
+| contested share of his targets, points | -0.3 to +1.6 (3 of 9) | -0.0 to +2.0 (6 of 9) |
+| yards a route | -0.01 to +0.20 (6 of 9) | +0.13 to +0.37 (all 9) |
+| red zone touchdowns a target, points | -1.5 to +2.2 (0 of 9) | -1.0 to +1.4 (0 of 9) |
+| Speed +15: air yards a target | +0.78 to +2.03 (all 6) | +0.21 to +0.99 (all 6) |
+| targets 20+ yards downfield a season | +2.5 to +10.1 (all 6) | +0.9 to +3.9 (all 6) |
+| yards after the catch | +0.35 to +0.65 (all 6) | +0.43 to +0.81 (all 6) |
+| separation against man, yards | +0.61 to +0.90 (all 6) | +0.67 to +1.00 (all 6) |
+| separation against zone, yards | -0.23 to -0.05 (5 of 6) | -0.19 to -0.01 (1 of 6) |
+| catch rate, points | -4.4 to -1.2 (all 6) | -1.9 to -0.4 (3 of 6) |
+| 6'4" X: contested share of his targets, points | +0.7 to +1.8 (all 3) | +0.6 to +2.0 (2 of 3) |
+| contested catch rate, points | -0.5 to +1.7 (0 of 3) | -1.5 to -0.3 (0 of 3) |
+| red zone touchdowns a target, points | -0.9 to +2.5 (1 of 3) | +0.6 to +2.4 (1 of 3) |
+| 5'10" X: contested share, points | -1.0 to -0.1 (2 of 3) | -1.1 to +0.0 (1 of 3) |
+| contested catch rate, points | -1.0 to +0.4 (0 of 3) | -1.5 to +0.9 (0 of 3) |
 
 Why, by measure:
 
-- **Route running against zone.** The yards a route against zone are the claim: +0.24 to +0.60 on all 21 arms, against +0.03 to +0.32 on main. In the slot and at tight end, where a zone defender sits close when the ball goes, Route Running +15 now gains 0.11 to 0.28 yards of separation against zone (all 9 arms past the noise; main -0.09 to +0.09) and holds his catch rate there (-1.0 to +0.7 points; main -1.8 to -0.5). Outside, the X and Z gain none (-0.11 to +0.07), and their catch rate against zone still falls 0.1 to 3.8 points as on main, while their yards a route against zone rise more than on main (+0.29 to +0.47, main +0.15 to +0.32) from more targets. Likely two causes, neither traced: their zone defender is mostly a deep corner more than 6 yards off (`TURN_NEAR`), so the turn rarely reaches him, and Route Running now feeds them (19% of the first looks on the typical team, the caution above), so more of their targets come by the plan, not by an open window (`GAPS.md`, "Outside receivers' route running buys no separation against zone"). Against man it gains as on main (+0.34 to +0.81 yards, main +0.43 to +0.82).
-- **Hands.** Catching +15 takes 0.62 to 1.39 drops off 100 targets (all 15 arms; main 0.08 to 0.93), and since the feed reads Catching he draws more targets too (+1.8 to +11.0 a 100 routes). His team's points move -0.82 to +0.56: three receivers' arms at FBS gain past the noise (the Z on both seeds and the slot on seed 151, +0.43 to +0.56 a game), and the back's two at the NFL lose past it (-0.63 and -0.82). The back's arms cost points on every seed (-0.82 to -0.04): on the typical team the tie hands him 19% of the first looks, and a back gains 0.6 to 1.0 yards a route where a receiver gains 1.4 to 2.0. On main the same arms moved -0.33 to +0.07.
-- **Contested balls.** Contested Catch +15 wins 4.8 to 11.1 more points of his contested balls (all 9 arms; main -2.2 to +1.7, none past the noise), draws a few more of them on most arms (-0.5 to +1.3 points of his targets; the 5 past the noise all more) and gains 0.10 to 0.37 yards a route.
-- **Speed** still pays deep and after the catch: Speed +15 adds 0.27 to 0.94 air yards a target, 1.2 to 3.6 targets 20+ yards a season and 0.61 to 0.77 yards after the catch (all 6 arms), and buys separation against man (+0.51 to +1.02) but not against zone (-0.18 to +0.03; real: speed doesn't buy separation, `AFM_RECDIAG`). He draws fewer extra targets than on main (+0.9 to +2.1 a 100 routes, main +4.0 to +5.5): Speed fed him through his spot rating on main, so part of main's deep targets came from the feed's first looks.
-- **Height** pays in the targets, not yet in the catch. A 6'4" X draws 0.8 to 1.6 points more of his targets contested (all 3) and wins them no more often (-1.1 to +1.7, none past the noise), and his red zone touchdowns a target move +0.1 to +1.4 points (none past the noise). His points move +0.18 to +0.25 a game, inside the noise (main -0.18 to +0.30). A 5'10" X is the mirror, inside the noise on his catch rate. The catch point is lane SF5's (`GAPS.md`, "Height pays in contested targets").
+- **Route running against zone.** The yards a route against zone are the claim: +0.28 to +0.52 on all 21 arms, against +0.06 to +0.31 on main. In the slot and at tight end, where a zone defender sits close when the ball goes, Route Running +15 now gains 0.06 to 0.23 yards of separation against zone (8 of 9 arms past the noise; main -0.15 to +0.09) and loses less of his catch rate there (-0.4 points on average, 2 of 9 past the noise; main -1.0, 3 of 9). Outside, the X and Z gain none (-0.14 to +0.10), and their catch rate against zone falls 1.2 to 3.5 points (main 1.0 to 2.9), while their yards a route against zone rise more than on main (+0.32 to +0.51, main +0.18 to +0.31) from more targets. Likely two causes, neither traced: their zone defender is mostly a deep corner more than 6 yards off (`TURN_NEAR`), so the turn rarely reaches him, and Route Running now feeds them (19% of the first looks on the typical team, the caution above), so more of their targets come by the plan, not by an open window (`GAPS.md`, "Outside receivers' route running buys no separation against zone"). Against man it gains as on main (+0.33 to +0.86 yards, main +0.32 to +0.80).
+- **Hands.** Catching +15 takes 0.68 to 1.35 drops off 100 targets (all 15 arms; main 0.09 to 1.00), and since the feed reads Catching he draws more targets too (+2.0 to +11.1 a 100 routes, main +0.6 to +6.0). His team's points move -0.40 to +0.77 (main -0.42 to +0.77), and the 4 past the noise are all gains (the slot on both FBS seeds, the X in the West Coast on FBS 171 and in the Air Raid at the NFL, +0.47 to +0.77 a game). The back's arms stay inside the noise (-0.20 to +0.25, main -0.41 to +0.25): on the typical team the tie hands him 19% of the first looks, and a back gains 0.6 to 1.0 yards a route where a receiver gains 1.4 to 2.0.
+- **Contested balls.** Contested Catch +15 wins 3.9 to 11.2 more points of his contested balls (all 9 arms; main -1.5 to +2.3, none past the noise), draws a few more of them on most arms (0.0 to +2.0 points of his targets; the 6 past the noise all more) and gains 0.13 to 0.37 yards a route.
+- **Speed** still pays deep and after the catch: Speed +15 adds 0.21 to 0.99 air yards a target, 0.9 to 3.9 targets 20+ yards a season and 0.43 to 0.81 yards after the catch (all 6 arms), and buys separation against man (+0.67 to +1.00) but not against zone (-0.19 to -0.01; real: speed doesn't buy separation, `AFM_RECDIAG`). He draws fewer extra targets than on main (+1.3 to +2.1 a 100 routes, main +4.2 to +5.7): Speed fed him through his spot rating on main, so part of main's deep targets came from the feed's first looks.
+- **Height** pays in the targets and a little in the red zone, not yet in the catch. A 6'4" X draws 0.6 to 2.0 points more of his targets contested (2 of 3 past the noise) and wins them no more often (-1.5 to -0.3 points, none past the noise; main -0.5 to +1.7), and his red zone touchdowns a target rise 0.6 to 2.4 points (1 of 3 past the noise; main -0.9 to +2.5). His team scores 0.06 to 0.40 a game more (2 of 3 past the noise), about as on main (+0.21 to +0.54). A 5'10" X is the mirror, inside the noise on his catch rate. The catch point is lane SF5's (`GAPS.md`, "Height pays in contested targets").
 
 Item 25, who is looked at first:
 
 | | main | after |
 |---|---|---|
-| a back's Ball Carrier Vision, Speed or Elusiveness +15: targets a 100 routes | +5.3 to +6.8 (all 9) | -0.2 to +0.4 (1 of 9) |
-| targets a game | +0.80 to +1.21 (all 9) | -0.03 to +0.12 (5 of 9) |
-| a tight end's Run Blocking +15: targets a 100 routes | +0.6 to +1.3 (all 6) | -0.2 to +0.2 (0 of 6) |
-| targets a game | +0.20 to +0.35 (all 6) | +0.01 to +0.09 (1 of 6) |
-| the first tight end's Catching, Contested Catch or Route Running +15: targets a game | +0.11 to +0.43 (all 9) | +0.27 to +1.15 (all 9) |
-| yards a route | +0.01 to +0.13 (6 of 9) | +0.10 to +0.43 (all 9) |
-| points a game | -0.51 to +0.15 (1 of 9) | -0.02 to +0.67 (1 of 9) |
-| a back's Catching +15: targets a game | +0.10 to +1.46 (all 6) | +0.60 to +2.45 (all 6) |
-| the X's Release +15: targets a 100 routes | +2.5 to +3.0 (all 3) | +3.6 to +3.8 (all 3) |
-| the X's Ball Tracking +15: targets a 100 routes | +2.3 to +2.6 (all 3) | +2.9 to +3.3 (all 3) |
-| the X's Speed +15: targets a 100 routes | +4.0 to +5.5 (all 6) | +0.9 to +2.1 (all 6) |
+| a back's Ball Carrier Vision, Speed or Elusiveness +15: targets a 100 routes | +5.4 to +7.1 (all 9) | -0.2 to +0.3 (0 of 9) |
+| targets a game | +0.81 to +1.21 (all 9) | -0.03 to +0.11 (2 of 9) |
+| a tight end's Run Blocking +15: targets a 100 routes | +0.7 to +1.8 (all 6) | -0.2 to +0.1 (0 of 6) |
+| targets a game | +0.25 to +0.45 (all 6) | +0.00 to +0.10 (0 of 6) |
+| the first tight end's Catching, Contested Catch or Route Running +15: targets a game | +0.09 to +0.42 (all 9) | +0.29 to +1.23 (all 9) |
+| yards a route | -0.01 to +0.14 (8 of 9) | +0.13 to +0.47 (all 9) |
+| points a game | +0.02 to +0.46 (0 of 9) | -0.21 to +0.41 (0 of 9) |
+| a back's Catching +15: targets a game | +0.09 to +1.34 (all 6) | +0.55 to +2.41 (all 6) |
+| the X's Release +15: targets a 100 routes | +2.4 to +2.6 (all 3) | +3.4 to +3.9 (all 3) |
+| the X's Ball Tracking +15: targets a 100 routes | +2.3 to +2.6 (all 3) | +2.7 to +3.4 (all 3) |
+| the X's Speed +15: targets a 100 routes | +4.2 to +5.7 (all 6) | +1.3 to +2.1 (all 6) |
 
-Why: the feed reads a man as a receiver now, so a back's running and a tight end's blocking no longer feed him (targets a route inside the noise on 14 of 15 arms). A better runner or blocker draws at most 0.12 more targets a game, because he plays more snaps (up to 2.2 points more of them at FBS, where a back also carries 0.2 to 0.7 more a game). His receiving feeds him instead: the first tight end's Catching, Contested Catch or Route Running +15 draws 0.27 to 1.15 more targets a game (main 0.11 to 0.43), and a back's Catching 0.60 to 2.45 (main 0.10 to 1.46). Release and Ball Tracking +15 feed the X a little more than on main, and Speed less (above). These are the typical team's tie (the caution above); in a league a point of edge is worth 0.02 of the first looks.
+Why: the feed reads a man as a receiver now, so a back's running and a tight end's blocking no longer feed him (targets a route inside the noise on all 15 arms). A better runner or blocker draws at most 0.11 more targets a game, because he plays more snaps (up to 1.9 points more of them at FBS, where a back also carries 0.1 to 0.7 more a game). His receiving feeds him instead: the first tight end's Catching, Contested Catch or Route Running +15 draws 0.29 to 1.23 more targets a game (main 0.09 to 0.42), and a back's Catching 0.55 to 2.41 (main 0.09 to 1.34). Release and Ball Tracking +15 feed the X a little more than on main, and Speed less (above). These are the typical team's tie (the caution above); in a league a point of edge is worth 0.02 of the first looks.
 
 SF2's hand-off, the tight ends (the test league with every team set firmly to 13 or 12, 2,000 NFL games, seed 1; main, then after, and the swap tried on every throw; real 2024 NFL as in lane SF2):
 
 | | main | after | always the best (tried) | real |
 |---|---|---|---|---|
-| 13 personnel: the first / second / third tight end's share of the tight ends' targets | 33 / 46 / 21% | 41 / 41 / 19% | 60 / 28 / 11% | 47 / 29 / 24% |
-| 13: the tight ends' share of the targets | 60% | 59% | 56% | 56% |
-| 13: air yards a target, the first / second / third | 9.5 / 7.9 / 7.0 | 9.8 / 8.0 / 7.1 | 9.8 / 7.7 / 6.4 | 7.6 / 6.5 / 4.5 |
-| 12 personnel: the second tight end's share of the tight ends' targets | 53% | 47% | 36% | 43% |
-| 12: air yards a target, the first / second | 10.0 / 7.9 | 10.5 / 8.0 | 10.9 / 6.9 | 7.0 / 6.3 |
+| 13 personnel: the first / second / third tight end's share of the tight ends' targets | 33 / 47 / 20% | 41 / 41 / 19% | 60 / 28 / 11% | 47 / 29 / 24% |
+| 13: the tight ends' share of the targets | 59% | 59% | 56% | 56% |
+| 13: air yards a target, the first / second / third | 9.4 / 7.9 / 7.0 | 9.7 / 8.0 / 7.0 | 9.8 / 7.7 / 6.4 | 7.6 / 6.5 / 4.5 |
+| 12 personnel: the second tight end's share of the tight ends' targets | 52% | 47% | 36% | 43% |
+| 12: air yards a target, the first / second | 10.3 / 7.9 | 10.4 / 7.9 | 10.9 / 6.9 | 7.0 / 6.3 |
 
 The swap reads the best man's edge over the one the depth chart puts in the first place, at the feed's chance. Putting the best receiving tight end there on every throw overshot (the first drew 60%, real 47%); at the feed's chance the staff leans on its best man as the passer's first look does, without always going to him. The first tight end still draws less than real and the second more: the second stands in for the flanker, whom many concepts read before the first tight end, and runs the short job the quarterback finds most often (SF2's read order; `GAPS.md`, "In 13 personnel the first tight end still draws less than real").
 
@@ -1734,42 +1734,42 @@ The receivers across a league (`match_check` with `AFM_RECDIAG=1`: the NFL test 
 
 | | test rosters | world seed 1's clubs | real |
 |---|---|---|---|
-| drops a target, the spread between men, wide receivers / tight ends / backs (points) | 0.60 / 0.42 / 0.38 > 0.74 / 1.06 / 0.90 | 0.40 / 0.80 / 0.44 > 0.94 / 0.96 / 0.97 | 0.54 / 1.01 / 1.12 |
-| the drops' spread Catching alone gives (its slope × its spread) | 0.21 / 0.25 / 0.23 > 0.39 / 0.53 / 0.35 | 0.32 / 0.26 / 0.45 > 0.66 / 0.72 / 0.78 |  |
-| drops, % of targets | 2.83 / 2.57 / 4.35 > 2.78 / 2.65 / 4.60 | 3.12 / 2.97 / 4.67 > 3.11 / 3.01 / 4.85 | 3.45 / 3.69 / 4.87 |
-| catch rate, the spread between men (points) | 5.2 / 4.7 / 3.0 > 5.0 / 4.6 / 3.7 | 5.4 / 4.7 / 3.1 > 5.8 / 5.0 / 3.6 | 5.7 / 3.3 / 3.6 |
-| contested catch rate, the spread between men, wide receivers / tight ends (points) | 3.9 / 2.5 > 6.1 / 5.3 | 2.7 / 3.5 > 8.0 / 7.3 | 8.9 / 11.3 |
-| an inch of a wide receiver's height: his contested catch rate (points) | -0.17 > +0.23 | -0.09 > +0.18 | +0.72 |
-| an inch: his share of contested targets (points) | +0.67 > +0.66 | +0.67 > +0.65 | +1.07 |
-| a wide receiver's 0.1 s slower forty: air yards a target | -0.71 > -0.69 | -0.76 > -0.66 | -0.79 |
-| the same: targets 20+ yards, points of his targets | -0.84 > -0.78 | -2.06 > -1.87 | -2.85 |
-| a wide receiver's separation at the catch, the spread between men (yards) | 0.51 > 0.49 | 0.49 > 0.45 | 0.42 |
+| drops a target, the spread between men, wide receivers / tight ends / backs (points) | 0.59 / 0.78 / 0.62 > 0.59 / 1.02 / 0.66 | 0.62 / 0.76 / 0.60 > 0.72 / 0.82 / 1.17 | 0.54 / 1.01 / 1.12 |
+| the drops' spread Catching alone gives (its slope × its spread) | 0.20 / 0.22 / 0.27 > 0.39 / 0.34 / 0.44 | 0.27 / 0.34 / 0.41 > 0.51 / 0.64 / 0.84 |  |
+| drops, % of targets | 2.82 / 2.62 / 4.23 > 2.77 / 2.60 / 4.37 | 3.03 / 2.98 / 4.75 > 3.12 / 2.92 / 4.87 | 3.45 / 3.69 / 4.87 |
+| catch rate, the spread between men (points) | 4.6 / 4.4 / 3.5 > 5.4 / 4.5 / 3.6 | 5.1 / 4.7 / 3.7 > 5.7 / 5.3 / 3.6 | 5.7 / 3.3 / 3.6 |
+| contested catch rate, the spread between men, wide receivers / tight ends (points) | 1.3 / 1.7 > 6.9 / 6.6 | 2.8 / 2.2 > 7.6 / 6.5 | 8.9 / 11.3 |
+| an inch of a wide receiver's height: his contested catch rate (points) | -0.14 > +0.29 | -0.21 > -0.06 | +0.72 |
+| an inch: his share of contested targets (points) | +0.65 > +0.61 | +0.66 > +0.58 | +1.07 |
+| a wide receiver's 0.1 s slower forty: air yards a target | -0.70 > -0.70 | -0.77 > -0.68 | -0.79 |
+| the same: targets 20+ yards, points of his targets | -0.87 > -0.77 | -2.07 > -1.90 | -2.85 |
+| a wide receiver's separation at the catch, the spread between men (yards) | 0.52 > 0.49 | 0.45 > 0.46 | 0.42 |
 
-The hands are sized on the world: its men are drawn as the game draws them, and its receivers spread 9 to 10 points of Catching between them at each position (the test rosters 6.7 to 8.1). There drops a target now spread 0.94, 0.96 and 0.97 points between wide receivers, tight ends and backs (main 0.40, 0.80 and 0.44), against real spreads of 0.54, 1.01 and 1.12, and Catching alone gives 0.66, 0.72 and 0.78 of it (main 0.32, 0.26 and 0.45). The tight ends and backs come to real; the wide receivers run past it because a miss counts as a drop only with nobody within a yard, so a more open man has more balls he can drop (`GAPS.md`, "Wide receivers' drops spread wider than real in the world"). One game seed's spread is noisy (the wide receivers' 0.65 to 1.22 over the four, main's 0.19 to 0.65), so the table reads their mean. The contested catch rate's spread between wide receivers comes near real (8.0, real 8.9; main 2.7). Height and the forty's slope of deep targets barely move (`GAPS.md`).
+The hands are sized on the world: its men are drawn as the game draws them, and its receivers spread 9 to 10 points of Catching between them at each position (the test rosters 6.7 to 8.1). There drops a target now spread 0.72, 0.82 and 1.17 points between wide receivers, tight ends and backs (main 0.62, 0.76 and 0.60), against real spreads of 0.54, 1.01 and 1.12, and Catching alone gives 0.51, 0.64 and 0.84 of it (main 0.27, 0.34 and 0.41). The backs come to real and the tight ends nearer it. The wide receivers' spread was past real on main already, with little of it from their hands, and runs further past it: a miss counts as a drop only with nobody within a yard, so a more open man has more balls he can drop (`GAPS.md`, "Wide receivers' drops spread wider than real in the world"). One game seed's spread is noisy (the wide receivers' 0.66 to 0.77 over the four, main's 0.40 to 0.84; over main 36b6367 main's four gave 0.19 to 0.65), so the table reads their mean. The contested catch rate's spread between wide receivers comes near real (7.6, real 8.9; main 2.8). Height and the forty's slope of deep targets barely move (`GAPS.md`).
 
 The league's totals hold (`match_check`; the NFL test rosters on seeds 11, 12 and 13 at 4,000 games each, FBS on seed 11 at 4,000, high school on seed 11 at 2,000, and world seed 1's NFL clubs on game seeds 1-4 at 4,000 each; main, then after, and for the NFL and the world the change's range over the seeds). Every total stays inside its band in `tests/match_engine.rs`.
 
 | | NFL, 3 seeds | FBS | high school | world seed 1's NFL clubs | real NFL |
 |---|---|---|---|---|---|
-| points a team game | 26.76 > 26.86 (-0.12 to +0.30) | 25.12 > 25.04 | 19.93 > 20.12 | 28.68 > 28.26 (-0.73 to -0.11) | 22.51 |
-| yards an attempt | 7.58 > 7.61 (-0.01 to +0.06) | 7.37 > 7.35 | 6.56 > 6.56 | 8.07 > 8.00 (-0.11 to -0.04) | 7.05 |
-| completion rate | 65.5 > 65.3 (-0.2 to -0.2) | 60.0 > 59.6 | 56.1 > 55.9 | 67.8 > 68.1 (+0.2 to +0.4) | 64.5 |
-| interceptions a team game | 0.786 > 0.821 (+0.033 to +0.038) | 0.652 > 0.681 | 0.337 > 0.342 | 0.657 > 0.655 (-0.018 to +0.012) | 0.756 |
-| air yards an attempt | 9.36 > 9.43 (+0.02 to +0.12) | 9.06 > 9.16 | 7.96 > 8.01 | 9.27 > 8.99 (-0.29 to -0.26) |  |
-| drops, % of attempts | 3.1 > 3.1 (+0.0 to +0.0) | 3.5 > 3.5 | 4.6 > 4.5 | 3.4 > 3.4 (+0.0 to +0.1) |  |
-| broken up, % of attempts | 8.1 > 8.4 (+0.2 to +0.4) | 5.7 > 6.0 | 4.3 > 4.6 | 9.1 > 9.1 (-0.1 to +0.0) |  |
-| red zone touchdowns, % of attempts | 28.1 > 27.6 (-0.5 to -0.4) | 27.3 > 27.4 | 25.9 > 27.1 | 29.7 > 29.2 (-0.8 to +0.1) | 19.0 |
-| explosive pass rate | 8.6 > 8.8 (+0.1 to +0.2) | 8.6 > 8.6 | 6.8 > 7.0 | 10.0 > 9.9 (-0.2 to -0.1) | 8.8 |
-| sack rate | 3.5 > 3.4 (-0.2 to +0.0) | 4.4 > 4.3 | 7.6 > 7.4 | 3.5 > 3.4 (-0.2 to -0.1) | 6.8 |
-| targets to the wide receivers | 65.2 > 65.4 (+0.0 to +0.4) | 69.2 > 69.9 | 62.3 > 62.8 | 65.8 > 63.3 (-2.7 to -2.5) | 59.3 |
-| targets to the tight ends | 20.9 > 20.8 (-0.2 to +0.0) | 16.2 > 15.5 | 17.6 > 17.8 | 17.6 > 17.2 (-0.6 to -0.3) | 21.9 |
-| targets to the backs | 13.2 > 13.0 (-0.4 to -0.1) | 13.6 > 13.4 | 17.3 > 16.3 | 13.4 > 15.4 (+2.0 to +2.2) | 18.1 |
+| points a team game | 26.88 > 26.97 (+0.06 to +0.12) | 25.22 > 25.20 | 20.34 > 20.39 | 28.76 > 28.46 (-0.44 to -0.20) | 22.51 |
+| yards an attempt | 7.59 > 7.60 (+0.00 to +0.02) | 7.36 > 7.30 | 6.59 > 6.54 | 8.10 > 8.01 (-0.10 to -0.06) | 7.05 |
+| completion rate | 65.7 > 65.3 (-0.4 to -0.2) | 59.9 > 59.4 | 56.3 > 55.6 | 67.8 > 68.1 (+0.2 to +0.5) | 64.5 |
+| interceptions a team game | 0.807 > 0.830 (+0.015 to +0.032) | 0.661 > 0.697 | 0.343 > 0.351 | 0.663 > 0.657 (-0.011 to -0.002) | 0.756 |
+| air yards an attempt | 9.33 > 9.45 (+0.08 to +0.16) | 9.05 > 9.14 | 7.89 > 8.05 | 9.30 > 8.97 (-0.35 to -0.32) |  |
+| drops, % of attempts | 3.1 > 3.1 (-0.1 to +0.1) | 3.5 > 3.6 | 4.7 > 4.5 | 3.4 > 3.5 (+0.1 to +0.1) |  |
+| broken up, % of attempts | 8.1 > 8.4 (+0.1 to +0.4) | 5.7 > 6.0 | 4.1 > 4.4 | 9.0 > 9.0 (-0.2 to +0.0) |  |
+| red zone touchdowns, % of attempts | 27.9 > 27.9 (-0.1 to +0.2) | 27.0 > 27.0 | 26.4 > 26.0 | 29.7 > 29.2 (-1.0 to -0.2) | 19.0 |
+| explosive pass rate | 8.7 > 8.8 (+0.0 to +0.2) | 8.6 > 8.6 | 6.9 > 6.8 | 10.1 > 9.9 (-0.3 to +0.0) | 8.8 |
+| sack rate | 3.5 > 3.4 (-0.2 to +0.0) | 4.4 > 4.3 | 7.5 > 7.5 | 3.5 > 3.4 (-0.2 to -0.1) | 6.8 |
+| targets to the wide receivers | 65.0 > 65.3 (+0.0 to +0.5) | 69.3 > 69.7 | 62.2 > 63.3 | 65.9 > 63.2 (-2.9 to -2.5) | 59.3 |
+| targets to the tight ends | 20.9 > 21.0 (+0.0 to +0.1) | 16.1 > 15.8 | 17.8 > 17.8 | 17.6 > 17.2 (-0.6 to -0.2) | 21.9 |
+| targets to the backs | 13.4 > 13.0 (-0.6 to -0.3) | 13.6 > 13.3 | 17.3 > 16.1 | 13.3 > 15.4 (+2.1 to +2.2) | 18.1 |
 
-Why: interceptions rise 4% to 5% on the test rosters (NFL 0.786 to 0.821 a team game, real 0.756; FBS 0.652 to 0.681) and balls broken up 0.2 to 0.4 points of attempts. A passer at or below his level's typical field read keeps the fixed reaction in his window (above), but the throw itself now reads the target: a zone defender breaks sooner on a throw to a poorer route runner (`zone_turn`), and the breakup comes easier against a poorer contested catcher (`contest_edge`). Those windows close faster than he reads, and the test rosters' receivers spread both ways about the typical starter, where the tight windows cost more than the open ones give back. On world seed 1's NFL clubs picks hold (0.657 to 0.655 a team game) and points fall 0.42 a team game toward real (28.68 to 28.26, real 22.51): their backs read as better receivers than the typical starter at their position (`GAPS.md`, "The typical starter isn't the world's"), so the feed sends them 2.0 points more of the targets (15.4%, real 18.1%), and those throws are short (air yards an attempt 9.27 to 8.99). Pass interference rises with the breakups: flagged on defenders 0.67 to 0.69 a team game at the NFL on seed 11 (0.67 to 0.71 and 0.75 to 0.76 on seeds 12 and 13), 0.61 to 0.63 at FBS and 0.36 to 0.37 in high school, since `pi_check` flags a defender more often on a ball he broke up (1.2 against 0.7); accepted, 0.37 to 0.40 a team game at the NFL on main and 0.38 to 0.41 after (real 0.42). The engine gaps audit's other counts (`AFM_GAPS=1` on the same runs) hold: points by quarter, injuries, kicks, fumbles and the half's last snap move inside their noise, and scrambles fall a little (1.09 to 1.22 a team game at the NFL on main, 1.01 to 1.16 after; FBS 1.26 to 1.17, high school 0.78 to 0.74), since a better reader throws sooner.
+Why: interceptions rise 3% to 5% on the test rosters (NFL 0.807 to 0.830 a team game, real 0.756; FBS 0.661 to 0.697) and balls broken up 0.1 to 0.4 points of attempts. A passer at or below his level's typical field read keeps the fixed reaction in his window (above), but the throw itself now reads the target: a zone defender breaks sooner on a throw to a poorer route runner (`zone_turn`), and the breakup comes easier against a poorer contested catcher (`contest_edge`). Those windows close faster than he reads, and the test rosters' receivers spread both ways about the typical starter, where the tight windows cost more than the open ones give back. On world seed 1's NFL clubs picks hold (0.663 to 0.657 a team game) and points fall 0.30 a team game toward real (28.76 to 28.46, real 22.51): their backs read as better receivers than the typical starter at their position (`GAPS.md`, "The typical starter isn't the world's"), so the feed sends them 2.1 points more of the targets (15.4%, real 18.1%), and those throws are short (air yards an attempt 9.30 to 8.97). Pass interference rises with the breakups: flagged on defenders 0.66 to 0.67 a team game at the NFL on seed 11 (0.66 to 0.68 and 0.75 to 0.78 on seeds 12 and 13), 0.61 to 0.63 at FBS and 0.34 to 0.38 in high school, since `pi_check` flags a defender more often on a ball he broke up (1.2 against 0.7); accepted, 0.34 to 0.40 a team game at the NFL on main and 0.37 to 0.43 after (real 0.42). The engine gaps audit's other counts (`AFM_GAPS=1` on the same runs) hold: points by quarter, injuries, kicks, fumbles (lane EG2's, by kind and by position) and the half's last snap move inside their noise, and scrambles fall a little (1.09 to 1.21 a team game at the NFL on main, 0.99 to 1.14 after; FBS 1.26 to 1.19, high school 0.78 to 0.75), since a better reader throws sooner.
 
-The coaches' table (`call_values`): the lane moves its pass cells by 0.27 yards a cell (the mean of |change|), with no shift on average, and the run rows not at all. The straight pass rows already wait for minor bug 405 (the tool sits 2.3 yards a cell off the committed table on main itself), and the faked rows are built on them, so the committed table stands. One cell jumped: spacing against Cover 1 robber was picked 11% of the time (3% on main), because the tool's fixed team has a first tight end 17.4 points under the typical starter's Catching and 7.8 under his Route Running, and the receiving reads now make him worse (`GAPS.md`, "The call table's fixed teams aren't typical").
+The coaches' table (`call_values` over main 569e61f, whose run rows lane EG2 rebuilt): the lane moves the tool's pass cells by 0.24 yards a cell (the mean of |change|), with no shift on average (+0.02), and the run rows not at all. The straight pass rows already wait for minor bug 405 (the tool sits 2.2 yards a cell off the committed table on main itself), and the rows the table takes from a new run (the three play-action concepts and the fakes' changes, `tools/call_values/compose.py`) move 0.15 yards a cell with the lane, less than main's own new run moves them off the committed table (0.27), so the committed table stands. One cell jumped: spacing against Cover 1 robber was picked 10% of the time (3% on main), because the tool's fixed team has a first tight end 17.4 points under the typical starter's Catching and 7.8 under his Route Running, and the receiving reads now make him worse (`GAPS.md`, "The call table's fixed teams aren't typical").
 
-Speed (`match_check`, 2,000 games at each level on seeds 1 and 2, main 36b6367 and the lane in turn on an otherwise quiet machine, two rounds with the order swapped; the games' own time): the NFL -0.2% (12.97 s to 12.95 a run; pairs -3.8% to +3.9%), FBS -1.4% (13.90 to 13.70; -10.1% to +2.9%, and +1.7% without main's one slow run, 14.9 s against 13.5 to 13.6), high school +1.6% (9.22 to 9.38; -1.1% to +4.3%). That is inside a pair's noise; over main dcdde89 the same runs gave +0.6%, +2.1% and +1.1%. The feed reads six ratings about the typical starter for each man in the reads, a zone defender's break reads the target's route, and a throw that reads a second tight end works out its reads once.
+Speed (`match_check`, 2,000 games at each level on seeds 1 and 2, main 569e61f and the lane in turn on an otherwise quiet machine, two rounds with the order swapped; the games' own time): the NFL +1.8% (12.47 s to 12.70 a run; pairs -0.8% to +4.1%), FBS +0.2% (13.20 to 13.22; -0.8% to +0.8%), high school -0.8% (8.93 to 8.85; -2.2% to +1.1%). Over main 36b6367 the same runs gave -0.2%, -1.4% and +1.6%, and over dcdde89 +0.6%, +2.1% and +1.1%: the lane costs at most about 2%. The feed reads six ratings about the typical starter for each man in the reads, a zone defender's break reads the target's route, and a throw that reads a second tight end works out its reads once.
 
 Tried and dropped (`fit_check` on FBS seed 151, the West Coast and Air Raid arms, on the lane's first builds before SF2 merged, unless a line says otherwise):
 
