@@ -4,9 +4,18 @@
 //! (a line to everyone), then the captains or the council, then the men
 //! most on the room's mind (the unhappiest first), each with his own items
 //! named for him: his pride, what's on his mind, your promises to him.
+//!
+//! Group talks (thread "Make group talks feel like a room", item 1): after
+//! the whole room the card names the room's groups (the starters, the
+//! backups, the seniors, the newcomers, the offense, the defense, each
+//! position room: `crowd::blocs`), so a line can land on each group its own
+//! way ("every job is open": the starters doubted, the backups reassured)
+//! and a line to one group ("Defense, ...") goes to that group. Who answers
+//! is the game's (`crowd::voices`), never the card's.
 
 use afm_engine::world::World;
 use afm_engine::world::folk::persona::Them;
+use afm_engine::world::folk::persona::crowd;
 use afm_engine::world::folk::persona::ear::Item;
 use afm_engine::world::folk::persona::gameday::group::{self, ROOM};
 use afm_engine::world::folk::persona::meetings;
@@ -32,8 +41,12 @@ pub fn ear(w: &World, s: &Scene, room: &Room, line: &str) -> (EarCard, EarKeys) 
         setting: cards::setting(w, s, room),
         coach: cards::coach(w),
         them: format!(
-            "{}: everyone hears every line. p0 is the whole room, and c0 a line meant for all of them; \
-             p1 answers for the room",
+            "{}: everyone hears every line. p0 is the whole room and c0 a line meant for all of them. The groups \
+             in the room are tagged too: a line to one group (\"Defense, ...\", \"Seniors, ...\") is a hit on that \
+             group's tag with c0, and a line that lands differently on different groups gets one hit per group, each \
+             its own way (\"every job is open\": the starters doubted, the backups reassured), with no hit on p0. A \
+             promise made to the room or a group: about is the tag of who it's made to (p0 for everyone); to one man, \
+             his tag; for ahead_of, the teammate he'd play ahead of. A question to one man by name: about is his tag",
             cards::channel_words(room.channel)
         ),
         so_far: cards::so_far(s),
@@ -48,6 +61,16 @@ pub fn ear(w: &World, s: &Scene, room: &Room, line: &str) -> (EarCard, EarKeys) 
     keys.people.push(("p0".into(), ROOM));
     c.items.push(Tagged { tag: "c0".into(), text: meetings::whole_words(s).into() });
     keys.items.push(("c0".into(), Item::Room));
+    // The room's groups, each its own tag.
+    let lvl = crowd::level(w);
+    let blocs = crowd::blocs(w, room);
+    for b in &blocs {
+        let tag = format!("p{}", keys.people.len());
+        let n = crowd::members(w, room, *b).len();
+        c.people
+            .push(Tagged { tag: tag.clone(), text: format!("{} ({n} of them, a group in the room)", b.words(lvl)) });
+        keys.people.push((tag, b.them()));
+    }
     // The captains (or the council) first, as the room has them; then the
     // men most on the room's mind.
     let leads = group::leads(w, s);
@@ -66,7 +89,7 @@ pub fn ear(w: &World, s: &Scene, room: &Room, line: &str) -> (EarCard, EarKeys) 
     let n_lead = lead.len();
     let named: Vec<Them> = lead.into_iter().chain(rest.into_iter().take(MAX_NAMED).map(|x| x.0)).collect();
     for (k, who) in named.iter().enumerate() {
-        let tag = format!("p{}", k + 1);
+        let tag = format!("p{}", keys.people.len());
         let why = if k < n_lead { "a leader of the room" } else { "listening" };
         c.people.push(Tagged { tag: tag.clone(), text: format!("{} ({why})", person(w, *who)) });
         keys.people.push((tag, *who));

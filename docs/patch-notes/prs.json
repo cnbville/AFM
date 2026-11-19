@@ -2102,6 +2102,19 @@
   "title": "Negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL",
   "tldr": "Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help."
  },
+ "568": {
+  "auto": false,
+  "bullets": [
+   "Staffs rotate their tackles in waves. A star still plays most snaps, while a room of equals shares them.",
+   "Rain makes long throws much harder to complete than short ones.",
+   "A light breeze barely matters, but a 15-20 mph wind cuts passing the way it does in real games."
+  ],
+  "h": "dc01712cd634",
+  "look": "a rainy or windy game's passing line, and your tackles' snap counts in the box score.",
+  "players": true,
+  "title": "A rotating defensive line and real weather",
+  "tldr": "Defensive tackles now rotate like a real NFL line, and rain and strong wind hurt the passing game as much as they really do."
+ },
  "576": {
   "auto": false,
   "bullets": [],

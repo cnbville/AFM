@@ -13,6 +13,8 @@
 
 use afm_engine::world::World;
 use afm_engine::world::folk::persona::Them;
+use afm_engine::world::folk::persona::crowd;
+use afm_engine::world::folk::persona::gameday::group;
 use afm_engine::world::folk::persona::room::{Channel, Group};
 use afm_engine::world::folk::persona::talk::{across, stakes};
 use afm_engine::world::folk::{self as folk, claims, talk_points as tp, ties};
@@ -36,6 +38,15 @@ pub fn flag(g: &Game, v: &mut Value) {
     let mut t = v.get("talk").filter(|t| t.is_object()).cloned().unwrap_or_else(|| json!({}));
     t["persona"] = json!(true);
     t["channel"] = json!(channel_words(room.channel));
+    // A room (group talks): its men with how your last line landed with
+    // each, its own count, your team's mark, the room's history with you,
+    // and ideas you'd say to a room.
+    if crowd::plays(&room) && group::is_group(s) {
+        room_block(w, s, &room, &mut t);
+        v["talk"] = t;
+        heard_lines(g, s.id, v);
+        return;
+    }
     // What the talk is about, as a coach in your seat would know it: his
     // standing with you, his deal, the portal, the draft (`stakes::situation`).
     if let Some(him) = across(&room) {
@@ -142,4 +153,117 @@ pub fn ideas(w: &World, pid: u32) -> Vec<String> {
     out.push("How are things at home?".into());
     out.truncate(MAX_IDEAS);
     out
+}
+
+/// The page's block for a room (group talks): every man in it with how your
+/// last line landed with him (item 1's own takes, kept on the open talk),
+/// the room's count as the talk counts it, your team's mark in place of a
+/// face, what's at stake between you and the room, and ideas for a room.
+fn room_block(
+    w: &World,
+    s: &afm_engine::world::folk::scene::Scene,
+    room: &afm_engine::world::folk::persona::room::Room,
+    t: &mut Value,
+) {
+    use afm_engine::world::folk::persona::room::Seat;
+    use afm_engine::world::folk::persona::talk::{channels, store};
+    let open = store::open(w, s.id);
+    let takes = open.map(|o| o.takes.clone()).unwrap_or_default();
+    let leads = crowd::leaders(w, Some(s), room);
+    let men: Vec<Them> = crowd::listeners(room).collect();
+    let mut rows: Vec<(Them, f32, Option<&'static str>, bool)> = men
+        .iter()
+        .map(|&x| {
+            let tk = takes.iter().find(|k| k.0 == x);
+            let tag = tk.and_then(|k| crowd::tag(k.1, k.2));
+            (x, tk.map_or(0.0, |k| k.1), tag, leads.contains(&x))
+        })
+        .collect();
+    // The leaders first, then the men the line moved most.
+    rows.sort_by(|a, b| b.3.cmp(&a.3).then(b.1.abs().total_cmp(&a.1.abs())));
+    let mut people: Vec<Value> =
+        vec![json!({ "lead": true, "name": s.title.clone(), "ini": "", "tag": "", "line": "" })];
+    for (x, v, tag, lead) in rows {
+        let name = channels::name(w, x);
+        let ini: String = name.split_whitespace().filter_map(|c| c.chars().next()).take(2).collect();
+        let pos = match x {
+            Them::Player(id) => folk::person(w, id).map(|i| format!("{:?}", w.people[i].player.position)),
+            _ => None,
+        };
+        let line = [pos, lead.then(|| "Leader".to_string())].into_iter().flatten().collect::<Vec<_>>().join(" · ");
+        let kind = if v > 0.01 {
+            "good"
+        } else if v < -0.01 {
+            "bad"
+        } else {
+            ""
+        };
+        people.push(
+            json!({ "name": name, "ini": ini, "tag": tag.unwrap_or("Listening"), "tagKind": kind, "line": line }),
+        );
+    }
+    // Your staff at the front of a position room.
+    for p in room.present.iter().filter(|p| p.seat == Seat::YourStaff) {
+        let name = channels::name(w, p.who);
+        let ini: String = name.split_whitespace().filter_map(|c| c.chars().next()).take(2).collect();
+        people.push(json!({ "name": name, "ini": ini, "tag": "Your staff", "line": "" }));
+    }
+    t["room"] = json!(people);
+    t["roomN"] = json!(men.len());
+    if let Some(team) = afm_engine::world::folk::Team::seat(w) {
+        use crate::views::{TeamRef, team_colors, team_name};
+        let r = match team {
+            afm_engine::world::folk::Team::College(p) => Some(TeamRef::College(p)),
+            afm_engine::world::folk::Team::Nfl(c) => Some(TeamRef::Nfl(c)),
+            afm_engine::world::folk::Team::High(h) => Some(TeamRef::HighSchool(h)),
+            afm_engine::world::folk::Team::Other(_) => None,
+        };
+        if let Some(r) = r {
+            t["team"] = json!({ "name": team_name(w, r), "colors": team_colors(w, r), "ref": r.json() });
+        }
+    }
+    let about = afm_engine::world::folk::persona::talk::between::room(w);
+    if !about.is_empty() {
+        let mut left = t.get("left").and_then(Value::as_array).cloned().unwrap_or_default();
+        left.insert(0, json!({ "k": "text", "label": "You and the room", "paras": about }));
+        t["left"] = json!(left);
+    }
+    if t.get("ideas").is_none() {
+        t["ideas"] = json!(room_ideas(w, room, &leads));
+    }
+}
+
+/// What you could say to a room: to the room, to its groups, to its
+/// leader by name. Never one man's own business in front of everyone.
+pub fn room_ideas(w: &World, room: &afm_engine::world::folk::persona::room::Room, leads: &[Them]) -> Vec<String> {
+    let lvl = crowd::level(w);
+    let blocs = crowd::blocs(w, room);
+    let has = |b: crowd::Bloc| blocs.contains(&b);
+    let mut out: Vec<String> = Vec::new();
+    if has(crowd::Bloc::Seniors) {
+        out.push(format!("{}, this is your team now. I need you to lead it.", cap(&crowd::Bloc::Seniors.words(lvl))));
+    }
+    if has(crowd::Bloc::Starters) {
+        out.push("Every job in this room is open. Nobody plays on what he did last year.".into());
+    }
+    if has(crowd::Bloc::Defense) {
+        out.push("Defense, I want you flying to the ball on every snap.".into());
+    }
+    if let Some(Them::Player(id)) = leads.first()
+        && let Some(i) = folk::person(w, *id)
+    {
+        let first = w.people[i].name.split_whitespace().next().unwrap_or("").to_string();
+        if !first.is_empty() {
+            out.push(format!("{first}, where's this room at?"));
+        }
+    }
+    out.push("Anyone have a problem with how we're going to do things?".into());
+    out.push("Any questions for me?".into());
+    out.truncate(MAX_IDEAS);
+    out
+}
+
+fn cap(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
 }

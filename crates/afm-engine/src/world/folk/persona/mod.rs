@@ -61,6 +61,7 @@ pub mod wants;
 // and patience, the stores, people coming to you.
 pub mod coaching;
 pub mod coming;
+pub mod crowd;
 pub mod feel;
 pub mod football;
 pub mod gameday;

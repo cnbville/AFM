@@ -41,17 +41,18 @@ fn a_first_half_sitter_comes_back_at_halftime() {
     let level = Level::FBS;
     let teams = synthetic_league(level, 2, 11);
     let mut home = teams[0].clone();
-    let s = (0..home.players.len())
-        .filter(|&i| home.players[i].position == Position::S)
-        .max_by(|&a, &b| home.players[a].overall_at(Position::S).total_cmp(&home.players[b].overall_at(Position::S)))
-        .unwrap();
-    let id = home.players[s].id;
+    // The safety who plays most in an ordinary game: the best rating alone
+    // can name a backup on a roster whose flaws drew differently.
+    let plain = crate::game::quick_game(&home, &teams[1], level, 5);
+    let snaps = |id: u32| plain.stats.plays.iter().filter(|p| p.on_field.iter().any(|f| f.contains(&id))).count();
+    let id =
+        home.players.iter().filter(|p| p.position == Position::S).map(|p| p.id).max_by_key(|&id| snaps(id)).unwrap();
     home.day.first_half = vec![id];
     // Over eight games he never plays a first-half snap, and in the second
     // half he plays the defense's snaps from scrimmage until he is hurt
-    // himself or his staff pulls its starters in a decided game (`garbage`;
-    // seed 5 here is decided by halftime, so one game alone read the score,
-    // not the rule).
+    // himself or his staff pulls its starters in a decided game (`garbage`:
+    // a game decided by halftime pulls him from the first snap, so one game
+    // alone would read the score, not the rule).
     let on = |p: &PlayRecord| p.on_field.iter().any(|f| f.contains(&id));
     let defense = |p: &PlayRecord| {
         p.offense == 1
