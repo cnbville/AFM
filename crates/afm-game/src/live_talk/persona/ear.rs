@@ -149,7 +149,9 @@ TOPICS (a question's subject; the game answers from what he knows on it)
 - Character: who he is as a man: his makeup and maturity, how he handles trouble and people, and the why behind the big choices in his past.
 - Effort: how hard he works in practice and games.
 - Injury: an injury as he feels it, or the diagnosis and the outlook.
-- Football: football itself: how he or the team is playing, the scheme, his snaps and his season on the field.
+- Football: football itself: how he or the team is playing, his snaps and his season on the field.
+- Scheme: the system a coach runs or would run: his offense, front or coverage and how he'd use the players.
+- Recruiting: a coach's recruiting: his area, the recruits he's working and the ones who signed through him.
 - Opponent: another team's habits, calls and plan.
 - Case: a legal or a rules case and whether he did it. RuleBreak: a rule broken, seen or unseen. Rules: the rules themselves and open compliance questions.
 - ScoutFile: a scouting file and its grades. Grapevine: who told whom what. HisWord: what he told the coach before and whether it was true.
@@ -177,7 +179,7 @@ DECISIONS: benched, starting, suspended, cut, traded, offer_pulled, coach_let_go
 
 COMMIT KEYS: wins (value the number of wins), postseason (a bowl or the playoffs), title (the conference, division or district), beat_rival, clean (no arrests, no NCAA trouble), grades, develop (the young players), crowds (fill the stadium), conference_rank (a top-N class in the conference), national_rank (a top-N national class), beat_rival_class (a class ranked above the rival's), state_best_class (the best class in the state), blue_chips (N four- and five-stars), hold_class (no commitment lost), early_class (N commitments early), class_fits, state_one (sign the state's #1 prospect, or keep him away from another school), fence (keep N of the state's top 10 home), all_state (N first-team all-state signees), city_best (N of the city's top 5), hometown_kid, win_back_state (more in-state signees than the state's leader), half_home (half the class from in state), five_star, two_five_stars, loud_commit, qb_future (a top-10 quarterback), elite_tackle, secondary, size_inside (N big defensive tackles), head_to_head (win N recruits the rival also offered), flip_one, flip_blue_blood, backyard (N from the rival's state), nobody_flips, beat_champion, hunt, ahead_of_services, reach (the class's combined following), qualifies (every signee qualifies), clean_class, inside_pot, every_coach.
 
-HITS: which of his real items the line touched, and how. item is an item tag from the card; on is the person's tag (empty for p1). An item is touched when the line is about it or lands on it the way he'd feel it; plain encouragement with nothing in it touches nothing, and nor does a greeting. A friendly question touches only what it asks about, and only kindly. A request for his read, or something the coach is weighing about someone else, touches nothing of his unless it says something about him. Never invent an item. How:
+HITS: which of his real items the line touched, and how. item is an item tag from the card; on is the person's tag (empty for p1). An item is touched when the line is about it or lands on it the way he'd feel it; plain encouragement with nothing in it touches nothing, and nor does a greeting. A friendly question touches only what it asks about, and only kindly. A plain question about his work, his plan, his players or what he knows touches none of his items, his pride included: it respects his pride only when the line itself says it values him. A request for his read, or something the coach is weighing about someone else, touches nothing of his unless it says something about him. Never invent an item. How:
 - reassured: it eases a worry of his or tells him a want of his is safe.
 - respected: it honours his standing, his work or his judgment, sincerely.
 - flattered: praise beyond the plain truth, or praise meant to win him over.
@@ -248,7 +250,7 @@ pub const ACT_MEANINGS: [(&str, &str); 21] = [
 ];
 
 /// What each question topic means (`knows::Topic`).
-pub const TOPIC_MEANINGS: [(&str, &str); 25] = [
+pub const TOPIC_MEANINGS: [(&str, &str); 27] = [
     ("Mood", "how he himself is and feels: his spirits and worries, and how he feels about the way things are going"),
     ("Life", "his life away from football: home, family, people close to him, money trouble"),
     (
@@ -286,7 +288,9 @@ pub const TOPIC_MEANINGS: [(&str, &str); 25] = [
     ),
     ("Effort", "how hard he works in practice and games"),
     ("Injury", "an injury as he feels it, or the diagnosis and outlook"),
-    ("Football", "football itself: how he or the team is playing, the scheme, his snaps and his season on the field"),
+    ("Football", "football itself: how he or the team is playing, his snaps and his season on the field"),
+    ("Scheme", "the system a coach runs or would run: his offense, front or coverage and how he'd use the players"),
+    ("Recruiting", "a coach's recruiting: his area, the recruits he's working and the ones who signed through him"),
     ("Opponent", "another team's habits, calls and plan"),
     ("Case", "a legal or rules case and whether he did it"),
     ("RuleBreak", "a rule broken, seen or unseen"),

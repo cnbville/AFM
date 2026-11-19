@@ -72,6 +72,26 @@ pub fn ear(w: &World, s: &Scene, room: &Room, line: &str) -> (EarCard, EarKeys) 
         keys.people.push((tag, *who));
         items_of(w, *who, &mut c, &mut keys);
     }
+    // A staff room: each coach's recruits, so whoever answers can name
+    // them (Cain 2026-11-17).
+    for p in &room.present {
+        let Them::Coach(co) = p.who else { continue };
+        if !afm_engine::world::folk::persona::telling::works_for_you(w, p.who) {
+            continue;
+        }
+        for i in afm_engine::world::folk::persona::coaching::named(w, co) {
+            let who = Them::Player(w.people[i].player.id);
+            if keys.people.iter().any(|(_, x)| *x == who) {
+                continue;
+            }
+            let tag = format!("p{}", keys.people.len());
+            c.people.push(Tagged {
+                tag: tag.clone(),
+                text: format!("{} (a recruit of {})", person(w, who), person(w, p.who)),
+            });
+            keys.people.push((tag, who));
+        }
+    }
     (c, keys)
 }
 
