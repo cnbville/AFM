@@ -377,6 +377,8 @@ fn game(w: &mut World, p: usize, d: Date, id: u32, rushes: u32, stunts: u32, pun
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
 }
 

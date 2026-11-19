@@ -576,6 +576,8 @@ fn agenda(w: &World) -> Value {
         .enumerate()
         .rev()
         .filter(|(_, p)| p.kept.is_none() || p.due.days_to(w.today) < 60)
+        // Your promises here: the ones made at a job you left closed then.
+        .filter(|(_, p)| p.team.is_none_or(|t| Team::seat(w) == Some(t)))
         .take(12)
         .map(|(k, p)| {
             // A promise on usage: its words, what keeps it, and whether you
@@ -588,7 +590,7 @@ fn agenda(w: &World) -> Value {
                     json!({ "kept_by": "When your room names its captains, you name him one beside the men it votes. Off, you let the vote stand.", "off": p.terms.off })
                 })
             });
-            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public, "plan": plan })
+            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "quiet": p.quiet(), "public": p.public, "plan": plan })
         })
         .collect();
     let due: Vec<Value> =
@@ -694,7 +696,7 @@ fn player(w: &World, id: u32) -> Reply {
         .promises
         .iter()
         .filter(|x| matches!(x.to, PromiseTo::Player(pid) if pid == id))
-        .map(|x| json!({ "what": x.kind.words(), "due": date_text(x.due), "kept": x.kept }))
+        .map(|x| json!({ "what": x.kind.words(), "due": date_text(x.due), "kept": x.kept, "quiet": x.quiet() }))
         .collect();
     let (_, worry) = talks::concern(w, i);
     let trust = (Some(p.trust_in) == you).then_some(p.trust);

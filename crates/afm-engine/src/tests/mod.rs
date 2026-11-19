@@ -106,6 +106,7 @@ mod polls;
 mod portal_recruiting;
 mod portal_talks;
 mod praise;
+mod pro_role;
 mod progression;
 mod promises;
 mod public_bar;
