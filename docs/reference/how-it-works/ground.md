@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), main plus lane G8 on 2026-11-16 (a following and famous names), main 80ce85c plus lane G11b on 2026-11-16 (favors, switched off), branch lane S8 on 2026-11-16 (the ground report screen), main d64b44f plus the college followings retune on 2026-11-16 (storms reach college), and main plus lane G5 on 2026-11-16 (the scenes), and main plus lane S4 on 2026-11-17 (the lead card), and main plus lane G10 on 2026-11-16 (your staff's ground and the assistant seat), and main plus lane S7 on 2026-11-17 (your men and your desk, the screens), and main a5d9e29 plus Capital lane C4 on 2026-11-17 (donor slots in the week), and branch lane S3 on 2026-11-17 (the school visit screen).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), main plus lane G8 on 2026-11-16 (a following and famous names), main 80ce85c plus lane G11b on 2026-11-16 (favors, switched off), branch lane S8 on 2026-11-16 (the ground report screen), main d64b44f plus the college followings retune on 2026-11-16 (storms reach college), and main plus lane G5 on 2026-11-16 (the scenes), and main plus lane S4 on 2026-11-17 (the lead card), and main plus lane G10 on 2026-11-16 (your staff's ground and the assistant seat), and main plus lane S7 on 2026-11-17 (your men and your desk, the screens), and main a5d9e29 plus Capital lane C4 on 2026-11-17 (donor slots in the week), and branch lane S3 on 2026-11-17 (the school visit screen), and main bfbec55b plus lane G9 on 2026-11-17 (the race and the AI on Ground).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -17,7 +17,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - What are an area's words? Up to three, from the world's own data, each against the nation: talent per school, how many programs sign there, speed or linemen, school size, money and the state's football culture (`characters`).
 - What are the map's pins? Your program's signees from the area, its legends (round 1-3 picks, All-Americans, the Hall) and the six strongest rivals' pipelines into it (`pins`). Your finds are in `Ground.finds` (lane G4).
 - How do the week's scenes play? As folk scenes of their own kind at their hour, your eye rolled the way a film catch is, chips or live talks v3 with a key, one line each, your coordinator's when you hand one on (lane G5, below; `world/ground/scenes/`).
-- Do the areas change the world? No. Nothing in the world reads them yet; every seed plays the same. (The chain reaction, lane G11a, does change it: below.)
+- Do the areas change the world? Yes, since lane G9: every other staff's men work them, and its board reads that work ("Lane G9" below). The chain reaction (lane G11a) changes it too.
 - Who is on my ground? At college: high school head coaches and coordinators, junior college coaches and other college staffs' men (world coaches), private trainers and 7v7 directors with their kids (former players), each school's counselor by name, each recruit's family and the prep schools' coaches (`world/ground/people.rs`, `Who`, `Kind`).
 - Does a younger brother start from scratch? No. A family is one memory, keyed by the oldest brother the world knows; a cousin's family starts a level lower (`people::family_of`, `cousin_of`; `standing::from_cousin`).
 - Does word get around? Yes: what happens with one person reaches his close ties in 2-5 days at half its weight and his area in 5-12 days at a quarter (`world/ground/word.rs`).
@@ -35,7 +35,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - Do I get warned? Yes, on the first of the month when the month ahead would drop a level: a memo at his hour ("Columbus is slipping: no visit since March, Georgia was there twice ... A visit this month holds it."), the five schools with the most talent first (`month`, `slipping`, `WARN_MAX`).
 - Does moving up show? Each new level comes as his letter at his hour, in his words, and he keeps it as a moment (`announce`, `up_words`).
 - What does a pulled offer cost? 20 points with the kid's head coach (your program and your head coach), and a big moment held 3-5 years by his nature; while he holds it, being there buys a quarter (`word`, `pay`, `HELD`).
-- Does the AI have ground (G1b)? Yes, read from the world's 30 years whenever asked: nothing is stored, so the world's recruiting is unchanged until lane G9 (`derived`).
+- Does the AI have ground? Yes. Since lane G9 every other staff works it by your rules (areas, road days, five calls a week, fade, his kids), on top of day one from the world's 30 years (`derived`), and its board reads it. See "Lane G9" below.
 - Do my roots count? Your own high school's coach starts Trusted, your hometown's coaches and the high schools you coached at Known, and a kid from your hometown knows your name (`seed`, `roots`, `knows_your_name`).
 - What does an area's level read? Each school's head coach's standing, weighted by the talent the school sent out over the last four classes (`area_points`, `talents`).
 - Are favors on? No. The favor economy (lane G11b) ships switched off in every world (`WorldOptions.favors`, false); with it off nothing in `world/ground/favors.rs` runs and placing a kid works as before (`folk/backchannel.rs`, `place_player`). Lane G12's trial turns it on. See "Lane G11b" below.
@@ -674,7 +674,7 @@ Every size here is the build's pick unless the spec gave it, proposed, not confi
 
 ### What G10 does not do
 
-- AI staffs don't work areas yet; they get the same rules with lane G9.
+- AI staffs work areas by the same rules since lane G9 ("Lane G9" below); their men have no moods or carousel counters.
 - The moments (a commit you call, the office when you push back, the staff room) are one-line results: lane G5's played scenes don't cover them yet. The hunt and the guided first offseason are lane G6's.
 
 ### Where the knobs are
@@ -684,6 +684,61 @@ Every size here is the build's pick unless the spec gave it, proposed, not confi
 - `staff/carousel.rs`: `ANSWER_DAYS` 3, `BOND` 0.35, `FOLLOW` 0.45, `RUN_DOWN` 4; the counter's worth in `worth`, its reach in `reach`.
 - `staff/desk.rs`: `PER_WEEK` 2, `STEP` 0.04, `SETTLED` 0.06; trust's start 0.35 (0.5); the review factors (0.6, 0.8, 1.3, 1.6).
 - `staff/mod.rs`: the mood's pull in `offer_pull` (0.06).
+
+## Lane G9: the race and the AI on Ground (GR65, GR64 for the AI)
+
+Every size here is the spec's (the seat's sizes and gates) or the build's own pick, proposed, not confirmed. Code: `world/ground/ai.rs` (the AI's ground, saved as `Ground.ai`) and `world/ground/race.rs` (your side, `Ground.race`); game commands `crates/afm-game/src/lane_race.rs`. This lane changes how the whole world recruits.
+
+### The AI works its ground (`ai.rs`)
+
+- **Who:** every program that plays this year except your college seat's (`ai_program`, `seat_college`: your staff works by your plan, ground on or off).
+- **Areas** (`plan`, at the February meeting and on a world's first day): each area is worth the talent its schools sent out in the last four classes at the staff's level (`TALENT`: FBS weighs a 5-star 20 and a 2-star 1; Division III a 2-star 1.5 and a 4-star 0.3) × its footprint in the state, only where the footprint is 0.15 or more (`REACH_FLOOR`) and the area is worth a tenth of its best (`AREA_FLOOR`). A program at prestige 0.8 or more (`NATIONAL_PRESTIGE`) always works the five richest areas at its level first (`NATIONAL_AREAS`), wherever its name draws: the G9 world check (seed 171) found big programs too local and the title race too wide with the footprint squared and no national tier (proposed, not confirmed). Each man (the on-field staff, the head coach last) takes up to three, the area he has the most ties in first; an area worth three times the last one picked gets a second man (`SECOND_MAN`). Each area's schools are kept in talent order for the season (`Ai.order`).
+- **The road** (`road_day`, each evening of a road window: `week::road::window`, `day_kind`): a man works three of five school days in the spring and the winter contact periods, the fall's Thursday and Friday; FBS and FCS staffs inside the window's day limit (`dept::eval_limits`: 140 spring and 33 fall days from 2023), the FBS head coach off the spring road from 2008 (`road::may_go`); staffs below Division I out on a share of their days (`ROAD_SHARE`: Division II 0.5, NAIA, Division III and junior colleges 0.35). A day goes to one of his areas, to the schools with the most talent his staff hasn't seen in 28 days (`REVISIT_DAYS`), as many as the area allows (`areas::schools_a_day`).
+- **Calls** (`calls`, Mondays): five a staff (the seat's `CALLS`), to a coach one contact from Known first, then Known coaches in its areas it hasn't talked to in 90 days (`CALL_GAP`), by the area's man.
+- **A contact** (`contact`): the seat's sizes. 6 points × the man's people skill × the coach's warmth × the program's pull; the head coach's name (0.8 + 1.3 × prestige²) on his own; a call a third; a second contact the same week half; one a day. The man builds his own tie in full, the program a third. The gates are the seat's (`cap`: Known after two contacts, Trusted a year after Known, Home three years after meeting with a kid who did well, or five).
+- **Fade** (`month`, the first): from 60 days without contact, a point a month and half a point more for each other staff with him in the last 30 days. A tie under a point with no contact in two years is dropped.
+- **His kids** (`kids`): a starter last season (February 1, +6), a graduate and a draft pick (May 20, +4 and +12), to the program and its head coach, with Home's gate opened.
+- **Day one under the work:** a tie nobody worked reads day one (`standing::derived`: pipelines, footprint, the men's own `Coach.ties`), and a worked one never reads below it (`standing::base`: the build's pick, since the world itself moves day one as pipelines and men change). A man hired onto your staff brings his worked ties (your memory starts from them).
+- **The store:** one compact tie per coach and holder, saved as tuples (`Ties`).
+
+### What the AI's board reads
+
+See [recruiting.md](recruiting.md), "How a staff builds its board": his coach tells it by its standing (`told`), the services' lists by the states its men work (`work_states`), the admissions read, the track lists, and the tape a kid sends (`SENT_TAPE`). Early offers lean on how well its staff knows his coach (`knows`) where they leaned on the footprint, and a rogue booster's targets are the kids whose coaches its staff knows (0.3 or more, `ncaa::before_matching`).
+
+### Everything that read the AI's ground now reads its work
+
+`standing::points` (news in order, lane G4; the map's owners, `leader`; your men's and rivals' pages) reads the AI's worked ties. Your fade counts the rival staffs' own visits and calls with his head coach (`standing::rivals`).
+
+### Your side of the race (`race.rs`)
+
+- **The sign-in sheet and the polo** (`sheet`, `at_school`): on your man's visit, the day's log adds who signed in the last six weeks (`SHEET_DAYS`) and a rival there the same day ("Danner was there too, in his Auburn polo.").
+- **What his coach tells you** (`told`, `ground_told`): a Stranger nothing; a Known coach who came through this year; a Trusted one how often ("Auburn's been in twice."); a Home one who is about to offer ("Get in first.") and who has offered.
+- **Rival recruiters as people** (`rivals`, `rival`): the rival men whose areas are yours (your men's, else your state's): program, role, style (`staff::men::style`), where he stands in each shared area from his own ties, his Home schools, years on that staff and titles, staffs you shared, claims he made and your commits he worked, and his visits on sheets at schools where you're Known.
+- **A commit who wavers** (`watch`, Mondays): signs from the last two weeks, a rival's man at his school with a staff his coach knows (1), a rival's offer (1), a visit he took (2). Two make a memo "... is wavering" with the signs, once a month a kid. Your one call (`fight`, `ground_fight`, a one-line result until a played scene takes it): your head coach calls his family and his coach (contacts), the family answers by your standing, and his hold on you grows by `FIGHT_HOLD` 0.06 × how it landed (Home 1, Trusted 0.75, Known 0.45, Stranger 0.2) for 60 days (`fight_hold`, read beside `recruiting::stickiness`, which tops at 0.18).
+- **Claims about the other side** (`claim`, `run_down`, `settle`): his head coach's job ("gone in a year", settles December 15: held if that coach is gone), the depth chart ("they'll bury him": two underclass starters at his spot, one at QB, RB, TE, K and P) and the scheme (his fit to their system under −0.3), the last two settling in 60 days. Yours (`ground_claim`): a false one costs 12 with the family and 6 with his coach, with a moment ("You lied to us about Auburn."). A rival salesman in a kid's top three, with a staff his coach knows and a visit there this year, runs you down once a season (the claim that's true, else your job): −3 with the family while it stands; you hear it when his coach knows you; a false one settles +5 for you with the family and −12 for that staff with his coach.
+- **Rumors** (`rumors`, after the boosters pick on signing day): a rival booster's target on your board, with a Trusted family or coach, is "somebody's taking care of the family"; Home names the school. Only a case proves it (`ncaa::enforcement`). Boosters pay before NIL only (the built model).
+
+### The game's commands
+
+`ground_rivals`, `ground_rival` {man}, `ground_sheet` {school}, `ground_told` {id}, `ground_race` (wavers and claims), `ground_fight` {id}, `ground_claim` {id, about, topic} (`crates/afm-game/src/lane_race.rs`). The screen is lane S6.
+
+### What G9 does not do
+
+- The AI doesn't plan areas by its class plan's needs, hire a local high school coach for his ground, or play scenes; its men's style shows only in run-downs.
+- Your call to a wavering commit and the claims are one-line results, not played scenes. The services' predictions are the built insiders (`scouting/services.rs`). Money outside the rules in the NIL era goes through the collectives (built).
+
+### The world check (2026-11-17)
+
+Measured on stand-in games against main bfbec55b; the reports and the table are in the project folder at `afm/ground-g9/` (`check.md`).
+- Seed 171 at full scale: in-state share of FBS classes median 36%, p10 18%, p90 74% (main 33/14/65, real 37/15/65); five-star spread, star draft rates and the FCS share of picks as on main; a season about 7% slower (seed 171, 2008-2025: 356 s against 333 s), memory after the history 0.1-0.2 GB more.
+- Titles: one seed's count swings by chance (seed 171 at full scale: main 8 champions in 15 years, G9 13-14). Averaged over seeds 171, 231, 241 and 251 at tenth size, G9 has 10.25 champions in 15 years and main 11.0, with 2.75 unbeaten each. The target is about 9 to 10 (Cain's call, NIL era, 2026-11-17: a bit more spread than real history's 8, from healthy competition, not from top programs collapsing).
+- Class strength by prestige tier (`world_trial`, "class strength by prestige tier"; four seeds, tenth size): the top 10 produce 0.65 draft picks per program a year (main 0.71) and the 11-25 tier 0.43 (main 0.50); 26-65 0.22 (main 0.20). The top 10 sign 45% of their class out of state (main 55%). A mild squeeze at the top, with the top 10 still the strongest classes; neither main's early offers nor main's board alone undoes it.
+- The first build weighed footprint squared with no national tier; seed 171 at full scale had in-state 38% (19-74), so the plan now weighs footprint once and gives programs at prestige 0.8 or more the five richest areas (`NATIONAL_PRESTIGE`, `NATIONAL_AREAS`, proposed, not confirmed).
+
+### Where the knobs are (G9)
+
+- `ai.rs`: `LIST_DAYS` 400, `REVISIT_DAYS` 28, `CALL_GAP` 90, `ROAD_SHARE`, `AREA_FLOOR` 0.1, `REACH_FLOOR` 0.15, `NATIONAL_PRESTIGE` 0.8, `NATIONAL_AREAS` 5, `SECOND_MAN` 3, `SENT_TAPE` [0.3, 0.6, 1.2, 1.6], `TALENT`, `PRUNE` 1.
+- `race.rs`: `SHEET_DAYS` 42, `WAVER_DAYS` 14, `WAVER_GAP` 30, `FIGHT_HOLD` 0.06, `FIGHT_DAYS` 60, `RUN_DOWN_TOP` 3.
 
 ## Lane S3: the school visit screen
 

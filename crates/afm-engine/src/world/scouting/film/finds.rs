@@ -152,14 +152,14 @@ fn read(w: &mut World, id: u32, on: u32, watch: &Watch) {
     let pin = |sd: Option<f64>| sd.map_or(0.0, |sd| 1.0 / (sd * sd).max(0.01));
     // The man you watched: each rating your eye caught, from this watch
     // alone, the tightest first. On tape each game is a film look of him,
-    // which your catches join. From the stands his look is the trip's, one
-    // look in person however many of his games the snaps came from, as his
-    // file counts it: it stands where the wide guess does, apart from your
-    // eye.
+    // which your catches join. From the stands his look is the trip's, in
+    // person: it stands where the wide guess does, apart from your eye.
     let wide_on = file::GUESS_SD * file::visibility(w, i);
     let eye_on = super::session::lasting_eye(w, w.people[i].player.position);
-    let kind_on = if watch.live { Kind::Game } else { super::session::film_kind(w, i) };
-    let look_on = yours::tape_sd(w, staff, on, kind_on, if watch.live { 1 } else { watch.games });
+    // From the stands the trip files one look of him in person, however
+    // many games it took in; on tape, a film look a game.
+    let (kind_on, n_on) = if watch.live { (Kind::Game, 1) } else { (super::session::film_kind(w, i), watch.games) };
+    let look_on = yours::tape_sd(w, staff, on, kind_on, n_on);
     let mut eyed: Vec<&Catch> =
         watch.caught.iter().filter(|c| c.id == on && c.by == 0 && (c.attr as usize) < ATTRIBUTE_COUNT).collect();
     eyed.sort_by_key(|c| (c.attr, c.game));
