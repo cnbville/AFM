@@ -61,6 +61,8 @@ pub struct EarCard {
     pub measures: Vec<Tagged>,
     /// His ask or counter on the table, in words.
     pub on_table: Vec<String>,
+    /// What this talk has settled so far (talk replies item 11).
+    pub settled: Vec<String>,
     pub so_far: Vec<Spoken>,
     /// Your line, quoted (`card::quoted`).
     pub line: String,
@@ -397,6 +399,14 @@ pub struct VoiceCard {
     pub coach_read: String,
     /// His colour notebook (`memory::Colour`): details he said before.
     pub notebook: Vec<String>,
+    /// How the line landed with him, in his terms (talk replies item 1).
+    pub landed: String,
+    /// His own way of talking (talk replies item 8, `persona::speech`).
+    pub habits: Vec<String>,
+    /// How his own lines so far began: no reusing one (item 8).
+    pub openers: Vec<String>,
+    /// What this talk has settled so far (item 11).
+    pub settled: Vec<String>,
     pub so_far: Vec<Spoken>,
     /// Your line, quoted.
     pub line: String,

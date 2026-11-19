@@ -886,6 +886,10 @@ fn run_return(
         // The sim's side 0 is the return team.
         mood: k.mood.swap(),
         targeting: rules.targeting,
+        loose: None,
+        fumble_rule: FumbleSnap::plain(rules),
+        resume: None,
+        caught: -9.0,
         tend_memo: super::sim::tend_memo(),
         reach_memo: super::sim::reach_memo(),
     };
@@ -967,6 +971,36 @@ fn run_return(
             buf.push_str(&sim.snapshot());
             buf.push('\n');
         }
+        // A fumbled return (engine gaps item 4): the ball loose on the
+        // ground, everyone after it; then whoever came up with it runs, his
+        // side blocking for him and the other chasing.
+        if matches!(sim.ball, Ball::Loose(_)) {
+            sim.loose_tick();
+            sim.record_frame();
+            continue;
+        }
+        if sim.loose.is_some() {
+            let Some(c) = sim.carrier() else { break };
+            sim.update_blocks(None, Some(c));
+            for i in 0..sim.agents.len() {
+                if i == c || !sim.agents[i].up(sim.t) || sim.agents[i].engaged.is_some() {
+                    continue;
+                }
+                match sim.agents[i].job {
+                    Job::Escort => escort(&mut sim, i),
+                    Job::Pursue => sim.pursue(i, c),
+                    _ => {}
+                }
+            }
+            sim.run_carrier(c, None);
+            sim.advance();
+            sim.tackles(c);
+            if !sim.dead {
+                sim.check_carrier(c);
+            }
+            sim.record_frame();
+            continue;
+        }
         sim.update_blocks(None, Some(0));
         // Where the first wave is: the safeties trail it by about ten yards
         // and the kicker sits behind them as the last man, so a returner
@@ -1037,20 +1071,59 @@ fn run_return(
     }
     sim.close_blocks();
     res.duration = hang + sim.t;
-    let end = sim.progress;
-    if let Some((side, _)) = sim.notes.recovered {
-        res.recovered_by_kicking = side == 1;
-        res.spot = if res.recovered_by_kicking { goal() - end } else { end };
+    let mut end = sim.progress;
+    // A fumbled return (engine gaps item 4): who has it where, or the score,
+    // the kicking team's spot in its own frame. A safety on a return is
+    // kept as a touchback (`GAPS.md`); the return's yards run to where the
+    // ball came out.
+    if let Some(e) = sim.loose_end() {
+        let at = sim.loose.map_or(end, |l| l.at.x);
+        match e {
+            LooseEnd::Ball { side: 0, x } => res.spot = x,
+            LooseEnd::Ball { x, .. } => {
+                res.recovered_by_kicking = true;
+                res.spot = goal() - x;
+            }
+            LooseEnd::Touchdown(0) => {
+                res.spot = goal();
+                res.return_td = true;
+            }
+            LooseEnd::Touchdown(_) => {
+                res.recovered_by_kicking = true;
+                res.spot = goal();
+            }
+            LooseEnd::Safety(0) | LooseEnd::Touchback(0) => {
+                res.touchback = true;
+                res.spot = rules.touchback;
+            }
+            LooseEnd::Safety(_) | LooseEnd::Touchback(_) => {
+                res.recovered_by_kicking = true;
+                res.spot = rules.touchback;
+            }
+        }
+        if let (Some(l), Some(f)) = (sim.loose, sim.notes.fumble.as_mut())
+            && let Some((w, rat)) = l.rec
+        {
+            let dir = if sim.agents[w].side == 0 { 1.0 } else { -1.0 };
+            let to = match e {
+                LooseEnd::Ball { x, .. } => x,
+                LooseEnd::Touchdown(0) => goal(),
+                LooseEnd::Touchdown(_) => 0.0,
+                _ => end,
+            };
+            f.ran = ((to - rat.x) * dir).max(0.0) as f32;
+        }
+        end = at;
     } else {
         res.spot = end;
-    }
-    if !res.recovered_by_kicking && end >= goal() {
-        res.return_td = true;
-    }
-    if end <= 0.0 && !res.recovered_by_kicking {
-        // Tackled in his own end zone after catching it there: a touchback.
-        res.touchback = true;
-        res.spot = rules.touchback;
+        if end >= goal() {
+            res.return_td = true;
+        }
+        if end <= 0.0 {
+            // Tackled in his own end zone after catching it there: a touchback.
+            res.touchback = true;
+            res.spot = rules.touchback;
+        }
     }
     res.return_yards = end - catch.x;
     if ktrace && res.return_yards >= 40.0 {

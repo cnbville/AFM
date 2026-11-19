@@ -207,8 +207,7 @@ pub(crate) fn captain(g: &mut Game, room: &Typed, pick: &Pick, words: &str, done
             Ok(afm_ai::fake::body(&json!({ "line": "Let's go.", "colour": "" }).to_string(), 600, 40)),
         );
     }
-    let req =
-        Request::new(voice::VOICE, voice::VOICE_RULES, &text).schema(voice::schema()).max_tokens(voice::VOICE_TOKENS);
+    let req = voice::request(&text);
     let words = words.to_string();
     Step::Call(
         req,
@@ -399,8 +398,7 @@ fn his_answer(
             Ok(afm_ai::fake::body(&json!({ "line": "Got it, Coach.", "colour": "" }).to_string(), 600, 40)),
         );
     }
-    let req =
-        Request::new(voice::VOICE, voice::VOICE_RULES, &text).schema(voice::schema()).max_tokens(voice::VOICE_TOKENS);
+    let req = voice::request(&text);
     let words = words.to_string();
     Step::Call(
         req,
@@ -626,8 +624,7 @@ fn official_voice(g: &mut Game, s: &Spot, words: &str, says: String, done: Value
             Ok(afm_ai::fake::body(&json!({ "line": "That's the call, Coach.", "colour": "" }).to_string(), 600, 40)),
         );
     }
-    let req =
-        Request::new(voice::VOICE, voice::VOICE_RULES, &text).schema(voice::schema()).max_tokens(voice::VOICE_TOKENS);
+    let req = voice::request(&text);
     Step::Call(
         req,
         Box::new(move |_g, r| {

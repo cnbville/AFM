@@ -76,6 +76,7 @@ pub mod wanting;
 // references, staff contracts, your own deal, boosters, compliance).
 pub mod office;
 pub mod review;
+pub mod speech;
 
 use super::cast::CastRef;
 

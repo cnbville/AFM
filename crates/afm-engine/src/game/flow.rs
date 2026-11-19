@@ -4472,6 +4472,20 @@ impl<'a> Game<'a> {
             tac,
             mood: self.mood(o),
             fake_punt: fake.as_ref().map(|f| f.2),
+            // Who may advance a fumble (engine gaps item 4): the NFL keeps
+            // a fumbling team's recovery to the fumbler on fourth down, on a
+            // try and after the two-minute warning of either half, college
+            // on fourth down and a try; a high school try ends when the
+            // defense has the ball.
+            fumble: {
+                let book = self.rules().fumble_rule();
+                let late = (self.quarter == 2 || self.quarter >= 4) && self.half_left() <= 120.0;
+                super::sim::FumbleSnap {
+                    book,
+                    fumbler_only: book.fourth_down && (self.down >= 4 || self.trying) || book.late && late,
+                    defense_ends: self.trying && self.rules().level == Level::HS,
+                }
+            },
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
         // The officials' ruling, and a review (topic 6).
@@ -4797,6 +4811,8 @@ impl<'a> Game<'a> {
         r.contact = res.notes.contact.iter().map(|&(id, t)| (id, t as f32)).collect();
         r.forced_fumble = res.notes.forced_fumble;
         r.fumbled = res.notes.fumbled;
+        r.fumble = res.notes.fumble;
+        r.recovered = res.notes.recovered.map(|x| x.1);
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
         r.rush_moves = res.notes.rush_moves.clone();
@@ -4849,6 +4865,14 @@ impl<'a> Game<'a> {
         let gain = res.spot - los;
         let mut new_x = res.spot;
         let mut fouls: Vec<Foul> = res.notes.fouls.clone();
+        // A block by the defense is a block on its own return, so its foul
+        // came after it had the ball: the offense can't take the ball back
+        // with it. It is marked off the return, below.
+        let post_foul = |f: &Foul| f.side == 1 && matches!(f.kind, FoulKind::OffensiveHolding | FoulKind::IllegalBlock);
+        let post = if res.turnover { fouls.iter().find(|f| post_foul(f)).cloned() } else { None };
+        if post.is_some() {
+            fouls.retain(|f| !post_foul(f));
+        }
         // One foul per team; both teams: offsetting.
         fouls.dedup_by_key(|f| f.side);
         let off_foul = fouls.iter().find(|f| f.side == 0).cloned();
@@ -4863,6 +4887,7 @@ impl<'a> Game<'a> {
         let mut scored_td = res.touchdown;
         let mut turnover = res.turnover;
         let mut safety = res.safety;
+        let mut defense_td = res.defense_td;
         let college = self.below_nfl();
         let ep = |down: u8, togo: f64, x: f64| ep_at(college, down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         if let (Some(of), Some(df)) = (off_foul.as_ref(), def_foul.as_ref()) {
@@ -4871,6 +4896,7 @@ impl<'a> Game<'a> {
             scored_td = false;
             turnover = false;
             safety = false;
+            defense_td = false;
             for f in [of, df] {
                 let team = if f.side == 0 { o } else { d };
                 r.penalties.push((f.kind, team, f.player, 0.0, true));
@@ -4890,6 +4916,8 @@ impl<'a> Game<'a> {
             // The offense takes the better of the play and the penalty.
             let play_val = if scored_td {
                 7.0
+            } else if defense_td {
+                -7.0
             } else if turnover {
                 -ep(1, 10.0, goal() - new_x)
             } else {
@@ -4904,6 +4932,7 @@ impl<'a> Game<'a> {
                 scored_td = false;
                 turnover = false;
                 safety = false;
+                defense_td = false;
                 auto_first = first || pen_x - los >= self.togo;
                 replay = !auto_first;
                 self.edge_hit(d, f.player, -1.0);
@@ -4918,6 +4947,8 @@ impl<'a> Game<'a> {
             };
             let play_val = if scored_td {
                 7.0
+            } else if defense_td {
+                -7.0
             } else if turnover {
                 -ep(1, 10.0, goal() - new_x)
             } else {
@@ -4933,6 +4964,7 @@ impl<'a> Game<'a> {
                 scored_td = false;
                 turnover = false;
                 safety = false;
+                defense_td = false;
                 replay = f.kind != FoulKind::IntentionalGrounding;
                 lose_down = f.kind == FoulKind::IntentionalGrounding;
                 stands = f.kind == FoulKind::IntentionalGrounding;
@@ -4941,7 +4973,33 @@ impl<'a> Game<'a> {
         }
         let accepted_pen = r.penalties.iter().any(|p| p.4);
         r.nullified = accepted_pen && !stands;
-        r.yards = if r.nullified { 0.0 } else { gain };
+        // The defense's foul on its own return, when the ball stays its own:
+        // marked off against it from the spot of the foul (from where the
+        // return ended, if that is short of it), half the distance to its
+        // own goal at most, and a score on the return comes off the board
+        // (every level's book: a foul by the team with the ball after the
+        // change of possession is its own). Before, the offense could take
+        // it and with it the ball back, and a score on the return still
+        // counted.
+        if turnover && let Some(f) = post {
+            let (yds, _) = f.kind.yards();
+            let end = if defense_td { 0.0 } else { new_x };
+            let spot = f.at.max(end).min(goal() - 1.0);
+            let pen_x = spot + yds.min((goal() - spot) / 2.0);
+            r.penalties.push((f.kind, d, f.player, pen_x - spot, true));
+            new_x = pen_x;
+            defense_td = false;
+            self.edge_hit(d, f.player, -1.0);
+        }
+        // A lost fumble's yards are run to where it came out (engine gaps
+        // item 4): the return is the defense's.
+        r.yards = if r.nullified {
+            0.0
+        } else if turnover && !r.interception {
+            res.fumble_at.map_or(gain, |x| x - los)
+        } else {
+            gain
+        };
         if !r.nullified {
             match r.kind {
                 PlayType::Pass if !r.complete => r.yards = 0.0,
@@ -5060,6 +5118,11 @@ impl<'a> Game<'a> {
                 }
             }
         }
+        // The ball back after the defense had it (a fumbled interception
+        // return): a new series.
+        if res.new_series && !r.nullified {
+            auto_first = true;
+        }
         // Down and distance.
         let mut first_down = false;
         let fumble_lost = turnover && !r.interception;
@@ -5071,6 +5134,7 @@ impl<'a> Game<'a> {
         r.touchdown = scored_td;
         r.turnover = turnover;
         r.safety = safety;
+        r.defense_td = defense_td;
         // The spark, footsteps and ejections (coach fire, items 4 and 5).
         self.fire_after(&mut r, o, d, accepted_pen);
         // Spot near the hash.
@@ -5080,7 +5144,7 @@ impl<'a> Game<'a> {
             self.ball_y = mid();
         }
         // Why (topic 1): the chain that decided it.
-        r.why = self.why(&r, &res, label, &call, &dcall, accepted_pen);
+        r.why = self.why(&r, &res, label, &call, &dcall, r.penalties.iter().any(|p| p.4));
         // The tape (topic 5.1): every real snap goes on both teams' film.
         if matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
             self.res.film[o].offense(&call, r.down);
@@ -5148,11 +5212,11 @@ impl<'a> Game<'a> {
         // school, where the try ends when the defense has the ball.
         if self.trying {
             r.epa = 0.0;
-            if turnover && (scored_td || res.defense_td) || res.defense_td {
+            if turnover && (scored_td || defense_td) || defense_td {
                 r.turnover = true;
                 r.touchdown = false;
-                if self.rules().level != Level::HS {
-                    r.defense_td = true;
+                r.defense_td = self.rules().level != Level::HS;
+                if r.defense_td {
                     self.add_points(d, 2);
                 }
             }
@@ -5182,7 +5246,7 @@ impl<'a> Game<'a> {
             self.running = false;
             return r;
         }
-        if res.defense_td {
+        if defense_td {
             r.defense_td = true;
             r.epa = -6.95 - r.ep_before;
             self.add_points(d, 6);
@@ -5529,15 +5593,47 @@ impl<'a> Game<'a> {
             R::Spike => w = "Spiked to stop the clock.".into(),
         }
         if let Some(f) = res.notes.fumbled {
-            w.push_str(&format!(
-                " Fumble by {}{}.",
-                label(f),
+            // How the ball came out, who came up with it and how far he
+            // took it (engine gaps item 4).
+            use super::sim::FumbleHow as H;
+            let note = res.notes.fumble.unwrap_or_default();
+            let how = match note.how {
+                H::Snap => " on the snap",
+                H::Sack => " on the sack",
+                H::Throw => " as he threw",
+                H::Exchange => " on the handoff",
+                H::Pitch => " on the pitch",
+                H::Reach => " reaching for the line",
+                H::Hit => "",
+            };
+            let after = if note.out {
+                ", out of bounds".to_string()
+            } else {
                 match res.notes.recovered {
-                    Some((s, id)) =>
-                        format!(", recovered by {} ({})", label(id), if s == 0 { "offense" } else { "defense" }),
+                    Some((s, id)) => {
+                        let n = note.ran.round() as i64;
+                        let ran = if n >= 1 {
+                            format!(
+                                " and {} {n} {}",
+                                if s == 0 { "advanced" } else { "run back" },
+                                crate::world::folk::noun(n, "yard")
+                            )
+                        } else {
+                            String::new()
+                        };
+                        format!(", recovered by {} ({}){ran}", label(id), if s == 0 { "offense" } else { "defense" })
+                    }
                     None => String::new(),
                 }
-            ));
+            };
+            w.push_str(&format!(" Fumble by {}{how}{after}.", label(f)));
+            if res.defense_td && res.result != R::Interception {
+                w.push_str(if r.defense_td {
+                    " Taken all the way back for a touchdown."
+                } else {
+                    " Taken all the way back, but a flag takes the score off the board."
+                });
+            }
         }
         if !res.notes.busts.is_empty() {
             w.push_str(&format!(" Busted assignment: {}.", label(res.notes.busts[0])));
@@ -6094,19 +6190,29 @@ impl<'a> Game<'a> {
         let mut alt = truth.clone();
         let carrier_or_target = truth.carrier.or(truth.target);
         // (what, chance it is close, truth favours the offense)
+        // A ruling with no fumble leaves no loose ball behind it.
+        let no_fumble = |alt: &mut SnapResult| {
+            alt.notes.fumbled = None;
+            alt.notes.fumble = None;
+            alt.notes.recovered = None;
+            alt.notes.forced_fumble = None;
+            alt.fumble_at = None;
+            alt.new_series = false;
+        };
         let cand: Option<(CloseCall, f64, bool)> = if truth.result == R::Interception {
             alt.result = R::Incomplete;
             alt.turnover = false;
             alt.defense_td = false;
             alt.returner = None;
             alt.spot = los;
+            no_fumble(&mut alt);
             Some((CloseCall::Interception, 0.15, false))
         } else if truth.turnover && truth.notes.fumbled.is_some() {
             alt.turnover = false;
             alt.defense_td = false;
+            alt.safety = false;
             alt.returner = None;
-            alt.notes.fumbled = None;
-            alt.notes.recovered = None;
+            no_fumble(&mut alt);
             let ahead =
                 if truth.result == R::Complete { truth.air_yards + 1.0 } else { truth.before_contact.max(0.0) + 1.5 };
             alt.spot = (los + ahead).clamp(los - 10.0, (goal() - 0.6).max(los - 10.0));
@@ -6161,6 +6267,9 @@ impl<'a> Game<'a> {
             alt.turnover = true;
             alt.returner = truth.notes.tacklers.first().copied();
             alt.notes.fumbled = carrier_or_target;
+            alt.notes.fumble = Some(Default::default());
+            alt.notes.recovered = alt.returner.map(|id| (1, id));
+            alt.fumble_at = Some(truth.spot);
             Some((CloseCall::Fumble, 0.003, true))
         } else {
             None

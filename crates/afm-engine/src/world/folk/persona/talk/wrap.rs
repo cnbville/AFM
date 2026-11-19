@@ -16,8 +16,13 @@
 //! - a real decision the talk didn't settle (keep or let go a holdover, a
 //!   firing, a hire, a second opinion, a signee's release, a punishment,
 //!   the rituals, a star's ask, a coordinator's case, a booster's pass)
-//!   stays on the page as one decision: the meeting's own picks, with the
-//!   talk over (`decides`, `Open.over`).
+//!   leaves with you: End always closes the talk (talk replies item 12,
+//!   Cain 2026-11-19: "When i confirm 'end' on a talk it should close the
+//!   convo entirely"). The decision moves to its own screen (a hire to the
+//!   staff screen's candidates, a holdover or a firing to your staff, a
+//!   punishment to your team rules) with a line in your inbox, and a
+//!   candidate's patience runs from that day (`hiring::left_waiting`).
+//!   Until then the meeting stayed open on its picks with the talk over.
 //!
 //! Which meetings hold a decision is Claude's call, proposed, not confirmed.
 
@@ -60,7 +65,30 @@ pub fn close(w: &mut World, id: u32) -> bool {
         return false;
     }
     if decides(s) && !s.picks.is_empty() {
-        super::store::over(w, id);
+        let kind = s.kind;
+        let name = across_name(w, s).map(|n| crate::world::folk::plain(&n));
+        let (what, whr) = still_yours(kind);
+        if kind == Kind::Interview {
+            let c = s.a as usize;
+            crate::world::folk::hiring::left_waiting(w, c, crate::world::folk::staffing::role_from(s.b));
+        }
+        scene::leave(w, id, |w, s| {
+            settle(w, s);
+            s.outcome.insert(
+                0,
+                match &name {
+                    Some(n) => format!("You ended the talk with {n}. {what} is still your call: {whr}."),
+                    None => format!("You ended the talk. {what} is still your call: {whr}."),
+                },
+            );
+        });
+        super::store::close(w, id);
+        let text = match &name {
+            Some(n) => format!("Still your call after your talk with {n}: {}, {whr}.", lower(what)),
+            None => format!("Still your call: {}, {whr}.", lower(what)),
+        };
+        let today = w.today;
+        crate::world::folk::post_mine(w, today, crate::calendar::Loudness::Small, true, "people: decision", &text);
         return true;
     }
     scene::leave(w, id, |w, s| {
@@ -76,6 +104,25 @@ pub fn close(w: &mut World, id: u32) -> bool {
     });
     super::store::close(w, id);
     true
+}
+
+/// The decision a meeting leaves open when you end the talk, and the
+/// screen it moves to. Proposed, not confirmed.
+fn still_yours(kind: Kind) -> (&'static str, &'static str) {
+    match kind {
+        Kind::Interview => ("Hiring him", "he's on your staff screen's candidates while he waits for your offer"),
+        Kind::Holdover => ("Keeping him", "he stays on your staff until you let him go from the staff screen"),
+        Kind::Firing => ("Letting him go", "he stays on your staff until you let him go from the staff screen"),
+        Kind::Proposal => ("His proposal", "things stay as they were; take it up with him on the staff screen"),
+        Kind::Discipline | Kind::Ritual => ("The punishment", "nothing is set; set it from your team rules"),
+        Kind::StaffMeeting => ("The staff's plan", "it runs as the staff set it"),
+        _ => ("The decision", "it stands as it was until you take it up again"),
+    }
+}
+
+fn lower(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map_or(String::new(), |f| f.to_lowercase().collect::<String>() + c.as_str())
 }
 
 /// The man across, by name, for the outcome line.

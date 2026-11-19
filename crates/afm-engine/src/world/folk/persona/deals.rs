@@ -204,9 +204,13 @@ fn meets(w: &World, i: Option<usize>, give: &Give, money: f64) -> Vec<(WantKind,
         })
     };
     match *give {
-        Give::Scholarship(None) => vec![(WantKind::Academics, 0.5), (WantKind::Development, 0.4)],
+        // A high school coach you're hiring hears scholarships as his
+        // players coming with him (talk replies item 7).
+        Give::Scholarship(None) => {
+            vec![(WantKind::Academics, 0.5), (WantKind::Development, 0.4), (WantKind::Players, 0.6)]
+        }
         Give::Scholarship(Some(id)) if family(id) => vec![(WantKind::Family, 0.6)],
-        Give::Scholarship(Some(_)) => vec![(WantKind::Friends, 0.5)],
+        Give::Scholarship(Some(_)) => vec![(WantKind::Friends, 0.5), (WantKind::Players, 0.6)],
         Give::Money(x) | Give::Outside(x) => vec![(WantKind::Money, (x / money.max(1.0)).clamp(0.0, 1.0))],
         Give::Years(y) => vec![(WantKind::Security, (y as f64 / 5.0).min(1.0))],
         Give::Guaranteed(g) => vec![(WantKind::Security, (g / (2.0 * money.max(1.0))).clamp(0.0, 1.0))],
@@ -574,6 +578,14 @@ fn counter_for(w: &World, who: Who, wants: &[Want], offer: &Offer, money: Option
             WantKind::Loyalty | WantKind::Development => vec![Give::Stay],
             WantKind::Career => vec![Give::StaffJob(None)],
             WantKind::Kids => vec![Give::Favour],
+            WantKind::Players => {
+                return Some(Counter {
+                    asks: vec!["scholarship offers for his best players as part of the hire".into()],
+                    gives: vec![Give::Scholarship(None)],
+                    terms: vec![],
+                    why: Some(*want),
+                });
+            }
             WantKind::Name => vec![Give::Council],
             _ => continue,
         };

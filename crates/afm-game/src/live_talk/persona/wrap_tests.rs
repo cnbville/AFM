@@ -1,8 +1,8 @@
 //! A talk that ends a meeting (thread "Let talking end meetings cleanly"):
 //! a goodbye, typed or the Wrap it up button, ends a boss or staff meeting
 //! or one of the older meetings with no cost for leaving; what you didn't
-//! argue stands; a meeting that holds a decision keeps it as its own picks,
-//! with the talk over.
+//! argue stands; End always closes the talk, and a decision it leaves open
+//! moves to its own screen with a line in your inbox (talk replies item 12).
 
 use afm_engine::world::folk::persona::talk::store;
 use afm_engine::world::folk::persona::{makeup, meetings};
@@ -126,23 +126,59 @@ fn wrap_it_up_ends_a_parents_call_without_typing() {
     assert_eq!(trust(&g, him), s0, "nor his son's");
 }
 
+/// Every line of your inbox from today with this rule.
+fn inbox(g: &Game, rule: &str) -> Vec<String> {
+    let w = g.world.as_ref().unwrap();
+    let today = w.today;
+    w.calendar
+        .events
+        .range(today..today.add(1))
+        .flat_map(|(_, evs)| evs.iter())
+        .filter(|e| e.rule == rule)
+        .map(|e| e.text.clone())
+        .collect()
+}
+
 #[test]
-fn a_decision_the_talk_didnt_settle_stays_as_the_meetings_picks() {
+fn end_closes_a_meeting_that_holds_a_decision_and_the_decision_moves_to_its_screen() {
+    // Talk replies item 12 (Cain 2026-11-19: "When i confirm 'end' on a
+    // talk it should close the convo entirely").
     let (mut g, f, him) = game("wrap-decide", true);
     let f = f.unwrap();
     let id = meeting(&mut g, Kind::Discipline, him);
-    let picks = scene_of(&g, id).picks.clone();
-    assert!(!picks.is_empty());
+    assert!(!scene_of(&g, id).picks.is_empty());
     assert_eq!(goodbye(&mut g, &f, id, "We'll talk about this tomorrow. Go home.", "Yes, Coach.")["state"], "done");
     let s = scene_of(&g, id);
-    let codes = |v: &[scene::Pick]| v.iter().map(|p| p.code).collect::<Vec<_>>();
-    assert!(!s.done && codes(&s.picks) == codes(&picks), "the punishment is still yours to decide");
-    assert!(store::is_over(g.world.as_ref().unwrap(), id), "the talk is over");
-    // The page shows no box and the decision; a line is refused.
-    let v = ok(&mut g, "people_scene", json!({ "id": id }));
-    assert_eq!(v["talk"]["over"], true, "{}", v["talk"]);
+    assert!(s.done && s.picks.is_empty(), "the talk is over and closed: {s:?}");
+    assert!(s.outcome[0].starts_with("You ended the talk"), "{:?}", s.outcome);
+    assert!(s.outcome[0].contains("set it from your team rules"), "{:?}", s.outcome);
+    assert!(store::open(g.world.as_ref().unwrap(), id).is_none(), "the talk is closed");
+    let lines = inbox(&g, "people: decision");
+    assert!(lines.iter().any(|l| l.starts_with("Still your call")), "{lines:?}");
     assert!(g.call("people_say", &json!({ "id": id, "text": "One more thing." })).is_err());
-    // The meeting's own pick decides it.
-    let code = picks[0].code;
-    ok(&mut g, "people_answer", json!({ "id": id, "code": code }));
+}
+
+#[test]
+fn ending_an_interview_leaves_him_waiting_on_the_staff_screen() {
+    use afm_engine::world::coach::{Group, Role};
+    use afm_engine::world::folk::{hiring, staffing};
+    let (mut g, f, _) = game("wrap-interview", true);
+    let f = f.unwrap();
+    let (c, id) = {
+        let w = g.world.as_mut().unwrap();
+        let team = Team::seat(w).unwrap();
+        let c = (0..w.coaches.len())
+            .find(|&c| w.coaches[c].job.is_none_or(|j| Team::from_employer(j.employer) != team))
+            .unwrap();
+        (c, staffing::start_interview(w, c, Role::PositionCoach(Group::QB)).unwrap())
+    };
+    ok(&mut g, "people_scene", json!({ "id": id }));
+    assert_eq!(goodbye(&mut g, &f, id, "Thanks for coming in. I'll be in touch.", "Sounds good.")["state"], "done");
+    let s = scene_of(&g, id);
+    assert!(s.done, "an interview the talk ended is closed");
+    assert!(s.outcome[0].contains("staff screen"), "{:?}", s.outcome);
+    let w = g.world.as_ref().unwrap();
+    let t = hiring::talk(w, c).expect("a hiring talk waits for your offer");
+    assert_eq!(t.waiting, Some(w.today), "his patience runs from today");
+    assert!(inbox(&g, "people: decision").iter().any(|l| l.contains("staff screen")));
 }
