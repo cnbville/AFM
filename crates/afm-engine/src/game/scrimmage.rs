@@ -891,7 +891,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     sim.agents[i].job = Job::Passer;
                     continue;
                 }
-                let mut route = route_for(c, r);
+                // As his group lines up: a second or third tight end takes
+                // the route of the receiver whose spot he stands in (lane SF2).
+                let mut route = route_in(c, &f, r);
                 // Release him (the promises on usage, lane N2): the man your
                 // word lets out runs a route where the call keeps him in, a
                 // back to the flat, a tight end to sit in the hole at six.
@@ -957,7 +959,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     set_at += 0.3 + 0.3 * sim.rng.next();
                 }
             }
-            let reads = c.reads.iter().filter_map(|r| find(*r)).collect::<Vec<_>>();
+            let reads = reads_in(c, &f).iter().filter_map(|r| find(*r)).collect::<Vec<_>>();
             pass = Some(Pass {
                 reads,
                 read: 0,
