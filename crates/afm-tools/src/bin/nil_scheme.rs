@@ -204,6 +204,9 @@ fn signees(w: &World) {
     use afm_engine::world::nil_bid::DealKind;
     println!("== the class just signed: share with a deal and its spread, by level and stars ==");
     let mut by: HashMap<(&'static str, u8), (usize, Vec<f64>)> = HashMap::new();
+    // Paid signees per program (a school pays only recruits its July paid
+    // set takes, Cain 2026-11-19).
+    let mut per: HashMap<usize, (usize, usize)> = HashMap::new();
     for p in w.people.iter() {
         let j = match (p.cal.signed, p.stage) {
             (Some(s), _) if !s.walk_on => s.program,
@@ -216,9 +219,21 @@ fn signees(w: &World) {
         let Some(g) = level(w, j) else { continue };
         let e = by.entry((g, p.stars.clamp(1, 5))).or_default();
         e.0 += 1;
+        let c = per.entry(j).or_default();
+        c.0 += 1;
         if let Some(d) = p.cal.nil_deal.filter(|d| d.kind == DealKind::Signed && d.amount > 0.0) {
             e.1.push(d.amount);
+            c.1 += 1;
         }
+    }
+    for g in ["P4", "G5", "FCS"] {
+        let mut v: Vec<f64> = per.iter().filter(|(j, _)| level(w, **j) == Some(g)).map(|(_, c)| c.1 as f64).collect();
+        let class: usize = per.iter().filter(|(j, _)| level(w, **j) == Some(g)).map(|(_, c)| c.0).sum();
+        println!(
+            "  {g}: paid signees a program {} (of {:.1} signed)",
+            spread_n(&mut v),
+            class as f64 / v.len().max(1) as f64
+        );
     }
     for g in ["P4", "G5", "FCS"] {
         for stars in (2..=5).rev() {
@@ -268,6 +283,23 @@ fn q(v: &mut [f64], at: f64) -> f64 {
     }
     v.sort_by(|a, b| a.total_cmp(b));
     v[((v.len() - 1) as f64 * at).round() as usize]
+}
+
+/// [`spread`] for counts.
+fn spread_n(v: &mut [f64]) -> String {
+    if v.is_empty() {
+        return "none".into();
+    }
+    let mean = v.iter().sum::<f64>() / v.len() as f64;
+    format!(
+        "n {} p10 {:.0} median {:.0} mean {:.1} p90 {:.0} max {:.0}",
+        v.len(),
+        q(v, 0.1),
+        q(v, 0.5),
+        mean,
+        q(v, 0.9),
+        q(v, 1.0)
+    )
 }
 
 fn spread(v: &mut [f64]) -> String {

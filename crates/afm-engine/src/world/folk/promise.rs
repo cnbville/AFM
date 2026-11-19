@@ -216,9 +216,37 @@ pub struct Terms {
     pub off: bool,
 }
 
+/// Your league's seasons at another league's seat that end after `d`,
+/// soonest first: (first game, midpoint, the week after its title game).
+/// None at any other seat.
+fn league_seasons(w: &World, d: Date) -> Option<Vec<(Date, Date, Date)>> {
+    let Some(Team::Other(f)) = Team::seat(w) else { return None };
+    let k = crate::world::pro::other::league_of(f);
+    let years = d.year() - 1..=d.year() + 2;
+    Some(years.filter_map(|y| crate::world::pro::other::season_span(k, y)).filter(|s| s.2 > d).collect())
+}
+
+/// The end of your league's next season to end after `after` at another
+/// league's seat (the week after its title game): a promise there runs
+/// on its own calendar, not the NFL's. None at any other seat.
+pub(crate) fn league_end(w: &World, after: Date) -> Option<Date> {
+    league_seasons(w, after)?.first().map(|s| s.2)
+}
+
 /// The day a promise's window opens: from its date, never before you said
-/// it.
+/// it. Another league's seat reads its own season's weeks.
 pub fn opens(w: &World, made: Date, by: By) -> Date {
+    if let Some(ss) = league_seasons(w, made).filter(|ss| !ss.is_empty()) {
+        let d = match by {
+            By::Now => Some(made),
+            By::Week4 => ss.iter().map(|s| s.0.add(21)).find(|x| x.add(3) >= made),
+            By::Midseason => ss.iter().map(|s| s.1).find(|x| x.add(3) >= made),
+            By::NextSeason => ss.get(1).map(|s| s.0.max(made.add(150))),
+        };
+        if let Some(d) = d {
+            return d.max(made);
+        }
+    }
     let weeks = match Team::seat(w).map(|t| t.level()) {
         Some(Level::Nfl) => &w.dates.nfl_weeks,
         _ => &w.dates.cfb_weeks,
@@ -667,6 +695,22 @@ pub fn share_now(w: &World, i: usize) -> f64 {
     last.iter().map(|g| g.share()).sum::<f64>() / last.len() as f64
 }
 
+/// The rank a promise of his place takes (`PromiseKind::Place`): his place
+/// as he sees it, the way `talks::kept` and `judge` read it. 0 he starts, 1
+/// a real role (a quarter of the snaps, `ROLE_SHARE`), else his place on
+/// the team (a redshirt keeps his). Never last season's role alone: a man
+/// who lost the job, or a pro who started in college and sits now, is not
+/// promised that he'd keep a starting job he doesn't have (code oddity 29).
+pub fn place_rank(w: &World, i: usize) -> u8 {
+    if seen::starter(w, i) {
+        0
+    } else if share_now(w, i) >= ROLE_SHARE {
+        1
+    } else {
+        w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| (r as u8).max(PlayingTime::Backup as u8))
+    }
+}
+
 /// Touches a game over his last four games.
 fn touches_now(w: &World, i: usize) -> f64 {
     let id = w.people[i].player.id;
@@ -696,7 +740,7 @@ pub fn band(b: f64) -> &'static str {
 /// stat), from your level's games kept whole; the real starter's line when
 /// they are too few.
 pub fn starter_rate(w: &World, pos: Position, stat: Stat) -> f64 {
-    let level = Team::seat(w).map_or(Level::College, |t| t.level());
+    let level = Team::seat(w).map_or(Level::College, |t| t.games_level());
     let off = seen::offense(pos);
     let mut v: Vec<f64> = Vec::new();
     for g in w.seat_games.iter().filter(|g| g.level == level).rev().take(40) {
@@ -723,7 +767,9 @@ pub fn starter_rate(w: &World, pos: Position, stat: Stat) -> f64 {
         }
     }
     if v.len() < 8 {
-        return stat.fallback(level);
+        // The real starter's line at his level: another league's men are
+        // pros.
+        return stat.fallback(Team::seat(w).map_or(Level::College, |t| t.level()));
     }
     v.sort_by(|a, b| a.total_cmp(b));
     v[v.len() / 2]
@@ -1321,12 +1367,14 @@ pub fn time_care(p: &Person, ear: Ear) -> f64 {
 // starts in its first 4 games.
 
 /// He started 3 of every 4 of his club's games he dressed for, from his
-/// own season row (`ProSeason`: games and starts, which every NFL game on
-/// the engine writes whether or not the world counts the Data section's
-/// tallies, so a tallying world judges exactly as one that doesn't). None
-/// while he hasn't dressed for the club this season. A season on the
-/// stand-in has no games, only its year-end rule that the chart's heads
-/// started (`season_end`), so that rule judges it.
+/// own season row (`ProSeason`: games and the starts he saw, on for half
+/// the most snaps on his side, which every NFL game on the engine writes
+/// whether or not the world counts the Data section's tallies, so a
+/// tallying world judges exactly as one that doesn't). Never the club's
+/// listed starters, the chart he never sees; a row from
+/// before keeps only those. None while he hasn't dressed for the club this
+/// season. A season on the stand-in has no games, only its year-end rule
+/// that the chart's heads started (`season_end`), so that rule judges it.
 pub fn nfl_start_kept(w: &World, i: usize, club: usize) -> Option<bool> {
     let year = w.year;
     if !w.options.engine_from.is_none_or(|from| year >= from) {
@@ -1342,5 +1390,6 @@ pub fn nfl_start_kept(w: &World, i: usize, club: usize) -> Option<bool> {
     if s.team != Some(club) || s.games == 0 {
         return None;
     }
-    Some(s.starts as f64 >= KEPT_SHARE * s.games.min(4) as f64)
+    let starts = s.field_starts.unwrap_or(s.starts);
+    Some(starts as f64 >= KEPT_SHARE * s.games.min(4) as f64)
 }

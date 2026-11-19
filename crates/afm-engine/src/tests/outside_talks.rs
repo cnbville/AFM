@@ -263,6 +263,8 @@ fn results(w: &mut World, wins: u32, losses: u32) {
             spread: None,
             talks: Default::default(),
             whistle: None,
+            mine: None,
+            hurt: Vec::new(),
         });
     }
     w.folk.goals.clear();

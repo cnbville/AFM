@@ -97,6 +97,30 @@ pub struct Talk {
     pub closed: Option<Date>,
     /// What was said, newest last.
     pub log: Vec<(Date, String)>,
+    /// You ended his interview without a decision on this day: his
+    /// patience runs from it, and your first offer finds it worn by the
+    /// weeks he waited (talk replies item 12).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub waiting: Option<Date>,
+}
+
+/// What each week he waited after his interview takes off his patience,
+/// and the most it takes. Proposed, not confirmed.
+pub const WAIT_WEAR: f32 = 0.03;
+pub const WAIT_WEAR_MAX: f32 = 0.3;
+
+/// You ended his interview without a decision (talk replies item 12): the
+/// talks with him open today, so his patience runs from now.
+pub fn left_waiting(w: &mut World, c: usize, role: Role) {
+    if w.coaches.get(c).is_none() {
+        return;
+    }
+    let today = w.today;
+    let tk = talk_mut(w, c, role);
+    if tk.waiting.is_none() {
+        tk.waiting = Some(today);
+        tk.log.push((today, "You ended the interview without a decision.".into()));
+    }
 }
 
 /// A promise you made to a hire (C46-C48, C56).
@@ -627,6 +651,13 @@ pub fn offer(w: &mut World, c: usize, role: Role, mut t: Terms) -> Result<String
                 ),
             ));
         }
+    }
+    // The weeks he waited since the interview wear on him (item 12).
+    if let Some(d) = talk(w, c).and_then(|k| k.waiting) {
+        let weeks = d.days_to(today).max(0) as f32 / 7.0;
+        let tk = talk_mut(w, c, role);
+        tk.patience -= (WAIT_WEAR * weeks).min(WAIT_WEAR_MAX);
+        tk.waiting = None;
     }
     let k = talk(w, c).cloned().unwrap_or_default();
     let asked = k.ask.max(1.0);

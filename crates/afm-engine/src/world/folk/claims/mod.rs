@@ -203,13 +203,19 @@ pub fn team_of(w: &World, i: usize) -> Option<Team> {
     }
 }
 
-/// Which side of a kept game a team was (0 home, 1 away).
+/// Which side of a kept game a team was (0 home, 1 away): the side you
+/// coached, so a game your old club played against this one is not this
+/// one's (`SeatGame::mine`). Another league's games are its own level.
 pub(crate) fn side_of(g: &SeatGame, team: Team) -> Option<usize> {
     let (_, i) = team.parts();
-    if g.level != team.level() || matches!(team, Team::Other(_)) {
+    if g.level != team.games_level() {
         return None;
     }
-    g.teams.iter().position(|&t| t == i)
+    let side = g.teams.iter().position(|&t| t == i)?;
+    if g.mine.is_some_and(|m| m as usize != side) {
+        return None;
+    }
+    Some(side)
 }
 
 /// The same kind of team as `like`, by its index (an opponent in a kept

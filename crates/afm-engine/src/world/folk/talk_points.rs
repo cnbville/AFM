@@ -23,7 +23,7 @@ use super::takeover::Tone;
 use super::talks::{self, Move, PromiseKind, Reason, Subject};
 use super::voice::Facts;
 use crate::calendar::Level;
-use crate::player::{PlayingTime, Trait};
+use crate::player::Trait;
 use crate::world::{Stage, World};
 
 /// A point this much on his mind is what he is really worried about.
@@ -1233,8 +1233,7 @@ pub fn picks(w: &World, i: usize, p: &Point, used: &[Move], code: impl Fn(Move, 
 /// man who lost his job or sits behind someone doesn't start today; else
 /// his place. Any tone of the move logs the same (`scene::same_move`).
 pub fn promise_kind(w: &World, i: usize, k: K) -> PromiseKind {
-    let starter = talks::is_starter(w, i);
-    let rank = if starter { 0 } else { w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| r as u8) };
+    let rank = super::promise::place_rank(w, i);
     match k {
         K::Pay | K::WantsOut => PromiseKind::Contract,
         K::Portal | K::LostJob | K::Buried => PromiseKind::Start,

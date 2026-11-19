@@ -113,6 +113,45 @@ fn world_rosters(path: &str, level: Level, seed: u32) -> (Vec<afm_engine::game::
     (teams, sched)
 }
 
+/// The NFL's fouls on scrimmage plays, per team game, 2021-25 regular
+/// seasons (nflverse play-by-play, every penalty in the play text, 2,718
+/// team games; EG5, `docs/design/engine-gaps.md`): (the engine's kind,
+/// accepted, flagged with the declined and offsetting ones, yards an
+/// accepted call). Kinds the engine folds: unnecessary roughness with
+/// horse collars and taunting; illegal formation with shifts, motion,
+/// offensive offside and the offense's too many men; neutral zone
+/// infraction with encroachment; illegal use of hands both sides (the
+/// defense 0.086, the offense 0.024); face masks both sides. Offside is
+/// the live-ball foul alone. The two kickoff fouls are the 2025 rule
+/// book's, on kicks (the repo's 2025 counts; no landing zone before 2024).
+const REAL_FOULS: &[(&str, f64, f64, f64)] = &[
+    ("offensive holding", 0.893, 1.114, 9.8),
+    ("false start", 1.131, 1.132, 4.9),
+    ("pass interference", 0.497, 0.561, 15.8),
+    ("defensive holding", 0.322, 0.452, 4.7),
+    ("illegal contact", 0.121, 0.175, 4.9),
+    ("illegal use of hands", 0.110, 0.154, 6.0),
+    ("offside", 0.253, 0.377, 4.8),
+    ("neutral zone infraction", 0.226, 0.229, 4.8),
+    ("delay of game", 0.295, 0.310, 4.9),
+    ("unnecessary roughness", 0.271, 0.308, 13.1),
+    ("roughing the passer", 0.181, 0.190, 13.4),
+    ("ineligible man downfield", 0.106, 0.175, 4.9),
+    ("offensive pass interference", 0.128, 0.159, 9.7),
+    ("illegal formation", 0.224, 0.353, 4.9),
+    ("face mask", 0.124, 0.134, 13.3),
+    ("too many men on the field", 0.068, 0.083, 4.5),
+    ("intentional grounding", 0.077, 0.082, 11.7),
+    ("illegal block in the back", 0.031, 0.038, 9.9),
+    ("unsportsmanlike conduct", 0.025, 0.032, 13.3),
+    ("kickoff out of bounds", 0.070, 0.070, 0.0),
+    ("kickoff short of the landing zone", 0.079, 0.079, 0.0),
+];
+
+/// Accepted fouls on scrimmage plays a team game and their yards (the same
+/// count as `REAL_FOULS`).
+const REAL_SCRIMMAGE_FOULS: (f64, f64) = (5.244, 42.6);
+
 /// Team games in `games` games.
 fn n_games(games: usize) -> f64 {
     2.0 * games as f64
@@ -792,9 +831,17 @@ fn main() {
             }
         }
         for p in &s.plays {
-            for &(kind, _, _, _, accepted) in &p.penalties {
+            let kick = matches!(
+                p.kind,
+                PlayType::Kickoff | PlayType::Punt | PlayType::FieldGoal | PlayType::ExtraPoint | PlayType::TwoPoint
+            );
+            for &(kind, _, _, yds, accepted) in &p.penalties {
                 if accepted {
                     *m.entry(kind.name()).or_default() += 1.0;
+                    if !kick {
+                        *m.entry("pen_scrim").or_default() += 1.0;
+                        *m.entry("pen_scrim_yds").or_default() += yds.abs();
+                    }
                 }
             }
             if matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
@@ -1285,29 +1332,14 @@ fn main() {
     row("fumbles lost", g("fumbles_lost") / n, f("fumbles_lost"));
     row("penalties", g("penalties") / n, f("penalties"));
     row("penalty yards", g("penalty_yards") / n, f("penalty_yards"));
-    // Accepted fouls by kind per team game: Claude's reading of the 2023
-    // season totals (nflpenalties.com), for diagnosis only. Kinds the engine
-    // folds together: offensive holding with offensive illegal hands;
-    // defensive holding with illegal contact and defensive illegal hands;
-    // unnecessary roughness with horse collars and taunting; illegal
-    // formation with shifts, motion, ineligible downfield and too many men;
-    // offside with neutral zone and encroachment.
-    for (k, real) in [
-        ("offensive holding", 1.26),
-        ("false start", 1.1),
-        ("pass interference", 0.42),
-        ("defensive holding", 0.65),
-        ("unnecessary roughness", 0.47),
-        ("roughing the passer", 0.15),
-        ("illegal block in the back", 0.28),
-        ("offside", 0.52),
-        ("delay of game", 0.26),
-        ("illegal formation", 0.6),
-        ("face mask", 0.18),
-        ("offensive pass interference", 0.17),
-        ("intentional grounding", 0.07),
-    ] {
-        row(&format!("  {k}"), g(k) / n, Some(real));
+    // The engine logs no foul on a punt or kickoff return yet (bug 403), so
+    // the kinds read against nflverse's own on scrimmage plays (2021-25,
+    // `REAL_FOULS`); the kickoff fouls against the 2025 rule book's kicks.
+    let nfl = level == Level::NFL;
+    row("  on scrimmage plays", g("pen_scrim") / n, nfl.then_some(REAL_SCRIMMAGE_FOULS.0));
+    row("  their yards", g("pen_scrim_yds") / n, nfl.then_some(REAL_SCRIMMAGE_FOULS.1));
+    for &(k, real, _, _) in REAL_FOULS {
+        row(&format!("  {k}"), g(k) / n, nfl.then_some(real));
     }
     // Targeting (coach fire): college and high school only, the NFL calls
     // those hits unnecessary roughness. FBS 0.031-0.043 a team game in
@@ -1840,6 +1872,7 @@ fn main() {
     }
     if std::env::var("AFM_GAPS").is_ok() {
         gaps_counts(&results, &pos_of);
+        foul_counts(&results, level);
     }
     if !burners.is_empty() {
         println!(
@@ -1889,7 +1922,17 @@ fn gaps_counts(
     // Penalties by kind: [flagged, accepted].
     let mut pens: BTreeMap<String, [f64; 2]> = BTreeMap::new();
     // Fumbles by kind: [fumbles, lost].
-    let mut fcat: BTreeMap<&str, [f64; 2]> = BTreeMap::new();
+    let mut fcat: BTreeMap<String, [f64; 2]> = BTreeMap::new();
+    // Fumbles by nflverse's kinds and precedence (engine gaps items 4-7; the
+    // spec's `real_fumbles` reading): [fumbles, lost, out of bounds, the
+    // defense's recoveries, advanced, 10+ yards, returned for a score, the
+    // fumbler's own recoveries, a teammate's].
+    let mut fnv: BTreeMap<&str, [f64; 9]> = BTreeMap::new();
+    // What each kind is a share of: [sacks, designed runs, catches, snaps
+    // under center, in the gun, fumbled snaps under center, in the gun].
+    let mut per = [0.0f64; 7];
+    // Plays and fumbles by the man's position: "sack by EDGE" and the like.
+    let mut bypos: BTreeMap<String, [f64; 2]> = BTreeMap::new();
     // Accepted pass interference: [yards, flags].
     let mut dpi = [0.0f64; 2];
     // The half's last snap: each call's count, then [snaps, touchdowns].
@@ -1939,20 +1982,87 @@ fn gaps_counts(
                 if p.fumble_lost {
                     fum[2] += 1.0;
                 }
-                let cat = match p.kind {
-                    PT::Sack => "sack",
-                    PT::Pass if p.complete => "after a catch",
-                    PT::Pass => "pass, no catch",
-                    PT::Scramble => "scramble",
-                    PT::Run if is_qb(p.carrier) => "QB run",
-                    PT::Run => "designed run",
-                    PT::Kickoff | PT::Punt => "kick or punt play",
-                    _ => "other",
-                };
-                let e = fcat.entry(cat).or_default();
+                // How it came out (the engine's own kinds), and who had it.
+                use afm_engine::game::sim::FumbleHow;
+                let note = p.fumble.unwrap_or_default();
+                let fpos = p.fumbled.and_then(|f| pos_of.get(&f)).map_or("?".to_string(), |x| format!("{x:?}"));
+                let cat =
+                    format!("{:?}{}", note.how, if matches!(p.kind, PT::Kickoff | PT::Punt) { " (kick)" } else { "" });
+                let e = fcat.entry(format!("{cat:<16} by {fpos}")).or_default();
                 e[0] += 1.0;
                 if p.fumble_lost {
                     e[1] += 1.0;
+                }
+                // nflverse's order: a kick, then an aborted snap, a sack and
+                // a scramble over it, then a designed run, a catch and a
+                // pass without one. A snap he picked up and threw from is a
+                // pass's.
+                let nv = match p.kind {
+                    PT::Kickoff | PT::Punt => "kick or punt play",
+                    _ if note.how == FumbleHow::Snap && p.kind != PT::Pass => "aborted snap",
+                    PT::Sack => "sack",
+                    PT::Scramble => "scramble",
+                    PT::Run => "designed run",
+                    PT::Pass if p.complete => "after a catch",
+                    PT::Pass => "pass, no catch",
+                    _ => "other",
+                };
+                let e = fnv.entry(nv).or_default();
+                e[0] += 1.0;
+                if p.fumble_lost {
+                    e[1] += 1.0;
+                }
+                if note.out {
+                    e[2] += 1.0;
+                }
+                // The defense of the play came up with it (on an
+                // interception the offense's man is the one who recovers).
+                let d = 1 - p.offense;
+                if p.recovered.is_some_and(|id| p.side_of(id) == Some(d)) {
+                    e[3] += 1.0;
+                    if note.ran >= 0.5 {
+                        e[4] += 1.0;
+                    }
+                    if note.ran >= 10.0 {
+                        e[5] += 1.0;
+                    }
+                    if p.defense_td && !p.interception {
+                        e[6] += 1.0;
+                    }
+                } else if p.recovered.is_some() && p.recovered == p.fumbled {
+                    e[7] += 1.0;
+                } else if p.recovered.is_some() {
+                    e[8] += 1.0;
+                }
+            }
+            if matches!(p.kind, PT::Run | PT::Pass | PT::Sack | PT::Scramble) {
+                let uc = p.call.contains("under center");
+                per[3 + (!uc) as usize] += 1.0;
+                if p.fumble.is_some_and(|f| f.how == afm_engine::game::sim::FumbleHow::Snap) {
+                    per[5 + (!uc) as usize] += 1.0;
+                }
+                match p.kind {
+                    PT::Sack => per[0] += 1.0,
+                    PT::Run => per[1] += 1.0,
+                    PT::Pass if p.complete => per[2] += 1.0,
+                    _ => {}
+                }
+                // Each kind's rate by the man's position (engine gaps items 6
+                // and 7): the sacker, the designed run's carrier, the catcher.
+                let snap = p.fumble.is_some_and(|f| f.how == afm_engine::game::sim::FumbleHow::Snap);
+                let key = match p.kind {
+                    PT::Sack => p.sackers.first().map(|s| ("sack by", *s)),
+                    PT::Run if !snap => p.carrier.map(|c| ("designed run by", c)),
+                    PT::Pass if p.complete => p.target.map(|c| ("catch by", c)),
+                    _ => None,
+                };
+                if let Some((k, id)) = key {
+                    let pos = pos_of.get(&id).map_or("?".to_string(), |x| format!("{x:?}"));
+                    let e = bypos.entry(format!("{k} {pos}")).or_default();
+                    e[0] += 1.0;
+                    if p.fumbled.is_some() && !snap {
+                        e[1] += 1.0;
+                    }
                 }
             }
             match p.kind {
@@ -2132,8 +2242,75 @@ fn gaps_counts(
         scrim[4] / tg,
         scrim[5] / tg
     );
+    println!("fumbles by how the ball came out and who had it:");
     for (k, e) in &fcat {
-        println!("  fumbles {k:<20} {:.3} a team game, lost {:.3}", e[0] / tg, e[1] / e[0].max(1.0));
+        println!("  {k:<28} {:.4} a team game, lost {:.3}", e[0] / tg, e[1] / e[0].max(1.0));
+    }
+    // Real, nflverse 2021-25 (`real_eg2.py`): sack 0.298 lost 0.510 out
+    // 0.038 advanced 0.327 10+ 0.147 scores 46; after a catch 0.244 0.500
+    // 0.190 0.313 0.166 17; designed run 0.197 0.576 0.058 0.241 0.122 18;
+    // aborted snap 0.185 0.247 0.026 0.134 0.067 5; pass, no catch 0.036
+    // 0.082 0.072; scramble 0.024 0.469 0.281. All: 0.983 a team game,
+    // lost 0.455, out of bounds 0.085, advanced 0.280, 10+ 0.136, return
+    // touchdowns 0.032 a team game.
+    // Who came up with it, real (`real_eg2e.py`; the defense, the fumbler
+    // himself, a teammate, out of bounds): designed run 0.564 0.185 0.193
+    // 0.058; after a catch 0.488 0.156 0.166 0.190; sack 0.503 0.153
+    // 0.305 0.038; aborted snap 0.237 0.374 0.364 0.026; all from
+    // scrimmage 0.448 0.214 0.253 0.085.
+    println!(
+        "fumbles by nflverse's kinds (a team game, lost, out of bounds; the defense's recoveries advanced, 10+, scores; who came up with it: the defense, himself, a teammate):"
+    );
+    let mut all = [0.0f64; 9];
+    for (k, e) in &fnv {
+        for (a, v) in all.iter_mut().zip(e) {
+            *a += v;
+        }
+        println!(
+            "  {k:<18} {:.3}  lost {:.3}  out {:.3}  adv {:.3}  10+ {:.3}  TDs {:<4}  who {:.3} {:.3} {:.3}",
+            e[0] / tg,
+            e[1] / e[0].max(1.0),
+            e[2] / e[0].max(1.0),
+            e[4] / e[3].max(1.0),
+            e[5] / e[3].max(1.0),
+            e[6],
+            e[3] / e[0].max(1.0),
+            e[7] / e[0].max(1.0),
+            e[8] / e[0].max(1.0)
+        );
+    }
+    println!(
+        "  all                {:.3}  lost {:.3}  out {:.3}  adv {:.3}  10+ {:.3}  return TDs {:.4} a team game  who {:.3} {:.3} {:.3}",
+        all[0] / tg,
+        all[1] / all[0].max(1.0),
+        all[2] / all[0].max(1.0),
+        all[4] / all[3].max(1.0),
+        all[5] / all[3].max(1.0),
+        all[6] / tg,
+        all[3] / all[0].max(1.0),
+        all[7] / all[0].max(1.0),
+        all[8] / all[0].max(1.0)
+    );
+    let rate = |k: &str, n: f64| fnv.get(k).map_or(0.0, |e| e[0]) / n.max(1.0);
+    // Real: 12.4% of sacks, 0.81% of designed runs, 1.13% of catches;
+    // snaps on the ground 0.467% under center, 0.227% in the gun.
+    println!(
+        "fumble rates: a sack {:.4}, a designed run {:.4}, a catch {:.4}; fumbled snaps under center {:.5}, in the gun {:.5}",
+        rate("sack", per[0]),
+        rate("designed run", per[1]),
+        rate("after a catch", per[2]),
+        per[5] / per[3].max(1.0),
+        per[6] / per[4].max(1.0)
+    );
+    // Real (nflverse 2021-25): sacks fumble by the sacker's spot DE 12.6%,
+    // OLB 15.7%, DT 7.7%, NT 9.3%, ILB 7.2%, CB 10.5%, S 12.0%; designed
+    // runs by the carrier RB 0.70%, QB 2.12%, WR 1.34%; catches WR 1.09%,
+    // TE 1.23%, RB 1.14%.
+    println!("fumble rates by position (plays, rate):");
+    for (k, e) in &bypos {
+        if e[0] >= 50.0 {
+            println!("  {k:<24} {:>7.0}  {:.4}", e[0], e[1] / e[0]);
+        }
     }
     println!("DPI accepted avg yards {:.2}", dpi[0] / dpi[1].max(1.0));
     println!("penalties a team game (flagged / accepted):");
@@ -2150,6 +2327,361 @@ fn gaps_counts(
     for (k, v) in &last {
         println!("  {k:<28} {:.3}", v / last_n[0].max(1.0));
     }
+}
+
+/// AFM_GAPS=1, lane EG5 (each level's rule book and the flags): every foul
+/// kind flagged, accepted and declined with its yards and first downs
+/// (against `REAL_FOULS` at the NFL), safeties on a foul in the end zone,
+/// pass interference by depth against every target there, ineligible men
+/// downfield by the call, the RPO throw's time, kickoffs dead without a
+/// return, free plays and the pre-snap fouls by down. Per team game unless
+/// named.
+fn foul_counts(results: &[afm_engine::game::GameResult], level: Level) {
+    use afm_engine::game::stats::PlayType as PT;
+    use std::collections::BTreeMap;
+    let tg = results.len() as f64 * 2.0;
+    let nfl = level == Level::NFL;
+    // By kind: [flagged, accepted, declined, accepted yards, first downs].
+    let mut kinds: BTreeMap<&'static str, [f64; 5]> = BTreeMap::new();
+    // Air yards bands: [targets, PI flagged, PI accepted, PI accepted yards].
+    const BANDS: [(f64, &str); 6] =
+        [(5.0, "1-5"), (10.0, "6-10"), (15.0, "11-15"), (20.0, "16-20"), (30.0, "21-30"), (99.0, "31+")];
+    // Real NFL DPI accepted a target in each band (nflverse 2021-25: the
+    // DPI's yards against every target's air yards).
+    const REAL_PI: [f64; 6] = [0.0077, 0.0170, 0.0284, 0.0270, 0.0379, 0.0432];
+    let mut bands = [[0.0f64; 4]; 6];
+    // Ineligible men downfield: [on RPO calls, on other calls]; RPO throws:
+    // [throws, time to throw sum], and the times.
+    let mut inel = [0.0f64; 4];
+    let mut inel_calls: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    let mut rpo_t: Vec<f64> = Vec::new();
+    // Kickoffs: [kickoffs, dead at the spot without a return, booked fouls].
+    let mut ko = [0.0f64; 3];
+    // Free plays (a live-ball offside and the play ran): [plays, accepted].
+    let mut free = [0.0f64; 2];
+    // Safeties on an accepted foul by the offense.
+    let mut foul_safety = 0.0f64;
+    // Snaps by down and the pre-snap fouls flagged on them:
+    // [snaps, false starts, delays, offside + neutral zone].
+    let mut by_down = [[0.0f64; 4]; 4];
+    let mut backups = 0.0;
+    // Kick snaps (punts, field goals, tries) and the fouls before them:
+    // [snaps, false starts, delays, jumps]; the hard count on fourth and
+    // short: [tried, drew the defense, own false start, delay].
+    let mut kick_snaps = [[0.0f64; 4]; 3];
+    let mut gambits = [0.0f64; 4];
+    // The defense's hit fouls by where they came, flagged: [unnecessary
+    // roughness, targeting] at the catch point (an incomplete pass), on a
+    // scramble (a slide or the tackle) and on any other play (the tackle).
+    let mut hits = [[0.0f64; 2]; 3];
+    let ff = |r: &afm_engine::game::stats::PlayRecord, k: &str| r.penalties.iter().any(|p| p.0.name() == k);
+    for g in results {
+        for p in &g.stats.plays {
+            for &(kind, team, _, yds, acc) in &p.penalties {
+                let e = kinds.entry(kind.name()).or_default();
+                e[0] += 1.0;
+                let hit = match kind.name() {
+                    "unnecessary roughness" => Some(0),
+                    "targeting" => Some(1),
+                    _ => None,
+                };
+                if let Some(h) = hit
+                    && team != p.offense
+                {
+                    let w = if p.kind == PT::Pass && !p.complete {
+                        0
+                    } else if p.kind == PT::Scramble {
+                        1
+                    } else {
+                        2
+                    };
+                    hits[w][h] += 1.0;
+                }
+                if acc {
+                    e[1] += 1.0;
+                    e[3] += yds.abs();
+                    if p.first_down {
+                        e[4] += 1.0;
+                    }
+                    if p.safety && team == p.offense {
+                        foul_safety += 1.0;
+                    }
+                } else {
+                    e[2] += 1.0;
+                }
+            }
+            let scrim =
+                matches!(p.kind, PT::Run | PT::Pass | PT::Sack | PT::Scramble | PT::NoPlay | PT::Kneel | PT::Spike);
+            {
+                use afm_engine::game::stats::{KICK_FG, KICK_PUNT, KICK_TRY};
+                let unit = match p.kind {
+                    PT::Punt => Some(0),
+                    PT::FieldGoal => Some(1),
+                    PT::ExtraPoint => Some(2),
+                    PT::NoPlay if p.call == KICK_PUNT => Some(0),
+                    PT::NoPlay if p.call == KICK_FG => Some(1),
+                    PT::NoPlay if p.call == KICK_TRY => Some(2),
+                    _ => None,
+                };
+                if let Some(u) = unit {
+                    let k = &mut kick_snaps[u];
+                    k[0] += 1.0;
+                    k[1] += ff(p, "false start") as u8 as f64;
+                    k[2] += ff(p, "delay of game") as u8 as f64;
+                    k[3] += (ff(p, "offside") || ff(p, "neutral zone infraction")) as u8 as f64;
+                }
+                if p.kind == PT::NoPlay && p.call == "hard count on fourth down" {
+                    gambits[0] += 1.0;
+                    gambits[1] += p.penalties.iter().any(|f| f.1 != p.offense) as u8 as f64;
+                    gambits[2] += ff(p, "false start") as u8 as f64;
+                    gambits[3] += ff(p, "delay of game") as u8 as f64;
+                }
+            }
+            if scrim && (1..=4).contains(&p.down) && p.call != afm_engine::game::stats::KICK_TRY {
+                let d = &mut by_down[p.down as usize - 1];
+                d[0] += 1.0;
+                d[1] += ff(p, "false start") as u8 as f64;
+                d[2] += ff(p, "delay of game") as u8 as f64;
+                d[3] += (ff(p, "offside") || ff(p, "neutral zone infraction")) as u8 as f64;
+                if p.call == "delay of game to back up the punt" {
+                    backups += 1.0;
+                }
+            }
+            if p.kind == PT::Pass && !p.throw_away && p.passer.is_some() && p.air_yards > 0.0 {
+                let b = BANDS.iter().position(|b| p.air_yards <= b.0).unwrap_or(5);
+                bands[b][0] += 1.0;
+                for &(kind, _, _, yds, acc) in &p.penalties {
+                    if kind.name() == "pass interference" {
+                        bands[b][1] += 1.0;
+                        if acc {
+                            bands[b][2] += 1.0;
+                            bands[b][3] += yds;
+                        }
+                    }
+                }
+            }
+            if ff(p, "ineligible man downfield") {
+                if !p.call.contains("RPO") {
+                    *inel_calls.entry(p.call.clone()).or_default() += 1.0;
+                }
+                inel[if p.call.contains("RPO") {
+                    0
+                } else if p.call.contains("screen") {
+                    2
+                } else if p.play_action {
+                    3
+                } else {
+                    1
+                }] += 1.0;
+            }
+            if p.kind == PT::Pass && p.call.contains("RPO") && p.passer.is_some() && !p.throw_away {
+                rpo_t.push(p.time_to_throw);
+            }
+            if p.kind == PT::Kickoff && p.call == "kickoff" {
+                ko[0] += 1.0;
+                if p.returner.is_none() && !p.touchback && !p.fair_catch && !p.turnover {
+                    ko[1] += 1.0;
+                }
+                if p.penalties.iter().any(|x| x.0.name().starts_with("kickoff")) {
+                    ko[2] += 1.0;
+                }
+            }
+            if ff(p, "offside") && p.kind != PT::NoPlay {
+                free[0] += 1.0;
+                if p.penalties.iter().any(|x| x.0.name() == "offside" && x.4) {
+                    free[1] += 1.0;
+                }
+            }
+        }
+    }
+    println!("\n=== Rule books and flags (EG5) {tg} team games ===");
+    println!(
+        "  {:<34} {:>7} {:>7} {:>7} {:>6} {:>6}   real NFL scrimmage: flagged accepted yards",
+        "per team game", "flagged", "accepted", "declined", "yds", "1st dn"
+    );
+    let mut list: Vec<_> = kinds.iter().collect();
+    list.sort_by(|a, b| b.1[1].total_cmp(&a.1[1]));
+    for (k, e) in list {
+        let real = REAL_FOULS.iter().find(|r| r.0 == *k).filter(|_| nfl);
+        println!(
+            "  {k:<34} {:>7.3} {:>7.3} {:>7.3} {:>6.1} {:>6.2}   {}",
+            e[0] / tg,
+            e[1] / tg,
+            e[2] / tg,
+            e[3] / e[1].max(1.0),
+            e[4] / e[1].max(1.0),
+            real.map_or(String::new(), |r| format!("{:.3} {:.3} {:.1}", r.2, r.1, r.3))
+        );
+    }
+    println!("  safeties on an accepted foul by the offense {:.4} a team game (real NFL 0.0044)", foul_safety / tg);
+    println!(
+        "  the defense's hit fouls flagged (unnecessary roughness, targeting): at the catch point {:.3} {:.3}, on a scramble {:.3} {:.3}, on any other play (the tackle) {:.3} {:.3}",
+        hits[0][0] / tg,
+        hits[0][1] / tg,
+        hits[1][0] / tg,
+        hits[1][1] / tg,
+        hits[2][0] / tg,
+        hits[2][1] / tg
+    );
+    println!(
+        "  pass interference by air yards (targets a team game, PI flagged and accepted a target, accepted yards; real accepted a target):"
+    );
+    for (b, (_, name)) in bands.iter().zip(BANDS) {
+        println!(
+            "    {name:<6} {:>6.2}  {:.4} {:.4} {:>5.1}   {}",
+            b[0] / tg,
+            b[1] / b[0].max(1.0),
+            b[2] / b[0].max(1.0),
+            b[3] / b[2].max(1.0),
+            if nfl {
+                format!("{:.4}", REAL_PI[BANDS.iter().position(|x| x.1 == name).unwrap()])
+            } else {
+                String::new()
+            }
+        );
+    }
+    rpo_t.sort_by(f64::total_cmp);
+    let q = |f: f64| rpo_t.get(((rpo_t.len() as f64 - 1.0) * f).round().max(0.0) as usize).copied().unwrap_or(0.0);
+    println!(
+        "  ineligible men downfield flagged: on RPO calls {:.3}, screens {:.3}, play action {:.3}, other calls {:.3} a team game; RPO throws {:.2} a team game, time to throw p25 {:.2} p50 {:.2} p75 {:.2} s",
+        inel[0] / tg,
+        inel[2] / tg,
+        inel[3] / tg,
+        inel[1] / tg,
+        rpo_t.len() as f64 / tg,
+        q(0.25),
+        q(0.5),
+        q(0.75)
+    );
+    let mut calls: Vec<(String, f64)> = inel_calls.into_iter().collect();
+    calls.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    println!(
+        "    on other calls, the most: {}",
+        calls.iter().take(8).map(|(c, n)| format!("{c} {:.3}", n / tg)).collect::<Vec<_>>().join(", ")
+    );
+    println!(
+        "  kickoffs {:.2} a team game: dead without a return or touchback {:.3} a team game, kickoff fouls booked {:.3}",
+        ko[0] / tg,
+        ko[1] / tg,
+        ko[2] / tg
+    );
+    println!(
+        "  free plays (live-ball offside, the play ran) {:.3} a team game, the offside taken {:.3} of them",
+        free[0] / tg,
+        free[1] / free[0].max(1.0)
+    );
+    let aw: Vec<f64> =
+        afm_engine::game::scrimmage::AWAY.iter().map(|x| x.load(std::sync::atomic::Ordering::Relaxed) as f64).collect();
+    let ie: Vec<f64> = afm_engine::game::scrimmage::INELIGIBLE
+        .iter()
+        .map(|x| x.load(std::sync::atomic::Ordering::Relaxed) as f64)
+        .collect();
+    println!(
+        "    linemen past the limit at a throw past the line a team game: run block {:.3}, pass block on a man {:.3}, \
+         looking for work {:.3}, on a block begun past it {:.3}, escort {:.3}, other {:.3}; on dropbacks {:.3}: passer within 2.5 of the line {:.3}, \
+         after 3.5 s {:.3}, scramble drill {:.3}",
+        ie[0] / tg,
+        ie[1] / tg,
+        ie[2] / tg,
+        ie[3] / tg,
+        ie[4] / tg,
+        ie[5] / tg,
+        ie[6] / tg,
+        ie[7] / tg,
+        ie[8] / tg,
+        ie[9] / tg
+    );
+    println!(
+        "    of them on dropbacks: in a pass block {:.3} (a helper {:.3}), in a run-style block {:.3}, on a finished block {:.3}, \
+         in no block {:.3}, over a yard past the limit {:.3}; on RPOs: in a block {:.3}, in none {:.3}, over a yard past {:.3}; \
+         on dropbacks every lineman past the limit on a block begun inside it {:.3}, pass blocks driving the man back {:.3}",
+        ie[10] / tg,
+        ie[13] / tg,
+        ie[11] / tg,
+        ie[12] / tg,
+        ie[14] / tg,
+        ie[18] / tg,
+        ie[15] / tg,
+        ie[16] / tg,
+        ie[17] / tg,
+        ie[19] / tg,
+        ie[20] / tg
+    );
+    println!(
+        "    dropback pass blocks begun past the limit: begun within a yard past it {:.3}, farther {:.3}; on a man not rushing {:.3}; \
+         begun under 0.3 s before the throw {:.3}; on a man off the line {:.3}; the lineman 3+ yards past the line {:.3}; the passer near the line {:.3}",
+        ie[21] / tg,
+        ie[22] / tg,
+        ie[23] / tg,
+        ie[24] / tg,
+        ie[25] / tg,
+        ie[26] / tg,
+        ie[27] / tg
+    );
+    let flicks = aw[2].max(1.0);
+    println!(
+        "  throwaways a team game: in the pocket {:.3}, outside it {:.3} (real NFL 0.549 and 0.829, FTN 2022-24); \
+         outside with a rusher on him (a flick) {:.3}, of them over 20, 25, 30, 35 yards {:.3} {:.3} {:.3} {:.3}, short of the line {:.3}; \
+         in the pocket nowhere near a receiver {:.3} of them; grounding flagged {:.3} a team game (real 0.080, 35% from outside the pocket)",
+        aw[0] / tg,
+        aw[1] / tg,
+        aw[2] / tg,
+        aw[4] / flicks,
+        aw[5] / flicks,
+        aw[6] / flicks,
+        aw[7] / flicks,
+        aw[3] / tg,
+        aw[8] / aw[0].max(1.0),
+        aw[9] / tg
+    );
+    // Real NFL per snap from scrimmage by down (nflverse 2021-25, no plays
+    // included): false starts, delays, defensive offside and neutral zone.
+    const REAL_DOWN: [[f64; 3]; 4] =
+        [[0.0132, 0.0014, 0.0069], [0.0125, 0.0022, 0.0075], [0.0232, 0.0053, 0.0133], [0.0620, 0.0816, 0.0391]];
+    println!("  pre-snap fouls a snap by down (false start, delay, offside or neutral zone; real NFL):");
+    for (k, d) in by_down.iter().enumerate() {
+        let r = REAL_DOWN[k];
+        println!(
+            "    down {} {:>6.2} snaps  {:.4} {:.4} {:.4}   {:.4} {:.4} {:.4}",
+            k + 1,
+            d[0] / tg,
+            d[1] / d[0].max(1.0),
+            d[2] / d[0].max(1.0),
+            d[3] / d[0].max(1.0),
+            r[0],
+            r[1],
+            r[2]
+        );
+    }
+    println!(
+        "    delays on fourth down {:.3} a team game, of them backing up the punt {:.3} (real NFL 0.142 and 0.066, FBS 0.148 and 0.052; nflverse 2021-25, cfbfastR 2023-24)",
+        by_down[3][2] / tg,
+        backups / tg
+    );
+    // Real NFL 2021-25 a kick snap, from the formation on each no-play
+    // (nflverse): false starts, delays not backing up a punt, jumps.
+    const REAL_KICK: [[f64; 3]; 3] = [[0.0128, 0.0055, 0.0015], [0.0039, 0.0043, 0.0026], [0.0036, 0.0036, 0.0015]];
+    println!("  fouls before a kick, a kick snap (false start, delay, jump; real NFL 2021-25):");
+    for (u, name) in ["punts", "field goals", "tries"].iter().enumerate() {
+        let (k, r) = (kick_snaps[u], REAL_KICK[u]);
+        println!(
+            "    {name:<12} {:>5.2} a team game  {:.4} {:.4} {:.4}   {:.4} {:.4} {:.4}",
+            k[0] / tg,
+            k[1] / k[0].max(1.0),
+            k[2] / k[0].max(1.0),
+            k[3] / k[0].max(1.0),
+            r[0],
+            r[1],
+            r[2]
+        );
+    }
+    println!(
+        "  hard counts on fourth and short before a kick {:.3} a team game: drew the defense {:.3}, own false start {:.3}, delay {:.3} (real NFL delays 0.024 a team game)",
+        gambits[0] / tg,
+        gambits[1] / tg,
+        gambits[2] / tg,
+        gambits[3] / tg
+    );
 }
 
 /// AFM_RUNDIAG=1: where backs' designed runs are stopped and by whom

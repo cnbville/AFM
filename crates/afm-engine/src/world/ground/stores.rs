@@ -212,9 +212,11 @@ fn family_points(w: &World, person: usize) -> Option<(f32, bool)> {
     if !any {
         return None;
     }
-    let (pts, holder) = standing::staff(w, prog, fam);
-    let held = w.ground.get(fam, holder).is_some_and(|m| m.holding(w.today).is_some())
-        || w.ground.get(fam, Holder::Program(prog as u32)).is_some_and(|m| m.holding(w.today).is_some());
+    let (pts, _) = standing::staff(w, prog, fam);
+    // A broken word any of your staff's holders keeps (your own, from a
+    // promise made at another job) is held against you.
+    let hs = standing::holders(w, prog);
+    let held = w.ground.with(fam).iter().any(|m| hs.contains(&m.holder) && m.holding(w.today).is_some());
     Some((pts, held))
 }
 

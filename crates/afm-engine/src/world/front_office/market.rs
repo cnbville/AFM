@@ -703,6 +703,8 @@ pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
         Employer::Nfl(t) => Seat { level: Level::Nfl, nfl_team: Some(t), program: None, other: None },
         Employer::Other(f) => Seat { level: Level::Other, nfl_team: None, program: None, other: Some(f) },
     });
+    // The promises you made at the old job can't be kept here.
+    crate::world::folk::talks::job_taken(w);
     let log_kept = std::mem::take(&mut w.front_office.log);
     w.front_office = Default::default();
     w.front_office.log = log_kept;
@@ -780,6 +782,8 @@ pub fn welcome(w: &mut World) {
 /// left it: until the next one you have no team.
 pub(crate) fn left(w: &mut World, why: &str) {
     let Some(seat) = w.seat else { return };
+    // The promises you made there (code oddity 29).
+    crate::world::folk::talks::job_left(w, why);
     // The season you coached so far stays on your record.
     crate::world::season_page::keep_seat_season(w);
     let today = w.today;
