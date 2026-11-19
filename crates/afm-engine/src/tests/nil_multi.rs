@@ -118,6 +118,8 @@ fn college() -> (World, usize) {
 fn your_multi_year_deal_can_be_raised_not_lowered() {
     let (mut w, j) = college();
     assert!(ncaa::two_pots(w.today));
+    // The term's rules, not the pot: no budget limit.
+    w.set_sandbox_switch(crate::world::sandbox::Switch::NilBudget, true);
     fill_deals(&mut w);
     let (id, _) = usual_deals(&w, j).into_iter().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
     let i = w.people.iter().position(|p| p.player.id == id).unwrap();
