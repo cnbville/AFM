@@ -135,6 +135,8 @@ pub fn short(w: &World, him: Them, item: &Item) -> String {
         Item::Family => "his family".into(),
         Item::HisWord => "what he told you".into(),
         Item::Room => "the team".into(),
+        Item::Group(c) => super::super::crowd::Bloc::from_code(*c)
+            .map_or("the team".into(), |b| b.words(super::super::crowd::level(w))),
         Item::Manner => "how you said it".into(),
         Item::Want(_) => String::new(),
     }

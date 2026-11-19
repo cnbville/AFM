@@ -17,6 +17,15 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.638", date: "19 Nov", title: "A rotating defensive line and real weather",
+    notes: [
+      "Defensive tackles now rotate like a real NFL line, and rain and strong wind hurt the passing game as much as they really do.",
+      "Staffs rotate their tackles in waves. A star still plays most snaps, while a room of equals shares them.",
+      "Rain makes long throws much harder to complete than short ones.",
+      "A light breeze barely matters, but a 15-20 mph wind cuts passing the way it does in real games.",
+    ],
+  },
+  {
     v: "0.2.636", date: "18 Nov", title: "Coaches answer with real specifics in live talks",
     notes: [
       "The coaches you talk to now give real answers about their scheme and their recruiting. Ask a coordinator what he'll run, or a recruiter who he's working, and you get specifics.",

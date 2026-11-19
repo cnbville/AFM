@@ -443,6 +443,12 @@ Cain, 2026-11-17 19:49 UTC: "what other engine parts might need to get improved 
 - **Items 29 and 30 built under Cain's proxy, 2026-11-18** (thread "Fix DL rotation and weather size"; `docs/match-engine.md`, "The inside line's rotation and the weather's size"): the inside line rotates by the staff's plan in waves, not by fatigue (fatigue tuning could not move it, bug 368); the target is real's per-game ranks, read on 4-3 teams too since a 3-4 end is listed DE; the wind's miss grows with its square and levels off past 20 mph; a wet ball misses more the farther it flies; footing, a slower step after a wet catch, heat and ball placement after the catch left for later (`GAPS.md`). Sizes proposed, not confirmed.
 - **Proposed, not confirmed:** every mechanic and size beyond the real targets and the rule books.
 
+## 30. Group talks as a room (thread "Make group talks feel like a room", 2026-11-17)
+
+Cain, 2026-11-17 23:35 UTC: "the game understands groups talks better, right now it treats group talks a bit individually". Nine items proposed at 23:39 UTC, Cain "yes" at 23:40 UTC.
+- **Agreed:** 1 each man takes a room line his own way (by his group, role, class and what he wants); 2 leaders pull the room (up to 30% of the way); 3 a promise to the room is a promise to every man it covers; 4 calling a man out in front of the room (1.5 times, his friends take a share); 5 who speaks depends on the room (few in a team meeting, each for himself in a small room, up to two replies); 6 the room has its own patience (one hothead walks out alone); 7 asking the room (a big room stays quiet, a man who held back may come to your office); 8 the room's read by groups; 9 position room meetings (weekly, half an hour, the position coach there).
+- **Proposed, not confirmed:** every other size (`crowd.rs`: the group weight for ambition, closeness and sway, the speaking bars, boldness, the drift line, the worry bar). Built 2026-11-18 (`docs/reference/how-it-works/live-talks.md`, "Group talks as a room").
+
 ## 31. Captain promises (thread "Make captain promises count", 2026-11-18)
 
 - **Asked:** the coordinator, from GAPS ("You'll be a captain" bound you to nothing), Opus, with Cain asleep on full proxy ("make the most realistic choice").

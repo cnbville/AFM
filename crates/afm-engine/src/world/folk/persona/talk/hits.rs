@@ -200,6 +200,7 @@ pub fn weight(w: &World, on: Them, item: &Item, wants: &[Want]) -> Option<f32> {
         Item::HisWord => 0.7,
         // One of the room: a line to the whole team (lane N5d).
         Item::Room => super::super::gameday::group::ROOM_WEIGHT,
+        Item::Group(code) => super::super::crowd::group_weight(w, on, *code),
         // Your manner is sized by how he took it (`manner::took`), never
         // by the ear: no card holds it.
         Item::Manner => return None,
