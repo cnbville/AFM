@@ -520,3 +520,30 @@ fn an_idle_tally_row_packs_and_reads_back_the_same() {
     assert_eq!(o.held().1, 1);
     let _ = written;
 }
+
+/// Memory diet item 10: packed rows share frames; a row taken out leaves
+/// the rest readable, a frame down to half is packed again, and a frame
+/// with nothing left lets its bytes go.
+#[test]
+fn packed_tally_rows_share_frames_and_repack() {
+    use crate::world::tally::cold::Cold;
+    let mut c = Cold::default();
+    let rows: Vec<(u64, Vec<u32>)> = (0..10u64).map(|k| (k, vec![k as u32; 3])).collect();
+    c.sweep(&rows);
+    assert_eq!(c.held().0, 10);
+    assert_eq!(c.get::<Vec<u32>>(4), Some(vec![4; 3]));
+    for k in 0..6 {
+        assert_eq!(c.take::<Vec<u32>>(k), Some(vec![k as u32; 3]));
+    }
+    assert_eq!(c.get::<Vec<u32>>(2), None);
+    // Four of ten left: the next sweep packs them again with the new rows.
+    c.sweep(&[(20u64, vec![20u32])]);
+    let mut all: Vec<(u64, Vec<u32>)> = c.all();
+    all.sort();
+    let want: Vec<(u64, Vec<u32>)> = (6..10u64).map(|k| (k, vec![k as u32; 3])).chain([(20u64, vec![20u32])]).collect();
+    assert_eq!(all, want);
+    for (k, _) in &want {
+        c.take::<Vec<u32>>(*k);
+    }
+    assert_eq!(c.held(), (0, 0));
+}

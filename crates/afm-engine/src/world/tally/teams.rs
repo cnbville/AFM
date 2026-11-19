@@ -333,7 +333,10 @@ impl serde::Serialize for Open {
         impl serde::Serialize for Rows<'_> {
             fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
                 let mut m = s.serialize_map(Some(self.0.len() + self.1.len()))?;
-                for (k, v) in self.0.iter().map(|(k, v)| (k, v)).chain(self.1.iter().map(|(k, v)| (k, v))) {
+                for (k, v) in self.0 {
+                    m.serialize_entry(k, v)?;
+                }
+                for (k, v) in &self.1 {
                     m.serialize_entry(k, v)?;
                 }
                 m.end()
