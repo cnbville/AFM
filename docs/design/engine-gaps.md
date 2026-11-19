@@ -170,7 +170,7 @@ Fumbles from scrimmage are 20% short (0.79 a team game, real 0.98), and fumbles 
 - The delay to back up a punt reads the distance (half the time from the 33 in the NFL), 0.8 as often under the NCAA's and the NFHS's books, whose whole punt team may leave at the snap.
 - Fouls before a kick's snap come from the unit (the punt team's split men, the field goal wall, the rush timing the snap), and a coach set to kick on fourth and 3 or less first tries a hard count.
 - The tackle's helmet-first share is refitted to 0.09 (0.07), so FBS targeting stays in its real band once EG5 brought the late hits to FBS's real count.
-- The call table's run rows stay (EG5 moves them only by noise) and its pass rows, straight and SF1's faked ones, wait for SF5 or SF10, as minor bug 405 says; the analysts' tables are refitted on the engine with SF1, items 29 and 30 and SF2 merged.
+- The call table's run rows stay (EG5 moves them only by noise) and its pass rows, straight and SF1's faked ones, wait for SF5 or SF10, as minor bug 405 says; the analysts' tables are refitted on the engine with SF1, items 29 and 30, SF2 and minor bugs 409-412 merged.
 - The hand fight in man coverage is sized on `match_check`'s seed 1, whose test league plays man on 31% of dropbacks as real does (NGS 2025), not on the mean of seeds 1-4, whose other leagues play it on 25-28%; the defense's holds against zone and on runs, which real games also have, wait for SF7's coverage jobs (`GAPS.md`).
 
 **23. Penalty yards and first downs by level.** (medium)

@@ -1630,29 +1630,29 @@ The coaches' call table (`call_values 2000`, 2,000 snaps a cell, main and after)
 
 Speed: the same within noise. Back to back on the same machine over main 4b7fb86 (main, then the branch, twice at each level, `AFM_GAPS=1`, 4 cores), the NFL took 9.2 and 9.2 ms a game on main against 9.2 and 9.3 after, FBS 10.3 and 9.8 against 10.2 and 10.0, and high school 6.9 and 7.4 against 6.9 and 7.0. Before main's SF1 merge it was 9.0 and 9.0 against 8.9 and 9.1 at the NFL, 9.6 and 9.3 against 9.6 and 9.4 at FBS, and 6.7 and 6.9 against 6.7 and 7.0 in high school.
 
-Measured again over main dcdde89 (with engine gaps items 29 and 30, the inside line's rotation and the weather's size, and scheme-fit lane SF2, personnel that fits the play, which merged first), the same games and seeds; the real seasons' range is nflverse 2021-25, each season on its own:
+Measured again over main ad17262 (with engine gaps items 29 and 30, the inside line's rotation and the weather's size, scheme-fit lane SF2, personnel that fits the play, and minor bugs 409-412, the play action leftovers, which merged first), the same games and seeds; the real seasons' range is nflverse 2021-25, each season on its own:
 
 | NFL, a team game | main | after | real |
 |---|---|---|---|
-| accepted penalties on scrimmage plays | 5.56 | 4.93 | 5.24 (4.95-5.62) |
-| their yards | 47.7 | 39.5 | 42.6 (40.0-45.2) |
-| offensive holding | 1.092 | 0.892 | 0.893 (0.825-1.028) |
-| defensive holding | 0.465 | 0.294 | 0.322 (0.287-0.387) |
-| pass interference, accepted (flagged) | 0.380 (0.686) | 0.549 (0.583) | 0.497 (0.561) |
-| the same, yards an accepted one | 12.2 | 13.9 | 15.8 |
-| ineligible man downfield | 0.372 | 0.050 | 0.106 |
-| illegal block in the back | 0.287 | 0.029 | 0.031 |
-| unnecessary roughness; yards an accepted one | 0.435; 19.3 | 0.264; 12.9 | 0.271; 13.1 |
-| points, seeds 1-4 | 26.18, 26.60, 26.36, 24.96 | 26.80, 27.48, 26.94, 25.93 | 22.51 |
-| sacks; third downs converted (seed 1) | 1.58; 43.8% | 1.47; 43.9% | 2.41; 39.8% |
+| accepted penalties on scrimmage plays | 5.63 | 4.98 | 5.24 (4.95-5.62) |
+| their yards | 48.4 | 39.9 | 42.6 (40.0-45.2) |
+| offensive holding | 1.117 | 0.888 | 0.893 (0.825-1.028) |
+| defensive holding | 0.454 | 0.285 | 0.322 (0.287-0.387) |
+| pass interference, accepted (flagged) | 0.394 (0.709) | 0.578 (0.609) | 0.497 (0.561) |
+| the same, yards an accepted one | 11.9 | 14.0 | 15.8 |
+| ineligible man downfield | 0.386 | 0.056 | 0.106 |
+| illegal block in the back | 0.293 | 0.029 | 0.031 |
+| unnecessary roughness; yards an accepted one | 0.443; 19.2 | 0.263; 12.9 | 0.271; 13.1 |
+| points, seeds 1-4 | 26.93, 27.40, 26.84, 25.96 | 27.33, 28.13, 27.75, 26.47 | 22.51 |
+| sacks; third downs converted (seed 1) | 1.31; 44.6% | 1.29; 44.9% | 2.41; 39.8% |
 
-- On the branch no kind of foul moves more than 0.053 a team game from the runs over 4b7fb86 at any level (FBS's offensive holding), so the tables and counts above stand. On main, SF2's RPO throws (2.52 to 2.89 a team game at FBS) lift FBS's ineligible downfield from 0.48 to 0.58; the branch's is 0.086.
-- The holding pair rides the test league's man coverage. Seed 1's league plays man on 31% of dropbacks, as real does (NGS 2025), and both holdings sit inside the real seasons' range. Seeds 2-4 play man on 25-28%, so the defense's holding comes to 0.20-0.26 and the offense's to 0.98-1.05 (main 0.30-0.42 and 1.21-1.27). The engine's defense holds only in man coverage, while real holds come against zone and on runs too, so the count moves with the man share more than real (`GAPS.md`). The hand fight stays sized on seed 1.
-- Over the four seeds, accepted penalties on scrimmage plays come to 4.93-5.06 a team game and their yards to 39.5-41.2, at the low end of the real seasons, where 2022 had 4.95 and 40.0. EG5 adds 0.58-0.98 points a team game at the NFL, 0.77 on average (0.39-0.71 over 4b7fb86, 0.63-0.76 over 590101e).
-- FBS: accepted penalties 6.79 to 5.79 a team game (seeds 2 and 3 after: 5.76 and 6.01), their yards 55.6 to 47.5, points 24.68 to 26.05 (+1.20 to +1.37 over seeds 1-3; real 27.0), and targeting 0.041, 0.037 and 0.038 on seeds 1-3 (main 0.042, 0.037 and 0.037; real 0.031-0.043).
-- High school: accepted penalties 6.09 to 5.08 and their yards 48.3 to 42.1; points 19.1 to 20.4.
-- The call table: `call_values` gives the same table over dcdde89 as over 590101e, byte for byte on main and on the branch, so EG5 moves it as it did over 4b7fb86 (run cells -0.005 on average with a spread of 0.18, pass cells -0.16 with a spread of 1.15), and it stays. The analysts' tables are refitted again on this merge (`decide_fit -- 1500 1`).
-- Speed, back to back (main, then the branch, twice at each level): the NFL 6.5 and 6.5 ms a game on main against 6.4 and 6.6 after, FBS 7.0 and 6.8 against 6.9 and 7.0, high school 4.6 and 4.8 against 4.8 and 4.7.
+- On the branch no kind of foul moves more than 0.052 a team game from the runs over 4b7fb86 at any level (high school's false starts), so the tables and counts above stand. On main, SF2's RPO throws and the play action leftovers lift ineligible downfield at FBS from 0.48 to 0.61 and in high school from 0.66 to 0.74; the branch's are 0.085 and 0.055.
+- The holding pair rides the test league's man coverage. Seed 1's league plays man on 31% of dropbacks, as real does (NGS 2025), and its holdings sit at the real seasons' range (the defense's 0.285 against 2021's 0.287). Seeds 2-4 play man on 25-28%, so the defense's holding comes to 0.19-0.26 and the offense's to 0.98-1.04 (main 0.31-0.39 and 1.19-1.30). The engine's defense holds only in man coverage, while real holds come against zone and on runs too, so the count moves with the man share more than real (`GAPS.md`). The hand fight stays sized on seed 1.
+- Over the four seeds, accepted penalties on scrimmage plays come to 4.98-5.08 a team game and their yards to 39.9-41.3, at the low end of the real seasons, where 2022 had 4.95 and 40.0. EG5 adds 0.40-0.91 points a team game at the NFL, 0.63 on average (0.39-0.71 over 4b7fb86, 0.63-0.76 over 590101e, 0.58-0.98 over dcdde89).
+- FBS: accepted penalties 6.89 to 5.86 a team game (seeds 2 and 3 after: 5.79 and 5.97), their yards 55.7 to 48.3, points 24.95 to 26.62 (+1.37 to +1.68 over seeds 1-3; real 27.0), and targeting 0.045, 0.040 and 0.045 on seeds 1-3, 0.043 on average, the top of its real band (0.031-0.043; main 0.037, 0.037 and 0.040, and the branch 0.037-0.040 over the earlier mains on the same tackle share).
+- High school: accepted penalties 6.17 to 5.11 and their yards 49.5 to 42.6; points 19.5 to 20.7.
+- The call table: the play action leftovers move `call_values`'s cells by 0.03 at most, on main and on the branch alike (SF2 by nothing), so EG5 moves it as it did over 4b7fb86 (run cells -0.005 on average with a spread of 0.18, pass cells -0.16 with a spread of 1.15), and it stays. The analysts' tables are refitted again on this merge (`decide_fit -- 1500 1`).
+- Speed, back to back (main, then the branch, twice at each level): the NFL 6.5 and 6.7 ms a game on main against 7.0 and 6.6 after, FBS 7.0 and 6.8 against 7.1 and 6.9, high school 4.7 and 4.6 against 4.8 and 4.7.
 
 Tried and dropped (seed 1):
 
