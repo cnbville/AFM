@@ -1493,13 +1493,7 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     let s = w.high_schools.get(me)?.state;
     let st = &hs.states[s];
     let code = w.states[s].code.clone();
-    let mut rules = if matches!(code.as_str(), "TX" | "MA") {
-        crate::game::Rules::high_school_on_college_rules()
-    } else {
-        crate::game::Rules::for_level(crate::player::Level::HS)
-    };
-    // The year's concussion rules (engine gaps item 3).
-    rules.concussion = crate::game::rules::Concussion::for_year(crate::player::Level::HS, d.year());
+    let rules = crate::game::Rules::high_school(&code, w.year);
     // (home, away, week index, seed, key, final, playoff)
     let found = if let Some(k) = st.weeks.iter().position(|&g| g == d) {
         let seed = (w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 8 ^ 0x6761) ^ 0x55;
@@ -1620,13 +1614,7 @@ fn engine_games(
     if games.is_empty() {
         return Vec::new();
     }
-    let mut rules = if matches!(w.states[s].code.as_str(), "TX" | "MA") {
-        crate::game::Rules::high_school_on_college_rules()
-    } else {
-        crate::game::Rules::for_level(crate::player::Level::HS)
-    };
-    // The year's concussion rules (engine gaps item 3).
-    rules.concussion = crate::game::rules::Concussion::for_year(crate::player::Level::HS, day.year());
+    let rules = crate::game::Rules::high_school(&w.states[s].code, w.year);
     let seat = w.seat_school();
     let logging = w.logging();
     let trial_log = w.options.keep_game_log && w.recording;

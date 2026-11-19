@@ -55,12 +55,12 @@ fn seat(w: &World) -> Result<usize, String> {
     }
 }
 
-fn long_date(d: Date) -> String {
+pub(crate) fn long_date(d: Date) -> String {
     let (y, m, day) = d.parts();
     format!("{}, {} {}, {}", WEEKDAYS[d.weekday().index() as usize], MONTHS[m as usize - 1], day, y)
 }
 
-fn short_date(d: Date) -> String {
+pub(crate) fn short_date(d: Date) -> String {
     let (_, m, day) = d.parts();
     format!("{} {}", MONTHS[m as usize - 1], day)
 }
