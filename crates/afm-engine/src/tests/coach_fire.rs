@@ -4,6 +4,7 @@
 //! the league office.
 
 use crate::calendar::Level as CalLevel;
+use crate::game::GameTeam;
 use crate::game::rules::{Rules, Targeting};
 use crate::game::sim::FoulKind;
 use crate::game::stats::{HitFlag, PlayRecord, PlayType};
@@ -47,12 +48,12 @@ fn a_first_half_sitter_comes_back_at_halftime() {
     let snaps = |id: u32| plain.stats.plays.iter().filter(|p| p.on_field.iter().any(|f| f.contains(&id))).count();
     let id =
         home.players.iter().filter(|p| p.position == Position::S).map(|p| p.id).max_by_key(|&id| snaps(id)).unwrap();
-    home.day.first_half = vec![id];
     // Over eight games he never plays a first-half snap, and in the second
-    // half he plays the defense's snaps from scrimmage until he is hurt
-    // himself or his staff pulls its starters in a decided game (`garbage`:
-    // a game decided by halftime pulls him from the first snap, so one game
-    // alone would read the score, not the rule).
+    // half he is back at his usual share (he can be a third safety who
+    // plays the sub packages): the defense's snaps from scrimmage before
+    // he is hurt himself or his staff pulls its starters in a decided game
+    // (`garbage`: a game decided by halftime pulls him from the first snap),
+    // against the same games without the sit.
     let on = |p: &PlayRecord| p.on_field.iter().any(|f| f.contains(&id));
     let defense = |p: &PlayRecord| {
         p.offense == 1
@@ -67,19 +68,28 @@ fn a_first_half_sitter_comes_back_at_halftime() {
                     | PlayType::NoPlay
             )
     };
-    let (mut open, mut his) = (0, 0);
-    for seed in 1..=8u64 {
-        let r = crate::game::quick_game(&home, &teams[1], level, seed);
-        let plays = &r.stats.plays;
-        assert!(!plays.iter().any(|p| p.quarter < 3 && on(p)), "he sits the first half (seed {seed})");
-        let hurt = plays.iter().position(|p| p.injuries.iter().any(|x| x.id == id)).unwrap_or(plays.len());
-        for p in plays[..hurt].iter().filter(|p| p.quarter >= 3 && defense(p)) {
-            open += 1;
-            his += usize::from(on(p));
+    let second_half = |team: &GameTeam, sits: bool| {
+        let (mut open, mut his) = (0, 0);
+        for seed in 1..=8u64 {
+            let r = crate::game::quick_game(team, &teams[1], level, seed);
+            let plays = &r.stats.plays;
+            assert!(!sits || !plays.iter().any(|p| p.quarter < 3 && on(p)), "he sits the first half (seed {seed})");
+            let hurt = plays.iter().position(|p| p.injuries.iter().any(|x| x.id == id)).unwrap_or(plays.len());
+            for p in plays[..hurt].iter().filter(|p| p.quarter >= 3 && defense(p)) {
+                open += 1;
+                his += usize::from(on(p));
+            }
         }
-    }
-    assert!(open >= 100, "only {open} second-half snaps before a staff pulled its starters");
-    assert!(his * 10 >= open * 9, "and starts the second: {his} of {open} snaps");
+        (open, his)
+    };
+    let (open0, his0) = second_half(&home, false);
+    home.day.first_half = vec![id];
+    let (open, his) = second_half(&home, true);
+    assert!(open >= 100 && his0 * 2 >= open0, "{open} snaps before a staff pulled its starters; {his0} of {open0} his");
+    assert!(
+        his * open0 * 20 >= his0 * open * 17,
+        "and is back at his share: {his} of {open} snaps, {his0} of {open0} without the sit"
+    );
 }
 
 fn flag(id: u32, kind: FoulKind, ejected: bool, second_half: bool) -> HitFlag {
