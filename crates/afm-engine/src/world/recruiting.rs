@@ -662,7 +662,7 @@ pub(crate) fn honors(w: &mut World) {
                     && p.last_role == Some(PlayingTime::Starter)
                     && p.college.is_some_and(|c| w.programs[c].division == division)
             })
-            .filter_map(|(i, p)| p.last_performance.map(|v| (v, i)))
+            .filter_map(|(i, p)| p.last_performance.get().map(|v| (v, i)))
             .collect();
         perf.sort_by(|a, b| b.0.total_cmp(&a.0));
         // The first-team All-America by position, as the real teams are
@@ -1258,7 +1258,13 @@ pub(crate) fn combine_invites(w: &mut World) {
     super::pro::scouts::underclassmen(w);
     // Last year's invites are done with: a pro is never invited again (trial
     // 9: the flag stayed on, so veterans "tested among the best" every year).
-    w.people.par_iter_mut().with_min_len(4096).for_each(|p| p.cal.combine_invite = false);
+    // Cleared only where the calendar's rest is kept: clearing never makes
+    // it (memory diet, `stored`).
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
+        if let Some(m) = p.cal.more.stored_mut() {
+            m.combine_invite = false;
+        }
+    });
     let mut pool: Vec<(f64, usize)> = w
         .people
         .par_iter()
@@ -2462,7 +2468,7 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
             .filter(|i| college(i))
             // His role from a season here, not his high school's (lane B).
             .filter(|&i| w.people[i].walk_on && fo::walk_ons::in_two_deep(w, i, j))
-            .map(|i| (w.people[i].last_performance.unwrap_or(w.people[i].player.overall()), i))
+            .map(|i| (w.people[i].last_performance.get().unwrap_or(w.people[i].player.overall()), i))
             .collect();
         cands.sort_by(|a, b| b.0.total_cmp(&a.0));
         // A team keeps one long snapper on scholarship at most (trial 8
@@ -3520,7 +3526,7 @@ fn utility_fit(
     if prog.state == p.home_state {
         u += home * p.stay_home;
     }
-    if p.childhood_team == Some(prog.id) {
+    if p.childhood_team.map(usize::from) == Some(prog.id) {
         u += home * CHILDHOOD_LEAN;
     }
     if p.family.older_brother_at == Some(prog.id) {
@@ -3792,7 +3798,7 @@ pub(crate) fn film_raw(p: &Person, played: &[f64]) -> f64 {
     if p.player.position.kicks() {
         return specialist_grade(&p.player);
     }
-    let now = p.last_performance.unwrap_or(p.player.overall());
+    let now = p.last_performance.get().unwrap_or(p.player.overall());
     let f = if p.stage == Stage::HighSchool { played.get(p.home_state).copied().unwrap_or(1.0) } else { 1.0 };
     if f >= 1.0 {
         return now;
@@ -3802,7 +3808,7 @@ pub(crate) fn film_raw(p: &Person, played: &[f64]) -> f64 {
     let rows = &p.player.history;
     let start = rows.last().map_or(now, |h| h.overall_start);
     let before = rows.len().checked_sub(2).and_then(|k| rows[k].performance.get()).unwrap_or(start);
-    let now = p.last_performance.unwrap_or(start);
+    let now = p.last_performance.get().unwrap_or(start);
     (1.0 - f) * before + f * now
 }
 
@@ -3933,7 +3939,7 @@ fn camp_rankings(
         let p = &mut w.people[pool[k].person];
         let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
         pool[k].projection = rep.potential;
-        p.cal.service_read = Some(rep.potential);
+        p.cal.service_read = Some(rep.potential).into();
     }
 }
 
@@ -4044,14 +4050,14 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, most: f64, sca
         .zip(idx.par_iter())
         .map(|(p, &i)| {
             // Between their looks the services' last read stands.
-            let read = match p.cal.service_read {
+            let read = match p.cal.service_read.get() {
                 Some(prev) if !look => prev,
                 prev => {
                     let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
                     prev.map_or(rep.potential, |prev| prev + 0.5 * (rep.potential - prev))
                 }
             };
-            p.cal.service_read = Some(read);
+            p.cal.service_read = Some(read).into();
             (i, 0.6 * film_raw(p, &played) + 0.4 * read)
         })
         .collect();
@@ -5253,7 +5259,7 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
             let mut rng = Rng::new(p.player.id ^ (d.0 as u32).rotate_left(11) ^ 0x51A7_0000);
             let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut rng);
             let seen = rep.potential + service_bias(p, world_seed);
-            let read = match p.cal.service_read {
+            let read = match p.cal.service_read.get() {
                 Some(prev) => prev + 0.5 * (seen - prev),
                 None => seen,
             };
@@ -5266,7 +5272,7 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
         w.people[i].stars = 0;
     }
     for &(i, read, _) in &scored {
-        w.people[i].cal.service_read = Some(read);
+        w.people[i].cal.service_read = Some(read).into();
     }
     let mut order: Vec<&(usize, f64, f64)> = scored.iter().collect();
     order.sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
@@ -5528,7 +5534,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         // a late recruit keeps their last read. Between their summer days
         // they keep it too.
         if (late_day || (summer && !services_day))
-            && let Some(prev) = p.cal.service_read
+            && let Some(prev) = p.cal.service_read.get()
         {
             r.projection = prev;
             if !late_day {
@@ -5542,11 +5548,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         // look (A12): their errors are shared and lasting, not fresh noise
         // that averages away.
         let seen = rep.potential + service_bias(p, world_seed) + r.svc;
-        r.projection = match p.cal.service_read {
+        r.projection = match p.cal.service_read.get() {
             Some(prev) if !r.juco_mover => prev + 0.5 * (seen - prev),
             _ => seen,
         };
-        p.cal.service_read = Some(r.projection);
+        p.cal.service_read = Some(r.projection).into();
         p.visibility = r.visibility;
         p.bg.exposure_network = r.visibility;
         if r.viral && rating {
@@ -7182,7 +7188,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let mut seen = std::collections::HashSet::new();
             list.retain(|j| seen.insert(*j));
             list.truncate(8);
-            w.people[r.person].cal.offers = list;
+            // A boy with no offer and nothing else in his calendar's rest
+            // already reads as no offers: writing an empty list would make
+            // that part for every rated boy (memory diet, `stored`).
+            let p = &mut w.people[r.person];
+            if !list.is_empty() || p.cal.more.stored().is_some() {
+                p.cal.offers = list;
+            }
         }
     }
     // The rest of a summer week's open recruits: one whose race the school
@@ -8271,7 +8283,7 @@ fn follow(w: &mut World, a: usize, b: usize, coach: usize, assistant: bool) {
     if div_b == Division::JUCO || div_b as usize > div_a as usize {
         return;
     }
-    let perf_of = |p: &Person| p.last_performance.unwrap_or(p.player.overall());
+    let perf_of = |p: &Person| p.last_performance.get().unwrap_or(p.player.overall());
     // The new school's players who return, best first, by position.
     let mut depth: [Vec<f64>; POSITION_COUNT] = Default::default();
     for p in w.people.iter() {
@@ -8359,7 +8371,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     for p in w.people.iter() {
         if p.stage == Stage::College
             && p.last_role == Some(PlayingTime::Starter)
-            && let (Some(c), Some(perf)) = (p.college, p.last_performance)
+            && let (Some(c), Some(perf)) = (p.college, p.last_performance.get())
         {
             starters[w.programs[c].division as usize][p.player.position.index()].push(perf);
         }
@@ -8561,7 +8573,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             continue;
         }
         let pos = p.player.position;
-        let perf = p.last_performance.unwrap_or(0.0);
+        let perf = p.last_performance.get().unwrap_or(0.0);
         // The levels a standout can move up to, highest first (A3): an FCS
         // star to FBS; a Division II star straight to FBS (Ali Marpet and
         // Shaquille Leonard went to the NFL from D2, Jaxon Smith-Njigba's
@@ -8719,7 +8731,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         let div = w.programs[c].division;
         w.log.portal_by_division[div as usize] += 1;
         let p = &w.people[i];
-        let perf = p.last_performance.unwrap_or(p.player.overall());
+        let perf = p.last_performance.get().unwrap_or(p.player.overall());
         let q = clamp((perf - median(div, p.player.position)) / 10.0 + 0.4 + 0.1 * p.stars as f64, 0.0, 1.0);
         let id = p.player.id as u64;
         let entered_on = if matches!(why, Why::Dismissed | Why::Cut) {
@@ -10122,7 +10134,7 @@ pub(crate) fn nil_medians(w: &World) -> [[f64; POSITION_COUNT]; DIVISION_COUNT] 
     for p in w.people.iter() {
         if p.stage == Stage::College
             && p.last_role == Some(PlayingTime::Starter)
-            && let (Some(c), Some(perf)) = (p.college, p.last_performance)
+            && let (Some(c), Some(perf)) = (p.college, p.last_performance.get())
         {
             v[w.programs[c].division as usize][p.player.position.index()].push(perf);
         }
@@ -10153,7 +10165,7 @@ pub(crate) fn bid_lifts(w: &World) -> super::nil_bid::Lifts {
     for p in w.people.iter() {
         if p.stage == Stage::College
             && p.last_role == Some(PlayingTime::Starter)
-            && let (Some(c), Some(perf)) = (p.college, p.last_performance)
+            && let (Some(c), Some(perf)) = (p.college, p.last_performance.get())
             && w.programs[c].division == Division::FBS
         {
             let k = p.player.position.index();
@@ -10206,7 +10218,7 @@ pub(crate) fn nil_read(
         return (Some(role), edge as f64);
     }
     let m = medians[div as usize][p.player.position.index()];
-    let edge = match p.last_performance {
+    let edge = match p.last_performance.get() {
         Some(x) if m.is_finite() => x - m,
         _ => 0.0,
     };
@@ -10568,7 +10580,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
         };
         paid.sort_by(|a, b| b.0.total_cmp(&a.0));
         let team_median = {
-            let mut v: Vec<f64> = roster.iter().filter_map(|&i| w.people[i].last_performance).collect();
+            let mut v: Vec<f64> = roster.iter().filter_map(|&i| w.people[i].last_performance.get()).collect();
             v.sort_by(|a, b| a.total_cmp(b));
             if v.is_empty() { 50.0 } else { v[v.len() / 2] }
         };
@@ -10591,7 +10603,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
             p.nil_income = money;
             // The top earners on a team: payouts can bring jealousy, complacency or pressure.
             if k < 3 && money > 250_000.0 {
-                let perf = p.last_performance.unwrap_or(team_median);
+                let perf = p.last_performance.get().unwrap_or(team_median);
                 if perf < team_median {
                     p.bg.stability = clamp(p.bg.stability - 1.0, 1.0, 20.0);
                     jealousy += 0.2;

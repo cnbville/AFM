@@ -1591,7 +1591,7 @@ pub fn ties(ctx: &Ctx, i: usize) -> Vec<String> {
         afm_engine::world::background::Bloodline::CollegePlayer => v.push("Father played in college".into()),
         afm_engine::world::background::Bloodline::None => {}
     }
-    if p.childhood_team == Some(j) {
+    if p.childhood_team.map(usize::from) == Some(j) {
         v.push("Grew up a fan of yours".into());
     }
     if w.programs[j].hs_pipeline.contains_key(&p.hs) {

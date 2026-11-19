@@ -723,6 +723,6 @@ pub fn tape(w: &World, p: &Person) -> Option<f64> {
 /// his games showed below his ratings lowers what other schools would pay.
 /// The stars, the draft and development keep reading `last_performance`.
 pub fn season_read(w: &World, p: &Person) -> Option<f64> {
-    let perf = p.last_performance?;
+    let perf = p.last_performance.get()?;
     Some(perf + TAPE_W * tape(w, p).unwrap_or(0.0).clamp(-TAPE_CAP, TAPE_CAP))
 }

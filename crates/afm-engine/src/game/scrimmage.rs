@@ -471,6 +471,13 @@ thread_local! {
         const { std::cell::Cell::new(Trails { n: 0, ticks: 0, rows: Vec::new() }) };
 }
 
+/// The wind's miss on a throw, a mph squared at low speeds, and the wind
+/// in mph where it starts to level off (item 30; `throw`).
+const WIND_MISS: f64 = 0.00129;
+const WIND_GALE: f64 = 20.0;
+/// A wet ball's miss on a throw, a yard of its flight (item 30).
+const WET_THROW: f64 = 0.007;
+
 /// Run a snap.
 pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let los = s.los;
@@ -5528,15 +5535,25 @@ fn throw(
     if moving {
         sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::ThrowOnMove);
     }
-    // Wind, a little more on the long ones: from 5 to 18 mph 2.1 points of
-    // completions and 7.3% of the yards an attempt, real 2.0 and 6.9% from
-    // 5-9 mph to 15+ (nflverse 2021-2025). Minor bug 144: 0.004 + 0.0004 a
-    // yard with the old bad-weather sheet's short throws cost 13% of the
-    // yards and raised completions (proposed, not confirmed).
-    let wind = s.cond.wind * (0.010 + 0.0001 * dist);
+    // Wind, a little more on the long ones (minor bug 144), growing with
+    // the square of its speed (engine gaps item 30): a passer allows for a
+    // breeze, not for a gale's gusts; in a gale he throws lower and harder,
+    // so the miss levels off past `WIND_GALE`. Real dry outdoor games
+    // (nflverse 2021-25) barely move to 10 mph and then fall: points a team
+    // game 22.9 at 0-4 mph, 22.7 at 5-9, 21.6 at 10-14, 19.9 at 15-19;
+    // yards an attempt 7.15 at 0-4, 6.50 at 15-19 and 6.69 at 20+ (18 games,
+    // 23 mph on average). At an even 0.010 a mph, 17 mph cost 1.7 points
+    // against 5 mph (real 2.8). Proposed, not confirmed.
+    let w2 = s.cond.wind * s.cond.wind;
+    let wind = WIND_MISS * w2 / (1.0 + w2 / (WIND_GALE * WIND_GALE)) * (1.0 + 0.01 * dist);
     sd *= 1.0 + wind;
+    // A wet ball slips off his hand, more the farther it has to fly (item
+    // 30): real rain games complete 5.9 points fewer throws of 20+ air
+    // yards and 2.8 fewer under 10 (nflverse 2021-25, 60 games). It was a
+    // flat 10%, and rain cost 1.7 points a team (real 3.4, 2.9 at the same
+    // wind). Proposed, not confirmed.
     if s.cond.rain || s.cond.snow {
-        sd *= 1.1;
+        sd *= 1.0 + WET_THROW * dist;
     }
     sd *= 1.0 + 0.08 * s.cond.cold_unused;
     let consistency = sim.player(qb).traits.consistency;

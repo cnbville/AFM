@@ -515,6 +515,8 @@ pub fn likely_own(w: &World, i: usize, kind: PromiseKind, t: &Terms) -> f64 {
             let pr = p.cal.draft_read.map_or(8, |d| d.round) as f64;
             if f64::from(r) >= pr { 0.9 } else { 0.9 - 0.15 * (pr - f64::from(r)) }
         }
+        // A captaincy: the vote as he reads it (`captain::likely`).
+        PromiseKind::Captain => super::captain::likely(w, i),
         k if needs_passing(k) => 0.65 + 0.06 * gap,
         PromiseKind::Snaps | PromiseKind::Touches | PromiseKind::Join(_) | PromiseKind::Recruit(1, _) => {
             0.8 + 0.05 * gap
@@ -851,6 +853,12 @@ pub fn spread(w: &mut World, k: usize) -> Vec<String> {
         + if p.public { 1.0 } else { 0.0 })
     .clamp(0.05, 0.95);
     let name = w.people[i].name.clone();
+    // A captaincy promised before the vote: the room hears it.
+    if p.kind == PromiseKind::Captain
+        && super::roll(w, 0xCA97_0BE4 ^ (k as u64) << 8 ^ p.made.0 as u64, id as u64) < tells
+    {
+        out.push(super::captain::heard(w, &name));
+    }
     if let Some(o) = p.terms.ahead
         && let Some(j) = super::person(w, o)
         && super::roll(w, 0x0BE4 ^ (k as u64) << 8 ^ p.made.0 as u64, id as u64) < tells
@@ -965,6 +973,12 @@ fn got_usage(w: &World, t: &Terms, g: &seen::Game, id: u32) -> Option<f64> {
 /// line: one punt from inside it breaks it).
 fn never_broken(w: &World, t: &Terms, gs: &[seen::Game], id: u32) -> bool {
     t.usage.is_some_and(|u| u.never()) && gs.iter().any(|g| got_usage(w, t, g, id) == Some(0.0))
+}
+
+/// Whether he met his condition today, on the games from the promise's
+/// window to now.
+pub fn cond_now(w: &World, i: usize, p: &Promise) -> Option<bool> {
+    cond_met(w, i, p, &window(w, p, w.today))
 }
 
 /// Whether he met his condition, from what you both can see (None while it
@@ -1159,6 +1173,12 @@ pub enum Verdict {
 
 /// Judges a promise over its games, when it is one of those kinds.
 pub fn judge(w: &World, p: &Promise) -> Option<Verdict> {
+    // A captaincy is judged on the captains your room named.
+    if p.kind == PromiseKind::Captain {
+        let PromiseTo::Player(id) = p.to else { return None };
+        let i = super::person(w, id)?;
+        return Some(super::captain::verdict(w, p, i));
+    }
     if !over_games(p.kind) {
         return None;
     }

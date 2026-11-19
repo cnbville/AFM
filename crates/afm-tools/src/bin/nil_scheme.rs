@@ -347,7 +347,7 @@ fn payday(w: &World) {
             p.player.position.name(),
             p.stars,
             p.last_role,
-            p.last_performance.unwrap_or(0.0),
+            p.last_performance.get().unwrap_or(0.0),
             w.program_name(j),
             m(w.programs[j].collective.budget)
         );

@@ -1398,6 +1398,56 @@ Left open:
 - **The scramble drill** moves every passer at the same pace, the flaw this lane fixed on the boot (minor bug 409).
 - **Faked throws count as their concept's family** (`call_family` reads the concept, not the fake): for the film's mix and the ideas that spread from it, a new idea's surprise and how well a man knows his job (busts), a play-action flood is a flood, not play action (minor bug 412).
 
+## The inside line's rotation and the weather's size (engine gaps items 29 and 30, 2026-11-18)
+
+Items 29 and 30 of `docs/design/engine-gaps.md`, one small-fixes lane. Every size is Claude's under Cain's proxy (2026-11-18), proposed, not confirmed. Real numbers: nflverse play-by-play 2021-25 (regular season, outdoor and open-roof games) and snap counts 2021-25 (2023-24 for the 4-3 split); the scripts are in the project folder at `afm/engine-gaps/tools/small_fixes_*.py.txt`.
+
+What was wrong on main:
+- **The inside line never rotated.** A tired man sits only for a backup above the same energy line (`pick`). Once the room has played a few snaps nobody is above it, so the starters play on: the top two tackles played 82% and 74% of their team's snaps, the fourth 5%. Moving the line or the allowance did nothing (0.90 and 600, 0.95 and 3,000, 0.99 and 9,000 all left 82-89% and 69-77%), as bug 368's sweep found. Letting a backup in when he is only fresher than the starter moved it 1-3 points. Real staffs rotate tackles by plan.
+- **The wind's miss grew evenly with its speed** (0.010 a mph). Real dry games barely move to 10 mph and then fall fast, so main charged too much for a breeze and too little for a strong wind: 17 mph cost 1.7 points a team against the default 5 mph (real 15-19 mph against under 10: 2.7).
+- **A wet ball's miss was a flat 10%.** Real rain hits long throws hardest (20+ air yards: 37.2% to 31.3% complete; under 10: 72.8% to 70.0%). Main's rain cost 1.7 points a team and 0.47 yards an attempt (real 3.4 and 0.75; 2.9 points in rain under 10 mph, as rain games are windier).
+
+What changed (`game/flow.rs`, `game/scrimmage.rs`):
+- **The staff rotates the inside line in waves** (`line_waves`, `DT_WAVE_SPREAD` 40, `DT_WAVE_STAY` 2). Each tackle's planned share of the room's snaps is ∝ e^(-gap / 40), gap his points behind the room's best man; the men furthest behind their share go in first, and a man on the field counts 2 snaps ahead, so they come in waves of a few snaps. The energy rule still spells a man who is spent. Not on kick units, not against a no-huddle (the men on stay on), and not when your own rotation plan (G15) names a man of the room. A star 20 points better than his backups still plays most snaps; a room of equals splits them.
+- **Wind: 0.00129 × wind² / (1 + (wind / 20)²) × (1 + 0.01 × distance)** on the miss (`WIND_MISS`, `WIND_GALE`). A passer allows for a breeze but not a gale's gusts, and in a gale he throws lower and harder, so it levels off past 20 mph (real 20+ mph games, 18 of them at 23 mph on average, lose 0.46 yards an attempt, less than 15-19 mph's 0.65).
+- **Rain or snow: 1 + 0.007 × distance** on the miss (`WET_THROW`): 3.5% at 5 yards, 21% at 30. The catch's ×0.97 in the wet is unchanged.
+- Tried and dropped: footing (both sides' burst and cut 10% lower on a wet field raised yards after the catch by 0.5 a catch, real -0.37, because tacklers lose their closing burst more than carriers lose their cut) and a slower first step after a wet catch (no change in yards after the catch). Both are in `GAPS.md`, with ball placement after the catch.
+
+`match_check` against main fe3e2b3 (the game code is the same as d6f1d71's), same seeds (seed 1; NFL and FBS 2,000 games, high school 1,000; `AFM_RAIN=1` and `AFM_WIND` runs at the NFL; `AFM_SNAPS=1` prints the rank shares, new here):
+
+| NFL | main | after | real |
+|---|---|---|---|
+| tackles' snaps a game, ranks 1-4 | 82%, 74%, 38%, 5% | 71%, 63%, 48%, 14% | 68%, 50%, 31%, 16% (4-3 teams 68%, 54%, 36%, 23%) |
+| points a team game, default (5 mph across) | 24.73 | 24.84 | 22.51 |
+| rain against default: points | -1.72 | -2.36 | -3.45 (se 0.96); -2.87 under 10 mph |
+| rain: yards an attempt | -0.47 | -0.68 | -0.75 |
+| rain: completion, all / 20+ air / under 10 | -3.3 / -4.1 / -3.8 pts | -4.1 / -7.0 / -4.5 | -3.5 / -5.9 / -2.8 |
+| wind 10 mph against none: points | -1.23 | -1.38 | -1.36 (10-14 against 0-4) |
+| wind 17 against none: points / yards an attempt | -2.45 / -0.53 | -3.11 / -0.69 | -3.03 / -0.65 (15-19, se 0.15) |
+| wind 22 against none: points / yards an attempt | -3.56 / -0.64 | -4.05 / -0.84 | -1.17 (se 2.0) / -0.46 (se 0.27; 20+) |
+| wind 17 against the default | -1.70 | -2.34 | -2.69 (15-19 against under 10, se 0.8) |
+| sacks / pressure rate | 2.08 / 0.221 | 2.07 / 0.219 | 2.41 / 0.222 |
+
+- FBS: tackles 77% to 66% (top two); ranks 70%, 62%, 49%, 25%; points 23.32 to 23.66 (noise is about 0.3). High school (three tackles a roster): top two 82% to 68%, ranks 71%, 65%, 54%; points 18.21 to 18.19. No real snap counts for college or high school.
+- Every other count in `AFM_GAPS=1` moved inside noise (injuries by position vary by about 0.02 a team game between seeds).
+- The second tackle stays above real because the engine's fronts always field two tackles (three in a 3-4 base): real 4-3 teams line up 1.83 inside men a snap, sliding edges inside on passing downs, and the engine has no such package (`GAPS.md`).
+- Rain's short completions fall 1.7 points more than real, all from the catch's ×0.97, which this lane kept; its long ones 1.1 more. Both sit inside rain's 60 games.
+- `match_check nfl 2000` takes 14.8 s (main 14.5 s) on 4 cores.
+- The coaches' call table and `decide_fit` were not rerun: in the default games the change is inside noise (points +0.11, yards an attempt +0.05), and the weather moves only bad-weather games, which the tables don't model.
+
+Measured again over main ea85aad (with scheme-fit lane SF1's play action), the same seeds:
+
+| NFL | main | after | real |
+|---|---|---|---|
+| points a team game, default | 25.49 | 25.80 | 22.51 |
+| yards an attempt / a carry, default | 7.29 / 4.28 | 7.40 / 4.33 | 7.05 / 4.52 |
+| rain against default: points / yards an attempt | -1.85 / -0.40 | -2.89 / -0.70 | -3.45 / -0.75 |
+| wind 17 against none: points / yards an attempt | -2.79 / -0.58 | -3.13 / -0.72 | -3.03 / -0.65 |
+| sacks a team game | 1.65 | 1.64 | 2.41 |
+
+- Tackles by rank are the same as before (71%, 63%, 48%, 14%); FBS top two 77% to 66%, high school 82% to 68%.
+- Over this main the rotation costs the defense more than before: points +0.31 at the NFL, +0.32 at FBS and +0.43 in high school, yards a carry +0.03 to +0.07. The backups play more snaps, and the rest the starters get doesn't yet win it back (`GAPS.md`).
+
 ## Ball security: the loose ball, snaps, strips and backs (engine gaps lane EG2, 2026-11-18)
 
 Engine gaps items 4-7 (`docs/design/engine-gaps.md`; Cain agreed to the audit on 2026-11-17, and the sizes were picked under his proxy): a fumble stays live under each level's recovery and advance rules, snaps go on the ground, sacks strip the ball at the real rate, and backs fumble at the real rate. The targets are nflverse 2021-25 from scrimmage: 0.983 fumbles a team game, 45.5% lost (0.447 a team game), 8.5% out of bounds, 28% of the defense's recoveries advanced and 13.6% for 10 yards or more, return touchdowns 0.032 a team game; fumbled snaps 0.185 a team game (0.467% of snaps under center, 0.228% in the shotgun), 75% kept; 12.4% of sacks, 0.75% of designed runs and 1.13% of catches fumbled.
