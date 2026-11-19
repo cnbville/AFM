@@ -220,7 +220,7 @@ pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let today = crate::views::date_text(w.today);
     let (y, m, d) = w.today.parts();
     let body = card.text(&format!("{today} ({y:04}-{m:02}-{d:02})"));
-    let req = Request::new(ear::EAR, ear::EAR_RULES, &body).schema(ear::schema()).max_tokens(ear::EAR_TOKENS);
+    let req = ear::request(&body);
     if let Some(f) = g.ai.browser_fake() {
         f.push(ear::EAR, Ok(stand_in(&card)));
     }
@@ -300,7 +300,7 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         .and_then(|pid| folk::person(w, pid))
         .map(|i| w.people[i].player.position);
         let tags = ear::Tags { today: w.today, pos };
-        let reading = ear::keep_open(tags.resolve(&er, &keys), &words);
+        let reading = tags.resolve(&er, &keys);
         // A line the ear read as a goodbye doesn't close the talk by itself:
         // it counts as said and you're asked whether to wrap up
         // (`ear::ask_wrap`).
@@ -326,7 +326,10 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         };
         let mut t = conv.turn(w, &room, &conv.said.reading);
         // A negotiation's own answer, claim and asks (lane N5b).
-        let notes = negotiate::said(w, played.facet, &mut t);
+        let mut notes = negotiate::said(w, played.facet, &mut t);
+        // The game's own staff notes under his line (a firm recruit: what
+        // might unsettle him).
+        notes.extend(t.notes.iter().cloned());
         let heard = cards::heard(w, &room, &t);
         let mut vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
         if is_group {
@@ -476,6 +479,10 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
             {
                 format!("Make it so: {}", channels::decision_named(*d, &folk::plain(&channels::name(w, him))))
             }
+            // An ask put to someone else in the room: his name on it.
+            (Confirm::RequestOf(doer, r), Some((w, _))) => {
+                format!("Go ahead: {} ({})", asks::request_words_in(w, r), folk::plain(&channels::name(w, *doer)))
+            }
             _ => confirm_words(c),
         })
         .collect();
@@ -495,7 +502,7 @@ fn confirm_words(c: &Confirm) -> String {
     match c {
         Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => "Set his official visit".into(),
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
-        Confirm::Request(r) => format!("Go ahead: {}", asks::request_words(r)),
+        Confirm::Request(r) | Confirm::RequestOf(_, r) => format!("Go ahead: {}", asks::request_words(r)),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
     }
 }
@@ -597,6 +604,9 @@ fn run(w: &mut World, scene: u32, him: Them, c: &Confirm) -> Vec<String> {
             let ran = parts_for_kind(kind, &played).acting.run(w, him, r);
             ran.done
         }
+        // An ask put to someone else in the room runs on him (ear audit
+        // item 4): your scout's look, an agent's word in the right ears.
+        Confirm::RequestOf(doer, r) => parts_for_kind(kind, &played).acting.run(w, *doer, r).done,
         Confirm::Offer(o) => {
             if let Some(lines) = negotiate::make_real(w, played.facet, him, o) {
                 return lines;

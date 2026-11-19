@@ -284,6 +284,13 @@ pub struct Reading {
     /// an act, so it is never a greeting (`Turn::greeting`).
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub wrapped: bool,
+    /// Asks you put to someone else in the room than the man across, by
+    /// name ("Gil, find out what his old coach thinks of him", to your
+    /// scout in a prospect's interview): who is asked, and what. The game
+    /// weighs, runs and answers each on that man (ear audit item 4); one
+    /// who isn't in the room is asked nothing.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub asks_of: Vec<(Them, Request)>,
 }
 
 /// A hit as the game sized it, from how much the item weighs for him and
@@ -305,6 +312,9 @@ pub enum Confirm {
     Offer(Offer),
     Decision(Decision),
     Request(Request),
+    /// An ask put to someone else in the room (`Reading::asks_of`): run on
+    /// that man once you confirm.
+    RequestOf(Them, Request),
 }
 
 /// One of his own asks this turn (5.4): built from his wants.
@@ -422,6 +432,9 @@ pub struct Turn {
     pub promised: Vec<u32>,
     /// Each request and his answer, and what ran.
     pub asked: Vec<(Request, Willing, Option<Ran>)>,
+    /// Each ask put to someone else in the room, and that man's answer
+    /// (`Reading::asks_of`).
+    pub asked_of: Vec<(Them, Request, Willing)>,
     /// His own counter beyond an offer's.
     pub counter: Option<Counter>,
     pub his_asks: Vec<HisAsk>,
@@ -453,6 +466,9 @@ pub struct Turn {
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
     /// How each man in the room took your manner (coach voice), sized.
     pub manner: Vec<(Them, super::manner::Took)>,
+    /// Your staff's notes under his line, never his words (a recruit firm
+    /// with another school: what might unsettle him).
+    pub notes: Vec<String>,
     /// The stat points made in a money talk and what his season says of
     /// each (negotiation item 3a), kept in `apply`.
     pub points: Vec<super::negotiate::points::Read>,

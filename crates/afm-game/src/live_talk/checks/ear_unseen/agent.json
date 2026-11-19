@@ -1,0 +1,102 @@
+{
+ "facet": "A pro's agent on a contract (lane N5b)",
+ "card": {
+  "setting": "A call with an agent about a contract, a phone call, Monday, September 7, 2037, nfl",
+  "coach": "Dale Ruiz, head coach and general manager of the Fairview Falcons",
+  "them": "Rita Cole, agent for Andre Walker, WR",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Rita Cole, agent for Andre Walker (the man across from you)",
+    "kind": "agent"
+   },
+   {
+    "tag": "p2",
+    "text": "Andre Walker, WR, her client",
+    "kind": "player"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what he wants: money: his pay and the guarantee"
+   },
+   {
+    "tag": "c2",
+    "text": "what he wants: security: a spot that lasts"
+   },
+   {
+    "tag": "c3",
+    "text": "what he wants: his role: the job he sees for himself"
+   },
+   {
+    "tag": "c4",
+    "text": "his client Andre Walker"
+   },
+   {
+    "tag": "c5",
+    "text": "his pride"
+   }
+  ],
+  "on_table": [
+   "Rita's counter: four years at sixteen million a year, twelve million guaranteed"
+  ],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "What's Andre looking for beyond the money?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Wants",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Have other clubs made you an offer?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Market"
+    }
+   ]
+  },
+  {
+   "text": "Four years, fourteen a year, ten guaranteed. That's where we are.",
+   "acts": [
+    {
+     "act": "offer",
+     "deal": "Contract"
+    }
+   ],
+   "may": [
+    {
+     "act": "answer",
+     "what": "counter"
+    }
+   ]
+  },
+  {
+   "text": "We can't go there. No.",
+   "acts": [
+    {
+     "act": "answer",
+     "what": "refuse"
+    }
+   ]
+  },
+  {
+   "text": "Let's take a breath and talk again tomorrow.",
+   "acts": [
+    {
+     "act": "end"
+    }
+   ]
+  }
+ ],
+ "exploits": [],
+ "name": "agent",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}

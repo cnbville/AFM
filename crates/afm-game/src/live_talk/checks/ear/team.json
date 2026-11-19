@@ -7,15 +7,18 @@
   "people": [
    {
     "tag": "p1",
-    "text": "the whole team (every man in the room)"
+    "text": "the whole team (every man in the room)",
+    "kind": "other"
    },
    {
     "tag": "p2",
-    "text": "Marcus Hill, WR, sophomore (a starter)"
+    "text": "Marcus Hill, WR, sophomore (a starter)",
+    "kind": "player"
    },
    {
     "tag": "p3",
-    "text": "Jason Webb, QB, senior (a captain)"
+    "text": "Jason Webb, QB, senior (a captain)",
+    "kind": "player"
    }
   ],
   "items": [
@@ -55,6 +58,17 @@
     {
      "item": "c4",
      "how": "respected|reassured"
+    }
+   ],
+   "may": [
+    {
+     "act": "request",
+     "what": "other",
+     "of": "p3"
+    },
+    {
+     "act": "request",
+     "what": "other"
     }
    ]
   },

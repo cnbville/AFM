@@ -417,3 +417,114 @@ fn a_college_call_keeps_everything_you_said_weighed() {
     let s = scene_of(&g, sid);
     assert!(s.outcome.iter().any(|x| x.contains("two different things")), "{:?}", s.outcome);
 }
+
+/// Moves the day on until an official visit could be set for him: his
+/// first open date.
+fn open_visit_day(g: &mut Game, sid: u32) -> Option<afm_engine::calendar::Date> {
+    let s = scene_of(g, sid);
+    let w = g.world.as_mut().unwrap();
+    for _ in 0..400 {
+        let x = recruit::with(w, &s)?;
+        if let Some(d) = recruit::visit_day(w, &x) {
+            return Some(d);
+        }
+        w.today = w.today.add(1);
+    }
+    None
+}
+
+/// Cain 2026-11-18: the recruit said "your official visit on January
+/// 2nd, I'll be there", then the confirm said he was firm elsewhere. His
+/// answer is decided as he hears the invite, the voice is told it, and only
+/// a yes asks for your confirm, which sets the visit he said yes to. A no
+/// from a recruit firm with another school carries your staff's read: a
+/// way in when a point could close the gap, "locked in" when none could.
+#[test]
+fn his_answer_to_a_visit_is_the_one_he_says() {
+    let (mut yes, mut locked, mut way) = (false, false, false);
+    for (k, name) in ["visit-free", "visit-far", "visit-near"].iter().enumerate() {
+        let (mut g, f, sid, i, id, mine) = recruit_talk(name, Kind::HomeVisit, Decider::Himself);
+        let Some(d) = open_visit_day(&mut g, sid) else { continue };
+        if k > 0 {
+            // Committed: to the school he likes best (far past your reach),
+            // or to one that holds him just past half his hold (a point
+            // could close it).
+            let w = g.world.as_mut().unwrap();
+            let today = w.today;
+            let hold = 0.11;
+            let me = fc::appeal_of(w, i, mine);
+            let pick = (0..w.programs.len()).filter(|&x| x != mine).max_by(|&a, &b| {
+                let score = |x: usize| {
+                    let u = fc::appeal_of(w, i, x);
+                    if k == 1 { u } else { -(u + 0.5 * hold - me - 0.01).abs() }
+                };
+                score(a).total_cmp(&score(b))
+            });
+            w.people[i].cal.commit = Some((pick.unwrap(), today, false));
+        }
+        let (reply, firm) = {
+            let w = g.world.as_ref().unwrap();
+            let firm = fc::firm_with(w, i, mine, fc::VisitKind::Official, d);
+            (fc::visit_reply(w, id, fc::VisitKind::Official, d), firm)
+        };
+        let v = say(
+            &mut g,
+            &f,
+            sid,
+            "Come see us on an official visit.",
+            ear(vec![act("invite", "visit", "", "")], vec![]),
+        );
+        assert_eq!(v["state"], "done", "{v}");
+        let card = f.asked().into_iter().rev().find(|r| r.label == VOICE).map(|r| r.user).unwrap_or_default();
+        let lines: Vec<String> = scene_of(&g, sid).lines.iter().map(|l| l.text.clone()).collect();
+        match reply {
+            Ok(_) => {
+                yes = true;
+                assert!(card.contains("His answer: yes"), "the voice hears his yes: {card}");
+                let list = v.get("confirm").and_then(Value::as_array).expect("a yes waits on your confirm");
+                let c = &list[0];
+                ok(&mut g, c["cmd"].as_str().unwrap(), c["args"].clone());
+                let w = g.world.as_ref().unwrap();
+                assert!(
+                    w.front_office
+                        .college
+                        .visits
+                        .iter()
+                        .any(|p| p.id == id && p.date == d && p.state == fc::VisitState::Set),
+                    "the visit he said yes to is set"
+                );
+            }
+            Err(no) => {
+                assert!(card.contains(&format!("His answer: no. {no}")), "the voice hears his no: {card}");
+                assert!(v.get("confirm").is_none(), "a no asks nothing of you: {v}");
+                if firm.is_some() {
+                    let read = lines.iter().find(|l| l.starts_with("Your staff:")).expect("the staff's read shows");
+                    locked |= k == 1 && read.contains("locked in");
+                    way |= k == 2 && read.contains("might unsettle him");
+                }
+                if k == 2 {
+                    // The try is real: points on his wants close the gap.
+                    let gap = |g: &Game| {
+                        let w = g.world.as_ref().unwrap();
+                        let c = w.people[i].cal.commit.unwrap().0;
+                        fc::firm_gap(w, i, mine, c)
+                    };
+                    let before = gap(&g);
+                    let wants = {
+                        let w = g.world.as_ref().unwrap();
+                        Parts::today().wanting.wants(w, Them::Player(id))
+                    };
+                    for n in 0..wants.len().min(2) {
+                        let hit = json!({ "on": "", "item": format!("c{}", n + 1), "how": "reassured" });
+                        say(&mut g, &f, sid, "Here's what we can do for you.", ear(vec![], vec![hit]));
+                    }
+                    let after = gap(&g);
+                    assert!(after < before, "your points narrow the gap: {before} -> {after}");
+                }
+            }
+        }
+    }
+    assert!(yes, "a free recruit with an open date takes the visit");
+    assert!(locked, "a recruit far past your reach reads as locked in");
+    assert!(way, "a recruit just past your reach gets a way in");
+}

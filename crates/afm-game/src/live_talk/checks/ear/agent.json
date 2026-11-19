@@ -7,11 +7,13 @@
   "people": [
    {
     "tag": "p1",
-    "text": "Rita Cole, agent for Andre Walker (the man across from you)"
+    "text": "Rita Cole, agent for Andre Walker (the man across from you)",
+    "kind": "agent"
    },
    {
     "tag": "p2",
-    "text": "Andre Walker, WR, her client"
+    "text": "Andre Walker, WR, her client",
+    "kind": "player"
    }
   ],
   "items": [
@@ -113,7 +115,13 @@
    "hits": [
     {
      "item": "c5",
-     "how": "stung"
+     "how": "stung|insulted"
+    }
+   ],
+   "may": [
+    {
+     "act": "answer",
+     "what": "refuse"
     }
    ]
   },

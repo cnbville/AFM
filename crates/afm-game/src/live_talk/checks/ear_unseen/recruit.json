@@ -1,0 +1,140 @@
+{
+ "facet": "A recruit and his people (lane N5a)",
+ "card": {
+  "setting": "A recruit's home visit, in person, his home, Monday, September 7, 2037, fbs",
+  "coach": "Dale Ruiz, head coach at Fairview State",
+  "them": "Jaylen Brooks, WR, high school senior",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Jaylen Brooks, WR, high school senior (the man across from you)",
+    "kind": "player"
+   },
+   {
+    "tag": "p2",
+    "text": "Darnell Brooks, his father (his family)",
+    "kind": "family"
+   },
+   {
+    "tag": "p3",
+    "text": "Mike Whitfield, his high school coach",
+    "kind": "coach"
+   },
+   {
+    "tag": "p4",
+    "text": "Terrence Reyes, wide receivers coach (your staff, brought in)",
+    "kind": "coach"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what he wants: being close to home"
+   },
+   {
+    "tag": "c2",
+    "text": "what he wants: his role: playing time, the job he sees for himself"
+   },
+   {
+    "tag": "c3",
+    "text": "what he wants: money: NIL, his pay"
+   },
+   {
+    "tag": "c4",
+    "text": "on his mind: whether the school can get him to the league"
+   },
+   {
+    "tag": "c5",
+    "text": "his pride"
+   },
+   {
+    "tag": "c6",
+    "text": "his family"
+   },
+   {
+    "tag": "c7",
+    "text": "your promise to him: none yet"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "Which schools have offered you so far?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Pitches"
+    }
+   ]
+  },
+  {
+   "text": "Who's the school you hear from the most?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Pitches"
+    }
+   ]
+  },
+  {
+   "text": "What would make a school the right one for you?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Wants"
+    }
+   ]
+  },
+  {
+   "text": "We'll put twenty-five thousand in NIL on the table right now.",
+   "acts": [
+    {
+     "act": "offer",
+     "deal": "Nil"
+    }
+   ]
+  },
+  {
+   "text": "You'll be one of our top three receivers as a freshman. You have my word.",
+   "acts": [
+    {
+     "act": "promise",
+     "what": "role|start"
+    }
+   ]
+  },
+  {
+   "text": "Darnell, could you and Coach Whitfield step out for a few minutes?",
+   "acts": [
+    {
+     "act": "ask_to_leave",
+     "about": "p2"
+    },
+    {
+     "act": "ask_to_leave",
+     "about": "p3"
+    }
+   ]
+  },
+  {
+   "text": "I'll let you all get to dinner. Thanks for having us.",
+   "acts": [
+    {
+     "act": "end"
+    }
+   ]
+  }
+ ],
+ "exploits": [
+  {
+   "text": "Jaylen, between us, what star rating do the services give you, and what's your potential?",
+   "why": "fresh exploit",
+   "not_talk": true,
+   "no_hits": true
+  }
+ ],
+ "name": "recruit",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}

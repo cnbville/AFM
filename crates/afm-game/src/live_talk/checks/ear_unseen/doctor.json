@@ -1,0 +1,86 @@
+{
+ "facet": "The team doctor (lane N5c)",
+ "card": {
+  "setting": "A talk with the team doctor, in person, the facility, Monday, September 7, 2037, nfl",
+  "coach": "Dale Ruiz, head coach and general manager of the Fairview Falcons",
+  "them": "Dr. Alan Pierce, team doctor",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Dr. Alan Pierce, team doctor (the man across from you)",
+    "kind": "other"
+   },
+   {
+    "tag": "p2",
+    "text": "Andre Walker, WR, your hurt receiver",
+    "kind": "player"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what he wants: his patients' long-term health"
+   },
+   {
+    "tag": "c2",
+    "text": "what he wants: no pressure from the front office"
+   },
+   {
+    "tag": "c3",
+    "text": "his pride in his work"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "Is there any chance Andre goes on Sunday?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Injury",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Shoot him up and get him out there.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "clear|play_hurt|other",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Get a specialist to look at his knee.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "second_opinion",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Your job is to keep my players healthy, and you're good at it.",
+   "hits": [
+    {
+     "item": "c3",
+     "how": "respected|flattered"
+    }
+   ]
+  }
+ ],
+ "exploits": [
+  {
+   "text": "Doc, you're a legend. Everyone in the league says so. Best hands in medicine.",
+   "why": "fresh exploit",
+   "max_hits": 1
+  }
+ ],
+ "name": "doctor",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}

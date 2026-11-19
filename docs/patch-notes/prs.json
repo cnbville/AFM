@@ -2101,5 +2101,14 @@
   "players": true,
   "title": "Negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL",
   "tldr": "Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help."
+ },
+ "576": {
+  "auto": false,
+  "bullets": [],
+  "h": "2e82754ef2ae",
+  "look": "",
+  "players": false,
+  "title": "Make the 14-year-old tendencies test deterministic",
+  "tldr": ""
  }
 }

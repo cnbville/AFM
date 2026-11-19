@@ -301,8 +301,8 @@ fn a_money_ask_names_the_goal_it_puts_up() {
 #[test]
 fn the_ears_goal_keys_are_the_games() {
     let rules = super::super::ear::EAR_RULES;
-    let from = rules.find("Keys: ").expect("the commit keys") + 6;
-    let to = from + rules[from..].find(". A commitment with nothing").expect("the list ends");
+    let from = rules.find("COMMIT KEYS: ").expect("the commit keys") + "COMMIT KEYS: ".len();
+    let to = from + rules[from..].find(".\n").expect("the list ends");
     let mut listed: Vec<String> = Vec::new();
     let mut depth = 0;
     let mut cur = String::new();
