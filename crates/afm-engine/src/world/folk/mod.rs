@@ -597,6 +597,9 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
         hour::OVERNIGHT => {
             ensure_base(w);
             courts::opens(w);
+            if w.seat.is_some() {
+                scene::overnight(w, d);
+            }
         }
         _ => {}
     }
