@@ -975,14 +975,8 @@ pub fn sheet_fake_chance(
     // fake.
     let like = |drop: bool| {
         let group = share(Groups::of(scheme, short, hurry, drop, tell, ctx, want).all(), f.personnel);
-        let back = backfield_chance(
-            scheme,
-            f.personnel,
-            hurry,
-            drop,
-            gun_chance(scheme, ctx, drop, tell, hurry),
-            f.backfield,
-        );
+        let back =
+            backfield_chance(scheme, f.personnel, hurry, drop, gun_chance(scheme, ctx, drop, tell, hurry), f.backfield);
         let empty = if drop { 1.0 / (1.0 - p_fake).max(0.1) } else { 1.0 };
         let sets = set_weights(scheme, f.personnel, drop, short, staff.year, empty);
         let total: f64 = sets.iter().map(|x| x.1).sum();
