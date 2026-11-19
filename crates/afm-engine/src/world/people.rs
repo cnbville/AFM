@@ -508,6 +508,12 @@ fn hire(rng: &mut Rng, year: i32, budget: f64, era: f64, d: Dept) -> Staffer {
     Staffer { name, she, rating, since: year, born, pay: 0.0, coach: None }
 }
 
+/// How far under a fresh head's rating at the post a team's own assistant
+/// can sit and still be ready for it, in rating points (bug 422; proposed,
+/// not confirmed). Assistants are drawn 1 to 1.5 under their heads with the
+/// same spread, so about 57% of them are ready.
+const READY_BELOW: f64 = 2.0;
+
 /// A raise big enough to move a head to another team (item 10; proposed,
 /// not confirmed).
 const POACH_RAISE: f64 = 1.25;
@@ -539,15 +545,6 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
         done.push((who, d));
         let fresh = hire(rng, year, hire_level(w, who), era, d);
         let mut best = (fresh.rating, 0u8, None::<usize>, None::<Who>);
-        // Support departments: his own staff's best assistant on the head's
-        // ladder is the first man up (an assistant trainer for the head
-        // trainer's job; proposed, not confirmed: yes 85% of the time).
-        if let Some((k, r)) = super::departments::best_ladder(w, who, d)
-            && r > best.0
-            && rng.chance(0.85)
-        {
-            best = (r, 3, Some(k), None);
-        }
         // The men out of work who'd take it (at least 70% of what they had).
         if let Some((k, f)) = w
             .support_market
@@ -589,6 +586,23 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
                 best = (r, 4, Some(k), Some(o));
                 break;
             }
+        }
+        // Support departments: his own staff's best assistant on the head's
+        // ladder. His team has watched him work for years, so it needs no
+        // market to know what it has: if he is ready (within `READY_BELOW`
+        // of what a fresh head at this post rates, as a college staff's own
+        // off-field man is for a position job, `staff::ready_at_home`) the
+        // post is his, and a man who isn't ready still gets it when he
+        // out-rates everyone the market offers. Yes 85% of the time. Before
+        // this the house man had to out-rate every man the market offered
+        // (the best of the free men, three poached heads and three
+        // assistants elsewhere) and won 1-2 posts in 430 (bug 422; proposed,
+        // not confirmed).
+        if let Some((k, r)) = super::departments::best_ladder(w, who, d)
+            && (f64::from(r) >= fresh_mean(hire_level(w, who), era) - READY_BELOW || r > best.0)
+            && rng.chance(0.85)
+        {
+            best = (r, 3, Some(k), None);
         }
         let mut man = match best {
             (_, 1, Some(k), _) => {

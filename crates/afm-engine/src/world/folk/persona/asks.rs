@@ -305,7 +305,7 @@ impl Confirm {
                 format!("Make the offer: {}", v.join(", "))
             }
             Confirm::Decision(d) => format!("Go ahead: {}", decision_words(*d)),
-            Confirm::Request(r) => format!("Ask him: {}", request_words(r)),
+            Confirm::Request(r) | Confirm::RequestOf(_, r) => format!("Ask him: {}", request_words(r)),
         }
     }
 }
