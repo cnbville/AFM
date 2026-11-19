@@ -206,7 +206,7 @@ fn a_yes_holds_his_place_on_your_roster() {
     }
     assert_eq!(recruiting::counted_rosters(&w, season)[mine] + 1, limit, "one place open");
     // B played better, so he would decide first on a usual night.
-    w.people[b].last_performance = Some(w.people[a].last_performance.unwrap_or(60.0) + 10.0);
+    w.people[b].last_performance = Some(w.people[a].last_performance.get().unwrap_or(60.0) + 10.0).into();
     let (ia, ib) = (w.people[a].player.id, w.people[b].player.id);
     let left = desk::budget(&w, mine).left.max(0.0);
     let said = desk::portal_offer(&mut w, ia, Some((left * 0.5).min(4.0e6)), None).unwrap();

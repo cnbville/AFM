@@ -56,7 +56,7 @@ impl<'a> Static<'a> {
             hs: p.hs,
             class_of: p.class_of,
             family: &p.family,
-            childhood_team: p.childhood_team,
+            childhood_team: p.childhood_team.map(usize::from),
             regular_talent: p.regular_talent,
             looks: &p.looks,
         }
@@ -201,7 +201,7 @@ impl<'a> Lean<'a> {
             hs_lines: last(&p.hs_lines),
             last_snaps: p.last_snaps,
             college_snaps: p.college_snaps,
-            last_performance: p.last_performance,
+            last_performance: p.last_performance.get(),
             transfers: p.transfers,
             juco: p.juco,
             path: &p.path,

@@ -247,7 +247,7 @@ fn season_read_measure() {
     let (mut college, mut with_perf) = (0, 0);
     for p in w.people.iter().filter(|p| p.stage == Stage::College) {
         college += 1;
-        let (Some(perf), Some(read)) = (p.last_performance, crate::world::nil_bid::season_read(&w, p)) else {
+        let (Some(perf), Some(read)) = (p.last_performance.get(), crate::world::nil_bid::season_read(&w, p)) else {
             continue;
         };
         with_perf += 1;

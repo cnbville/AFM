@@ -475,7 +475,7 @@ fn national(w: &mut World, d: Date) {
             if camp_age(p, y) != Some(1.0) {
                 return None;
             }
-            let rated = if p.stars >= 3 { p.cal.service_read.map(|r| (r, i)) } else { None };
+            let rated = if p.stars >= 3 { p.cal.service_read.get().map(|r| (r, i)) } else { None };
             let s = seen(w, p);
             let timed = if s.timed {
                 crate::body::play_speed(p.player.position, s.grown.0, s.grown.1).map(|mix| (mix, i))
