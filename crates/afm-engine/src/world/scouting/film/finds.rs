@@ -157,7 +157,9 @@ fn read(w: &mut World, id: u32, on: u32, watch: &Watch) {
     let wide_on = file::GUESS_SD * file::visibility(w, i);
     let eye_on = super::session::lasting_eye(w, w.people[i].player.position);
     let kind_on = if watch.live { Kind::Game } else { super::session::film_kind(w, i) };
-    let look_on = yours::tape_sd(w, staff, on, kind_on, watch.games);
+    // From the stands his look is the trip's one look in person, not the
+    // games on tape (the film room's own read of him counts it so).
+    let look_on = yours::tape_sd(w, staff, on, kind_on, if watch.live { 1 } else { watch.games });
     let mut eyed: Vec<&Catch> =
         watch.caught.iter().filter(|c| c.id == on && c.by == 0 && (c.attr as usize) < ATTRIBUTE_COUNT).collect();
     eyed.sort_by_key(|c| (c.attr, c.game));
