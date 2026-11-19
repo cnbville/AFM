@@ -6133,7 +6133,8 @@ impl<'a> Game<'a> {
                 && !defense_td
                 && !turnover
                 && !safety
-                && (offsetting || r.penalties.iter().any(|&(kind, team, _, _, acc)| acc && book.extends(kind, team == d, half)));
+                && (offsetting
+                    || r.penalties.iter().any(|&(kind, team, _, _, acc)| acc && book.extends(kind, team == d, half)));
         }
         let mut stop =
             matches!(res.result, R::Incomplete | R::Spike) || accepted_pen || turnover || scored_td || safety;

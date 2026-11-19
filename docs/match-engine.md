@@ -1765,41 +1765,44 @@ What changed (the formulas are in `docs/reference/how-it-works/play-calling.md`,
 - **The win chance** credits the throw the engine makes on the last snap (`game/win_chance.rs`, `last_shot`): fades, the Hail Mary to the typical arm's reach, then the laterals.
 - **Tools.** `AFM_GAPS=1 match_check` adds the last-snap pool by call, Hail Marys by distance, laterals on the fourth quarter's last passes, timeouts in each half's last 4:00, the sideline when ahead late, fakes and untimed snaps. `play_trace` takes `AFM_HAIL=1` (the Hail Mary against its defense) and `AFM_HAIL=2` (the laterals).
 
-2,000 `AFM_GAPS=1 match_check nfl` games on seed 1, main (1f3e8b4 with this lane's counts) and after, against nflverse 2021-25:
+2,000 `AFM_GAPS=1 match_check nfl` games on seed 1, main (a7c9bf6, with lane EG5, and this lane's counts) and after, against nflverse 2021-25:
 
 | NFL | main | after | real |
 |---|---|---|---|
-| Hail Marys (35+ air yards, a half's last snap, 30-70 out): scored / picked | none called | 6.2% / 28.7% at the real mix of distances | 6.5% / 29.0% (62 throws) |
-| Q4 last-snap passes from 40+ out with a lateral (tied or down 1-8) | 0 | 26.7% of 165 | 22% of 74 |
-| tied at the end of regulation: kneels, share of the pool | 0 | 5.2% | 5.0% |
-| touchdowns on the pool's snaps | 0.8% | 1.6% | 2.5% |
-| Q2 last 4:00 timeouts a game: defense / offense; games with the defense's | 0.009 / 2.52; 0.8% | 1.22 / 1.76; 69.5% | 1.35 / 1.54; 74.8% |
-| Q4 last 4:00 timeouts a game: defense / offense | 1.89 / 0.53 | 1.90 / 0.72 | 1.83 / 0.77 |
-| points a team game in the last 2:00 of Q2 | 3.24 | 3.12 | 3.05 |
-| ahead in the last 5:00, out of bounds: designed runs / catches | 1.3% / 22.6% | 0.6% / 12.9% | 2.3% / 14.7% |
-| the first three quarters, out of bounds: designed runs / catches | 2.0% / 25.8% | 1.6% / 24.6% | 5.8% / 21.3% |
-| two-point tries a team game (share of tries), made | 0.151 (4.9%), 47.2% | 0.274 (8.8%), 46.2% | 0.244 (9.8%), 47.5% |
-| fake punts a team game, converted | 0 | 0.028, 50% | 0.036, 55% |
-| fake field goals a team game | 0 | 0.0050 | 0.0044 |
-| untimed downs at 0:00 | 1 in 2,000 games | 1 in 286 | 1 in 68 |
-| plays a team game | 62.41 | 61.54 | 61.91 |
-| points a team game | 26.63 | 26.73 | 22.51 |
+| Hail Marys (35+ air yards, a half's last snap, 30-70 out): scored / picked | none called | 6.6% / 26.9% at the real mix of distances | 6.5% / 29.0% (62 throws) |
+| Q4 last-snap passes from 40+ out with a lateral (tied or down 1-8) | 0 of 162 | 27.6% of 170 | 22% of 74 |
+| tied at the end of regulation: kneels, share of the pool | 0 | 4.5% | 5.0% |
+| the pool's snaps a game; touchdowns on them | 0.88; 0.7% | 0.50; 1.1% | 0.74; 2.5% |
+| Q2 last 4:00 timeouts a game: defense / offense; games with the defense's | 0.013 / 2.50; 1.3% | 1.25 / 1.82; 70.9% | 1.35 / 1.54; 74.8% |
+| Q4 last 4:00 timeouts a game: defense / offense | 2.00 / 0.54 | 1.92 / 0.74 | 1.83 / 0.77 |
+| points a team game in the last 2:00 of Q2 | 3.29 | 3.24 | 3.05 |
+| ahead in the last 5:00, out of bounds: designed runs / catches | 1.7% / 24.4% | 0.6% / 13.3% | 2.3% / 14.7% |
+| the first three quarters, out of bounds: designed runs / catches | 2.1% / 26.0% | 1.5% / 24.8% | 5.8% / 21.3% |
+| two-point tries a team game (share of tries), made | 0.164 (5.1%), 48.9% | 0.292 (9.0%), 46.3% | 0.244 (9.8%), 47.5% |
+| fake punts a team game, converted | 0 | 0.027, 53% | 0.036, 55% |
+| fake field goals a team game, converted | 0 | 0.0050, 6 of 20 | 0.0044, 1 of 12 |
+| untimed downs at 0:00 | 1 in 2,000 games | 1 in 143 | 1 in 68 |
+| plays a team game | 63.19 | 62.23 | 61.91 |
+| points a team game | 27.73 | 27.92 | 22.51 |
 
-FBS (2,000 games): plays 67.26 to 65.81 a team game (real 66.57; without the chains' stops in the half's sum, 64.90), points 25.04 to 24.87, two-point tries 0.141 to 0.265 a team game, the defense's Q2 timeouts 0.008 to 1.41 a game, fake punts 0.033 a team game (60% converted), untimed downs 1 in 143 games, Hail Marys scored 8.6% from 30-39 out, 1.0% from 40-49 and 2.5% from 50-59. High school (1,000 games): plays 52.0 to 50.6, points 19.22 to 19.27, two-point tries 0.450 to 0.495, untimed downs 1 in 33 games (every quarter, either team's fouls).
+The pool is a half's last snap with 5 s or less: every second-quarter one, and the fourth quarter's when tied or down 1-8. Over main 569e61f, before lane EG5, the lane's numbers were the same within the seeds' noise (Hail Marys 6.2% / 28.7%, laterals 26.7% of 165, untimed downs 1 in 286: EG5's fouls doubled those).
 
-The analysts' tables (`world/tally/decide.rs`) are refitted with `decide_fit -- 1500 1`, which also takes in every engine lane since 2026-11-07. The coaches' call table (`call_values.csv`) stays: the tool plays two average NFL teams' ordinary snaps, and nothing this lane changed reaches one (the last play's calls, the fakes, the carrier's clock read late in the fourth and the two-point habit never come up in it).
+FBS (2,000 games): plays 68.17 to 66.71 a team game (real 66.57), points 26.25 to 26.28, two-point tries 0.139 to 0.301 a team game, the defense's Q2 timeouts 0.009 to 1.34 a game, fake punts 0.037 a team game (61% converted), untimed downs 1 in 111 games, Hail Marys scored 6.3% from 30-39 out, 4.8% from 40-49 and none of 89 from 50-59, laterals on 43% of the fourth quarter's last passes from 40+ out. High school (1,000 games): plays 52.70 to 51.37, points 20.94 to 20.80, two-point tries 0.520 to 0.579, untimed downs 1 in 38 games (every quarter, either team's fouls), laterals on 55% of 49 such passes.
 
-Speed: the same. `match_check nfl 2000` takes 13.1 and 13.0 s against 13.1 and 13.0 s on main (back to back, 4 cores, the same build settings).
+The analysts' tables (`world/tally/decide.rs`) are refitted over the merge with `decide_fit -- 1500 1`: they are fitted on what the engine's teams do on third and fourth down, on tries and over a game, and this lane moves the fourth-down sums, the two-point habit and the half's last snaps. The coaches' call table (`call_values.csv`) stays: the tool plays two average NFL teams' ordinary snaps, and nothing this lane changed reaches one (the last play's calls, the fakes, the carrier's clock read late in the fourth and the two-point habit never come up in it).
+
+Speed: the same. `match_check nfl 2000` takes 12.9 and 13.2 s against 13.2 and 13.2 s on main (back to back, 4 cores, the same build settings).
 
 Tried and dropped (NFL, seed 1):
 
-- **The first Hail Mary:** the depth error of a long throw scaled up as on any other (up to 2.4 times), the other receivers kept their routes and a catch's chance went to nothing with three defenders near: 0.6% scored from 35 out in `play_trace`. Then picks at 0.5 and catches at 0.35: 2.3% scored and 36% were picked.
-- **A 60-yard NFL arm** (56 college, 48 high school): 2.1% scored from 50-59 yards out, where real Hail Marys scored 3 times in 26, and the second quarter threw them from 60-69 yards out ten times as often as real teams (a side threw it if it came down within 10 yards of the goal line).
+- **The first Hail Mary:** the depth error of a long throw scaled up as on any other (up to 2.4 times), the other receivers kept their routes and a catch's chance went to nothing with three defenders near: almost none scored from 35 out in `play_trace`. Then picks at 0.5 and catches at 0.35: 2.4% scored and 35% were picked.
+- **A 60-yard NFL arm** (56 college, 48 high school): 2.1% scored from 50-59 yards out, where real Hail Marys scored 3 times in 26, and the second quarter threw them from 60-69 yards out 7 to 16 times as often as real teams (6 in five seasons; a side threw it if it came down within 10 yards of the goal line).
 - **Laterals with the trailers escorting ahead** of the man with the ball: no laterals at all. With the hurry-up's habits still on the last play: 2% of the passes.
 - **The defense's Q2 timeout on any down:** 3.06 a game.
 - **Fake punts without the look** at the real rate: 13% converted (real 55%); thrown by the up-back, 4%.
+- **The half's sum without the chains' stops** in college and high school: FBS plays fell to 64.9 a team game (real 66.6).
 
-Still off (`GAPS.md`): a half's last 5 s take one snap where real teams often fit two (a quick throw at the end zone, then the kick), so of the pool's second-quarter snaps the engine kicks 34% (real 51%) and kneels 56% (18%), and the pool is 0.48 snaps a game (real 0.74); spikes are 0.7% of the pool (real 8.5%); untimed downs come one in 286 games (real one in 68), since the Hail Mary's crowd draws no pass interference (item 27, lane EG5); and few plays reach the sideline, the rest of S6.2, which this lane left to the receivers' routes (SF4) and long runs (SF9): designed runs end out of bounds 1.2% of the time (real 5.5%).
+Still off (`GAPS.md`): a half's last 5 s take one snap where real teams often fit two (a quick throw at the end zone, then the kick), so of the pool's second-quarter snaps the engine kicks 34% (real 51%) and kneels 52% (18%), the pool is 0.50 snaps a game (real 0.74) and 1.1% of them score (2.5%); spikes are 1.1% of the pool (real 8.5%); untimed downs come one in 143 games (real one in 68), since the Hail Mary's crowd (`crowd_ball`) skips the catch point where lane EG5 reads pass interference (item 27); the fourth quarter's pool throws deep more and kicks less than real teams' (deep shots 10.8% of the pool, real 2.7%; field goals 5.7%, real 11.1%), likely from where its late drives stand when time runs out rather than the call itself (not measured); laterals come a little often at the NFL (27.6%, real 22%) and in college and high school (43% and 55%, unmeasured against real), and fake punts a little rarely (0.027 a team game, real 0.036); and few plays reach the sideline, the rest of S6.2, which this lane left to the receivers' routes (SF4) and long runs (SF9): designed runs end out of bounds 1.1% of the time (real 5.5%).
 
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).

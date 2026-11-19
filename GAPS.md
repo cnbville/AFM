@@ -52,14 +52,11 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **Blocked kicks at a third of real, and never returned** (medium). Field goals 0.58% (real 1.89%), punts 0.18% (0.48%), extra points 0.26% (0.70%); a kick's block is a formula, not a tracked play, and real blocked punts go back for a touchdown a third of the time. Item 12.
 - **Few long returns** (medium). Kickoff returns of 40+ 1.8% (real 5.0%), punt returns of 20+ 2.8% (8.0%). Item 13.
 - **The kicking range ignores the weather** (low-medium). The engine tries 8% more kicks of 50+ in a 17 mph wind; real teams try 13% fewer in 15+ mph wind and 26% fewer at 32 F or colder. Item 14.
-- **A half's last snaps are ordinary calls** (medium). No Hail Mary, and a tied team never kneels. Of the second quarter's snaps with 5 s or less, field goals are 31% (real 51%) and kneels 2% (18%); and it almost never spikes (0.1% of those late snaps, real 5.2%). The screens' win chance credits a shot no play throws. Item 15.
-- **No laterals on the last play** (low). Item 16.
-- **The clock before halftime** (low-medium). Real defenses call 1.35 timeouts a game in the last 4:00 of the second quarter; the staff's timeout needs the fourth quarter (`after_snap_clock`), and every offense hurries in the half's last 2:00 whatever its spot or score. Item 17.
-- **Nobody protects a late lead** (medium). The carrier's sideline choice never reads the score or clock; real runs by the team ahead in the last 5:00 end out of bounds 2.3% of the time (5.8% earlier). Goes with S6.2. Item 18.
-- **Two-point tries short** (low-medium). 5.0% of tries (real 9.8%), made at the real rate. Item 19.
-- **Fourth-down sums mostly use the NFL's numbers** (low-medium). The expected points and the go habit are the level's, but the conversion chance reads yards to go only, a punt is always 41 net and a miss goes at the NFL's spot at every level (`fourth_down`, `fourth_ev`). Item 20.
-- **AI staffs never fake a kick** (low). Real 0.036 fake punts a team game; no fake field goal exists. Item 21.
-- **No untimed down or 10-second runoff** (low). Item 22.
+- **A half's last 5 s take one snap** (low-medium). Real teams often fit two (a quick throw at the end zone, then the kick). Of the pool's second-quarter snaps (5 s or less) the engine kicks 34% (real 51%) and kneels 52% (18%); the pool is 0.50 snaps a game (real 0.74), 1.1% of them score (2.5%) and 1.1% are spikes (8.5%). Items 15 and 17, left by lane EG4 (2026-11-19).
+- **The fourth quarter's last snap throws deep more and kicks less** (low). Of the pool, deep shots are 10.8% (real 2.7%) and field goals 5.7% (11.1%), likely from where late drives stand when time runs out rather than the call (not measured). Lane EG4.
+- **Few untimed downs at 0:00** (low). One in 143 NFL games (real one in 68): the Hail Mary's crowd (`scrimmage::crowd_ball`) skips the catch point where lane EG5 reads pass interference, so it never draws a flag. Item 22, lane EG4.
+- **Few plays reach the sideline** (medium). Designed runs end out of bounds 1.1% of the time (real 5.5%), 0.6% when ahead in the last 5:00 (2.3%): the rest of S6.2 (the wide run's path toward the sideline, the short outs), left to SF4 (routes) and SF9 (long runs). Item 18, lane EG4.
+- **Laterals a little often, fake punts a little rare** (low). Laterals on 27.6% of the fourth quarter's last passes from 40+ out at the NFL (real 22%), 43% in college and 55% at high school (no real numbers there yet); fake punts 0.027 a team game (real 0.036). Items 16 and 21, lane EG4.
 - **A player back from a first-half sit does not win his job back** (low). When another man at his spot is hurt in the first half, the next man takes the job and the sitter, the better player, plays about one snap in the second half (coach fire item 4; found 2026-11-19 on seed 5 of `tests::coach_fire`, which now reads eight games). The lineup should be named again at halftime.
 
 ## Logic
