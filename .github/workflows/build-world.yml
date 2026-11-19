@@ -82,7 +82,11 @@ jobs:
         env:
           AFM_COMMIT: ${{ github.sha }}
         run: |
-          cargo build --release --bin afm_world --bin star_mix --bin support_check
+          # Each release bin links the whole engine with LTO (8-10 GB): two
+          # at once fit the runner, three killed it (2026-11-18, run
+          # 44216549034), so the departments check builds on its own.
+          cargo build --release --bin afm_world --bin star_mix
+          cargo build --release --bin support_check
           mkdir -p tools && cp target/release/afm_world target/release/star_mix target/release/support_check tools/
       - uses: actions/upload-artifact@v4
         with:

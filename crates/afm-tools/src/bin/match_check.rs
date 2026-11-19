@@ -259,10 +259,13 @@ fn main() {
     afm_engine::game::sheet::KICKOFF.store(mode, std::sync::atomic::Ordering::Relaxed);
     let mode_name = ["none", "every team", "home only", "college and NFL teams"][mode as usize];
     // What a kickoff draft costs: one team's sheet from the other's film,
-    // on one core.
+    // on one core, under the rule book the games are played on.
     {
         use afm_engine::world::plans::{DraftIn, film_tells, kickoff_card};
-        let rules = afm_engine::game::Rules::for_level(level);
+        let rules = match book {
+            Some((b, y)) => afm_engine::game::Rules::for_book(b, y),
+            None => afm_engine::game::Rules::for_level(level),
+        };
         let n = 64;
         let t = std::time::Instant::now();
         let mut boxes = 0;
@@ -278,6 +281,7 @@ fn main() {
                 favs: Vec::new(),
                 tells: film_tells(&teams[h].film),
                 designs: Vec::new(),
+                players: rules.code.players,
             };
             let card = kickoff_card(&teams[h], &inp);
             boxes += card.sheet.len();

@@ -43,6 +43,7 @@ fn ctx() -> OffCtx {
         burner: 0.0,
         shots: 0.0,
         lean: Default::default(),
+        players: 11,
     }
 }
 

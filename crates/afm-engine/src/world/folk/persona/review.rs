@@ -195,6 +195,7 @@ pub fn review(w: &World, c: usize, m: &Makeup) -> Option<Review> {
     let of = Of::from_role(job.role)?;
     let team = Team::from_employer(job.employer);
     let (season, mine) = season_of(w, team)?;
+    let (wins, losses) = record_of(w, team, season, &mine);
     let coached = job.first_season() <= season;
     let under_way = in_season(w, team, season);
     let peers = peers(w, team, season);
@@ -232,20 +233,30 @@ pub fn review(w: &World, c: usize, m: &Makeup) -> Option<Review> {
     pts.truncate(reach(m));
     let side = of.words();
     let header = if under_way {
-        format!("{HEADER} so far, the {season} season: the team is {}-{}; he runs {side}", mine.wins, mine.losses)
+        format!("{HEADER} so far, the {season} season: the team is {wins}-{losses}; he runs {side}")
     } else if coached {
-        format!(
-            "{HEADER}, the {season} season: the team went {}-{}; he coached {side} all season",
-            mine.wins, mine.losses
-        )
+        format!("{HEADER}, the {season} season: the team went {wins}-{losses}; he coached {side} all season")
     } else {
         format!(
-            "{HEADER}, the {season} season: the team went {}-{} before he got here. He was hired after it, so it isn't his season to own, but he has been through its tape since he arrived",
-            mine.wins, mine.losses
+            "{HEADER}, the {season} season: the team went {wins}-{losses} before he got here. He was hired after it, so it isn't his season to own, but he has been through its tape since he arrived"
         )
     };
     let fix = worst.map(|(_, short)| format!("{FIX}: {short}"));
     Some(Review { season, coached, header, points: pts.into_iter().map(|p| p.1).collect(), fix })
+}
+
+/// The team's win-loss line for the season in the review's header: the
+/// same record the boss and the press read (`facts::seasons`, every game
+/// of the season at any engine or stand-in level, ties and all), so the
+/// coach and the AD never give two records for one season. The tally
+/// holds only games the engine played (a program too thin to field a full
+/// squad plays the stand-in), so it keeps the stats and is the record only
+/// for a season still under way, which has no finished row yet.
+fn record_of(w: &World, team: Team, season: i32, mine: &Season) -> (u32, u32) {
+    facts::seasons(w, team, 3)
+        .into_iter()
+        .find(|s| s.year == season)
+        .map_or((mine.wins, mine.losses), |s| (s.wins, s.losses))
 }
 
 /// The season is still being played (its finished row isn't in the
