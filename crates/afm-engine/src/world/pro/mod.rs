@@ -2002,8 +2002,8 @@ fn camp(w: &mut World, d: Date) {
             crate::world::wlog::why::growth(log, (w.year, w.today), p.player.id, &ctx, [None; 3], &report);
         }
         if let Some(row) = p.player.history.last_mut() {
-            row.team = team;
-            row.depth = Some(role.name().to_string());
+            row.team = team.into();
+            row.depth = crate::player::DepthLabel::some(role.name());
             // The season's games missed are counted game by game
             // (`games::record`, minor bug 96), not the step's roll.
             row.games_missed = 0;

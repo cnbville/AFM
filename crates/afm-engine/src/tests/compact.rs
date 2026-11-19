@@ -323,3 +323,48 @@ impl<'de> serde::Deserialize<'de> for Keys {
         d.deserialize_map(V)
     }
 }
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct PlainRow {
+    team: Option<usize>,
+    depth: Option<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct CompactRow {
+    team: crate::player::OptIdx,
+    depth: crate::player::DepthLabel,
+}
+
+/// Memory diet item 5: a season row's pro team and depth label are small
+/// codes in memory, written, read and printed as the plain options.
+#[test]
+fn a_season_rows_team_and_depth_keep_the_file_shape() {
+    use crate::player::{DepthLabel, OptIdx};
+    let cases: [(Option<usize>, Option<&str>); 5] = [
+        (None, None),
+        (Some(0), Some("starter")),
+        (Some(31), Some("WR2")),
+        (None, Some("practice squad")),
+        (Some(7), None),
+    ];
+    for (team, depth) in cases {
+        let plain = PlainRow { team, depth: depth.map(str::to_string) };
+        let compact = CompactRow { team: team.into(), depth: depth.map_or(DepthLabel::NONE, DepthLabel::some) };
+        let a = rmp_serde::to_vec_named(&plain).unwrap();
+        assert_eq!(a, rmp_serde::to_vec_named(&compact).unwrap());
+        let back: CompactRow = rmp_serde::from_slice(&a).unwrap();
+        assert_eq!(back.team.get(), team);
+        assert_eq!(back.depth.as_deref(), depth);
+        assert_eq!(format!("{:?}", back.team), format!("{team:?}"));
+        assert_eq!(format!("{:?}", back.depth), format!("{:?}", depth.map(str::to_string)));
+        assert_eq!(crate::world::wlog::fp::of(&plain), crate::world::wlog::fp::of(&compact));
+    }
+    assert!(OptIdx::default().is_none() && DepthLabel::default().is_none());
+    // The row itself: 144 bytes before the codes, 104 after.
+    assert!(
+        std::mem::size_of::<crate::player::SeasonRecord>() <= 104,
+        "{}",
+        std::mem::size_of::<crate::player::SeasonRecord>()
+    );
+}

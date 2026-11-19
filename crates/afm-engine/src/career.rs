@@ -1830,10 +1830,10 @@ fn simulate_league_years(
             );
             let report = develop_season(&mut r.player, &ctx, &mut prngs[i]);
             let row = r.player.history.last_mut().unwrap();
-            row.depth = Some(depth);
+            row.depth = crate::player::DepthLabel::some(&depth);
             if let Some(t) = team {
                 row.situation = Some(round_half_up(situation * 100.0) / 100.0).into();
-                row.team = Some(t);
+                row.team = Some(t).into();
             }
             let perf = row.performance;
             track_peak(r);

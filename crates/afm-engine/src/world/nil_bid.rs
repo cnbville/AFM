@@ -206,6 +206,13 @@ pub struct NilBook {
     /// (`front_office::college::splits`).
     #[serde(default)]
     pub new_share: [f64; 4],
+    /// Each program's signees holding a deal for next July, not yet
+    /// enrolled, as the last signing stage left them
+    /// (`recruiting::signed_paid`): the first places in its July paid set,
+    /// read by your desk's view of who a school would pay
+    /// (`recruiting::pays_recruit`). July 1 starts it again.
+    #[serde(default)]
+    pub signed_paid: Vec<u16>,
 }
 
 impl NilBook {
