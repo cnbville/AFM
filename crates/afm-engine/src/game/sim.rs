@@ -14,6 +14,25 @@ use crate::tendencies::Tend;
 /// Players on the field at most, for the compact per-tick scans.
 pub(crate) const MAX_AGENTS: usize = 32;
 
+/// The level's typical hit (engine gaps item 7), as a share of the NFL's:
+/// the mean force of a tackle and of a sack at each level on
+/// `match_check` (seed 1, the NFL and FBS 2,000 games, high school 1,000).
+/// A hit is read against it, as ratings are read against the level's
+/// typical starter, so a typical college back fumbles under a typical
+/// college hit about as often as a typical NFL back does under an NFL
+/// one (before, FBS lost 0.37 fumbles a team game and high school 0.26).
+/// FCS and small colleges take FBS's, unmeasured: `match_check` plays
+/// neither. (Sizes proposed, not confirmed.)
+pub fn hit_scale(level: Level, sack: bool) -> f64 {
+    match (level, sack) {
+        (Level::NFL, _) => 1.0,
+        (Level::HS, false) => 0.62,
+        (Level::HS, true) => 0.76,
+        (_, false) => 0.82,
+        (_, true) => 0.96,
+    }
+}
+
 /// Each attribute's fatigue weight in `Attr::ALL` order: the same numbers
 /// as `Attr::profile().fatigue`, copied once when the game is built, so
 /// `Agent::new` reads them straight from one list (world speed lane).
@@ -893,6 +912,11 @@ pub struct Notes {
     pub forced_fumble: Option<u32>,
     pub fumbled: Option<u32>,
     pub recovered: Option<(usize, u32)>,
+    /// The play's first fumble (engine gaps items 4-7): how the ball came
+    /// out, how far the man who came up with it took it, whether it went
+    /// out of bounds first.
+    #[serde(default)]
+    pub fumble: Option<FumbleNote>,
     /// Blocks: (blocker, defender, pass, won, time held, gave up pressure).
     pub blocks: Vec<(u32, u32, bool, bool, f64, bool)>,
     /// Rush wins inside 2.5 s, with the move.
@@ -928,6 +952,103 @@ pub struct Notes {
     /// snap when the game keeps one.
     #[serde(default)]
     pub chart: Option<Box<super::chart::LineChart>>,
+}
+
+/// How the ball came out on a fumble (engine gaps items 4-7, for the play
+/// log and the counts read against real by kind).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FumbleHow {
+    /// Knocked loose by a hit (a tackle or a man joining it).
+    #[default]
+    Hit,
+    /// Reaching the ball out for the line.
+    Reach,
+    /// Stripped on a sack.
+    Sack,
+    /// Out of his hand as he threw: hit in his motion.
+    Throw,
+    /// The snap on the ground: the exchange with the center under center,
+    /// a shotgun snap he couldn't handle, or a snap that never got to him
+    /// (nflverse calls these aborted plays).
+    Snap,
+    /// A bad handoff between the quarterback and the back.
+    Exchange,
+    /// A pitch on the ground.
+    Pitch,
+}
+
+/// A fumble on a play (engine gaps items 4-7). The man who came up with it
+/// is `Notes::recovered`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct FumbleNote {
+    pub how: FumbleHow,
+    /// Yards the man who came up with it took it, his own way (0 when he
+    /// fell on it).
+    #[serde(default)]
+    pub ran: f32,
+    /// It went out of bounds before anyone had it.
+    #[serde(default)]
+    pub out: bool,
+}
+
+/// A ball on the ground (engine gaps item 4): it rolls and bounces off its
+/// points until someone falls on it or picks it up, or it goes out of
+/// bounds.
+#[derive(Clone, Copy, Debug)]
+pub struct Loose {
+    /// Its speed along the ground, yards a second.
+    pub vel: V2,
+    /// The spot of the fumble.
+    pub at: V2,
+    /// The side that had it and the man who put it on the ground (agent
+    /// indexes).
+    pub side: usize,
+    pub by: usize,
+    pub how: FumbleHow,
+    /// When it came out, and its next bounce.
+    pub since: f64,
+    pub bounce: f64,
+    /// The side that touched it last (a man who couldn't hold it), for the
+    /// CFL's out-of-bounds rule.
+    pub touched: usize,
+    /// The man who came up with it and where.
+    pub rec: Option<(usize, V2)>,
+    /// Where it went out of bounds, when it did.
+    pub out: Option<V2>,
+}
+
+/// The fumble rules on one play (engine gaps item 4).
+#[derive(Clone, Copy, Debug)]
+pub struct FumbleSnap {
+    /// The book's rules (`Rules::fumble_rule`).
+    pub book: super::rules::FumbleRule,
+    /// Only the fumbler may advance his own team's fumble on this play
+    /// (fourth down, a try, after the two-minute warning, by the book).
+    pub fumbler_only: bool,
+    /// The defense's recovery ends the play (a high school try).
+    pub defense_ends: bool,
+}
+
+impl FumbleSnap {
+    /// The book's rules on a play with neither limit (a kick return).
+    pub fn plain(rules: &super::rules::Rules) -> FumbleSnap {
+        FumbleSnap { book: rules.fumble_rule(), fumbler_only: false, defense_ends: false }
+    }
+}
+
+/// How a play with a loose ball ended, in the sim's frame (side 0's goal
+/// line at 0; engine gaps item 4).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LooseEnd {
+    /// This side has the ball, dead at this spot.
+    Ball { side: usize, x: f64 },
+    /// This side scored a touchdown.
+    Touchdown(usize),
+    /// This side was tackled with it, or it went out, behind its own goal
+    /// line: a safety against it.
+    Safety(usize),
+    /// A touchback: this side's ball at its own touchback spot.
+    Touchback(usize),
 }
 
 /// What fire did on a play (coach fire, `docs/design/coach-fire.md`): its
@@ -1154,6 +1275,18 @@ pub struct Sim<'a> {
     pub targeting: super::rules::Targeting,
     /// Whose foul rules the snap is played under (engine gaps lane EG5).
     pub fouls: super::fouls::Fouls,
+    /// The play's loose ball (engine gaps item 4): set when the ball comes
+    /// out, and kept once someone has it or it is dead, for the spot and
+    /// the rules.
+    pub loose: Option<Loose>,
+    /// The fumble rules on this play.
+    pub fumble_rule: FumbleSnap,
+    /// The man who goes on with his play when he picks up his own fumbled
+    /// snap behind the line: the quarterback, until he hands off or throws.
+    pub resume: Option<usize>,
+    /// When the carrier caught the ball (a catch or an interception), for
+    /// the hit before he has it tucked; long ago otherwise.
+    pub caught: f64,
     /// Each agent's tendencies this play (`Sim::tend`), worked out on first
     /// use: everything they read is fixed for the play. NaN until then.
     pub(crate) tend_memo: [[std::cell::Cell<f64>; crate::tendencies::TEND_COUNT]; MAX_AGENTS],
@@ -1380,10 +1513,71 @@ const TACKLE_WEIGHT_CB: f64 = 0.27;
 
 /// The hitter's part in a forced fumble, a point of 0.5 Strength + 0.5
 /// Tackling about his level's typical man at his position (minor bug 282:
-/// at the carrier's 0.025 a safety's
-/// Hitting swung forced fumbles 1.06 times real regulars' spread; proposed,
-/// not confirmed).
+/// at the carrier's 0.025, a safety's Hitting swung forced fumbles 1.06
+/// times real regulars' spread; proposed, not confirmed).
 const FUMBLE_HIT: f64 = 0.020;
+
+/// A tackle's fumble (engine gaps item 7): the chance at the level's
+/// typical hit (1,700 times `hit_scale`) on a carrier with his level's
+/// typical starting back's Ball Security, × (force / that)^1.5. Every
+/// carrier is read on the backs' scale, so a receiver and a back with the
+/// same rating fumble alike. It was 0.018, read against the hitter's
+/// ratings: NFL designed runs fumbled 1.45% of the time (real 0.75%) and
+/// catches 1.29% (real 1.13%). Proposed, not confirmed.
+const FUMBLE_BASE: f64 = 0.0064;
+const FUMBLE_FORCE: f64 = 1700.0;
+/// Each point of his Ball Security under that back's.
+const FUMBLE_BS: f64 = 0.025;
+/// A catch not yet tucked away: hit inside half a second of it, the ball
+/// comes out 2.6 times as often. Without it catches fumbled about as often
+/// as runs (0.89% and 0.83%), where real catches fumble half again as often
+/// (1.13% and 0.75%). Proposed, not confirmed.
+const FRESH_CATCH: f64 = 0.5;
+const FRESH_CATCH_FUMBLE: f64 = 2.6;
+
+/// The loose ball (engine gaps item 4), fitted on the NFL's real fumbles
+/// (nflverse 2021-25: the defense recovers 45%, advances 28% of its
+/// recoveries and 14% 10 yards or more, scores 0.032 a team game). It pops
+/// off the hit at 1 to 12 yards a second in any direction on top of the
+/// pile's own way, slows by half a second (`LOOSE_DRAG`) and turns up to
+/// 1.4 radians a bounce. Proposed, not confirmed.
+const LOOSE_POP: (f64, f64) = (1.0, 12.0);
+const LOOSE_DRAG: f64 = 0.5;
+/// Who goes for it when: a man who sees it come out goes a beat later
+/// (`LOOSE_REACT`, quicker for sharp eyes), at once within 1.5 yards of
+/// it; a man with his back to it 0.6 s later still. The man who lost it
+/// is after it 0.55 s on, the men who tackled him 0.4 s. A block within 3
+/// yards of it breaks up.
+const LOOSE_REACT: f64 = 0.3;
+const LOOSE_BLIND: f64 = 0.6;
+const LOOSE_FEET: f64 = 1.5;
+const LOOSE_FIND: f64 = 0.55;
+const LOOSE_FIND_DOWN: f64 = 0.4;
+const LOOSE_BLOCK: f64 = 3.0;
+/// Getting it: in traffic a man falls on it (`LOOSE_FALL` for a dead
+/// ball, less as it rolls faster and the farther he lunges); clear, he
+/// picks it up (`LOOSE_SCOOP` for a typical starter's hands and feet). In
+/// a pile within 1.2 yards the other side may come up with it
+/// (`LOOSE_RIP`). Traffic is a man of the other side on his feet within 2
+/// yards of it (`LOOSE_ROOM`) in the NFL, where a man who falls on it
+/// untouched gets up and runs. Where he is down on it (college and high
+/// school), falling on it ends the play, so he picks it up whenever he is
+/// first to it: traffic is a man of the other side less than half a yard
+/// farther from it than he is (`LOOSE_RACE`). With 2 yards there too, FBS
+/// ran back 0.015 fumbles a team game for scores (real, FBS against FBS in
+/// 2023, 0.044: 10% of its lost fumbles, the NFL's 7%); with half a yard
+/// 0.025, its lost fumbles kept (0.43 a team game, real 0.43); with a
+/// quarter 0.030 and 0.42. Proposed, not confirmed.
+const LOOSE_ROOM: f64 = 2.0;
+const LOOSE_RACE: f64 = 0.5;
+const LOOSE_FALL: f64 = 0.6;
+const LOOSE_SCOOP: f64 = 0.6;
+const LOOSE_RIP: f64 = 0.15;
+/// Down on it in the NFL: an opponent within 1.5 yards as he gets it, or
+/// one within a yard (a touch) before he is up again (0.6 s).
+const LOOSE_TOUCH: f64 = 1.5;
+const LOOSE_GETUP: f64 = 0.6;
+const LOOSE_TOUCH_DOWN: f64 = 1.0;
 
 /// Rating points a road line loses off the snap at full crowd noise.
 /// Fitted with the other home-field causes to the real home margin
@@ -1719,6 +1913,17 @@ impl<'a> Sim<'a> {
         let a = &self.agents[i];
         let d = p - a.pos;
         if d.len() < 2.0 {
+            return true;
+        }
+        self.in_cone(i, p)
+    }
+
+    /// Is `p` inside `i`'s cone of vision (`sees`, without what he feels
+    /// up close)?
+    pub fn in_cone(&self, i: usize, p: V2) -> bool {
+        let a = &self.agents[i];
+        let d = p - a.pos;
+        if d.len() < 1e-6 {
             return true;
         }
         // The cosine `angle_between` took the arc cosine of: the cone is
@@ -3534,15 +3739,17 @@ impl<'a> Sim<'a> {
         let pd = d.mass * d.vel.dot(along);
         let v = (pr + pd * share) / (r.mass + d.mass * share);
         self.agents[c].vel = along.scale(v.max(-1.0));
+        // The pile's way, across the field too: a ball knocked loose goes
+        // with it.
+        let pile = (r.vel.scale(r.mass) + d.vel.scale(d.mass * share)).scale(1.0 / (r.mass + d.mass * share));
         self.contact_force = self.contact_force.max(force);
         self.note_hit(i, c, force);
-        // Ball security against the hit (topic 2), read against the man
-        // making it: his strength and tackling against the carrier's ball
-        // security. It was read on its own, so NFL carriers, rated far above
-        // 60, almost never fumbled (0.27 lost a team game, real 0.45). Now
-        // about 0.45 in the NFL and 0.4 in FBS (proposed, not confirmed).
-        // Carries it loose (individual practice): in a crowd, his ball
-        // security reads the flaw lower.
+        // Ball security against the hit (topic 2): the hitter's strength
+        // and tackling against his level's typical man at his position,
+        // the carrier's ball security against his level's typical starting
+        // back's (engine gaps item 7; it was read against the hitter's
+        // typical man). Carries it loose (individual practice): in a
+        // crowd, his ball security reads the flaw lower.
         let crowd = (0..self.agents.len())
             .filter(|&k| self.agents[k].side != r.side && self.agents[k].pos.dist(r.pos) < 2.0)
             .count()
@@ -3550,23 +3757,25 @@ impl<'a> Sim<'a> {
         let loose = if crowd { self.craft_at(c, crate::craft::Craft::CarriesLoose) } else { 0.0 };
         let carry = r.a(Attr::BallSecurity) + loose;
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
+        let hpos = self.player(i).position;
         let hit_typ = {
-            let pos = self.player(i).position;
-            let typ = |a: Attr| super::synthetic::typical(self.level, pos, a);
+            let typ = |a: Attr| super::synthetic::typical(self.level, hpos, a);
             0.5 * typ(Attr::Strength) + 0.5 * typ(Attr::Tackling)
         };
+        // The hit's force is read against the level's typical hit, and a
+        // catch he hasn't tucked away yet comes out more easily.
+        let carry_typ =
+            super::synthetic::typical_starter(self.level, crate::positions::Position::RB, Attr::BallSecurity);
         let rain = (if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * self.cond.cold_unused);
         // Going for the strip (tendencies): the punch-out.
         let strip = (1.0 + 1.15 * self.lean(i, Tend::Strip)).max(0.1);
-        let p = 0.018
-            * (force / 1700.0).powf(1.5)
-            * clamp(1.0 + 0.025 * (hit - carry) - (0.025 - FUMBLE_HIT) * (hit - hit_typ), 0.25, 2.5)
-            * rain
-            * strip;
+        let term = clamp(1.0 + FUMBLE_BS * (carry_typ - carry) + FUMBLE_HIT * (hit - hit_typ), 0.25, 2.5);
+        let force_term = (force / (FUMBLE_FORCE * hit_scale(self.level, false))).powf(1.5);
+        let tuck = if self.t - self.caught < FRESH_CATCH { FRESH_CATCH_FUMBLE } else { 1.0 };
+        let p = FUMBLE_BASE * force_term * term * rain * strip * tuck;
         if self.notes.fumbled.is_none() && self.rng.chance(p) {
-            self.notes.fumbled = Some(r.id);
             self.notes.forced_fumble = Some(d.id);
-            self.fumble(c);
+            self.fumble_going(c, FumbleHow::Hit, pile);
             return;
         }
         // Battering ram wears a defense down: the man who takes him on
@@ -3753,14 +3962,24 @@ impl<'a> Sim<'a> {
         let i = self.fight.first().copied().unwrap_or(c);
         let carry = self.agents[c].a(Attr::BallSecurity);
         let hit = self.agents[i].a(Attr::Strength) * 0.5 + self.agents[i].a(Attr::Tackling) * 0.5;
-        let loose = self.rng.chance(0.035 * clamp(1.0 + 0.025 * (hit - carry), 0.3, 2.5));
+        // Read as a tackle's (`hit_effects`): his ball security against his
+        // level's typical starting back's, the hitter's against his typical
+        // man (engine gaps item 7).
+        let term = {
+            use crate::positions::Position as P;
+            let hp = self.player(i).position;
+            let typ = |p: P, a: Attr| super::synthetic::typical(self.level, p, a);
+            let hit_typ = 0.5 * typ(hp, Attr::Strength) + 0.5 * typ(hp, Attr::Tackling);
+            let carry_typ = super::synthetic::typical_starter(self.level, P::RB, Attr::BallSecurity);
+            clamp(1.0 + FUMBLE_BS * (carry_typ - carry) + FUMBLE_HIT * (hit - hit_typ), 0.3, 2.5)
+        };
+        let loose = self.rng.chance(0.035 * term);
         self.notes.tend.reach = Some((self.agents[c].id, gets && !loose, loose));
         if loose {
             self.progress = self.progress.max(x);
-            self.notes.fumbled = Some(self.agents[c].id);
             self.notes.forced_fumble = Some(self.agents[i].id);
             self.agents[c].pos.x = x + arm.min(short + 0.3);
-            self.fumble(c);
+            self.fumble(c, FumbleHow::Reach);
             return true;
         }
         if gets {
@@ -3856,34 +4075,376 @@ impl<'a> Sim<'a> {
         }
     }
 
-    /// The ball is out: a scramble for it near where it fell.
-    pub fn fumble(&mut self, c: usize) {
-        let p = self.agents[c].pos;
-        let bounce = v2(self.rng.range(-3.0, 3.0), self.rng.range(-3.0, 3.0));
-        let spot = p + bounce;
-        // Who gets there first: closeness, awareness and luck.
-        let mut wsum = [0.0, 0.0];
-        let mut best = [(0.0, 0usize); 2];
-        for (i, a) in self.agents.iter().enumerate() {
-            if !a.up(self.t) && i != c {
-                continue;
-            }
-            let d = a.pos.dist(spot);
-            // Who dives on the pile: contact willingness (tendencies).
-            let dive = 1.0 + 0.25 * self.lean(i, Tend::Contact);
-            let w = (-d / 1.8).exp() * (0.6 + (a.a(Attr::Anticipation) + a.a(Attr::Competitiveness)) / 400.0) * dive;
-            wsum[a.side] += w;
-            if w > best[a.side].0 {
-                best[a.side] = (w, i);
+    /// The ball is out (engine gaps item 4): loose on the ground, popping
+    /// off the hit with some of his speed, until someone falls on it or
+    /// picks it up, or it goes out of bounds (`loose_tick`). A man taken
+    /// down as it came out is on the ground with his tacklers. Only the
+    /// play's first fumble is kept (`Notes::fumble`).
+    pub fn fumble(&mut self, c: usize, how: FumbleHow) {
+        let v = self.agents[c].vel;
+        self.fumble_going(c, how, v);
+    }
+
+    /// `fumble`, the ball going off with the pile's way `v`.
+    pub fn fumble_going(&mut self, c: usize, how: FumbleHow, v: V2) {
+        let t = self.t;
+        let (p, side, id) = (self.agents[c].pos, self.agents[c].side, self.agents[c].id);
+        if self.notes.fumble.is_none() {
+            self.notes.fumbled = Some(id);
+            self.notes.fumble = Some(FumbleNote { how, ..Default::default() });
+        }
+        let ang = self.rng.range(-std::f64::consts::PI, std::f64::consts::PI);
+        let pop = self.rng.range(LOOSE_POP.0, LOOSE_POP.1);
+        let vel = v + v2(ang.cos(), ang.sin()).scale(pop);
+        let bounce = t + self.rng.range(0.2, 0.5);
+        // The men in the tackle go down with it and find the ball late; a
+        // man who just lost it finds it a beat late.
+        self.agents[c].last_try = t - 0.4 + LOOSE_FIND;
+        if matches!(how, FumbleHow::Hit | FumbleHow::Reach | FumbleHow::Sack | FumbleHow::Throw) {
+            let fall = t + self.rng.range(0.4, 0.9);
+            self.agents[c].down_until = self.agents[c].down_until.max(fall);
+            for k in 0..self.fight.len() {
+                let i = self.fight[k];
+                let fall = t + self.rng.range(0.3, 0.9);
+                self.agents[i].down_until = self.agents[i].down_until.max(fall);
+                self.agents[i].last_try = t - 0.4 + LOOSE_FIND_DOWN;
             }
         }
-        let side = if self.rng.chance(wsum[0] / (wsum[0] + wsum[1]).max(1e-9)) { 0 } else { 1 };
-        let who = best[side].1;
-        self.notes.recovered = Some((side, self.agents[who].id));
-        let spot = v2(spot.x.clamp(back_line() + 0.1, end_line() - 0.1), spot.y.clamp(0.1, width() - 0.1));
-        self.dead = true;
-        self.ball = Ball::Dead(spot);
-        self.progress = if side == self.agents[c].side { p.x } else { spot.x };
+        self.fight.clear();
+        self.loose =
+            Some(Loose { vel, at: p, side, by: c, how, since: t, bounce, touched: side, rec: None, out: None });
+        self.ball = Ball::Loose(p);
+    }
+
+    /// A loose ball, each tick (engine gaps item 4): it rolls, slowing on
+    /// the grass, and bounces off its points; blocks go on away from it;
+    /// everyone who has seen it goes for it, and the men who get there try
+    /// for it (`loose_grab`). The players move here.
+    pub fn loose_tick(&mut self) {
+        let t = self.t;
+        let (Some(mut l), Ball::Loose(b)) = (self.loose, self.ball) else { return };
+        let b = b + l.vel.scale(DT);
+        l.vel = l.vel.scale((-LOOSE_DRAG * DT).exp());
+        if t >= l.bounce {
+            if l.vel.len() > 1.0 {
+                let turn = self.rng.range(-1.4, 1.4);
+                let (s, co) = turn.sin_cos();
+                let keep = self.rng.range(0.55, 0.95);
+                l.vel = v2(l.vel.x * co - l.vel.y * s, l.vel.x * s + l.vel.y * co).scale(keep);
+            }
+            l.bounce = t + self.rng.range(0.25, 0.55);
+        }
+        // Over the sideline or an end line: dead, out of bounds.
+        if b.y <= 0.0 || b.y >= width() || b.x >= end_line() || b.x <= back_line() {
+            let spot = v2(b.x.clamp(back_line(), end_line()), b.y.clamp(0.0, width()));
+            l.out = Some(spot);
+            self.loose = Some(l);
+            self.ball = Ball::Dead(spot);
+            self.dead = true;
+            self.out_of_bounds = true;
+            if let Some(f) = self.notes.fumble.as_mut() {
+                f.out = true;
+            }
+            return;
+        }
+        self.ball = Ball::Loose(b);
+        self.loose = Some(l);
+        // Blocks go on where they are; a man in one next to the ball leaves
+        // it for the ball.
+        self.update_blocks(None, None);
+        for k in 0..self.eng.len() {
+            let e = &self.eng[k];
+            if !e.over
+                && (self.agents[e.blocker].pos.dist(b) < LOOSE_BLOCK
+                    || self.agents[e.defender].pos.dist(b) < LOOSE_BLOCK)
+            {
+                self.release(k);
+            }
+        }
+        for i in 0..self.agents.len() {
+            let a = &self.agents[i];
+            if !a.up(t) || a.engaged.is_some() || t < l.since + self.loose_react(i, b, l.by) {
+                continue;
+            }
+            // To where it will be when he gets there.
+            let lead = (a.pos.dist(b) / a.vmax.max(1.0)).min(0.8);
+            let aim = b + l.vel.scale(lead);
+            self.go_to(i, aim, 1.0);
+        }
+        self.advance();
+        self.loose_grab();
+    }
+
+    /// How long after the ball came out he goes for it (engine gaps item
+    /// 4): a beat for an alert man, more when it is out of his sight; the
+    /// men on top of it at once.
+    fn loose_react(&self, i: usize, b: V2, by: usize) -> f64 {
+        let a = &self.agents[i];
+        // The man who lost it knows it is out.
+        let seen = i == by || self.in_cone(i, b);
+        if seen && a.pos.dist(b) < LOOSE_FEET {
+            return 0.0;
+        }
+        let pos = self.player(i).position;
+        let typ = |x: Attr| super::synthetic::typical_starter(self.level, pos, x);
+        let sense = 0.5 * (a.a(Attr::Anticipation) + a.a(Attr::PlayRecognition));
+        let typ_sense = 0.5 * (typ(Attr::Anticipation) + typ(Attr::PlayRecognition));
+        LOOSE_REACT * clamp(1.0 - 0.012 * (sense - typ_sense), 0.6, 1.5) + if seen { 0.0 } else { LOOSE_BLIND }
+    }
+
+    /// The men at a loose ball try for it, nearest first (engine gaps item
+    /// 4). In traffic, or off the ground, a man falls on it; with nobody of
+    /// the other side around he picks it up on the run, as coaches teach.
+    /// One he can't hold squirts away, still loose.
+    fn loose_grab(&mut self) {
+        let t = self.t;
+        let (Some(mut l), Ball::Loose(b)) = (self.loose, self.ball) else { return };
+        let n = self.agents.len().min(MAX_AGENTS);
+        let (reach, dive, ground) = (0.8, 1.8, 0.8);
+        let mut near = [(0.0f64, 0usize); MAX_AGENTS];
+        let mut m = 0;
+        for i in 0..n {
+            let a = &self.agents[i];
+            let d = a.pos.dist(b);
+            let up = a.up(t);
+            if matches!(a.job, Job::Out) || d > if up { dive } else { ground } || t - a.last_try < 0.4 {
+                continue;
+            }
+            if d > ground && t < l.since + self.loose_react(i, b, l.by) {
+                continue;
+            }
+            near[m] = (d, i);
+            m += 1;
+        }
+        if m == 0 {
+            // Too long on the ground (a pile nobody has come up from): the
+            // nearest man has it.
+            if t - l.since > 3.0
+                && let Some(i) = (0..n)
+                    .filter(|&i| !matches!(self.agents[i].job, Job::Out))
+                    .min_by(|&x, &y| self.agents[x].pos.dist(b).total_cmp(&self.agents[y].pos.dist(b)))
+            {
+                self.loose_won(i, b, false);
+            }
+            return;
+        }
+        near[..m].sort_by(|x, y| x.0.total_cmp(&y.0));
+        let speed = l.vel.len();
+        for &(d, i) in &near[..m] {
+            let side = self.agents[i].side;
+            let up = self.agents[i].up(t);
+            // Traffic: the other side on top of it (`LOOSE_ROOM`), or where
+            // a man who falls on it is down, about as near it as he is
+            // (`LOOSE_RACE`).
+            let room = if self.down_on_fall { d + LOOSE_RACE } else { LOOSE_ROOM };
+            let traffic = (0..n).any(|j| {
+                let o = &self.agents[j];
+                if o.side == side || matches!(o.job, Job::Out) {
+                    return false;
+                }
+                o.pos.dist(b) < if o.up(t) { room } else { 1.0 }
+            });
+            // The fumbling side falls on it to keep it, as coaches teach
+            // (real, 2.7% of its recoveries go anywhere); a quarterback
+            // going on with his play picks up his own snap.
+            let own = side == l.side;
+            let may = !own || self.resume == Some(i);
+            // With nobody of the other side on it, a man on his feet runs
+            // on to it to pick it up rather than diving at it.
+            if up && d > reach && !traffic && speed < 6.0 && may {
+                continue;
+            }
+            let scoop = up && d <= reach && !traffic && speed < 6.0 && may;
+            self.agents[i].last_try = t;
+            let p = if scoop {
+                self.scoop_chance(i, speed)
+            } else {
+                let lunge = if d <= reach { 1.0 } else { 1.0 - 0.45 * (d - reach) / (dive - reach).max(0.1) };
+                LOOSE_FALL * (1.0 - speed / 10.0).max(0.3) * lunge
+            };
+            if !self.rng.chance(p) {
+                // He got a hand on it and it got away from him.
+                l.touched = side;
+                let ang = self.rng.range(-std::f64::consts::PI, std::f64::consts::PI);
+                let kick = self.rng.range(1.5, 4.0);
+                l.vel = l.vel.scale(0.4) + v2(ang.cos(), ang.sin()).scale(kick);
+                if scoop {
+                    self.agents[i].vel = self.agents[i].vel.scale(0.5);
+                } else {
+                    let fall = t + self.rng.range(0.6, 1.0);
+                    self.agents[i].down_until = self.agents[i].down_until.max(fall);
+                }
+                self.loose = Some(l);
+                continue;
+            }
+            // He has it. On the ground in a pile, the other side may come
+            // out from under it with the ball: strength and the will to win
+            // it, against his.
+            let mut w = i;
+            if !scoop {
+                let other = (0..n)
+                    .filter(|&j| self.agents[j].side != side && self.agents[j].pos.dist(b) < 1.2)
+                    .min_by(|&x, &y| self.agents[x].pos.dist(b).total_cmp(&self.agents[y].pos.dist(b)));
+                if let Some(o) = other {
+                    let grip = |k: usize| {
+                        let a = &self.agents[k];
+                        0.5 * a.a(Attr::Strength) + 0.5 * self.trait20(k, Attr::Competitiveness) * 5.0
+                    };
+                    let rip = LOOSE_RIP * clamp(1.0 + 0.02 * (grip(o) - grip(i)), 0.3, 2.0);
+                    if self.rng.chance(rip) {
+                        w = o;
+                    }
+                }
+                let fall = t + self.rng.range(0.6, 1.0);
+                self.agents[i].down_until = self.agents[i].down_until.max(fall);
+            }
+            self.loose_won(w, b, scoop && w == i);
+            return;
+        }
+    }
+
+    /// His chance to pick up a loose ball on the run (engine gaps item 4):
+    /// his hands and feet against his level's typical starter at his
+    /// position, less as it bounces faster.
+    fn scoop_chance(&self, i: usize, speed: f64) -> f64 {
+        let a = &self.agents[i];
+        let pos = self.player(i).position;
+        let typ = |x: Attr| super::synthetic::typical_starter(self.level, pos, x);
+        let own = 0.6 * a.a(Attr::Catching) + 0.4 * a.a(Attr::Agility);
+        let norm = 0.6 * typ(Attr::Catching) + 0.4 * typ(Attr::Agility);
+        clamp(LOOSE_SCOOP + 0.01 * (own - norm), 0.15, 0.95) * (1.0 - speed / 8.0).max(0.2)
+    }
+
+    /// He came up with the loose ball (engine gaps item 4). It is dead
+    /// where he has it when he is down (on the ground in college and high
+    /// school, touched by an opponent in the NFL) or the rules say so:
+    /// only the fumbler may advance his own team's fumble on some plays (a
+    /// teammate's is dead, back at the spot of the fumble if he got it
+    /// ahead of it), and a high school try ends when the defense has it.
+    /// Otherwise he runs with it. A quarterback who picks up his own
+    /// fumbled snap behind the line goes on with the play.
+    fn loose_won(&mut self, w: usize, b: V2, on_feet: bool) {
+        let t = self.t;
+        let Some(mut l) = self.loose else { return };
+        let side = self.agents[w].side;
+        if !on_feet {
+            // He is on it.
+            self.agents[w].pos = b;
+        }
+        l.rec = Some((w, b));
+        self.loose = Some(l);
+        self.notes.recovered = Some((side, self.agents[w].id));
+        let own = side == l.side;
+        // A muffed snap is a backward pass: anyone may advance it.
+        let barred = own && w != l.by && l.how != FumbleHow::Snap && self.fumble_rule.fumbler_only;
+        let ended = !own && self.fumble_rule.defense_ends;
+        let touched =
+            (0..self.agents.len()).any(|j| self.agents[j].side != side && self.agents[j].pos.dist(b) < LOOSE_TOUCH);
+        // His own side's ball on the ground: he covers it up and stays
+        // down (real, 2.7% of the offense's recoveries go anywhere).
+        let down = !on_feet && (self.down_on_fall || touched || own);
+        if barred || ended || down {
+            let fwd = if l.side == 0 { 1.0 } else { -1.0 };
+            let x = if barred && (b.x - l.at.x) * fwd > 0.0 { l.at.x } else { b.x };
+            self.dead = true;
+            self.ball = Ball::Dead(v2(x, b.y));
+            self.progress = x;
+            self.carrier_side = side;
+            return;
+        }
+        if !on_feet {
+            // Untouched on the ground in the NFL: he gets up with it.
+            self.agents[w].down_until = t + LOOSE_GETUP;
+        }
+        self.ball = Ball::Held(w);
+        self.carrier_side = side;
+        self.goal = if side == 0 { 1.0 } else { -1.0 };
+        self.progress = self.agents[w].pos.x;
+        self.fight.clear();
+        if self.resume == Some(w) && on_feet && l.how == FumbleHow::Snap && b.x < self.los {
+            return;
+        }
+        self.resume = None;
+        for k in 0..self.agents.len() {
+            if matches!(self.agents[k].job, Job::Out) {
+                continue;
+            }
+            self.agents[k].job = if k == w {
+                Job::Carrier
+            } else if self.agents[k].side == side {
+                Job::Escort
+            } else {
+                Job::Pursue
+            };
+        }
+    }
+
+    /// How a play with a loose ball ended (engine gaps item 4), in the
+    /// sim's frame: who has it where, or the score. A ball out of bounds
+    /// between the goal lines is the fumbling team's (the CFL: the team's
+    /// that touched it last), back at the spot of the fumble when it went
+    /// forward and the book says so; behind a goal line it is a touchback
+    /// when the other side put it there and a safety when its own did. A
+    /// man who recovers the other side's fumble inside his own 5 and is
+    /// carried into his end zone keeps it where he got it (the momentum
+    /// rule). None without a fumble.
+    pub fn loose_end(&self) -> Option<LooseEnd> {
+        let l = self.loose?;
+        let g = goal();
+        let book = self.fumble_rule.book;
+        if let Some(o) = l.out {
+            let side = if book.last_touch { l.touched } else { l.side };
+            if o.x >= g {
+                return Some(if l.side == 0 { LooseEnd::Touchback(1) } else { LooseEnd::Safety(1) });
+            }
+            if o.x <= 0.0 {
+                return Some(if l.side == 0 { LooseEnd::Safety(0) } else { LooseEnd::Touchback(0) });
+            }
+            let fwd = if l.side == 0 { 1.0 } else { -1.0 };
+            let back = book.forward_back && l.how != FumbleHow::Snap && (o.x - l.at.x) * fwd > 0.0;
+            return Some(LooseEnd::Ball { side, x: if back { l.at.x } else { o.x } });
+        }
+        let Some((w, at)) = l.rec else {
+            return Some(LooseEnd::Ball { side: l.side, x: self.ball_pos().x });
+        };
+        let side = self.agents[w].side;
+        let x = self.progress;
+        // His own end zone and the other's goal line, in the sim's frame.
+        let (own_end, scored) = if side == 0 { (x <= 0.0, x >= g) } else { (x >= g, x <= 0.0) };
+        if scored {
+            return Some(LooseEnd::Touchdown(side));
+        }
+        if own_end {
+            let in_end = if side == 0 { at.x <= 0.0 } else { at.x >= g };
+            let inside_5 = if side == 0 { at.x <= 5.0 } else { at.x >= g - 5.0 };
+            return Some(if l.side == side {
+                LooseEnd::Safety(side)
+            } else if in_end {
+                LooseEnd::Touchback(side)
+            } else if inside_5 {
+                LooseEnd::Ball { side, x: at.x }
+            } else {
+                LooseEnd::Safety(side)
+            });
+        }
+        Some(LooseEnd::Ball { side, x })
+    }
+
+    /// Did the passer see this rusher coming (engine gaps item 6)? Where
+    /// the rusher was a beat before he got there, inside the passer's field
+    /// of view about his eyes (`eyes`, on his read downfield; as wide as
+    /// his pocket presence lets him take in, as in `in_cone`): what he
+    /// feels at two yards (`sees`) comes too late to tuck the ball.
+    pub fn saw_coming(&self, qb: usize, d: usize, eyes: V2) -> bool {
+        let a = &self.agents[qb];
+        let then = self.agents[d].pos - self.agents[d].vel.scale(0.35);
+        let rel = then - a.pos;
+        if rel.len() < 1e-6 || eyes.len() < 1e-6 {
+            return true;
+        }
+        let cos = eyes.norm().dot(rel.norm()).clamp(-1.0, 1.0);
+        let half = 1.2 + 0.006 * (a.a(Attr::PocketPresence) - 50.0);
+        acos_lt(cos, half)
     }
 
     /// Injury risk from a hit (topic 6): force, fatigue, his proneness and
@@ -3964,8 +4525,12 @@ impl<'a> Sim<'a> {
         }
     }
 
-    /// Ball carrier out of bounds, in the end zone, or down.
+    /// Ball carrier out of bounds, in the end zone, or down. Nothing when
+    /// he no longer has it (it came loose this tick).
     pub fn check_carrier(&mut self, c: usize) -> bool {
+        if !matches!(self.ball, Ball::Held(h) if h == c) {
+            return false;
+        }
         let a = &self.agents[c];
         let p = a.pos;
         if p.y <= 0.0 || p.y >= width() {
@@ -3994,6 +4559,13 @@ impl<'a> Sim<'a> {
             return true;
         }
         if self.down_on_fall && self.t < a.down_until {
+            self.dead = true;
+            self.ball = Ball::Dead(p);
+            return true;
+        }
+        // In the NFL a man on the ground with the ball (a fumble he fell on)
+        // is down when an opponent touches him.
+        if self.t < a.down_until && self.agents.iter().any(|d| d.side != a.side && d.pos.dist(p) < LOOSE_TOUCH_DOWN) {
             self.dead = true;
             self.ball = Ball::Dead(p);
             return true;

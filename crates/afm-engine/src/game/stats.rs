@@ -214,6 +214,14 @@ pub struct PlayRecord {
     /// men it carried, footsteps and ejections. Empty on most plays.
     #[serde(default, skip_serializing_if = "super::sim::FireNotes::is_empty")]
     pub fire: super::sim::FireNotes,
+    /// The play's first fumble (engine gaps items 4-7): how the ball came
+    /// out, how far the man who came up with it took it and whether it
+    /// went out of bounds; `recovered` is who came up with it. None on
+    /// almost every play.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fumble: Option<super::sim::FumbleNote>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovered: Option<u32>,
 }
 
 impl PlayRecord {
@@ -320,6 +328,8 @@ impl PlayRecord {
             contact: Vec::new(),
             moving: false,
             fire: Default::default(),
+            fumble: None,
+            recovered: None,
         }
     }
 
@@ -1369,6 +1379,13 @@ impl GameStats {
             if r.fumble_lost {
                 self.team[team].fumbles_lost += 1;
                 self.team[team].turnovers += 1;
+            }
+            // The man of the other side who came up with it (engine gaps
+            // item 4: it was never counted).
+            if let Some(rid) = r.recovered
+                && side(rid, d) != team
+            {
+                self.line(side(rid, d), rid).fumble_rec += 1;
             }
         }
         // A turnover in the box score is an interception or a lost fumble
