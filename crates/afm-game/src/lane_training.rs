@@ -1307,6 +1307,7 @@ fn dev(w: &World, id: u32) -> Reply {
         "mood": mood_words(p),
         "craft": craft::tab(w, t, i, eye),
         "projects": projects::tab(w, t, i),
+        "clues": projects::clues(w, t, i),
         "notes": notes,
         "practice_log": log_lines,
         "habits": Tend::ALL.iter().enumerate().map(|(k, t)| json!({ "k": k, "label": t.label() })).collect::<Vec<_>>(),
@@ -2003,6 +2004,8 @@ pub(crate) fn squad(w: &World) -> Reply {
             v["focus"] = json!((!pts.is_empty()).then(|| pts.iter().map(|&p| craft::point_label(p)).collect::<Vec<_>>().join(" · ")));
             v["focus_by"] = json!(by);
             v["teacher"] = teacher(w, t, i);
+            // His development projects on your staff (the progression update).
+            v["project"] = projects::row(w, t, i);
             let plan = w.training.plan_of(id);
             v["moving"] = json!(plan.moving.map(|(to, prog)| format!("{} ({prog}%)", Position::ALL[to as usize % Position::ALL.len()].name())));
             v["body_target"] = json!(plan.body.map(|b| b.0));
