@@ -214,8 +214,10 @@ Fumbles from scrimmage are 20% short (0.79 a team game, real 0.98), and fumbles 
 **10. Designed quarterback runs.** (medium) Engine 0.54 a team game (2.1% of designed runs), real 1.69 (6.9%: sneaks, keepers, draws and power). The test league's passers are typical (Speed 61), so part of this can be the roster. It goes into SF10 (the roster shapes every call), which measures it on world rosters.
 
 **29. Interior DL rotation.** (low-medium) The top two DTs play 78% of snaps (real 68% and 50%). Edges were fixed with bug 358; interior linemen were not. A small fix.
+- **Built 2026-11-18** (thread "Fix DL rotation and weather size"): the staff rotates the inside line by plan, in waves (`game/flow.rs`, `line_waves`); NFL ranks 1-4 went from 82%, 74%, 38%, 5% to 71%, 63%, 48%, 14% (real 68%, 50%, 31%, 16%). The second man stays high because the engine has no edges-inside package (`GAPS.md`). Sizes proposed, not confirmed; measured in `docs/match-engine.md`, "The inside line's rotation and the weather's size".
 
 **30. Rain and wind at the real size.** (low) Rain costs the engine 1.9 points a team against the default dry games at 5 mph (yards an attempt -0.46); real rain games 3.4 (-0.75), on 60 games (a standard error of about 1 point). A 17 mph wind costs 2.0 points against the default 5 mph (2.5 against no wind); real 15-19 mph 2.8 against dry games under 10 mph (69 games). Completion and yards a carry move about as real. Weather reads throws, catches, fumbles, kicks and both sides' calls; footing (speed, cuts) and heat (fatigue) are not read. A small fix, kept inside the real numbers' error.
+- **Built 2026-11-18** (same thread): the wind's miss grows with its square and levels off past 20 mph; a wet ball misses more the farther it flies (`game/scrimmage.rs`, `WIND_MISS`, `WIND_GALE`, `WET_THROW`). Rain now costs 2.36 points a team and 0.68 yards an attempt (real 3.45 and 0.75; 2.87 points under 10 mph), 17 mph wind 2.34 points against the default (real 2.69). Footing and heat are still not read, and neither is ball placement after the catch (`GAPS.md`). Sizes proposed, not confirmed.
 
 ### Not lanes
 
