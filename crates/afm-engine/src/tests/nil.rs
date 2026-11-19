@@ -765,8 +765,6 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     // And no budget limit: fitting a short pot is its own test below.
     w.set_sandbox_switch(crate::world::sandbox::Switch::NilBudget, true);
     let usual: Vec<(u32, f64)> = usual_deals(&w, j);
-    let coll: std::collections::HashMap<u32, f64> = collective_deals(&w, j).into_iter().map(|x| (x.0, x.1)).collect();
-    let split = |id: u32| usual.iter().find(|x| x.0 == id).unwrap().1 + coll.get(&id).copied().unwrap_or(0.0);
     let at = |w: &World, id: u32| w.people.iter().position(|p| p.player.id == id).unwrap();
     // Three men staying with seasons left (a man leaving keeps the split;
     // the seat's roster is filled with former pros, whose clock has run).
@@ -803,6 +801,11 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     let k = at(&w, signed);
     let year = deals_year(&w);
     w.people[k].cal.nil_deal = Some(NilDeal { year, amount: 123_000.0, kind: DealKind::Transfer, through: 0 });
+    // The split as it stands once his deal is signed: a deal that pays is
+    // fixed, and the rest of the roster shares what it leaves.
+    let usual: Vec<(u32, f64)> = usual_deals(&w, j);
+    let coll: std::collections::HashMap<u32, f64> = collective_deals(&w, j).into_iter().map(|x| (x.0, x.1)).collect();
+    let split = |id: u32| usual.iter().find(|x| x.0 == id).unwrap().1 + coll.get(&id).copied().unwrap_or(0.0);
     assert!(w.front_office.college.deals.is_empty() && !w.front_office.college.seeded);
     ready(&mut w);
     let pay = |w: &World, id: u32| deal_of(w, id).map(|d| d.0 + d.1).unwrap();
