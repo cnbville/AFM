@@ -375,6 +375,13 @@ pub fn recruiting(w: &World, him: Them) -> Vec<Known> {
         return Vec::new();
     }
     let Some(p) = program_of(w, c) else {
+        // A high school coach asked about his players names them and talks
+        // them up as his ego has it (talk replies item 7: "I'm not going to
+        // pick out kids for you off the top of my head" in his interview).
+        let his = his_players(w, c);
+        if !his.is_empty() {
+            return his_players_known(w, c, &his);
+        }
         let words = match makeup::coach_team(w, c) {
             Some(Team::High(_)) => "he doesn't recruit: his players come up through his school and its feeders",
             Some(Team::Nfl(_) | Team::Other(_)) => {
@@ -423,10 +430,60 @@ pub fn recruiting(w: &World, him: Them) -> Vec<Known> {
     v
 }
 
+/// A high school coach's best players, the most stars first, then the
+/// oldest (talk replies item 7). Empty for anyone else.
+pub fn his_players(w: &World, c: usize) -> Vec<usize> {
+    let Some(team @ Team::High(_)) = makeup::coach_team(w, c) else { return Vec::new() };
+    let mut v: Vec<usize> = team.roster(w).into_iter().filter(|&i| w.people[i].stars >= 2).collect();
+    v.sort_by(|&a, &b| {
+        let (x, y) = (&w.people[a], &w.people[b]);
+        y.stars.cmp(&x.stars).then(x.class_of.cmp(&y.class_of)).then(a.cmp(&b))
+    });
+    v.truncate(NAMED);
+    v
+}
+
+/// His players in words, talked up by his ego: a proud man sells them as
+/// the best at their spot, a modest one says what they are.
+fn his_players_known(w: &World, c: usize, his: &[usize]) -> Vec<Known> {
+    let him = Them::Coach(c);
+    let ego = makeup::Makeup::z(makeup::makeup(w, him).ego);
+    let named: Vec<String> = his
+        .iter()
+        .map(|&i| {
+            let x = &w.people[i];
+            format!(
+                "{}, a {}-star {}, class of {}",
+                x.name,
+                x.stars,
+                crate::world::folk::claims::words::spot(x.player.position),
+                x.class_of
+            )
+        })
+        .collect();
+    let mut v = vec![known(Topic::Recruiting, format!("his best players: {}", named.join("; ")))];
+    v.push(known(
+        Topic::Recruiting,
+        if ego > 0.3 {
+            "he talks them up: to him they're the best at their spots in the state, and any staff would be lucky to get them"
+        } else if ego > -0.2 {
+            "he sells them, but honestly: what each does well and what each still has to learn"
+        } else {
+            "he's modest about them: good kids who work, and he lets their film speak"
+        }
+        .into(),
+    ));
+    if interviewing(w, c) {
+        v.push(known(Topic::Recruiting, "he'd want his best players recruited as part of the hire".into()));
+    }
+    v
+}
+
 /// The people he can name when he talks about his recruiting: his board and
-/// his signings.
+/// his signings, or a high school coach's own players.
 pub fn named(w: &World, c: usize) -> Vec<usize> {
-    let mut v: Vec<usize> = board(w, c).into_iter().take(NAMED).collect();
+    let mut v: Vec<usize> = his_players(w, c);
+    v.extend(board(w, c).into_iter().take(NAMED));
     for i in signed_through(w, c).into_iter().take(NAMED) {
         if !v.contains(&i) {
             v.push(i);

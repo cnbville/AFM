@@ -484,6 +484,15 @@ pub struct Turn {
     pub recruit_points: Vec<super::negotiate::points::RecruitPoint>,
     /// How the line went over with the man across ("Heard as").
     pub landing: Landing,
+    /// Your line answered his counter (taken up, turned down or met with a
+    /// counter of yours): it is off the table (talk replies item 3).
+    pub answered: bool,
+    /// Open promises of yours this line went back on (P1's indexes), broken
+    /// in `apply` with the promise layer's cost (talk replies item 6).
+    pub broken: Vec<u32>,
+    /// What this line settled, for the talk's settled list (talk replies
+    /// item 11): "agreed: ...", "promised: ...", "refused: ...", "open: ...".
+    pub settled: Vec<String>,
 }
 
 /// The game's side of a line (lane N4).
