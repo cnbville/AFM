@@ -71,6 +71,10 @@ pub struct Open {
     /// (`wrap::decides`): no more lines, the meeting's picks decide it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub over: bool,
+    /// The first line only said hello (`Turn::greeting`): his opening's
+    /// question is on the table for the line after it too.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub greeted: bool,
 }
 
 impl Open {
@@ -90,6 +94,7 @@ impl Open {
             reviewed: 0,
             raised_at: 0,
             over: false,
+            greeted: false,
         }
     }
 
@@ -134,6 +139,15 @@ pub fn open(w: &World, scene: u32) -> Option<&Open> {
 /// Who's in the room for a scene's talk.
 pub fn room(w: &World, scene: u32) -> Option<Room> {
     open(w, scene).map(|o| o.room.clone())
+}
+
+/// Moves the man who answers this line to the front of a talk's room, so
+/// the talk reads him (a staff room: the coach the question fits,
+/// `coaching::answerer`).
+pub fn reseat(w: &mut World, scene: u32, who: super::super::Them) {
+    if let Some(o) = w.folk.live.persona.open.iter_mut().find(|o| o.scene == scene) {
+        o.room = super::super::coaching::lead_with(o.room.clone(), who);
+    }
 }
 
 /// Opens a talk in a scene with a room (a channel, the people there), or
@@ -193,6 +207,7 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
     o.room = Room { channel: room.channel, present: people };
     o.heat = t.heat;
     o.patience = t.patience;
+    o.greeted |= t.greeting;
     o.lines = o.lines.saturating_add(1);
     if boiled.is_some() {
         o.boiled = boiled;

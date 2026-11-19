@@ -7,6 +7,10 @@
 //!        world on and prints each July's payday, December's keep-him
 //!        offers, the window's transfers, each class's signed offers and
 //!        NIL Go's denials.
+//!        nil_scheme market <world file> <until year>: plays the world on
+//!        to July 2 of that year and, at each July's payday, compares
+//!        every AI college player's pay with his market price the day
+//!        before (thread "Pay inherited players their market price").
 
 use afm_engine::player::PlayingTime;
 use afm_engine::positions::Position;
@@ -91,7 +95,29 @@ fn main() {
                 }
             }
         }
-        _ => eprintln!("usage: nil_scheme pots <world> | run <world> <until year> <until month>"),
+        Some("market") => {
+            let mut w = afm_engine::save::read_world(Path::new(&args[2])).expect("read the world");
+            w.options.engine_from = Some(2100);
+            let until: i32 = args[3].parse().expect("a year");
+            eprintln!("read, {:?}", w.today);
+            let mut before: HashMap<u32, Priced> = HashMap::new();
+            while w.today.year() < until || w.today.month() < 7 || w.today.day() < 2 {
+                w.advance_day();
+                let (m, d) = (w.today.month(), w.today.day());
+                if m == 6 && d == 30 {
+                    before = priced(&w);
+                    eprintln!("{:?}: {} players priced", w.today, before.len());
+                }
+                if m == 7 && d == 2 && !before.is_empty() {
+                    payday(&w);
+                    against_market(&w, &before);
+                    scales(&w, &before);
+                }
+            }
+        }
+        _ => eprintln!(
+            "usage: nil_scheme pots <world> | run <world> <until year> <until month> | market <world> <until year>"
+        ),
     }
 }
 
@@ -321,7 +347,7 @@ fn payday(w: &World) {
             p.player.position.name(),
             p.stars,
             p.last_role,
-            p.last_performance.unwrap_or(0.0),
+            p.last_performance.get().unwrap_or(0.0),
             w.program_name(j),
             m(w.programs[j].collective.budget)
         );
@@ -655,5 +681,175 @@ fn left_on_contract(w: &World, win: &Window) {
             })
             .collect();
         println!("  {}: {}", GROUPS[g], cells.join("; "));
+    }
+}
+
+/// One player's market price the day before July's payday, with what the
+/// pay is read against: his program, role, play over his level's starters
+/// at his spot and whether he holds a deal for the year (a keep-him offer,
+/// or one he signed).
+struct Priced {
+    j: usize,
+    price: f64,
+    role: Option<PlayingTime>,
+    edge: f64,
+    keep: bool,
+    signed: bool,
+    pos: Position,
+}
+
+fn priced(w: &World) -> HashMap<u32, Priced> {
+    use afm_engine::world::nil_bid::DealKind;
+    let year = afm_engine::world::nil_bid::deal_year(w.today);
+    afm_engine::world::nil_bid::market_all(w)
+        .into_iter()
+        .map(|(i, price, edge)| {
+            let p = &w.people[i];
+            let j = p.college.expect("a college player");
+            let deal = p.cal.nil_deal.filter(|d| d.pays(year));
+            (
+                p.player.id,
+                Priced {
+                    j,
+                    price,
+                    role: p.last_role,
+                    edge: if edge.is_finite() { edge } else { 0.0 },
+                    keep: deal.is_some_and(|d| d.kind == DealKind::Keep),
+                    signed: deal.is_some_and(|d| d.kind != DealKind::Keep),
+                    pos: p.player.position,
+                },
+            )
+        })
+        .collect()
+}
+
+/// July's pay against the market price, for everyone still at the same
+/// school: the median of pay over price, and the shares under 0.5 and 0.8
+/// of it and over 1.25, by level and role, by a starter's play, by deal
+/// and by position group for starters.
+fn against_market(w: &World, before: &HashMap<u32, Priced>) {
+    println!("== July {}: AI pay against market price (the day before) ==", w.today.year());
+    // (level, row label, pay / price)
+    let mut rows: Vec<(&'static str, String, f64, f64)> = Vec::new();
+    for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+        let Some(b) = before.get(&p.player.id) else { continue };
+        if p.college != Some(b.j) || b.price <= 0.0 {
+            continue;
+        }
+        let Some(g) = level(w, b.j) else { continue };
+        let pay = if p.cal.nil_paid > 0.0 { p.cal.nil_paid as f64 } else { money(p) };
+        let r = pay / b.price;
+        let role = match b.role {
+            Some(PlayingTime::Starter) => "starter",
+            Some(PlayingTime::Rotation) => "rotation",
+            _ => "backup",
+        };
+        rows.push((g, format!("1 {role}"), r, b.price));
+        if role == "starter" {
+            let band = match b.edge {
+                x if x < 0.0 => "under the starters' median",
+                x if x < 5.0 => "0-5 over",
+                x if x < 10.0 => "5-10 over",
+                _ => "10+ over",
+            };
+            rows.push((g, format!("2 starter, play {band}"), r, b.price));
+            let deal = if b.keep {
+                "keep-him offer"
+            } else if b.signed {
+                "signed deal"
+            } else {
+                "no deal (split)"
+            };
+            rows.push((g, format!("3 starter, {deal}"), r, b.price));
+            let group = match b.pos {
+                Position::QB => "QB",
+                Position::RB => "RB",
+                Position::WR => "WR",
+                Position::TE => "TE",
+                Position::OT | Position::IOL => "OL",
+                Position::EDGE | Position::DT => "DL",
+                Position::LB => "LB",
+                Position::CB | Position::S => "DB",
+                _ => "ST",
+            };
+            rows.push((g, format!("4 starter {group}"), r, b.price));
+        } else {
+            let band = if b.edge >= 0.0 { "playing over the starters' median" } else { "under it" };
+            rows.push((g, format!("2 {role}, {band}"), r, b.price));
+        }
+    }
+    for g in ["P4", "G5", "FCS"] {
+        println!("-- {g} --");
+        let mut labels: Vec<&String> = rows.iter().filter(|r| r.0 == g).map(|r| &r.1).collect();
+        labels.sort();
+        labels.dedup();
+        for l in labels {
+            let mut v: Vec<f64> = rows.iter().filter(|r| r.0 == g && &r.1 == l).map(|r| r.2).collect();
+            let mut price: Vec<f64> = rows.iter().filter(|r| r.0 == g && &r.1 == l).map(|r| r.3).collect();
+            let n = v.len() as f64;
+            let share = |f: &dyn Fn(f64) -> bool| 100.0 * v.iter().filter(|&&x| f(x)).count() as f64 / n;
+            let (u5, u8, o) = (share(&|x| x < 0.5), share(&|x| x < 0.8), share(&|x| x > 1.25));
+            println!(
+                "{:<44} n {:>5}  market median {:>8}  pay/market p25 {:.2} median {:.2} p75 {:.2}  under 0.5 {:>4.0}%  under 0.8 {:>4.0}%  over 1.25 {:>4.0}%",
+                &l[2..],
+                v.len(),
+                m(q(&mut price, 0.5)),
+                q(&mut v, 0.25),
+                q(&mut v, 0.5),
+                q(&mut v, 0.75),
+                u5,
+                u8,
+                o
+            );
+        }
+    }
+}
+
+/// The two scales side by side against the real anchors: for everyone
+/// priced the day before and still at the same school, July's pay and the
+/// market price by level, role and position (starters against The NIL
+/// Standard's P4 medians, the rest by position group).
+fn scales(w: &World, before: &HashMap<u32, Priced>) {
+    use Position as P;
+    println!(
+        "== July {}: pay and market price by position (real P4 starters: QB 2M, EDGE 929K, OT 907K, WR 726K, CB 572K, RB 527K, IOL 525K) ==",
+        w.today.year()
+    );
+    for g in ["P4", "G5", "FCS"] {
+        for (role, want) in
+            [("starters", PlayingTime::Starter), ("rotation", PlayingTime::Rotation), ("backups", PlayingTime::Backup)]
+        {
+            let mut line = Vec::new();
+            for pos in P::ALL {
+                let (mut pay, mut price) = (Vec::new(), Vec::new());
+                for p in w.people.iter().filter(|p| p.stage == Stage::College && p.player.position == pos) {
+                    let Some(b) = before.get(&p.player.id) else { continue };
+                    if p.college != Some(b.j)
+                        || level(w, b.j) != Some(g)
+                        || !matches!(
+                            (b.role, want),
+                            (Some(PlayingTime::Starter), PlayingTime::Starter)
+                                | (Some(PlayingTime::Rotation), PlayingTime::Rotation)
+                        ) && !(want == PlayingTime::Backup
+                            && !matches!(b.role, Some(PlayingTime::Starter | PlayingTime::Rotation)))
+                    {
+                        continue;
+                    }
+                    pay.push(if p.cal.nil_paid > 0.0 { p.cal.nil_paid as f64 } else { money(p) });
+                    price.push(b.price);
+                }
+                if pay.is_empty() {
+                    continue;
+                }
+                line.push(format!(
+                    "{} n{} pay {} market {}",
+                    pos.name(),
+                    pay.len(),
+                    m(q(&mut pay, 0.5)),
+                    m(q(&mut price, 0.5))
+                ));
+            }
+            println!("-- {g} {role}: {}", line.join(" | "));
+        }
     }
 }

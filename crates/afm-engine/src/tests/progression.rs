@@ -278,7 +278,7 @@ fn a_strength_project_builds_a_big_responder_and_barely_moves_a_non_responder() 
 }
 
 fn on(eye: f64, level: Level, years: u32) -> progression::ReadOn {
-    progression::ReadOn { eye, coaching: 12.0, level, years, seen_top: 60.0 }
+    progression::ReadOn { eye, coaching: 12.0, level, years, seen_top: 60.0, knack_seen: None }
 }
 
 #[test]
@@ -361,6 +361,16 @@ fn a_project_ends_when_he_moves_to_a_new_staff() {
     }
     assert!(a.prog.project().is_none() && a.prog.body_project().is_none());
     assert_eq!(a.prog.staff, new);
+    // One who brought only a body project isn't picked for a skill one at
+    // the same checkpoint either: his new staff picks from the next.
+    let mut d = boy(9_603, Position::S);
+    progression::ensure(&mut d);
+    assert!(progression::start_body(&mut d, progression::BodyKind::Strength, false));
+    d.prog.staff = old;
+    for seed in 0..40 {
+        let out = progression::ai_room(&[&d], Room::S, progression::Lean::DEVELOPER, 20.0, 1.0, new, seed);
+        assert!(!out.iter().any(|c| matches!(c.1, progression::Change::Start(_))), "{out:?}");
+    }
     // On his old staff it would have run on.
     let mut b = boy(9_601, Position::S);
     progression::ensure(&mut b);
@@ -376,4 +386,102 @@ fn a_project_ends_when_he_moves_to_a_new_staff() {
     progression::ai_single(&mut b, progression::Lean::BALANCED, 10.0, false, 10.0, new);
     assert_eq!(b.prog.staff, new);
     assert!(b.prog.project() != Some(Attr::Tackling) || b.prog.project_years == 0);
+}
+
+#[test]
+fn a_project_takes_a_little_of_the_rest_of_the_rooms_one_on_one_time() {
+    // Design item 8: each project takes 30 minutes past its man's share out
+    // of the others' 30 each.
+    assert_eq!(progression::room_time(9, 0), 1.0);
+    assert_eq!(progression::room_time(2, 2), 1.0);
+    assert!((progression::room_time(9, 2) - (1.0 - 60.0 / 210.0)).abs() < 1e-12);
+    assert!(progression::room_time(9, 2) < progression::room_time(9, 1));
+    let cut = progression::room_coaching_cut(12.0, progression::room_time(9, 2));
+    assert!((0.2..0.5).contains(&cut), "cut {cut}");
+    // The same corners in a room with and without two projects: a little
+    // less technique, never more.
+    let (mut full, mut thin) = (0.0, 0.0);
+    for id in 0..200u32 {
+        for time in [1.0, progression::room_time(9, 2)] {
+            let mut p = boy(9_660_000 + id, Position::CB);
+            let mut rng = Rng::new(id);
+            let z0 = p.attributes.get(Attr::ZoneCoverage);
+            let ctx = SeasonContext { room_time: time, ..SeasonContext::new(Level::FBS, 12.0, PlayingTime::Starter) };
+            for _ in 0..3 {
+                develop_season(&mut p, &ctx, &mut rng);
+            }
+            let g = p.attributes.get(Attr::ZoneCoverage) - z0;
+            if time == 1.0 { full += g } else { thin += g }
+        }
+    }
+    assert!(thin < full, "thin {thin} against full {full}");
+    assert!(thin > 0.95 * full, "a little less, not a lot: {thin} against {full}");
+}
+
+#[test]
+fn a_man_runs_a_project_after_his_staffs_changes() {
+    use progression::Change;
+    let mut p = boy(9_670_001, Position::CB);
+    assert!(!progression::runs_after(&p, &[]));
+    assert!(progression::runs_after(&p, &[Change::Start(Attr::ManCoverage), Change::Staff(5)]));
+    assert!(progression::start_project(&mut p, Attr::ManCoverage, true));
+    assert!(progression::runs_after(&p, &[Change::Adopt]));
+    assert!(!progression::runs_after(&p, &[Change::End, Change::EndBody]));
+}
+
+#[test]
+fn your_staff_hears_of_a_click_a_dead_end_and_a_dropped_project() {
+    use progression::News;
+    let mut p = boy(9_680_001, Position::CB);
+    assert!(progression::start_project(&mut p, Attr::ManCoverage, true));
+    let a = Some(Attr::ManCoverage);
+    // A first year that clicked.
+    p.prog.project_years = 1;
+    p.prog.project_lift = 16;
+    assert_eq!(progression::news(a, None, &p, 7.0), vec![News::Clicked(Attr::ManCoverage)]);
+    assert!(!progression::you_see_dead_end(&p));
+    assert!(progression::news(a, None, &p, 0.0).is_empty());
+    // A year that opened under a point and a half: a year sooner than an AI
+    // staff, which waits for two (`ai_keeps`).
+    p.prog.project_lift = 2;
+    assert!(progression::you_see_dead_end(&p));
+    assert_eq!(progression::news(a, None, &p, 0.0), vec![News::Stalled(Attr::ManCoverage)]);
+    // Dropped: it no longer runs after the year.
+    progression::end_project(&mut p);
+    assert_eq!(progression::news(a, None, &p, 0.0), vec![News::Dropped(Attr::ManCoverage)]);
+    assert_eq!(
+        progression::news(None, Some(progression::BodyKind::Strength), &p, 0.0),
+        vec![News::BodyDone(progression::BodyKind::Strength)]
+    );
+    // Every note reads as staff words, with no number in it.
+    for n in [News::Clicked(Attr::ManCoverage), News::Stalled(Attr::Tackling), News::Dropped(Attr::Footwork)] {
+        let (dept, text) = n.words();
+        assert_eq!(dept, "position");
+        assert!(!text.chars().any(|c| c.is_ascii_digit()), "{text}");
+    }
+}
+
+#[test]
+fn the_position_coachs_read_of_a_project_sharpens_with_the_weeks() {
+    let mut p = boy(9_690_001, Position::CB);
+    assert!(progression::start_project(&mut p, Attr::ManCoverage, true));
+    let k = progression::knack(&p, progression::Kind::Coverage);
+    assert!(progression::project_clue(&p, Attr::ManCoverage, 10.0, 2.0, 1.0).is_none());
+    let miss =
+        |weeks: f64, eye: f64| (progression::project_clue(&p, Attr::ManCoverage, eye, weeks, 1.0).unwrap() - k).abs();
+    assert!(miss(3.0, 10.0) > miss(12.0, 10.0));
+    assert!(miss(12.0, 10.0) > miss(52.0, 10.0));
+    // A sharper coach reads it sooner.
+    assert!(miss(6.0, 18.0) < miss(6.0, 6.0));
+    // The day it started gives the weeks; with none, its years.
+    p.prog.project_on = 20_000;
+    assert!((progression::project_weeks(&p, crate::calendar::Date(20_070)) - 10.0).abs() < 1e-9);
+    p.prog.project_on = 0;
+    p.prog.project_years = 2;
+    assert_eq!(progression::project_weeks(&p, crate::calendar::Date(20_070)), 104.0);
+    // The strength staff's testing read sharpens with each testing day.
+    let b = progression::body_knack(&p);
+    assert!(progression::testing_clue(&p, 10.0, 0, 1.0).is_none());
+    let tmiss = |days: usize| (progression::testing_clue(&p, 10.0, days, 1.0).unwrap() - b).abs();
+    assert!(tmiss(1) > tmiss(4));
 }

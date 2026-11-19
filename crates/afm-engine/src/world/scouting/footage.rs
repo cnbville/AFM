@@ -91,7 +91,7 @@ pub fn footage(w: &World, i: usize) -> Footage {
     let p = &w.people[i];
     let pos = p.cal.pro_position.unwrap_or(p.player.position);
     let mut f = Footage {
-        luck: clamp(p.last_performance.map_or(0.0, |x| x - p.player.overall()), -8.0, 8.0),
+        luck: clamp(p.last_performance.get().map_or(0.0, |x| x - p.player.overall()), -8.0, 8.0),
         ..Default::default()
     };
     match p.stage {

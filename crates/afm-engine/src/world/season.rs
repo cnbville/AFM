@@ -846,6 +846,61 @@ fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec
     by
 }
 
+/// The share of his position coach's one-on-one time each man keeps once
+/// this checkpoint's project changes land (design item 8,
+/// `progression::room_time`): every college program's and high school's
+/// rooms, yours too. By person; 1 for a man on a project or in no room.
+fn room_times(
+    w: &World,
+    role_of: &[Option<PlayingTime>],
+    changes: &HashMap<usize, Vec<crate::progression::Change>>,
+) -> Vec<f64> {
+    use crate::progression::{Room, room_time, runs_after};
+    let mut rooms: HashMap<(bool, usize, Room), (usize, usize)> = HashMap::new();
+    type Key = (bool, usize, Room);
+    let mut key_of: Vec<Option<(Key, bool)>> = vec![None; w.people.len()];
+    for (i, p) in w.people.iter().enumerate() {
+        if role_of[i].is_none() {
+            continue;
+        }
+        let Some(room) = Room::of(p.player.position) else { continue };
+        let key = match p.stage {
+            Stage::College => match p.college {
+                Some(c) => (true, c, room),
+                _ => continue,
+            },
+            Stage::HighSchool => (false, p.hs, room),
+            _ => continue,
+        };
+        let on = runs_after(&p.player, changes.get(&i).map_or(&[][..], |v| &v[..]));
+        let e = rooms.entry(key).or_default();
+        e.0 += 1;
+        e.1 += usize::from(on);
+        key_of[i] = Some((key, on));
+    }
+    key_of
+        .iter()
+        .map(|k| match k {
+            Some((key, false)) => {
+                let (n, on) = rooms[key];
+                room_time(n, on)
+            }
+            _ => 1.0,
+        })
+        .collect()
+}
+
+/// Your staff's notes on your men's projects after their checkpoint (a
+/// click, a dead end, one dropped, a body project done).
+pub(crate) fn project_notes(w: &mut World, news: Vec<(u32, crate::progression::News)>) {
+    let d = w.today;
+    for (id, n) in news {
+        let (dept, text) = n.words();
+        let name = w.people.iter().find(|p| p.player.id == id).map_or(String::new(), |p| p.name.clone());
+        w.training.note(d, id, dept, format!("[[p:{id}|{name}]] {text}."));
+    }
+}
+
 pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     super::coach::set_freedom_norms(w);
     let year = w.year as u64;
@@ -929,6 +984,10 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     // The AI staffs' skill projects (the progression update, design items
     // 8 and 13-15), room by room; your own staff's are yours to set.
     let projects = ai_projects(w, &role_of);
+    // A project takes the position coach's one-on-one minutes, so the rest
+    // of the room gets a little less (design item 8).
+    let room_time = room_times(w, &role_of, &projects);
+    let news: std::sync::Mutex<Vec<(u32, crate::progression::News)>> = std::sync::Mutex::new(Vec::new());
     // Each player's real injuries since his last step (audit item 1), for
     // a stage whose last season played on the engine.
     let real = [Stage::HighSchool, Stage::College].map(|s| real_hurts(w, s));
@@ -968,6 +1027,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         let Some(role) = *role else { return };
         p.incident = false;
         p.cal.season_reset();
+        // A college part left blank by a write of nothing goes (memory diet).
+        p.later.tidy();
         let group = Group::of(p.player.position);
         // His place in his departments' time (support departments).
         let tier = super::departments::tier_of(role);
@@ -1170,7 +1231,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         );
         let ctx = SeasonContext {
             trouble,
-            adjustment: p.pending_dip.take().unwrap_or(0.0),
+            // Taken only where his college part is kept: a high schooler's
+            // never is, and taking would make it (memory diet, `stored`).
+            adjustment: p.later.stored_mut().and_then(|l| l.pending_dip.take()).unwrap_or(0.0),
             situation: clamp(team_situation + background::situation_push(&p.player, &p.bg), -1.0, 1.0),
             payday: std::mem::take(&mut p.cal.payday),
             style,
@@ -1195,6 +1258,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             },
             hurt: hurts[i].map(|h| hurt_for_step(&mut p.player, h, today)),
             bond: bond_lift[i],
+            room_time: room_time[i],
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         // Last season's results name its row (growth from results).
@@ -1210,7 +1274,15 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         for &c in projects.get(&i).into_iter().flatten() {
             crate::progression::apply(&mut p.player, c);
         }
+        let before = (p.player.prog.project(), p.player.prog.body_project());
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
+        if ctx.seat_plan {
+            let n = crate::progression::news(before.0, before.1, &p.player, report.project_click);
+            if !n.is_empty() {
+                let id = p.player.id;
+                news.lock().unwrap().extend(n.into_iter().map(|x| (id, x)));
+            }
+        }
         if ctx.hurt.is_some() && report.rehab_due {
             rehab_due.lock().unwrap().push(p.player.id);
         }
@@ -1226,12 +1298,16 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             };
             super::wlog::why::growth(log, when, p.player.id, &ctx, staff, &report);
         }
-        if let Some(gain) = p.cal.spring_gain_ahead.take() {
+        // Read and cleared only where his calendar's rest is kept: a
+        // high schooler's never is (memory diet, `stored`).
+        if let Some(gain) = p.cal.more.stored_mut().and_then(|m| m.spring_gain_ahead.take()) {
             crate::development::open_row_with_spring_step(&mut p.player, gain);
         }
         p.last_role = Some(role);
-        p.cal.nil_role = None;
-        p.last_performance = p.player.history.last().and_then(|h| h.performance.get());
+        if let Some(m) = p.cal.more.stored_mut() {
+            m.nil_role = None;
+        }
+        p.last_performance = p.player.history.last().and_then(|h| h.performance.get()).into();
         p.sit_out = 0.0;
         // JUCO classes: transferable credits and grades build back, or don't.
         if p.stage == Stage::College
@@ -1280,6 +1356,12 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         book.insert(id, crate::development::YearHurt { rehab: true, on: today, ..Default::default() });
     }
     w.training.year_hurt = book;
+    // Your staff's word on your men's projects (a click, a dead end, one
+    // dropped, a body project done), by id so any core count writes the
+    // same order.
+    let mut news = news.into_inner().unwrap();
+    news.sort_by_key(|x| x.0);
+    project_notes(w, news);
     // Each closed ledger starts the new season, its reads kept as his past.
     for (id, mut l) in closing {
         l.roll(w.year);
@@ -1328,7 +1410,7 @@ pub(crate) fn team_strength(roster: &[usize], people: &[super::Person]) -> (f64,
         let camp =
             p.player.history.last().map_or(p.player.overall(), |h| h.overall_start + h.spring_open.unwrap_or(0.0));
         pre += camp;
-        sum += p.last_performance.unwrap_or(camp);
+        sum += p.last_performance.get().unwrap_or(camp);
         n += 1.0;
     }
     if n == 0.0 { (30.0, 30.0, incidents) } else { (sum / n, pre / n, incidents) }
@@ -1369,7 +1451,7 @@ pub(crate) fn record_lineups(w: &mut World) {
                 continue;
             }
             let h = q.player.history.last();
-            let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
+            let v = q.last_performance.get().unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
             sum[q.player.position.index()] += v;
             n[q.player.position.index()] += 1;
         }
@@ -1380,7 +1462,7 @@ pub(crate) fn record_lineups(w: &mut World) {
         for &i in &p.roster {
             let q = &w.people[i];
             let h = q.player.history.last();
-            let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
+            let v = q.last_performance.get().unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
             match q.last_role {
                 Some(PlayingTime::Rotation) => rot = (rot.0 + v, rot.1 + 1.0),
                 Some(PlayingTime::Starter) => {

@@ -458,6 +458,12 @@ pub struct Prog {
     /// Your strength staff set it (an AI staff never ends it).
     #[serde(default)]
     pub body_yours: bool,
+    /// The day his skill project started (`Date` days, 0 not known: an AI
+    /// staff's, or an older save's). Your position coach's read of how he
+    /// takes to it sharpens by the weeks since (`project_weeks`). It sits in
+    /// the struct's padding, so the store stays the same size.
+    #[serde(default)]
+    pub project_on: u16,
     /// The staff his projects belong to (`staff_code`): a project is a
     /// staff's own plan, so it ends when he moves to another (0: an older
     /// save, taken as the staff he is with).
@@ -1026,6 +1032,7 @@ pub fn start_project(p: &mut Player, a: Attr, yours: bool) -> bool {
     if p.prog.project() != Some(a) {
         p.prog.project_years = 0;
         p.prog.project_lift = 0;
+        p.prog.project_on = 0;
     }
     p.prog.project = li as u8 + 1;
     p.prog.yours = yours;
@@ -1037,6 +1044,7 @@ pub fn end_project(p: &mut Player) {
     p.prog.project_years = 0;
     p.prog.project_lift = 0;
     p.prog.yours = false;
+    p.prog.project_on = 0;
 }
 
 /// How an AI staff runs projects (design item 13): developers use their
@@ -1123,6 +1131,9 @@ pub struct ReadOn {
     pub level: Level,
     pub years: u32,
     pub seen_top: f64,
+    /// The position coach's read of his knack from weeks on a project of
+    /// the same kind (`project_clue`), in place of the read before any work.
+    pub knack_seen: Option<f64>,
 }
 
 /// Your staff's read of a skill project for the screens: what it would
@@ -1135,8 +1146,11 @@ pub struct ReadOn {
 /// the slowing near the top reads its own number, not his ceiling. The
 /// spreads are Claude's, proposed, not confirmed.
 pub fn your_project_read(p: &Player, a: Attr, on: ReadOn, r: &mut Rng) -> (f64, f64, f64) {
-    let ReadOn { eye, coaching, level, years, seen_top } = on;
+    let ReadOn { eye, coaching, level, years, seen_top, knack_seen } = on;
     let (room, seen) = staff_view(p, a, YOUR_SHARP, eye, r);
+    // Once he has worked at that kind of technique, the coach reads how he
+    // took to it (design item 3), not the clue he gave before.
+    let seen = knack_seen.unwrap_or(seen);
     let sd = room_noise(eye);
     let pro_seasons = p.history.iter().filter(|h| h.level == Level::NFL).count();
     let stage = |k: u32| -> f64 {
@@ -1201,6 +1215,214 @@ pub fn ai_keeps(p: &Player) -> bool {
     }
     let years = p.prog.project_years as f64;
     !(years >= 2.0 && (p.prog.project_lift as f64 / 2.0) / years < 1.5)
+}
+
+/// Whether your own staff sees a dead end (design item 15: a year sooner
+/// than an AI staff): a project that opened under a point and a half a
+/// year once it has had a year. Your staff sees it on the field, in how
+/// his rating climbs; the screens and the staff's note read the same rule.
+pub fn you_see_dead_end(p: &Player) -> bool {
+    if p.prog.project().is_none() {
+        return false;
+    }
+    let years = p.prog.project_years as f64;
+    years >= 1.0 && (p.prog.project_lift as f64 / 2.0) / years < DEAD_END
+}
+
+/// The least a project opens a year before a staff calls it a dead end.
+pub const DEAD_END: f64 = 1.5;
+
+// ---------------------------------------------------------------------------
+// The room's one-on-one time (design item 8)
+// ---------------------------------------------------------------------------
+
+/// The minutes a week a position coach gives each man one-on-one in the
+/// usual week (the focus's usual 30, `development::USUAL_FOCUS_MINUTES`). A
+/// project takes 60 (design item 8): 30 more than his share.
+pub const ONE_ON_ONE_MINUTES: f64 = 30.0;
+
+/// The share of what a position coach's teaching gives a man that comes
+/// through his one-on-one time; the rest is the room's drills, meetings and
+/// tape, which a project doesn't touch (proposed, not confirmed).
+pub const ONE_ON_ONE_SHARE: f64 = 0.25;
+
+/// The position coach's part of a man's coaching (C57: 0.4 in college; a
+/// high school's position staff and a club's the same; proposed, not
+/// confirmed for those).
+pub const ROOM_PART: f64 = 0.4;
+
+/// The share of his position coach's one-on-one time a man keeps when
+/// `projects` of the room's `members` run on a skill project (design item
+/// 8: a project takes the coach's minutes at the 60-minute focus, so the
+/// rest of the room gets a little less). Each project takes 30 minutes
+/// past its man's share out of the others' 30 each. A man on a project
+/// keeps all of his (his 60 are the project). 1 when nobody runs one.
+pub fn room_time(members: usize, projects: usize) -> f64 {
+    let rest = members.saturating_sub(projects);
+    if projects == 0 || rest == 0 {
+        return 1.0;
+    }
+    let taken = (PROJECT_MINUTES - ONE_ON_ONE_MINUTES) * projects as f64;
+    clamp(1.0 - taken / (ONE_ON_ONE_MINUTES * rest as f64), 0.0, 1.0)
+}
+
+/// A project's minutes a week with the position coach (design item 8).
+pub const PROJECT_MINUTES: f64 = 60.0;
+
+/// What `time` (from `room_time`) takes off his coaching, 1-20: the
+/// position coach's part, its one-on-one share, the time he lost. In a
+/// room of 9 with 2 projects each other man loses 2 parts in 7 of his
+/// one-on-one time (about 9 of his 30 minutes), about 0.34 off a typical
+/// 12's coaching: under 1% slower growth in his technique and reads.
+pub fn room_coaching_cut(coaching: f64, time: f64) -> f64 {
+    coaching * ROOM_PART * ONE_ON_ONE_SHARE * (1.0 - clamp(time, 0.0, 1.0))
+}
+
+/// Whether a man runs a skill project once his staff's changes for the
+/// checkpoint land (`ai_room`, `moved`).
+pub fn runs_after(p: &Player, changes: &[Change]) -> bool {
+    let mut on = p.prog.project().is_some();
+    for c in changes {
+        match c {
+            Change::End => on = false,
+            Change::Start(_) => on = true,
+            _ => {}
+        }
+    }
+    on
+}
+
+// ---------------------------------------------------------------------------
+// What your staff tells you about a project (the staff's notes)
+// ---------------------------------------------------------------------------
+
+/// A project's news at his checkpoint, for your staff's notes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum News {
+    /// It clicked (design item 10): half of it shows within weeks.
+    Clicked(Attr),
+    /// Your staff sees a dead end (`you_see_dead_end`).
+    Stalled(Attr),
+    /// His position no longer works the skill, so it ended.
+    Dropped(Attr),
+    /// The body project ended: its leash is used, or his body's clock ran
+    /// out (`BODY_UNTIL`).
+    BodyDone(BodyKind),
+}
+
+/// The news from one man's checkpoint: `skill` and `body` are his projects
+/// as the year opened (after his staff's changes), `click` what clicked.
+pub fn news(skill: Option<Attr>, body: Option<BodyKind>, p: &Player, click: f64) -> Vec<News> {
+    let mut out = Vec::new();
+    if let Some(a) = skill {
+        if p.prog.project() != Some(a) {
+            out.push(News::Dropped(a));
+        } else if click > 0.0 {
+            out.push(News::Clicked(a));
+        } else if you_see_dead_end(p) {
+            out.push(News::Stalled(a));
+        }
+    }
+    if let Some(k) = body
+        && p.prog.body_project().is_none()
+    {
+        out.push(News::BodyDone(k));
+    }
+    out
+}
+
+impl News {
+    /// The note's words (after his name) and the staff who writes it.
+    pub fn words(self) -> (&'static str, String) {
+        match self {
+            News::Clicked(a) => (
+                "position",
+                format!(
+                    "has had it click on his {} project: it came to him all at once, and some of it already shows",
+                    a.label().to_lowercase()
+                ),
+            ),
+            News::Stalled(a) => (
+                "position",
+                format!(
+                    "isn't getting much from his {} project: little came of it this year. Your position coach would end it and give the time to someone else",
+                    a.label().to_lowercase()
+                ),
+            ),
+            News::Dropped(a) => (
+                "position",
+                format!(
+                    "is off his {} project: his position no longer works it. What it built stays",
+                    a.label().to_lowercase()
+                ),
+            ),
+            News::BodyDone(k) => (
+                "strength",
+                format!(
+                    "is done with his {} project: his body has gone as far as the program takes it. What it built stays",
+                    match k {
+                        BodyKind::Strength => "strength",
+                        BodyKind::Speed => "speed",
+                    }
+                ),
+            ),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The knack's clues (design item 3): staff words, never a number
+// ---------------------------------------------------------------------------
+
+/// Weeks since his skill project started (`Prog::project_on`), or its
+/// years on it when the day isn't known.
+pub fn project_weeks(p: &Player, today: crate::calendar::Date) -> f64 {
+    if p.prog.project_on > 0 {
+        ((today.0 - p.prog.project_on as i32) as f64 / 7.0).max(0.0)
+    } else {
+        52.0 * p.prog.project_years as f64
+    }
+}
+
+/// The weeks before a position coach reads how he takes to a project
+/// (design item 3: "a few weeks into a project"; proposed, not confirmed).
+pub const CLUE_WEEKS: f64 = 3.0;
+
+/// Your position coach's read of his knack for the project's kind of
+/// technique (design item 3: "it's starting to click", "still fighting
+/// it"): his knack plus a miss that shrinks with the weeks on it and the
+/// coach's eye. `draw` is a fixed normal for him and the reader, so the
+/// read only sharpens as the weeks pass. A typical eye (10) misses by one
+/// spread at 3 weeks and a third of one after a year (proposed, not
+/// confirmed). None before `CLUE_WEEKS`.
+pub fn project_clue(p: &Player, a: Attr, eye: f64, weeks: f64, draw: f64) -> Option<f64> {
+    if weeks < CLUE_WEEKS {
+        return None;
+    }
+    let k = kind_of(a)?;
+    let sd = clamp(1.5 - 0.05 * eye, 0.5, 1.5) * (CLUE_WEEKS / weeks).sqrt().max(0.3);
+    Some(knack(p, k) + sd * draw)
+}
+
+/// How much he filled out in high school against his frame (design item
+/// 3: "puts weight on easily", "hard gainer"; a fair hint at his body
+/// knack): his body knack seen through a 0.6 correlation (proposed, not
+/// confirmed). `draw` a fixed normal for him.
+pub fn filled_out_clue(p: &Player, draw: f64) -> f64 {
+    0.6 * body_knack(p) + 0.8 * draw
+}
+
+/// The strength staff's read from its testing days (design item 3: "took
+/// to the program", "hasn't moved much"): his body knack with a miss that
+/// shrinks with each testing day and the strength head (1-20). A typical
+/// head misses by one spread after one day and half of one after four
+/// (proposed, not confirmed). None before his first testing day here.
+pub fn testing_clue(p: &Player, head: f64, days: usize, draw: f64) -> Option<f64> {
+    if days == 0 {
+        return None;
+    }
+    let sd = clamp(1.5 - 0.05 * head, 0.5, 1.5) / (days as f64).sqrt();
+    Some(body_knack(p) + sd * draw)
 }
 
 /// What an AI staff does with one player's project at the checkpoint.
@@ -1295,7 +1517,9 @@ pub fn ai_room(
             let best = members
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| p.prog.drawn && p.prog.body_project().is_none() && p.age <= BODY_UNTIL - 2)
+                .filter(|(i, p)| {
+                    !gone[*i] && p.prog.drawn && p.prog.body_project().is_none() && p.age <= BODY_UNTIL - 2
+                })
                 .map(|(i, p)| (i, body_bet(p, eye, &mut r)))
                 .filter(|c| c.1 >= BODY_BET_FLOOR)
                 .max_by(|a, b| a.1.total_cmp(&b.1));
@@ -1314,7 +1538,7 @@ pub fn ai_room(
     let mut cands: Vec<(usize, Attr, f64)> = members
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.prog.drawn && p.prog.project().is_none())
+        .filter(|(i, p)| !gone[*i] && p.prog.drawn && p.prog.project().is_none())
         .filter_map(|(i, p)| best_bet(p, AI_SHARP, eye, &mut r).map(|(a, v)| (i, a, v)))
         .filter(|c| c.2 >= BET_FLOOR)
         .collect();

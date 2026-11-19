@@ -674,7 +674,7 @@ fn reason(w: &World, j: usize, i: usize, rival: Option<usize>) -> String {
             return "Your program's name carries weight with him.".into();
         }
     }
-    if known && p.childhood_team == Some(j) {
+    if known && p.childhood_team.map(usize::from) == Some(j) {
         return "He grew up cheering for you.".into();
     }
     if visited(j, Visit::Official) {
@@ -1695,7 +1695,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             desk::four_year_transfers(w, p),
         );
         let read = views::person_index(w, p.player.id).map_or(reads::Read::NotSeen, |k| reads::overall(w, k));
-        let key = p.last_performance.unwrap_or(p.player.overall()) * 0.0
+        let key = p.last_performance.get().unwrap_or(p.player.overall()) * 0.0
             + stars_of(p) as f64 * 10.0
             + if p.last_role == Some(PlayingTime::Starter) { 30.0 } else { 0.0 };
         entrants.push((
@@ -2129,6 +2129,8 @@ fn nil(w: &World, j: usize) -> Reply {
     // each stands until you change it (Cain 2026-11-07); a player without
     // one shows the deal he starts on.
     let (deals, coll) = desk::deals_now(w, j).unwrap_or_default();
+    // What a rival would pay to take each one (Cain 2026-11-17).
+    let market = desk::market_prices(w, j);
     let mut rows: Vec<Value> = Vec::new();
     for &i in &w.programs[j].roster {
         let p = &w.people[i];
@@ -2148,7 +2150,11 @@ fn nil(w: &World, j: usize) -> Reply {
             "through": desk::contract_of(w, p.player.id).map(|c| c.0),
             "guaranteed": desk::contract_of(w, p.player.id).map(|c| c.1),
             "answer": desk::reaction(w, p.player.id, desk::MoneyKind::Deal).map(answer_json),
-            "now": p.nil_income, "stars": stars_of(p), "left": eligibility_left(w, p),
+            // Last July's pay from the school and the collective, his own
+            // brand deals apart (they have their own column).
+            "now": p.nil_paid(), "stars": stars_of(p), "left": eligibility_left(w, p),
+            "market": market.get(&p.player.id).copied(),
+            "inherited": d.inherited.contains(&p.player.id),
             // Public: his followers and the brand money he earns himself,
             // apart from the collective (lane 1's fame); his presence on
             // camera only in his position coach's words.

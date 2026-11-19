@@ -1624,6 +1624,7 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
         }
         u.fill(&mut f);
     }
+    holdover_facts(w, team, c, years, &mut f);
     let mut pen = scene::pen(w, s, 1);
     let pitch =
         pen.line(&["takeover.holdover.pitch", "?takeover.holdover.detail", "takeover.holdover.record"], &spk, &f);
@@ -1690,6 +1691,88 @@ fn holdover_tell(w: &World, c: usize) -> String {
     }
 }
 
+/// What a holdover can point to in his detail, only when the world backs
+/// it (Cain 2026-11-17: "I've been recruiting the best kid in the state"
+/// had nobody behind it, and he couldn't name him): the best recruit he's
+/// working, a two-star he signed who starts now, this class's signings
+/// through him, the best young player on the roster when he's in his
+/// room, the states he recruits, his network when it is strong, and two
+/// drafts in the building. Sizes are Claude's (proposed, not confirmed):
+/// a four-star or better on his board, three signings or more, network 14
+/// and up.
+fn holdover_facts(w: &World, team: Team, c: usize, years: i32, f: &mut Facts) {
+    use crate::world::folk::persona::coaching;
+    let co = &w.coaches[c];
+    if let Some(&i) = coaching::board(w, c).first() {
+        let x = &w.people[i];
+        let elsewhere = x.cal.commit.is_some_and(|k| Team::College(k.0) != team);
+        if x.stars >= 4 && !elsewhere {
+            f.set(
+                "hold_recruit",
+                format!(
+                    "{}, the {}-star {} at {}",
+                    x.name,
+                    x.stars,
+                    super::claims::words::spot(x.player.position),
+                    w.school_name(x.hs)
+                ),
+            );
+        }
+    }
+    if co.ability().network >= 14.0 {
+        f.set("hold_network", "yes");
+    }
+    if years >= 2 {
+        f.set("hold_draft", "yes");
+    }
+    let signed = coaching::signed_through(w, c);
+    if let Some(&i) = signed.iter().find(|&&i| {
+        let x = &w.people[i];
+        x.stars <= 2 && x.last_role == Some(PlayingTime::Starter) && team.roster(w).contains(&i)
+    }) {
+        f.set("hold_two_star", w.people[i].name.clone());
+    }
+    let class = crate::world::front_office::college::next_class(w);
+    let now = signed.iter().filter(|&&i| w.people[i].class_of == class).count();
+    if now >= 3 {
+        f.set("hold_class", ["Three", "Four", "Five", "Six"].get(now - 3).copied().unwrap_or("Half a dozen"));
+    }
+    // The best young player: the best man on the roster with a season or
+    // less of college, when he plays in this coach's room.
+    let groups: Vec<crate::world::coach::Group> = match co.job.map(|j| j.role) {
+        Some(crate::world::coach::Role::PositionCoach(g)) => vec![g],
+        Some(crate::world::coach::Role::OffensiveCoordinator) => {
+            crate::world::coach::Group::ALL.iter().copied().filter(|g| g.offense()).collect()
+        }
+        Some(crate::world::coach::Role::DefensiveCoordinator) => crate::world::coach::Group::ALL
+            .iter()
+            .copied()
+            .filter(|g| !g.offense() && *g != crate::world::coach::Group::Specialists)
+            .collect(),
+        _ => Vec::new(),
+    };
+    let young = team
+        .roster(w)
+        .into_iter()
+        .filter(|&i| w.people[i].college_seasons <= 1)
+        .max_by(|&a, &b| w.people[a].player.overall().total_cmp(&w.people[b].player.overall()));
+    if let Some(i) = young
+        && groups.contains(&crate::world::coach::Group::of(w.people[i].player.position))
+    {
+        f.set("hold_young", w.people[i].name.clone());
+    }
+    let states: Vec<&str> =
+        coaching::area(w, c).into_iter().filter_map(|s| w.states.get(s).map(|x| facts::state_name(&x.code))).collect();
+    if years >= 3 && !states.is_empty() {
+        let words = match states.len() {
+            1 => states[0].to_string(),
+            2 => format!("{} and {}", states[0], states[1]),
+            _ => format!("{}, {} and the rest of my area", states[0], states[1]),
+        };
+        f.set("hold_area", words);
+    }
+}
+
 /// A holdover coach's pitch for one of his players: the backup he says is
 /// ready, an angle the takeover file keeps for later.
 fn oversell(w: &World, team: Team, c: usize) -> Option<(usize, String)> {
@@ -1723,12 +1806,19 @@ fn oversell(w: &World, team: Team, c: usize) -> Option<(usize, String)> {
     let p = &w.people[best];
     // The real player: his class and last year's role, and no bowl practice
     // he may not have had (talk facts item 23).
+    // A redshirt's class already says he sat last year: "a redshirt
+    // freshman and was a redshirt last year" said it twice (Cain
+    // 2026-11-17).
+    let last = if p.last_role == Some(PlayingTime::Redshirt) {
+        String::new()
+    } else {
+        format!(" and was {} last year", facts::role_words(p.last_role))
+    };
     let text = format!(
-        "And {} is ready. {} is {} and was {} last year, but you watch him in practice and he's a starter. He's going to surprise people.",
+        "And {} is ready. {} is {}{last}, but you watch him in practice and he's a starter. He's going to surprise people.",
         player_link(w, best),
         p.name.split_whitespace().next().unwrap_or(""),
         super::claims::rooms::class_phrase(w, best),
-        facts::role_words(p.last_role)
     );
     Some((best, text))
 }
@@ -2070,7 +2160,7 @@ pub fn standing(w: &World, i: usize) -> f64 {
         Some(PlayingTime::Backup) => 8.0,
         _ => 4.0,
     };
-    role + p.last_performance.unwrap_or(40.0) * 0.5 + p.stars as f64 * 3.0 + p.player.age as f64 * 0.3
+    role + p.last_performance.get().unwrap_or(40.0) * 0.5 + p.stars as f64 * 3.0 + p.player.age as f64 * 0.3
 }
 
 fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -2444,7 +2534,7 @@ fn flight_risks(w: &mut World, s: &mut Scene, team: Team) {
         let t = &p.player.personality.traits;
         let unhappy_role =
             matches!(p.last_role, Some(PlayingTime::Backup | PlayingTime::Rotation)) && t.get(Trait::Ambition) >= 12.0;
-        let courted = p.stars >= 4 || p.last_performance.unwrap_or(0.0) > 70.0;
+        let courted = p.stars >= 4 || p.last_performance.get().unwrap_or(0.0) > 70.0;
         let lean = p.cal.lean;
         let mut score = 0.0;
         let mut why = Vec::new();

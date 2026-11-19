@@ -640,6 +640,9 @@ fn promise_words(p: &Promise, v: Voice) -> String {
         PromiseKind::Draft(r) if r >= 7 => format!("that his club would draft {}", v.him()),
         PromiseKind::Draft(1) => format!("that his club would take {} in the first round", v.him()),
         PromiseKind::Draft(r) => format!("that his club would take {} by round {r}", v.him()),
+        PromiseKind::Help(k) if (k as usize) < POSITION_COUNT => format!("help at {}", spot(k)),
+        PromiseKind::Help(_) => "help, a starter added before the opener".into(),
+        PromiseKind::Captain => format!("that {} be a captain", v.hed()),
     }
 }
 
