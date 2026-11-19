@@ -39,6 +39,7 @@
 //! (`live_talk::persona`), beside the whitelist card and the reply filter
 //! they reuse.
 
+pub mod after;
 pub mod asks;
 pub mod deals;
 // Lane N5e, scouting and the draft.
@@ -46,6 +47,7 @@ pub mod draft;
 pub mod ear;
 pub mod evaluate;
 pub mod fake;
+pub mod haggle;
 pub mod knows;
 // How you talk (coach voice): your manner read, kept and reacted to.
 pub mod manner;

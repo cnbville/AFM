@@ -50,6 +50,7 @@ mod ground_scenes;
 mod ground_staff;
 mod ground_week;
 mod growth_reps;
+mod haggling;
 mod handoff;
 mod hiring;
 mod hs_playoffs;
