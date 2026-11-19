@@ -1,0 +1,104 @@
+{
+ "facet": "A transfer in the portal (lane N5a)",
+ "card": {
+  "setting": "A call with a transfer in the portal, a phone call, Monday, September 7, 2037, fbs",
+  "coach": "Dale Ruiz, head coach at Fairview State",
+  "them": "Tre Jackson, CB, junior (in the portal)",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Tre Jackson, CB, junior (the man across from you)",
+    "kind": "player"
+   },
+   {
+    "tag": "p2",
+    "text": "Marcus Bell, CB, senior (your starter at his spot)",
+    "kind": "player"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what he wants: his role: playing time, the job he sees for himself"
+   },
+   {
+    "tag": "c2",
+    "text": "what he wants: money: NIL, his pay"
+   },
+   {
+    "tag": "c3",
+    "text": "what he wants: winning, and being somewhere that matters"
+   },
+   {
+    "tag": "c4",
+    "text": "on his mind: why he left his last school"
+   },
+   {
+    "tag": "c5",
+    "text": "his pride"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "Who's in on you so far?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Pitches"
+    }
+   ]
+  },
+  {
+   "text": "What schools have you visited since you entered?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Pitches"
+    }
+   ]
+  },
+  {
+   "text": "What went wrong at your last school?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Portal|Character"
+    }
+   ]
+  },
+  {
+   "text": "What kind of NIL number are you looking for?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Nil|Wants"
+    }
+   ]
+  },
+  {
+   "text": "Bell is out for the year with a torn ACL.",
+   "acts": [
+    {
+     "act": "claim",
+     "claim": "injury",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "You're the kind of corner who starts in this league.",
+   "hits": [
+    {
+     "item": "c5|c1",
+     "how": "flattered|respected|reassured"
+    }
+   ]
+  }
+ ],
+ "exploits": [],
+ "name": "portal",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}

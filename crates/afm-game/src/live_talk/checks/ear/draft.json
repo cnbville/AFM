@@ -7,15 +7,18 @@
   "people": [
    {
     "tag": "p1",
-    "text": "Darius King, QB, senior prospect (the man across from you)"
+    "text": "Darius King, QB, senior prospect (the man across from you)",
+    "kind": "player"
    },
    {
     "tag": "p2",
-    "text": "Gil Foster, your area scout (your staff, brought in)"
+    "text": "Gil Foster, your area scout (your staff, brought in)",
+    "kind": "scout"
    },
    {
     "tag": "p3",
-    "text": "Sandra Voss, his agent"
+    "text": "Sandra Voss, his agent",
+    "kind": "agent"
    }
   ],
   "items": [
@@ -83,7 +86,8 @@
      "act": "request",
      "what": "find_out|scout",
      "about": "p1",
-     "topic": "Effort"
+     "topic": "Effort",
+     "of": "p2"
     }
    ]
   },
@@ -101,7 +105,7 @@
    "hits": [
     {
      "item": "c3",
-     "how": "stung"
+     "how": "stung|doubted"
     }
    ]
   },
@@ -120,7 +124,8 @@
     {
      "act": "request",
      "what": "plant",
-     "about": "p1"
+     "about": "p1",
+     "of": "p3"
     }
    ]
   }
