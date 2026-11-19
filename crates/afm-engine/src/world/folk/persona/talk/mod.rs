@@ -415,6 +415,19 @@ impl Resolving for Conversation<'_> {
                         interest: 0.0,
                         room: channels::crowd(room),
                         pushed,
+                        // How the line itself landed on him: a proud man
+                        // shows he minds a question that stung him, not a
+                        // fair one (Cain 2026-11-17).
+                        stung: reading.hits.iter().any(|h| {
+                            h.on == him
+                                && matches!(
+                                    h.how,
+                                    super::ear::How::Stung
+                                        | super::ear::How::Insulted
+                                        | super::ear::How::Doubted
+                                        | super::ear::How::Threatened
+                                )
+                        }),
                     };
                     let mut told = self.parts.tells.tell(w, him, &known, &parts);
                     // A coach of yours on his own unit walks you through his

@@ -30,7 +30,7 @@ use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
 use afm_engine::world::folk::persona::terms::{Decision, Request as Ask, Valuing, Weighed};
-use afm_engine::world::folk::persona::{asks, deals, meetings, office};
+use afm_engine::world::folk::persona::{asks, coaching, deals, meetings, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -309,6 +309,15 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
             if matches!(talk::across(&room), Some(Them::Player(_))) { ear::own_work(reading) } else { reading };
         let promises = tags.promises(&er, &keys);
         let is_group = group::is_group(&s);
+        // In a staff room the coach the line fits answers it, himself (Cain
+        // 2026-11-17: one nameless "he" answered for the holdover staff).
+        let room = match coaching::answerer(w, &room, &reading) {
+            Some(who) => {
+                store::reseat(w, id, who);
+                coaching::lead_with(room, who)
+            }
+            None => room,
+        };
         // A line to the whole room is one hit on each man in it (lane N5d).
         let reading = if is_group { group::expand(&room, reading) } else { reading };
         let conv = Conversation {

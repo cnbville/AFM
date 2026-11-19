@@ -215,6 +215,14 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
         for pid in folk::talks::coached_by(w, co).into_iter().take(MAX_COACHED) {
             add(&mut c, &mut keys, Them::Player(pid), "a player he coaches");
         }
+        // His recruiting, for you or a job with you: the recruits he's
+        // working and the ones who signed through him, so he can name them
+        // (Cain 2026-11-17: "I'd rather you see him on tape first").
+        if afm_engine::world::folk::persona::telling::works_for_you(w, him) {
+            for i in afm_engine::world::folk::persona::coaching::named(w, co) {
+                add(&mut c, &mut keys, Them::Player(w.people[i].player.id), "a recruit of his");
+            }
+        }
     }
     // One of the older meetings: the players it is about and the men on the
     // sheet in front of you.

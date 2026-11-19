@@ -86,6 +86,16 @@ pub enum Topic {
     /// I keep you?" went to `Jobs`, the openings elsewhere (Cain
     /// 2026-11-16).
     Job,
+    /// The system he runs or would run: his offense, his front and
+    /// coverage, how he'd use the players (`persona::coaching::scheme`).
+    /// Before it, "what offense will you run?" went to `Football` and got
+    /// his unit's points (Cain 2026-11-17).
+    Scheme,
+    /// His recruiting: his area, the recruits he's working and the ones who
+    /// signed through him (`persona::coaching::recruiting`). Before it, "who
+    /// have you been recruiting?" had nothing to answer with (Cain
+    /// 2026-11-17).
+    Recruiting,
 }
 
 /// How a fact reached him (3.1's "who knows it").
@@ -170,6 +180,10 @@ pub struct TellParts {
     pub room: f64,
     /// How many times you've pushed him on this man in this talk.
     pub pushed: u8,
+    /// The line that asked stung, insulted, doubted or threatened him: a
+    /// proud man cuts that question short, never a fair one (Cain
+    /// 2026-11-17).
+    pub stung: bool,
 }
 
 /// What he tells you, as the game decided it. The voice gets `released`

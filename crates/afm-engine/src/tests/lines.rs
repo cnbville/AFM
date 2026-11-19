@@ -52,6 +52,8 @@ const FACTS: &str = concat!(
     "gameday gone lead lead_last made mark met milestone money n n_words name not_hs nth_week old old_last ",
     "old_school opp other other_name other_short outlet player pos question rank rank_of record record_mark ",
     "result rival rival_last rivalry role scope score season series since since_year starters stars_now stars_was ",
+    // a holdover's detail, only when the world backs it (takeover.rs, `holdover_facts`)
+    "hold_recruit hold_network hold_two_star hold_class hold_young hold_area hold_draft ",
     "stat subject team through tried to_go town unit want weeks word worry writer year years you young ",
     "last_record them captain moment last mistake us first second club ",
     // the fans (fans.rs)

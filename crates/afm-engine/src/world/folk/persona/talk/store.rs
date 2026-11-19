@@ -151,6 +151,15 @@ pub fn room(w: &World, scene: u32) -> Option<Room> {
     open(w, scene).map(|o| o.room.clone())
 }
 
+/// Moves the man who answers this line to the front of a talk's room, so
+/// the talk reads him (a staff room: the coach the question fits,
+/// `coaching::answerer`).
+pub fn reseat(w: &mut World, scene: u32, who: super::super::Them) {
+    if let Some(o) = w.folk.live.persona.open.iter_mut().find(|o| o.scene == scene) {
+        o.room = super::super::coaching::lead_with(o.room.clone(), who);
+    }
+}
+
 /// Opens a talk in a scene with a room (a channel, the people there), or
 /// changes its room before the first line.
 pub fn begin(w: &mut World, scene: u32, room: Room) {
