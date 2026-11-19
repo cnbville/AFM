@@ -18,6 +18,7 @@ pub mod market;
 pub mod money;
 pub mod office;
 pub mod other;
+pub mod role;
 pub mod roles;
 pub mod scouts;
 pub mod squad;
@@ -84,6 +85,12 @@ pub struct ProSeason {
     /// Playoff games started (the playoff line keeps games, not starts).
     #[serde(default)]
     pub playoff_starts: u32,
+    /// Regular-season games he started as he saw them:
+    /// on for half the most snaps on his side (`games::field_start`).
+    /// `starts` are the club's listed starters, whoever lined up. None
+    /// for a row from before, which never counted them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field_starts: Option<u32>,
 }
 
 impl ProSeason {
@@ -194,11 +201,22 @@ pub struct ProCareer {
     /// person's index moves when the world is compacted.
     #[serde(default)]
     pub case: Option<super::people::PastCase>,
+    /// Where the season his `Person::last_role` was read from sits in time
+    /// (code oddity 29, `role::write`: an NFL season at its Super Bowl,
+    /// another league's at its opening day): a later write from an older
+    /// season leaves it, so another league's season he sat out on its
+    /// roster stands. Day 0 before.
+    #[serde(default, skip_serializing_if = "unset")]
+    pub role_from: crate::calendar::Date,
     /// "I'll sign you help" broken (negotiation item 4): the league year it
     /// broke and the premium his next deal with your club carries (5% x
     /// his winning goal), until he signs again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub help_owed: Option<(i32, f32)>,
+}
+
+fn unset(d: &crate::calendar::Date) -> bool {
+    d.0 == 0
 }
 
 impl ProCareer {
@@ -244,6 +262,7 @@ impl ProCareer {
             exempt: 0,
             other: Vec::new(),
             case: None,
+            role_from: crate::calendar::Date(0),
             help_owed: None,
         }
     }
@@ -271,7 +290,7 @@ impl ProCareer {
 
     pub fn season_mut(&mut self, year: i32) -> &mut ProSeason {
         if self.seasons.last().is_none_or(|s| s.year != year) {
-            self.seasons.push(ProSeason { year, team: self.team, ..Default::default() });
+            self.seasons.push(ProSeason { year, team: self.team, field_starts: Some(0), ..Default::default() });
         }
         self.seasons.last_mut().unwrap()
     }
@@ -756,28 +775,13 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         camp_stars: 0,
         regular_talent: super::ethnicity::regular_talent(z),
         visibility: 0.0,
-        college_seasons: 4,
-        redshirt_used: false,
         sit_out: 0.0,
-        steered: false,
-        nil_income: 0.0,
-        pending_dip: None,
         last_role: None,
         hs_lines: Vec::new(),
-        last_snaps: 0,
-        college_snaps: 0,
         reps: None,
-        last_performance: None,
-        transfers: 0,
-        juco: false,
-        path: vec![college],
+        last_performance: crate::player::OptF64::NONE,
         on_notice: false,
         gpa_trend: 0.0,
-        gpa_at_signing: None,
-        academic_redshirt: false,
-        walk_on: false,
-        transfer_from: None,
-        college_staff: Vec::new(),
         incident: false,
         notes: Vec::new(),
         stay_home: 0.0,
@@ -789,8 +793,12 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         mood_why: 0,
         trust: 0.6,
         trust_in: u32::MAX,
-        roads: Default::default(),
         looks: super::looks::Looks::new(w.options.seed, id),
+        later: crate::world::stored::Stored::new(super::Later {
+            college_seasons: 4,
+            path: vec![college],
+            ..Default::default()
+        }),
     }
 }
 
@@ -1462,6 +1470,28 @@ pub(crate) fn release(w: &mut World, i: usize, d: Date, why: &str) {
     release_with(w, i, d, why, false, true, DeadWhy::Released);
 }
 
+/// A cut by the club's own football call (the final cutdown, room for a
+/// man back from injured reserve): its word to him is marked first
+/// (`club_lets_go`).
+pub(crate) fn cut_by_club(w: &mut World, i: usize, d: Date, why: &str) {
+    club_lets_go(w, i);
+    release(w, i, d, why);
+}
+
+/// Your NFL club lets a man go by its own call, cut or traded (code
+/// oddity 29): each open promise of his place made there is marked
+/// (`talks::let_go`). Called before he leaves the roster. A deal that runs
+/// out, an offer sheet left unmatched, a practice squad deal that ends,
+/// an expansion draft, a franchise that moves or goes dark, and a man
+/// released for his own conduct (team rules, a suspension) mark nothing:
+/// he left on his own terms, and the promise lapses. Proposed, not
+/// confirmed.
+pub(crate) fn club_lets_go(w: &mut World, i: usize) {
+    if let Some(t) = w.people[i].pro.as_ref().and_then(|c| c.team) {
+        crate::world::folk::talks::let_go(w, i, t);
+    }
+}
+
 /// From June 1 to the Super Bowl a release splits its dead money over
 /// two league years by itself (real).
 pub fn after_june1(w: &World, d: Date) -> bool {
@@ -1756,6 +1786,32 @@ fn camp(w: &mut World, d: Date) {
         }
         out
     };
+    // A project takes the position coach's one-on-one minutes, so the rest
+    // of the room gets a little less (design item 8): each club's rooms,
+    // yours too, once this camp's changes land.
+    let room_time: std::collections::HashMap<usize, f64> = {
+        use crate::progression::{Room, room_time, runs_after};
+        let mut rooms: std::collections::HashMap<(usize, Room), (usize, usize)> = Default::default();
+        let mut keyed = Vec::new();
+        for &i in &pros {
+            let p = &w.people[i];
+            let Some(t) = p.pro.as_ref().and_then(|c| c.team) else { continue };
+            let Some(room) = Room::of(p.player.position) else { continue };
+            let on = runs_after(&p.player, projects.get(&i).map_or(&[][..], |v| &v[..]));
+            let e = rooms.entry((t, room)).or_default();
+            e.0 += 1;
+            e.1 += usize::from(on);
+            keyed.push((i, (t, room), on));
+        }
+        keyed
+            .into_iter()
+            .filter(|x| !x.2)
+            .map(|(i, k, _)| {
+                let (n, on) = rooms[&k];
+                (i, room_time(n, on))
+            })
+            .collect()
+    };
     // His role on the depth chart.
     let role_of = |w: &World, i: usize| -> PlayingTime {
         let c = w.people[i].pro.as_ref().unwrap();
@@ -1943,6 +1999,7 @@ fn camp(w: &mut World, d: Date) {
             results,
             hurt,
             bond,
+            room_time: room_time.get(&i).copied().unwrap_or(1.0),
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         if let Some(l) = &closing {
@@ -1957,7 +2014,17 @@ fn camp(w: &mut World, d: Date) {
         for &c in projects.get(&i).into_iter().flatten() {
             crate::progression::apply(&mut p.player, c);
         }
+        let before = (p.player.prog.project(), p.player.prog.body_project());
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        // Your staff's word on his projects (a click, a dead end, one
+        // dropped, a body project done).
+        if ctx.seat_plan {
+            for n in crate::progression::news(before.0, before.1, &p.player, report.project_click) {
+                let (dept, text) = n.words();
+                let id = p.player.id;
+                w.training.note(today, id, dept, format!("[[p:{id}|{}]] {text}.", p.name));
+            }
+        }
         if ctx.hurt.is_some() && report.rehab_due {
             let id = p.player.id;
             w.training
@@ -1976,8 +2043,8 @@ fn camp(w: &mut World, d: Date) {
             crate::world::wlog::why::growth(log, (w.year, w.today), p.player.id, &ctx, [None; 3], &report);
         }
         if let Some(row) = p.player.history.last_mut() {
-            row.team = team;
-            row.depth = Some(role.name().to_string());
+            row.team = team.into();
+            row.depth = crate::player::DepthLabel::some(role.name());
             // The season's games missed are counted game by game
             // (`games::record`, minor bug 96), not the step's roll.
             row.games_missed = 0;
@@ -2316,7 +2383,7 @@ pub(crate) fn cutdown(w: &mut World, d: Date) {
         }
         for i in cut {
             squad::settle_injury(w, t, i);
-            release(w, i, d, "cut at the final cutdown");
+            cut_by_club(w, i, d, "cut at the final cutdown");
         }
     }
 }
@@ -2517,7 +2584,7 @@ fn back_from_reserve(w: &mut World, i: usize, t: usize, pup: bool, d: Date) {
             .filter(|&j| j != i && w.people[j].pro.as_ref().is_some_and(|c| c.status == Status::Roster))
             .min_by(|&a, &b| grade(w, t, a).total_cmp(&grade(w, t, b)));
         if let Some(j) = cut {
-            release(w, j, d, "cut to make room for a player back from injured reserve");
+            cut_by_club(w, j, d, "cut to make room for a player back from injured reserve");
         }
     }
 }

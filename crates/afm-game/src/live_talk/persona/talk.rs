@@ -30,7 +30,7 @@ use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
 use afm_engine::world::folk::persona::terms::{Decision, Request as Ask, Valuing, Weighed};
-use afm_engine::world::folk::persona::{asks, deals, meetings, office};
+use afm_engine::world::folk::persona::{asks, coaching, crowd, deals, meetings, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -220,7 +220,7 @@ pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let today = crate::views::date_text(w.today);
     let (y, m, d) = w.today.parts();
     let body = card.text(&format!("{today} ({y:04}-{m:02}-{d:02})"));
-    let req = Request::new(ear::EAR, ear::EAR_RULES, &body).schema(ear::schema()).max_tokens(ear::EAR_TOKENS);
+    let req = ear::request(&body);
     if let Some(f) = g.ai.browser_fake() {
         f.push(ear::EAR, Ok(stand_in(&card)));
     }
@@ -300,7 +300,7 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         .and_then(|pid| folk::person(w, pid))
         .map(|i| w.people[i].player.position);
         let tags = ear::Tags { today: w.today, pos };
-        let reading = ear::keep_open(tags.resolve(&er, &keys), &words);
+        let reading = tags.resolve(&er, &keys);
         // A line the ear read as a goodbye doesn't close the talk by itself:
         // it counts as said and you're asked whether to wrap up
         // (`ear::ask_wrap`).
@@ -309,30 +309,97 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
             if matches!(talk::across(&room), Some(Them::Player(_))) { ear::own_work(reading) } else { reading };
         let promises = tags.promises(&er, &keys);
         let is_group = group::is_group(&s);
-        // A line to the whole room is one hit on each man in it (lane N5d).
-        let reading = if is_group { group::expand(&room, reading) } else { reading };
+        // In a staff room the coach the line fits answers it, himself (Cain
+        // 2026-11-17: one nameless "he" answered for the holdover staff).
+        let room = match coaching::answerer(w, &room, &reading) {
+            Some(who) => {
+                store::reseat(w, id, who);
+                coaching::lead_with(room, who)
+            }
+            None => room,
+        };
+        // A line to the whole room, or to one of its groups, is one hit on
+        // each man in it (lane N5d; group talks, item 1).
+        let reading = if is_group { crowd::expand(w, &room, crowd::aim(w, &room, &words, reading)) } else { reading };
+
         let conv = Conversation {
             parts: parts_for(&s, &played),
             said: Said { scene: id, words: words.clone(), reading, promises },
         };
         let mut t = conv.turn(w, &room, &conv.said.reading);
         // A negotiation's own answer, claim and asks (lane N5b).
-        let notes = negotiate::said(w, played.facet, &mut t);
+        let mut notes = negotiate::said(w, played.facet, &mut t);
+        // The game's own staff notes under his line (a firm recruit: what
+        // might unsettle him).
+        notes.extend(t.notes.iter().cloned());
         let heard = cards::heard(w, &room, &t);
         let mut vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
-        if is_group {
-            // A captain answers for the room; the voice hears the room, not
-            // a roll call.
-            vc.room = vec![format!("{}, every one of them listening", cards::channel_words(room.channel))];
+        // A room: how it took the line, by groups (group talks, item 8), for
+        // the screen and for the man who answers; and the man who answers
+        // after him (item 5), on his own card.
+        let read = is_group.then(|| crowd::read(w, &room, &t.hits, t.speaker.map(|x| x.0)));
+        let room_words = |read: &crowd::Read| {
+            vec![
+                format!("{}, every one of them listening", cards::channel_words(room.channel)),
+                format!("How the room took the coach's line: {}", read.line),
+            ]
+        };
+        if let Some(r) = &read {
+            vc.room = room_words(r);
         }
+        let second = t.crowd.as_ref().and_then(|c| c.second).map(|x| {
+            let t2 = Turn {
+                speaker: Some((x, afm_engine::world::folk::persona::room::Seat::Listener)),
+                crowd: Some(crowd::Turned { own: true, ..crowd::Turned::default() }),
+                hits: t.hits.clone(),
+                heat: t.heat,
+                patience: t.patience,
+                manner: t.manner.clone(),
+                say: afm_engine::world::folk::persona::ear::Say {
+                    released: vec![crowd::take_words(w, &t.hits, x)],
+                    heard: t
+                        .speaker
+                        .map(|(f, _)| vec![format!("{} answered the coach first", channels::name(w, f))])
+                        .unwrap_or_default(),
+                    ..Default::default()
+                },
+                ..Turn::default()
+            };
+            let mut vc2 = cards::voice(w, &s, &room, &conv.parts, &t2, &words, &keys);
+            if let Some(r) = &read {
+                vc2.room = room_words(r);
+            }
+            let plain = crowd::second_words(w, &t.hits, x);
+            Second { vc: vc2, t: t2, plain }
+        });
         conv.apply(w, &t);
         negotiate::applied(w, played.facet, id, &t, &conv.said.promises);
-        if is_group
-            && let Some(line) = group::landed(w, &t.hits, talk::across(&room))
+        if let Some(r) = &read
             && let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id)
         {
-            sc.narrate(line);
+            sc.narrate(r.line.clone());
         }
+        // Who walked out, the room drifting, a full room that stays quiet
+        // (group talks, items 6 and 7).
+        if let Some(c) = &t.crowd {
+            let mut lines: Vec<String> = c.walked.iter().map(|x| crowd::walked_words(w, *x)).collect();
+            if c.drift {
+                lines.push("Guys are starting to check the clock.".into());
+            }
+            if c.silent {
+                lines.push(if c.held.is_empty() {
+                    "Nobody says a word.".into()
+                } else {
+                    "Nobody says a word. A few of them look like they have something on their mind.".into()
+                });
+            }
+            if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+                for l in lines {
+                    sc.narrate(l);
+                }
+            }
+        }
+        let silent = t.crowd.as_ref().is_some_and(|c| c.silent);
         // What lane N5c makes of it: a reference's read on the coach's page,
         // a boss's no kept on record (the older meetings' bosses too).
         if meetings::plays(s.kind) {
@@ -349,6 +416,11 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         let marks = marks(w, &t);
         let confirm = waits(g, id, &room, &t);
         let card_text = vc.text();
+        // A full room you asked that stays quiet: nobody answers.
+        if silent {
+            staff_notes(g, id, &notes);
+            return Step::Done(done(g, id, Outcome { words, heard, marks, confirm, wrap_ask }));
+        }
         if g.ai.usable() {
             let req = Request::new(voice::VOICE, voice::VOICE_RULES, &card_text)
                 .schema(voice::schema())
@@ -362,21 +434,87 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
             }
             return Step::Call(
                 req,
-                voice_step(id, Outcome { words, heard, marks, confirm, wrap_ask }, vc, card_text, t, notes),
+                voice_step(
+                    id,
+                    Outcome { words, heard, marks, confirm, wrap_ask },
+                    vc,
+                    card_text,
+                    t,
+                    notes,
+                    second.map_or(After::Done, |x| After::Second(Box::new(x))),
+                ),
             );
         }
         his_line(g, id, &vc, &t, None, &card_text);
+        if let Some(x) = second
+            && let Some(sc) = g.world.as_mut().and_then(|w| w.folk.scenes.iter_mut().find(|s| s.id == id))
+        {
+            sc.narrate(x.plain);
+        }
         staff_notes(g, id, &notes);
         Step::Done(done(g, id, Outcome { words, heard, marks, confirm, wrap_ask }))
     })
 }
 
-/// The voice's step: his words, or the fallback.
-fn voice_step(id: u32, out: Outcome, vc: VoiceCard, card_text: String, t: Turn, notes: Vec<String>) -> Next {
+/// The man who answers a room's line after the first (group talks, item
+/// 5): his own card, his turn, and his answer said plainly with no voice.
+struct Second {
+    vc: VoiceCard,
+    t: Turn,
+    plain: String,
+}
+
+/// What follows a voice call: the second man's call, or (for the second
+/// man himself) the plain words if his line fails.
+enum After {
+    Done,
+    Second(Box<Second>),
+    Plain(String),
+}
+
+/// The voice's step: his words, or the fallback; then the second man's
+/// call, when a room has one.
+fn voice_step(
+    id: u32,
+    out: Outcome,
+    vc: VoiceCard,
+    card_text: String,
+    t: Turn,
+    notes: Vec<String>,
+    after: After,
+) -> Next {
     Box::new(move |g, r| {
         let said = r.ok().and_then(|x| x.json);
-        his_line(g, id, &vc, &t, said.as_ref(), &card_text);
+        // The second man's line that didn't come back or pass the filter is
+        // said plainly, never as the card's own words.
+        let (second, plain) = match after {
+            After::Done => (None, None),
+            After::Second(x) => (Some(*x), None),
+            After::Plain(p) => (None, Some(p)),
+        };
+        match plain {
+            Some(p) if said.as_ref().and_then(|v| voice::read(v, &card_text)).is_none() => {
+                if let Some(sc) = g.world.as_mut().and_then(|w| w.folk.scenes.iter_mut().find(|s| s.id == id)) {
+                    sc.narrate(p);
+                }
+            }
+            _ => his_line(g, id, &vc, &t, said.as_ref(), &card_text),
+        }
         staff_notes(g, id, &notes);
+        if let Some(x) = second {
+            let text = x.vc.text();
+            let req = Request::new(voice::VOICE, voice::VOICE_RULES, &text)
+                .schema(voice::schema())
+                .max_tokens(voice::VOICE_TOKENS);
+            if let Some(f) = g.ai.browser_fake() {
+                let line = x.vc.released.first().cloned().unwrap_or_else(|| "I'm with him, Coach.".into());
+                f.push(
+                    voice::VOICE,
+                    Ok(afm_ai::fake::body(&json!({ "line": line, "colour": "" }).to_string(), 600, 40)),
+                );
+            }
+            return Step::Call(req, voice_step(id, out, x.vc, text, x.t, Vec::new(), After::Plain(x.plain)));
+        }
         Step::Done(done(g, id, out))
     })
 }
@@ -467,6 +605,10 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
             {
                 format!("Make it so: {}", channels::decision_named(*d, &folk::plain(&channels::name(w, him))))
             }
+            // An ask put to someone else in the room: his name on it.
+            (Confirm::RequestOf(doer, r), Some((w, _))) => {
+                format!("Go ahead: {} ({})", asks::request_words_in(w, r), folk::plain(&channels::name(w, *doer)))
+            }
             _ => confirm_words(c),
         })
         .collect();
@@ -486,7 +628,7 @@ fn confirm_words(c: &Confirm) -> String {
     match c {
         Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => "Set his official visit".into(),
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
-        Confirm::Request(r) => format!("Go ahead: {}", asks::request_words(r)),
+        Confirm::Request(r) | Confirm::RequestOf(_, r) => format!("Go ahead: {}", asks::request_words(r)),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
     }
 }
@@ -588,6 +730,9 @@ fn run(w: &mut World, scene: u32, him: Them, c: &Confirm) -> Vec<String> {
             let ran = parts_for_kind(kind, &played).acting.run(w, him, r);
             ran.done
         }
+        // An ask put to someone else in the room runs on him (ear audit
+        // item 4): your scout's look, an agent's word in the right ears.
+        Confirm::RequestOf(doer, r) => parts_for_kind(kind, &played).acting.run(w, *doer, r).done,
         Confirm::Offer(o) => {
             if let Some(lines) = negotiate::make_real(w, played.facet, him, o) {
                 return lines;

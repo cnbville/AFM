@@ -104,7 +104,7 @@ function ppAgenda(x) {
     ? `<div class="items">${x.goals.map((g) => `<div class="item"><span class="when">${g.season}</span><span>${esc(g.words)} ${g.met === true ? '<span class="tag gold">Met</span>' : g.met === false ? '<span class="tag due">Missed</span>' : ""}</span></div>`).join("")}</div>`
     : '<div class="empty">No goals set yet: your boss sets them before the season.</div>';
   const promises = x.promises.length
-    ? `<div class="items">${x.promises.map((p) => `<div class="item"><span class="when">${esc(p.due)}</span><span>${rich(p.who)}: ${esc(p.what)}${p.public ? ' <span class="tag key">In public</span>' : ""} ${p.kept === true ? '<span class="tag gold">Kept</span>' : p.kept === false ? '<span class="tag due">Broken</span>' : '<span class="tag soft">Open</span>'}</span></div>`).join("")}</div>`
+    ? `<div class="items">${x.promises.map((p) => `<div class="item"><span class="when">${esc(p.due)}</span><span>${rich(p.who)}: ${esc(p.what)}${p.public ? ' <span class="tag key">In public</span>' : ""} ${p.quiet ? '<span class="tag soft">Closed</span>' : p.kept === true ? '<span class="tag gold">Kept</span>' : p.kept === false ? '<span class="tag due">Broken</span>' : '<span class="tag soft">Open</span>'}</span></div>`).join("")}</div>`
     : '<div class="empty">You haven\'t promised anyone anything. Every promise you make lands here, with its date.</div>';
   const due = x.due.length ? `<div class="items">${x.due.map((d) => `<div class="item"><span class="when">${esc(d.date)}</span><span>${rich(d.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing dated ahead.</div>';
   const log = x.log.length ? `<div class="items">${x.log.map((e) => `<div class="item"><span class="when">${esc(e.date || "")}</span><span><b>${rich(e.source)}</b> ${rich(e.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing said yet.</div>';
@@ -150,7 +150,11 @@ async function ppRoom() {
     { k: "line", t: "Your line to his coach", l: true, f: (x) => esc(x.line ? ppCap(x.line) : "") },
     { k: "talk", t: "", f: (x) => `<button class="st-btn small glass" data-act="pptalkmenu" data-id="${x.id}">Talk</button>`, v: () => 0 },
   ];
-  return `<section class="panel"><h2>The room <small>${esc(r.mood.words)} · ${ppHours(r.hours)} left this week</small></h2>${table("pp-room", cols, r.rows, { sort: "mood", empty: "No players." })}</section>`;
+  // A meeting with one position room (group talks, item 9): once a week each,
+  // half an hour, the room's position coach at the board.
+  const rooms = ["Quarterbacks", "Running backs", "Receivers", "Offensive line", "Defensive line", "Linebackers", "Defensive backs", "Specialists"];
+  const meet = `<p class="muted small">Meet a position room: ${rooms.map((x, k) => `<a class="link" data-act="pppositionmeet" data-g="${k}">${x}</a>`).join(" · ")}</p>`;
+  return `<section class="panel"><h2>The room <small>${esc(r.mood.words)} · ${ppHours(r.hours)} left this week</small></h2>${meet}${table("pp-room", cols, r.rows, { sort: "mood", empty: "No players." })}</section>`;
 }
 function ppTrust(t) {
   return t >= 0.8 ? "Would run through a wall for you" : t >= 0.65 ? "Trusts you" : t >= 0.5 ? "Buying in" : t >= 0.38 ? "Waiting to see" : t >= 0.25 ? "Doubts you" : "Has stopped listening";
@@ -324,7 +328,7 @@ function ppSide(s, lead, pp, cast) {
     } else if (t.t === "File") {
       inner = `<div class="kv">${pp.trust ? `<dt>Trust</dt><dd>${esc(pp.trust.words)}</dd>` : ""}${pp.mentor ? `<dt>Mentor</dt><dd>${rich(pp.mentor)}</dd>` : ""}${pp.case ? `<dt>A case</dt><dd>${esc(pp.case)}</dd>` : ""}${pp.line ? `<dt>Your line</dt><dd>${esc(ppCap(pp.line))}</dd>` : ""}</div><p><a class="link" data-go="player" data-id="${lead.id}">His full page</a></p>`;
     } else if (t.t === "With you") {
-      inner = pp.promises.length ? `<div class="items">${pp.promises.map((p) => `<div class="item"><span class="when">${esc(p.due)}</span><span>${esc(ppCap(p.what))} ${p.kept === true ? '<span class="tag gold">Kept</span>' : p.kept === false ? '<span class="tag due">Broken</span>' : '<span class="tag soft">Open</span>'}</span></div>`).join("")}</div>` : '<div class="muted small">No promises between you.</div>';
+      inner = pp.promises.length ? `<div class="items">${pp.promises.map((p) => `<div class="item"><span class="when">${esc(p.due)}</span><span>${esc(ppCap(p.what))} ${p.quiet ? '<span class="tag soft">Closed</span>' : p.kept === true ? '<span class="tag gold">Kept</span>' : p.kept === false ? '<span class="tag due">Broken</span>' : '<span class="tag soft">Open</span>'}</span></div>`).join("")}</div>` : '<div class="muted small">No promises between you.</div>';
     } else {
       inner = pp.ear.length ? `<div class="items">${pp.ear.map((e) => `<div class="item"><span class="when">${esc(e.sure)}</span><span>${rich(e.who)}<br><span class="muted small">${esc(e.what)}</span></span></div>`).join("")}</div>` : '<div class="muted small">Nobody your staff knows of.</div>';
     }
@@ -422,7 +426,7 @@ PLAYER_TABS.push({
     const bonds = (x.bonds || []).length
       ? `${x.bondSays ? `<p class="small"><span class="st-label">Your staff says</span><br>${esc(x.bondSays)}</p>` : ""}<div class="items">${x.bonds.map((b) => `<div class="item"><span class="when">${esc(b.step)}</span><span>${rich(b.who)} <span class="muted">· ${esc(b.role)} · ${esc(b.met)}</span><br><span class="small muted">${esc(b.sign)}</span>${b.moments.length ? `<br><span class="small">${b.moments.map((m) => `${esc(m.date)}: ${esc(m.what)}`).join("<br>")}</span>` : ""}</span></div>`).join("")}</div>`
       : '<div class="empty">No coach close to him yet.</div>';
-    const promises = x.promises.length ? `<div class="items">${x.promises.map((q) => `<div class="item"><span class="when">${esc(q.due)}</span><span>${esc(ppCap(q.what))} ${q.kept === true ? '<span class="tag gold">Kept</span>' : q.kept === false ? '<span class="tag due">Broken</span>' : '<span class="tag soft">Open</span>'}</span></div>`).join("")}</div>` : "";
+    const promises = x.promises.length ? `<div class="items">${x.promises.map((q) => `<div class="item"><span class="when">${esc(q.due)}</span><span>${esc(ppCap(q.what))} ${q.quiet ? '<span class="tag soft">Closed</span>' : q.kept === true ? '<span class="tag gold">Kept</span>' : q.kept === false ? '<span class="tag due">Broken</span>' : '<span class="tag soft">Open</span>'}</span></div>`).join("")}</div>` : "";
     return `<div class="grid2"><div class="col"><section class="panel"><h2>How he is</h2><p class="pp-mood">${ppMoodDot(x.mood.value)} ${esc(x.mood.words)}${x.trust ? ` · <span class="muted">${esc(x.trust.words)}</span>` : ""}</p>${x.staffSays ? `<p class="small"><span class="st-label">Your staff thinks</span><br>${esc(x.staffSays)}</p>` : ""}${reasons}${x.out ? `<p><span class="tag due">Sitting</span> ${esc(x.out)}</p>` : ""}${x.life ? `<p><span class="st-label">At home</span><br>${esc(ppCap(x.life))}</p>` : ""}${x.case ? `<p><span class="st-label">A case</span><br>${esc(x.case)}</p>` : ""}</section>${mine}</div>
       <div class="col"><section class="panel"><h2>His coaches</h2>${bonds}</section><section class="panel"><h2>In his ear</h2>${ear}</section><section class="panel"><h2>Close ties</h2>${x.mentor ? `<p class="small">Mentor: ${rich(x.mentor)}</p>` : ""}${ties}</section>${promises ? `<section class="panel"><h2>Promises to him</h2>${promises}</section>` : ""}</div></div>`;
   },
@@ -459,6 +463,7 @@ Object.assign(CORE_MORE, {
   ppteamtalk: () => ppGoScene(api("people_team_talk")),
   ppbossmeet: () => ppGoScene(api("people_boss_meeting")),
   ppcouncilmeet: () => ppGoScene(api("people_council_meet")),
+  pppositionmeet: (el) => ppGoScene(api("people_position_meet", { group: Number(el.dataset.g) })),
   pptalk: (el) => ppGoScene(api("people_talk", { id: Number(el.dataset.id), subject: el.dataset.s })),
   pptalkmenu: (el, ev) => {
     if (ev) ev.stopPropagation();

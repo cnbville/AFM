@@ -1550,6 +1550,21 @@
   "title": "Capital lane C2: the rooms and the campus",
   "tldr": "Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer."
  },
+ "517": {
+  "auto": false,
+  "bullets": [
+   "Rival recruiters are people with their own styles, areas and favorite schools.",
+   "You hear about rival visits from the schools and coaches who trust you.",
+   "A wavering commit comes with a warning and one call from you.",
+   "What you say about a rival gets checked, and a lie costs you.",
+   "Other staffs find kids through the people they know, not by magic."
+  ],
+  "h": "68ea6d655401",
+  "look": "the rival recruiters working your areas.",
+  "players": true,
+  "title": "Ground lane G9: the race and the AI on Ground",
+  "tldr": "Every rival staff now recruits the way you do, on the ground, and you can see the race for each kid. Watch for the signs when a commit starts to waver, and make your call."
+ },
  "518": {
   "auto": false,
   "bullets": [],
@@ -1823,6 +1838,21 @@
   "title": "Capital lane CS5: the Pecking order screen",
   "tldr": "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans."
  },
+ "540": {
+  "auto": false,
+  "bullets": [
+   "Ask a coordinator how the year went and he walks you through it: points and yards against the conference, third downs, red zone, big plays, takeaways.",
+   "He names the games that got away and the starters who struggled or stood out at their spot.",
+   "A coach hired after last season tells you it wasn't his season, then gives what he saw on the tape.",
+   "Push for more and he gives you the rest; sharper coaches see more.",
+   "Ask a coach about one of his players and he knows how the player's numbers rank against the conference's starters."
+  ],
+  "h": "94214c03c857",
+  "look": "a staff meeting with a new coordinator at the start of a career.",
+  "players": true,
+  "title": "Coaches walk you through the season from the world's records",
+  "tldr": "Your coaches now really break down a season when you ask them, with the numbers, the games that slipped away and the players who struggled."
+ },
  "541": {
   "auto": false,
   "bullets": [],
@@ -1858,6 +1888,64 @@
   "players": true,
   "title": "Negotiation that responds to arguments: the spec and lanes",
   "tldr": "The spec for Cain's agreed negotiation overhaul (items 1, 2, 3a-c, 4, 5, 6, 7; college first): docs/design/negotiation-arguments.md, and its entry in CLAUDE.md's read-first list."
+ },
+ "544": {
+  "auto": false,
+  "bullets": [
+   "The roster you inherit keeps each player's market price or last year's pay, where that beats the roster split.",
+   "The NIL desk marks the old staff's deals and shows each player's market price beside the roster split.",
+   "Power conference starters are priced near real starter pay at every position.",
+   "Group of 5 budgets and pay are now at real levels, with the quarterback paid the most.",
+   "\"Paid last year\" counts only school and collective money, not his own brand deals."
+  ],
+  "h": "eb48438631dc",
+  "look": "the NIL desk on a new save, starting with your quarterback.",
+  "players": true,
+  "title": "NIL at market price: inherited deals, bids read at the school's level, Group of 5 money fitted to real pay",
+  "tldr": "College money now looks like the real market: your inherited stars keep what the market pays them, and every school pays at its own level."
+ },
+ "545": {
+  "auto": false,
+  "bullets": [
+   "Any pass play can now come off a run fake, so you'll see play-action crossers, floods and even screens, not just three special plays.",
+   "Defenders who read the backfield bite for a moment, longer for an undisciplined one and against a quarterback who hides the ball well.",
+   "Play-action passes are no longer sacked one time in five: the back and the line protect the fake, and bootlegs get a pulling guard while the quarterback rolls away from the rush.",
+   "Play callers fake most on early downs, in run-first systems like wide zone, and against defenses that keep biting."
+  ],
+  "h": "7f6a50138efc",
+  "look": "a game's play-by-play for \"play-action\" calls, and how your quarterback does off the fake.",
+  "players": true,
+  "title": "SF1: play action that works (scheme-fit item 3)",
+  "tldr": "Play action finally works: the run fake freezes linebackers and pass rushers, the line blocks for it, and coaches use it about as often as real NFL teams do."
+ },
+ "546": {
+  "auto": false,
+  "bullets": [
+   "Each player's lowest number reads his trust, his bond with the head coach, your club's winning, his home state and how much money matters to him.",
+   "Before free agency his agent knows what other clubs would pay, and he takes a little less for a sure deal now.",
+   "A talk that builds his trust in you now counts toward his contract too.",
+   "Offers under his lowest number fall short, whatever else they promise."
+  ],
+  "h": "c42d90f7917e",
+  "look": "re-signing a veteran after a winning season, then after a losing one.",
+  "players": true,
+  "title": "Negotiation lane NG4: each player's own lowest number and one trust",
+  "tldr": "Every pro now has his own lowest number, so a player who trusts you, plays for a winner or comes home will take a little less, and a lowball no longer slips past a man who claims not to care about money."
+ },
+ "547": {
+  "auto": false,
+  "bullets": [
+   "Each line reads as landed, helped a little, didn't move him, cost you a little or didn't land, instead of \"hard to tell how it landed\".",
+   "With a recruit, the read is about your case with him. It also tells you when you've made your case for the day, or when nothing of yours backs up what you named.",
+   "Saying your best point warmly to a recruit no longer cancels it.",
+   "A greeting, a task, news about someone else or a goodbye gets no guess at how it landed, and a greeting is never taken as dodging his question.",
+   "A warm word to one of your players can land now, and how he's taking things that day counts once a line."
+  ],
+  "h": "7ec984d843a1",
+  "look": "a first meeting where he opens with a question and you say hello, then a home visit where you make your best point with care.",
+  "players": true,
+  "title": "Talks: \"Heard as\" says how a line really went (the landing read)",
+  "tldr": "Heard as\" under your typed lines now tells you plainly how each line went. A recruit's best point now lands on your case even when you say it with care, and a hello is just a hello."
  },
  "548": {
   "auto": true,
@@ -1922,6 +2010,21 @@
   "title": "Ask before a goodbye closes a live talk",
   "tldr": "If a line of yours sounds like a goodbye, the talk no longer shuts on you. You get a quick choice to keep talking or end it."
  },
+ "554": {
+  "auto": false,
+  "bullets": [
+   "Coordinators and candidates name their offense or defense, say how well your roster fits it, and say what it would take to switch.",
+   "Assistants name the recruits they're working and the players who signed through them.",
+   "In the holdover staff meeting, each coach answers for himself, and the right man speaks up.",
+   "Coaches no longer act offended by a fair question.",
+   "Holdover coaches only boast about what's actually true."
+  ],
+  "h": "cb234fa2cfa4",
+  "look": "a takeover's holdover meetings. Ask \"What offense will you run?\" and \"Who have you been recruiting?\"",
+  "players": true,
+  "title": "Coaches answer with real specifics in live talks",
+  "tldr": "The coaches you talk to now give real answers about their scheme and their recruiting. Ask a coordinator what he'll run, or a recruiter who he's working, and you get specifics."
+ },
  "555": {
   "auto": false,
   "bullets": [
@@ -1934,5 +2037,91 @@
   "players": true,
   "title": "Make the search bar fast",
   "tldr": "The search bar (⌘K) now answers as you type instead of lagging behind, and tells you when it is still looking or could not finish."
+ },
+ "557": {
+  "auto": false,
+  "bullets": [
+   "A player who transfers, signs or is drafted starts fresh with his new staff.",
+   "His last staff's project shows as a note on his Development tab and takes no slot.",
+   "Every staff in the world follows the same rule, so rooms never run past their slots."
+  ],
+  "h": "c6259d70efe4",
+  "look": "a transfer's Development tab, Focus, then Development projects.",
+  "players": true,
+  "title": "End a development project when he moves to a new staff",
+  "tldr": "Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots."
+ },
+ "558": {
+  "auto": false,
+  "bullets": [
+   "Every conversation knows where your team is in its year and what's coming next.",
+   "Players know when their place gets decided: spring practice, fall camp, OTAs or training camp.",
+   "College players know when the transfer window opens and closes.",
+   "Asking for proof, a player names the next real moment, not a game that isn't coming."
+  ],
+  "h": "6f1357e68aa8",
+  "look": "a one-on-one with a player in January or February.",
+  "players": true,
+  "title": "Talks know the time of year",
+  "tldr": "The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game."
+ },
+ "562": {
+  "auto": false,
+  "bullets": [],
+  "h": "244cec0cddbe",
+  "look": "",
+  "players": false,
+  "title": "A moved man isn't picked for either project at his first checkpoint",
+  "tldr": ""
+ },
+ "564": {
+  "auto": false,
+  "bullets": [
+   "Trust with an assistant grows over two years together.",
+   "Close bonds (\"in his corner\") with position coaches are far more common.",
+   "Players follow a close head coach or position coach to his new school about as often as before bonds, now for the bond's own reasons."
+  ],
+  "h": "d9c41fdf14c0",
+  "look": "a third-year player's bond with his position coach on his page.",
+  "players": true,
+  "title": "Coach bonds: the world measure and its two fixes",
+  "tldr": "Players now come to trust the position coach who works with them every day, and more of them follow a coach they were close to when he moves."
+ },
+ "567": {
+  "auto": false,
+  "bullets": [
+   "Tell a player or his agent what his season really was, and his ask comes down toward his market. Stretch the truth and he trusts you less.",
+   "A recruit weighs what you say about his film and who's ahead of him against the truth, and an honest hard answer earns his respect.",
+   "A short offer to a pro can come back as a one-year prove-it deal with incentives.",
+   "Promise a veteran help and he'll take a little less, but he'll remember if you don't sign anyone.",
+   "College prices now read each player's last season on the field."
+  ],
+  "h": "4ed649966648",
+  "look": "a contract talk with a veteran after you quote his real numbers, then promise him help.",
+  "players": true,
+  "title": "Negotiation lanes NG1, NG2, NG3, NG5, NG6: arguments that move a price, college and NFL",
+  "tldr": "Arguments now work at the table: true numbers talk a player down to his real market, recruits hear the truth about your depth chart, and a veteran will take less if you promise to bring in help."
+ },
+ "568": {
+  "auto": false,
+  "bullets": [
+   "Staffs rotate their tackles in waves. A star still plays most snaps, while a room of equals shares them.",
+   "Rain makes long throws much harder to complete than short ones.",
+   "A light breeze barely matters, but a 15-20 mph wind cuts passing the way it does in real games."
+  ],
+  "h": "dc01712cd634",
+  "look": "a rainy or windy game's passing line, and your tackles' snap counts in the box score.",
+  "players": true,
+  "title": "A rotating defensive line and real weather",
+  "tldr": "Defensive tackles now rotate like a real NFL line, and rain and strong wind hurt the passing game as much as they really do."
+ },
+ "576": {
+  "auto": false,
+  "bullets": [],
+  "h": "2e82754ef2ae",
+  "look": "",
+  "players": false,
+  "title": "Make the 14-year-old tendencies test deterministic",
+  "tldr": ""
  }
 }

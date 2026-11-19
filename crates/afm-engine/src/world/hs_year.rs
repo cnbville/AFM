@@ -2357,7 +2357,7 @@ fn all_state(w: &mut World, s: usize, d: Date) {
                     continue;
                 }
                 // Games missed count against him: voters reward a full season.
-                let perf = p.last_performance.unwrap_or(p.player.overall()) - 0.6 * p.cal.hs_grade_out as f64;
+                let perf = p.last_performance.get().unwrap_or(p.player.overall()) - 0.6 * p.cal.hs_grade_out as f64;
                 by_pos[p.player.position.index()].push((perf, i));
             }
         }
@@ -2771,7 +2771,7 @@ pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
             })
             .map(|(i, p)| {
                 let stars = if pos.is_specialist() { p.camp_stars } else { p.stars } as f64;
-                let read = p.cal.service_read.unwrap_or(p.player.overall());
+                let read = p.cal.service_read.get().unwrap_or(p.player.overall());
                 let mut score = 10.0 * stars
                     + 0.25 * film_raw(p, &played)
                     + 0.75 * read
@@ -3078,6 +3078,31 @@ impl World {
     /// Whether a school is in its state's playoff field and still alive.
     pub fn hs_alive(&self, h: usize) -> bool {
         self.hs_season.as_ref().is_some_and(|hs| hs.brackets.iter().any(|b| b.alive(h as u32)))
+    }
+
+    /// The date of a school's next playoff game: its round in its state's
+    /// bracket (the next one after a bye; a bracket that starts late starts
+    /// at its own round), or, before the state draws its brackets (on its
+    /// first round's morning), in the field its results will draw
+    /// (`hs_playoffs::build`, as `seed_playoffs` draws it). None out of the
+    /// field, or crowned without a game.
+    pub(crate) fn hs_next_round(&self, h: usize) -> Option<Date> {
+        let hs = self.hs_season.as_ref()?;
+        let s = self.high_schools.get(h)?.state;
+        let st = hs.states.get(s).filter(|st| !st.done)?;
+        let me = h as u32;
+        let next = |b: &super::hs_playoffs::Bracket| -> Option<Date> {
+            if !b.alive(me) {
+                return None;
+            }
+            let plays = b.games().iter().any(|&(x, y)| x == me || y == me);
+            st.rounds.get(b.round as usize + usize::from(!plays)).copied()
+        };
+        if hs.brackets.iter().any(|b| b.state as usize == s) {
+            return hs.brackets.iter().filter(|b| b.state as usize == s).find_map(next);
+        }
+        let opps = super::hs_playoffs::opponents(self.high_schools.len(), &hs.played);
+        super::hs_playoffs::build(self, s, &hs.results, &hs.district, &opps, st.rounds.len()).iter().find_map(next)
     }
 
     /// The day this year's new class joins the high school rosters.

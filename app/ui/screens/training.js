@@ -742,10 +742,12 @@ function playersTab(x) {
 // Development tab, under Focus).
 function trProjects(pj) {
   if (!pj || !pj.rooms) return "";
-  const names = (v) => v.map((o) => `${playerLink(o.id, o.name, "Development")} <small class="muted">${esc(o.what || "")}${o.yours ? "" : " · set before you"}</small>`).join("<br>");
+  const end = (o, kind) => (o.yours ? "" : ` <button class="st-btn small glass" data-act="tr-pjend" data-id="${o.id}" data-kind="${kind}" title="Set by the staff before you: it runs until you end it">End</button>`);
+  const names = (v, kind) => v.map((o) => `${playerLink(o.id, o.name, "Development")} <small class="muted">${esc(o.what || "")}${o.yours ? "" : " · set before you"}</small>${end(o, kind)}`).join("<br>");
+  const before = pj.rooms.some((r) => r.on.concat(r.body_on).some((o) => !o.yours));
   const over = pj.rooms.some((r) => r.used > r.slots || r.body_used > r.body_slots);
-  const cells = pj.rooms.map((r) => `<div class="tr-pjroom"><span class="st-label">${esc(r.room)}</span><b class="${r.used > r.slots ? "amber" : r.used === r.slots ? "gold" : ""}">${r.used}/${r.slots}</b><small class="muted">skill${r.body_used ? ` · body ${r.body_used}/${r.body_slots}` : ""}</small>${r.on.length || r.body_on.length ? `<span class="tr-pjwho">${names(r.on.concat(r.body_on))}</span>` : ""}</div>`).join("");
-  return `<div class="panel warm tr-pj"><div class="dv-ch"><h2>Development projects <small>${pj.used} of ${pj.slots} skill slots · ${pj.body_used} body ${pj.body_used === 1 ? "project" : "projects"}</small></h2><span class="muted">Start one on a player's Development tab, under Focus</span></div><div class="tr-pjrooms">${cells}</div>${over ? '<span class="muted">A room past its slots holds projects the staff before you set. They run until you end them, and the room takes no new one until it is back under its count.</span>' : ""}</div>`;
+  const cells = pj.rooms.map((r) => `<div class="tr-pjroom"><span class="st-label">${esc(r.room)}</span><b class="${r.used > r.slots ? "amber" : r.used === r.slots ? "gold" : ""}">${r.used}/${r.slots}</b><small class="muted">skill${r.body_used ? ` · body ${r.body_used}/${r.body_slots}` : ""}</small>${r.on.length || r.body_on.length ? `<span class="tr-pjwho">${[names(r.on, "skill"), names(r.body_on, "body")].filter(Boolean).join("<br>")}</span>` : ""}</div>`).join("");
+  return `<div class="panel warm tr-pj"><div class="dv-ch"><h2>Development projects <small>${pj.used} of ${pj.slots} skill slots · ${pj.body_used} body ${pj.body_used === 1 ? "project" : "projects"}</small></h2><span class="muted">Start one on a player's Development tab, under Focus</span></div><div class="tr-pjrooms">${cells}</div>${over ? '<span class="muted">A room past its slots holds projects the staff before you set. They run until you end them, and the room takes no new one until it is back under its count.</span>' : before ? '<span class="muted">Projects the staff before you set run until you end them: nobody else manages your rooms.</span>' : ""}</div>`;
 }
 function templatesTab(x) {
   const k = keep("trtpl", { slot: x.slot });
@@ -919,7 +921,7 @@ function dvSkillProj(d, s, st, dis, coach, eye) {
     const year = o.years ? `Year ${o.years + 1} of work` : "Starts at his next growth checkpoint";
     return `<div class="dv-card">${head}<b class="dv-when">${esc(o.label)}</b><span class="muted">${year} · set by ${o.yours ? "you" : "the staff before you"} · ${s.minutes} min a week with ${esc(coach)}</span>
       <div class="dv-rrow"><span class="muted">Still to come</span><span class="dv-gain gold">${dvGain(o.gain)}<small>by ${trPlural(s.years, "season")} from now</small></span><span></span></div>
-      <span class="muted">${esc(coach)} thinks he ${esc(o.knack)}.</span>${o.little ? `<span class="dv-warn">Your staff sees little left to open here. It may be time to end it.</span>` : ""}
+      <span class="muted">${esc(coach)} thinks he ${esc(o.knack)}.</span>${o.stalled ? `<span class="dv-warn">${esc(coach)} sees a dead end: little came of it last year. He would end it and give the time to someone else.</span>` : o.little ? `<span class="dv-warn">Your staff sees little left to open here. It may be time to end it.</span>` : ""}
       <div class="dv-acts"><span class="muted">His other technique grows at ${s.cost}% of its pace while it runs.</span><button class="st-btn glass" data-act="tr-pjend" data-id="${d.id}" data-kind="skill" ${dis}>End the project</button></div></div>`;
   }
   if (st.open !== "skill") {
@@ -1013,7 +1015,16 @@ function dvReports(d, p) {
   const key = d.key.map((k) => `<div class="attr ${k.focus ? "tr-focus" : ""}"><span>${esc(k.label)} <small class="muted">${esc(k.family)}</small>${k.focus ? ' <span class="tag soft">Focus</span>' : ""}</span>${range(k.read, "your position coach", { p: p.id, k: k.key })}</div>`).join("");
   const notes = d.notes.length ? `<div class="items">${d.notes.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><b>${esc(n.dept)}</b> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">No staff notes on him yet.</div>';
   const log = d.practice_log.length ? `<div class="items">${d.practice_log.map((l) => `<div class="item"><span class="when">${esc(l.monday)}</span><span>${l.grade != null ? `Practice grade <b>${l.grade}</b>. ` : ""}${l.battles.map(rich).join(" · ")}</span></div>`).join("")}</div>` : '<div class="empty">No practice reps logged yet.</div>';
-  return `<div class="dv-rep"><div class="panel warm"><h2>What matters at ${esc(d.pos)} <small>your position coach's read, as ranges</small></h2>${key}<p class="sub">Your staff reads where he is, not where he could end up: nobody sees a ceiling.</p></div><div class="panel warm"><h2>Staff notes</h2>${notes}</div><div class="panel warm"><h2>Practice <small>grades and one-on-ones</small></h2>${log}</div></div>`;
+  return `<div class="dv-rep"><div class="panel warm"><h2>What matters at ${esc(d.pos)} <small>your position coach's read, as ranges</small></h2>${key}<p class="sub">Your staff reads where he is, not where he could end up: nobody sees a ceiling.</p></div>${dvClues(d.clues)}<div class="panel warm"><h2>Staff notes</h2>${notes}</div><div class="panel warm"><h2>Practice <small>grades and one-on-ones</small></h2>${log}</div></div>`;
+}
+// The knack's clues (the progression design, item 3): what his staff has
+// to go on about how fast he takes new technique and how his body takes to
+// a program. Words only: nobody knows the knack itself.
+function dvClues(c) {
+  if (!c) return "";
+  const rows = (v) => v.map((x) => `<div class="item"><span class="when">${esc(x.who)}</span><span>${x.on ? `<small class="muted">${esc(x.on)} · </small>` : ""}<b>${esc(trCap(x.says))}</b> <small class="muted">· ${esc(x.sure)}</small><br><small class="muted">${esc(x.hint)}</small></span></div>`).join("");
+  const tech = c.technique.length ? `<div class="items">${rows(c.technique)}</div>` : '<div class="empty">Nothing to go on yet: a project shows how he takes to new technique.</div>';
+  return `<div class="panel warm"><h2>How he takes to new work <small>clues, never a number</small></h2><span class="st-label">New technique</span>${tech}<span class="st-label">His body</span><div class="items">${rows(c.body)}</div></div>`;
 }
 async function dvSetPoints(el, codes) {
   const r = await trDo("practice_points", { id: Number(el.dataset.id), points: codes }, (x) => (x.refused ? `He doesn't believe he has it: "${x.refused.toLowerCase()}" is off his focus.` : "Focus saved."));
@@ -1205,6 +1216,14 @@ function squadCalls(r, x) {
   const send = x.draft.committee ? `<button class="st-btn small glass" data-act="tr-sqadv" data-id="${r.id}" data-on="${r.sent ? 0 : 1}" aria-pressed="${r.sent}" title="${r.sent ? "On your advisory list: click to take him off" : "Ask the NFL's advisory committee for his round"}">${r.sent ? "Sent to the committee" : "Send to the committee"}</button>` : "";
   return `<span class="tr-calls">${send}<span class="seg tr-say" title="Your stay-or-go talk">${SQUAD_SAY.map(([v, t]) => `<button data-act="tr-sqtalk" data-id="${r.id}" data-say="${v}" aria-pressed="${r.talk === v}">${t}</button>`).join("")}</span></span>`;
 }
+// A squad row's projects: the skill project (its year, who set it, a dead
+// end your staff sees) and the body project.
+function trProjCell(pj) {
+  if (!pj) return '<span class="muted">-</span>';
+  const skill = pj.skill ? `${esc(pj.skill)} <small class="muted">yr ${pj.skill_years + 1}${pj.skill_yours ? "" : " · set before you"}</small>${pj.stalled ? ' <span class="dot warn" title="Your position coach sees a dead end"></span>' : ""}` : "";
+  const body = pj.body ? `${esc(pj.body)} <small class="muted">body${pj.body_yours ? "" : " · set before you"}</small>` : "";
+  return [skill, body].filter(Boolean).join("<br>");
+}
 function squadCols(view, x) {
   const name = { k: "name", t: "Name", l: true, f: (r) => `${playerLink(r.id, r.name, view === "Development" ? "Development" : "")}${r.notes ? ` <span class="st-pill" title="Your notes">✎ ${r.notes}</span>` : ""}` };
   const pos = { k: "pos", t: "Pos", l: true };
@@ -1215,7 +1234,7 @@ function squadCols(view, x) {
   const views = {
     General: [name, pos, cls, { k: "age", t: "Age" }, { k: "ht", t: "Ht", v: (r) => inches(r.ht) }, { k: "wt", t: "Wt" }, { k: "home", t: "Hometown", l: true, wrap: true }, { k: "stars", t: "★", tip: "Recruiting stars", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }, ovr, { k: "mood", t: "Mood", l: true }, { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') }, { k: "born", t: "Born", l: true, hide: true }],
     Ratings: [name, pos, cls, ovr, key(0), key(1), key(2), key(3)],
-    Development: [name, pos, cls, { k: "age", t: "Age" }, ovr, { k: "growth", t: "Growth", l: true, f: (r) => trGrowth(r.growth) }, { k: "grade_words", t: "Practice", l: true, v: (r) => r.grade }, { k: "focus", t: "Main focus", l: true, f: (r) => (r.focus ? `${esc(r.focus)}${r.focus_by === "staff" ? ' <small class="muted">staff</small>' : ""}` : '<span class="muted">Balanced</span>') }, { k: "teacher", t: "Taught by", l: true, v: (r) => r.teacher.name || "", f: (r) => (r.teacher.name ? `${r.teacher.you ? "You" : coachLink(r.teacher.id, r.teacher.name)} <small class="muted">${esc(r.teacher.words)}</small>` : '<span class="muted">-</span>') }, { k: "habit", t: "Habit", l: true, hide: true }, { k: "moving", t: "Learning", l: true, hide: true }, { k: "body_target", t: "Body target", hide: true }],
+    Development: [name, pos, cls, { k: "age", t: "Age" }, ovr, { k: "growth", t: "Growth", l: true, f: (r) => trGrowth(r.growth) }, { k: "grade_words", t: "Practice", l: true, v: (r) => r.grade }, { k: "focus", t: "Main focus", l: true, f: (r) => (r.focus ? `${esc(r.focus)}${r.focus_by === "staff" ? ' <small class="muted">staff</small>' : ""}` : '<span class="muted">Balanced</span>') }, { k: "teacher", t: "Taught by", l: true, v: (r) => r.teacher.name || "", f: (r) => (r.teacher.name ? `${r.teacher.you ? "You" : coachLink(r.teacher.id, r.teacher.name)} <small class="muted">${esc(r.teacher.words)}</small>` : '<span class="muted">-</span>') }, { k: "project", t: "Project", l: true, tip: "His development projects on your staff: a skill project with his position room, a body project with the strength staff", v: (r) => (r.project ? `${r.project.skill || ""} ${r.project.body || ""}` : ""), f: (r) => trProjCell(r.project) }, { k: "habit", t: "Habit", l: true, hide: true }, { k: "moving", t: "Learning", l: true, hide: true }, { k: "body_target", t: "Body target", hide: true }],
     Fitness: [name, pos, cls, { k: "practice", t: "Practice", l: true, f: trStatus }, { k: "load", t: "Load", l: true, f: trLoad, v: (r) => ["light", "moderate", "heavy", "very heavy"].indexOf(r.load) }, { k: "load_trend", t: "Trend", l: true }, { k: "missed", t: "Games missed", tip: "Last season" }, { k: "status", t: "Status", l: true }, { k: "wt", t: "Wt" }, { k: "sport", t: "Other sport", l: true, hide: x.tier !== "hs" }],
     Depth: [name, pos, cls, { k: "depth", t: "Depth", tip: "His place at his position on game day: opens his spot on the depth chart", v: (r) => (r.depth == null ? 99 : -r.depth), f: (r) => (r.depth ? linkTo("depth", { tab: SQ_BOARD[r.group] || "Offense", pid: r.id }, r.depth === 1 ? "<b>1st</b>" : r.depth === 2 ? "2nd" : r.depth === 3 ? "3rd" : r.depth + "th") : '<span class="muted">-</span>') }, { k: "role", t: "Practice role", l: true }, { k: "last_role", t: "Last season", l: true, f: (r) => esc(trCap(r.last_role || "")) }, ovr, { k: "grade_words", t: "Practice grades", l: true, v: (r) => r.grade }],
     Contract: pro

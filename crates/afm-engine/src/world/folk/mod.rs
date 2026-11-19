@@ -23,6 +23,7 @@ pub mod backchannel;
 pub mod backers;
 pub mod bonds;
 pub mod boss;
+pub mod captain;
 pub mod case;
 pub mod cast;
 pub mod claims;
@@ -124,6 +125,15 @@ impl Team {
             Team::College(_) => Level::College,
             Team::Nfl(_) | Team::Other(_) => Level::Nfl,
             Team::High(_) => Level::HighSchool,
+        }
+    }
+
+    /// The level its games are kept at (`SeatGame::level`): another
+    /// league's games are their own, though its men are pros (`level`).
+    pub fn games_level(self) -> Level {
+        match self {
+            Team::Other(_) => Level::Other,
+            t => t.level(),
         }
     }
 
@@ -596,6 +606,9 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
         hour::OVERNIGHT => {
             ensure_base(w);
             courts::opens(w);
+            if w.seat.is_some() {
+                scene::overnight(w, d);
+            }
         }
         _ => {}
     }

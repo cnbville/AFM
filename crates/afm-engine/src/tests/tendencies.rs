@@ -5,9 +5,17 @@ use crate::tendencies::{
     Instruction, MID, Orders, Style, TEND_COUNT, Tend, Tendencies, YearCtx, develop_year, level_sd, obey_chance, scout,
 };
 
+/// Fixed ids: a 14-year-old's tendencies are drawn from his own id stream, and
+/// the global id counter moves with whatever other tests built first, so the
+/// sample (and a mean sitting near its band) would differ from run to run.
 fn prospects(n: usize) -> Vec<crate::player::Player> {
     let mut rng = Rng::new("tendencies");
-    (0..n).map(|_| generate_prospect(&mut rng, ProspectOptions { age: Some(14), ..Default::default() })).collect()
+    (0..n)
+        .map(|i| {
+            let opts = ProspectOptions { id: Some(i as u32 + 1), age: Some(14), ..Default::default() };
+            generate_prospect(&mut rng, opts)
+        })
+        .collect()
 }
 
 fn sd(xs: &[f64]) -> f64 {
@@ -20,7 +28,9 @@ fn fourteen_year_olds_spread_wide_around_the_middle() {
     let ps = prospects(3000);
     for t in Tend::ALL {
         let v: Vec<f64> = ps.iter().map(|p| p.tend.get(t)).collect();
-        assert!((mean(&v) - MID).abs() < 0.6, "{t:?} mean {}", mean(&v));
+        // CENTER_14 is measured on the whole class (`tendency_check nfl 2 1
+        // centers14`, 40,000 players); 3,000 fixed ids add noise of about 0.08.
+        assert!((mean(&v) - MID).abs() < 0.4, "{t:?} mean {}", mean(&v));
         assert!(sd(&v) > 3.5 && sd(&v) < 5.5, "{t:?} sd {}", sd(&v));
         assert!(v.iter().all(|x| (1.0..=20.0).contains(x)));
     }

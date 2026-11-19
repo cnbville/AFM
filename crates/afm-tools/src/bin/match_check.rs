@@ -259,10 +259,13 @@ fn main() {
     afm_engine::game::sheet::KICKOFF.store(mode, std::sync::atomic::Ordering::Relaxed);
     let mode_name = ["none", "every team", "home only", "college and NFL teams"][mode as usize];
     // What a kickoff draft costs: one team's sheet from the other's film,
-    // on one core.
+    // on one core, under the rule book the games are played on.
     {
         use afm_engine::world::plans::{DraftIn, film_tells, kickoff_card};
-        let rules = afm_engine::game::Rules::for_level(level);
+        let rules = match book {
+            Some((b, y)) => afm_engine::game::Rules::for_book(b, y),
+            None => afm_engine::game::Rules::for_level(level),
+        };
         let n = 64;
         let t = std::time::Instant::now();
         let mut boxes = 0;
@@ -278,6 +281,7 @@ fn main() {
                 favs: Vec::new(),
                 tells: film_tells(&teams[h].film),
                 designs: Vec::new(),
+                players: rules.code.players,
             };
             let card = kickoff_card(&teams[h], &inp);
             boxes += card.sheet.len();
@@ -357,6 +361,9 @@ fn main() {
             (P::S, 2, "0.90-1.00"),
         ];
         let mut share = vec![0.0f64; groups.len()];
+        // The line's men by rank (item 29): each rank's share of his side's
+        // snaps, ranks 1-4, and the men on 10% or more.
+        let mut ranks = [[0.0f64; 5]; 2];
         let mut carry = [0.0f64; 2];
         let mut nt = 0.0;
         // Sacks and tackles for loss by player over all a team's games.
@@ -386,6 +393,16 @@ fn main() {
                     v.sort_by(|x, y| y.total_cmp(x));
                     let top: f64 = v.iter().take(n).sum();
                     share[gi] += top / (n as f64 * if defense { def } else { off });
+                    if let Some(r) = match pos {
+                        P::DT => Some(0),
+                        P::EDGE => Some(1),
+                        _ => None,
+                    } {
+                        for (k, x) in v.iter().take(4).enumerate() {
+                            ranks[r][k] += x / def;
+                        }
+                        ranks[r][4] += v.iter().filter(|&&x| x / def >= 0.1).count() as f64;
+                    }
                 }
                 let mut c: Vec<f64> = team
                     .players
@@ -403,6 +420,18 @@ fn main() {
             println!("starters' share of snaps (real band)");
             for (gi, &(pos, n, real)) in groups.iter().enumerate() {
                 println!("  {:?} x{n}  {:.2}  ({real})", pos, share[gi] / nt);
+            }
+            // Real: nflverse snap counts 2021-25, a team game, PFR labels
+            // (engine_targets.json, snap_shares): interior is DT and NT, so
+            // a 3-4 end listed DE counts with the edges.
+            for (r, name, real) in
+                [(0, "DT", "0.68 0.50 0.31 0.16, 3.47 on 10%+"), (1, "EDGE", "0.67 0.45 0.26 0.13, 3.21 on 10%+")]
+            {
+                let x = ranks[r].map(|v| v / nt);
+                println!(
+                    "  {name} by rank  {:.2} {:.2} {:.2} {:.2}, {:.2} on 10%+  (real {real})",
+                    x[0], x[1], x[2], x[3], x[4]
+                );
             }
             println!(
                 "  lead back's share of RB carries  {:.2}  (real NFL game 0.70, p10 0.50, p90 0.92)",

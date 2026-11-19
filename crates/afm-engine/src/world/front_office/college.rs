@@ -622,6 +622,28 @@ pub fn deals_now(w: &World, j: usize) -> Option<(Deals, Deals)> {
     Some((school, coll))
 }
 
+/// Each of your players' money next year as July 1 will pay it (the stay
+/// read, 2026-11-18): his revenue share and his collective deal as NIL Go
+/// clears it, by id; a player with no deal is paid nothing. Empty when the
+/// desk doesn't pay program `j`.
+pub fn next_year_pay(w: &World, j: usize) -> HashMap<u32, f64> {
+    let Some((school, coll)) = deals_now(w, j) else { return HashMap::new() };
+    let two = ncaa::two_pots(w.today);
+    let medians = rec::nil_medians(w);
+    let mut pay = HashMap::new();
+    for &i in &w.programs[j].roster {
+        let p = &w.people[i];
+        if p.stage != Stage::College || p.college != Some(j) {
+            continue;
+        }
+        let id = p.player.id;
+        let c = coll.get(&id).copied().unwrap_or(0.0);
+        let c = if two && c > 0.0 { rec::nil_go_at(w, j, c, rec::go_top_now(w, j, p, &medians)) } else { c };
+        pay.insert(id, school.get(&id).copied().unwrap_or(0.0) + c);
+    }
+    pay
+}
+
 /// $500 steps for a going rate; the collective's rounds down when NIL Go
 /// holds some of it back, so the going rate never sits above his range.
 fn round_rate(x: f64) -> f64 {
@@ -1637,8 +1659,7 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
     let ahead: Vec<usize> = ranked.iter().filter(|r| r.0 > mine).map(|r| r.1).collect();
     let draw = key(w, 0x1515 ^ kind as u64, p.player.id as u64 ^ (d.0 as u64) << 32);
     let committed_elsewhere = p.cal.commit.filter(|c| c.0 != j);
-    let firm = committed_elsewhere
-        .is_some_and(|c| rec::appeal(w, i, c.0, None) > mine + 0.5 * rec::commitment_hold(w, i) && draw > 0.25);
+    let firm = firm_with(w, i, j, kind, d).is_some();
     let name = |x: usize| w.program_name(x).to_string();
     let first = p.name.split_whitespace().next().unwrap_or("He").to_string();
     match kind {
@@ -1658,7 +1679,7 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
             let unvisited_ahead =
                 ahead.iter().filter(|&&x| !p.cal.visits.iter().any(|v| v.0 == x && v.2 == Visit::Official)).count();
             if unvisited_ahead < left || (unvisited_ahead == left && draw < 0.4) {
-                Ok(format!("{first} accepted: the weekend of {} is set.", d.pretty()))
+                Ok(yes_words(&first, kind, d))
             } else {
                 let keep: Vec<String> = ahead.iter().take(2).map(|&x| name(x)).collect();
                 Err(format!(
@@ -1679,7 +1700,7 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
             let money = p.bg.money;
             let far = (miles / 700.0) * (1.2 - money);
             if !firm && ahead.len() <= 5 && draw > far.min(0.95) {
-                Ok(format!("{first} and his family will come on {}, at their own cost.", d.pretty()))
+                Ok(yes_words(&first, kind, d))
             } else if firm {
                 Err(format!("{first} is firm with {} and won't make the trip.", name(committed_elsewhere.unwrap().0)))
             } else {
@@ -1696,22 +1717,94 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
                     name(committed_elsewhere.unwrap().0)
                 ))
             } else {
-                Ok(format!("{first}'s family will host you on {}.", d.pretty()))
+                Ok(yes_words(&first, kind, d))
             }
         }
-        VisitKind::DropIn => Ok(format!("Your coaches will watch {first} practice on {}.", d.pretty())),
+        VisitKind::DropIn => Ok(yes_words(&first, kind, d)),
     }
 }
 
-/// Sets a visit, if the rules allow it and he says yes.
-pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
-    // A visit you set stands while your staff plans the rest (SC6).
+/// His yes to a visit, in the desk's words.
+fn yes_words(first: &str, kind: VisitKind, d: Date) -> String {
+    match kind {
+        VisitKind::Official => format!("{first} accepted: the weekend of {} is set.", d.pretty()),
+        VisitKind::Unofficial => format!("{first} and his family will come on {}, at their own cost.", d.pretty()),
+        VisitKind::Home => format!("{first}'s family will host you on {}.", d.pretty()),
+        VisitKind::DropIn => format!("Your coaches will watch {first} practice on {}.", d.pretty()),
+    }
+}
+
+/// The school he is committed to, when he is firm enough with it to turn a
+/// visit to you down: its pull on him beats yours (with your offer, or
+/// without one) by more than half his commitment's hold, on the day's own
+/// draw (a quarter of the days he hears you out anyway). Your case moves
+/// your side of it: a point that lands in a talk can unsettle him.
+pub fn firm_with(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Option<usize> {
+    let p = &w.people[i];
+    let c = p.cal.commit.filter(|c| c.0 != j)?.0;
+    let draw = key(w, 0x1515 ^ kind as u64, p.player.id as u64 ^ (d.0 as u64) << 32);
+    (firm_gap(w, i, j, c) > 0.0 && draw > 0.25).then_some(c)
+}
+
+/// How far school `c`'s pull on him beats yours (with your offer, or less
+/// without one) past half his commitment's hold, in appeal points: above 0
+/// he is firm with it on most days (`firm_with`).
+pub fn firm_gap(w: &World, i: usize, j: usize, c: usize) -> f64 {
+    let mine = rec::appeal(w, i, j, None) - if offered_here(w, w.people[i].player.id) { 0.0 } else { 0.12 };
+    rec::appeal(w, i, c, None) - mine - 0.5 * rec::commitment_hold(w, i)
+}
+
+/// The rules of a visit you'd set, and who it's with: (his index, your
+/// program).
+fn visit_check(w: &World, id: u32, kind: VisitKind, d: Date) -> Result<(usize, usize), String> {
     let j = super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such recruit.")?;
-    if let Some(why) = visit_rule(w, i, kind, d) {
-        return Err(why);
+    match visit_rule(w, i, kind, d) {
+        Some(why) => Err(why),
+        None => Ok((i, j)),
     }
+}
+
+/// What he'd answer if you asked him to a visit on `d` now, without
+/// setting it: the rules, then his yes or no (`set_visit`'s own). A talk
+/// asks this when you invite him, so his words and the desk agree.
+pub fn visit_reply(w: &World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    let (i, j) = visit_check(w, id, kind, d)?;
+    answer(w, i, j, kind, d)
+}
+
+/// Sets a visit, if the rules allow it and he says yes. A no he gave
+/// because he is firm with another school comes with your staff's read of
+/// what might unsettle him (`case::unsettle`).
+pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    // A visit you set stands while your staff plans the rest (SC6).
+    let (i, j) = visit_check(w, id, kind, d)?;
     let reply = answer(w, i, j, kind, d);
+    let reply = match (reply, firm_with(w, i, j, kind, d)) {
+        (Err(no), Some(c)) => Err(format!("{no} {}", crate::world::folk::case::unsettle(w, i, j, c))),
+        (r, _) => r,
+    };
+    record_visit(w, id, i, j, kind, d, reply)
+}
+
+/// Sets a visit he already said yes to in a talk: the rules checked again
+/// (a date gone since), his word kept rather than asked again.
+pub fn take_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<String, String> {
+    let (i, j) = visit_check(w, id, kind, d)?;
+    let first = w.people[i].name.split_whitespace().next().unwrap_or("He").to_string();
+    record_visit(w, id, i, j, kind, d, Ok(yes_words(&first, kind, d)))
+}
+
+/// A visit's answer on the desk: set or declined, with its note.
+fn record_visit(
+    w: &mut World,
+    id: u32,
+    i: usize,
+    j: usize,
+    kind: VisitKind,
+    d: Date,
+    reply: Result<String, String>,
+) -> Result<String, String> {
     let (state, text) = match &reply {
         Ok(t) => (VisitState::Set, t.clone()),
         Err(t) => (VisitState::Declined, t.clone()),
@@ -2648,15 +2741,39 @@ pub fn budget(w: &World, j: usize) -> Budget {
     }
 }
 
-/// Each player's usual money this money year, the split `nil_payouts`
-/// makes on July 1 (minor bug 100): (id, the part you hand out, the
-/// collective's own deal as NIL Go clears it, what NIL Go holds back). In
-/// two pots (B18) the first is the school's revenue share and the
-/// collective pays the second itself; before, the first is all of it.
+/// Each player's usual money this money year, the roster split an AI
+/// school's July 1 makes (`rec::roster_split`): (id, the part you hand
+/// out, the collective's own deal as NIL Go clears it, what NIL Go holds
+/// back). In two pots (B18) the first is the school's revenue share and
+/// the collective pays the second itself; before, the first is all of it.
 fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
+    split_rows(w, j, deals_year(w), true)
+}
+
+/// [`splits`] for money year `year` as July 1 makes it, the class and
+/// transfers all signed (the payday's own read; the tools).
+pub fn splits_for(w: &World, j: usize, year: i32) -> Vec<(u32, f64, f64, f64)> {
+    split_rows(w, j, year, false)
+}
+
+/// The roster split for money year `year`.
+///
+/// The money is the whole year's, as an AI school's (2026-11-18; before,
+/// 0.6 of it, the room kept for your offers, so a starter's roster split
+/// read well under what the same man earned at a rival). The deals that
+/// stand take their room first, the way an AI school's do (`your_holds`):
+/// a deal on his file (signed, landed on, multi-year) and the signees not
+/// on the roster yet. Ahead of July 1 (`ahead`) at your program, a class
+/// and transfers still to come keep their room: the share of the year's
+/// money AI schools at your money level paid their arrivals last July
+/// (`NilBook::new_share`), less what your signees and arrivals hold on
+/// file. July 1 itself (`ahead` false) reads the deals your arrivals came
+/// on as an AI school reads its own. Each man's going rate is his own
+/// split of what is left, a deal holder's too, and no number you set on
+/// the desk moves anyone's going rate ahead of July 1.
+fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64, f64)> {
     let prog = &w.programs[j];
-    let money = prog.collective.budget * crate::world::legacy::college::split_q(w, j, 0);
-    let budget = money * rec::NIL_ROSTER;
+    let two = ncaa::two_pots(w.today);
     let roster: Vec<usize> = prog
         .roster
         .iter()
@@ -2664,39 +2781,93 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
         .filter(|&i| w.people[i].stage == Stage::College && w.people[i].college == Some(j))
         .collect();
     let medians = rec::nil_medians(w);
-    let value = |i: usize| rec::nil_value(&w.people[i], prog.division, &medians, ncaa::two_pots(w.today));
-    let total: f64 = roster.iter().map(|&i| value(i)).sum();
-    let shares: f64 = roster.iter().map(|&i| rec::share_value(&w.people[i])).sum();
-    let two = ncaa::two_pots(w.today);
     let s = if two && prog.collective.budget > 0.0 {
         (ncaa::school_pot(prog, w.today) / prog.collective.budget).clamp(0.0, 1.0)
     } else {
         0.0
     };
+    let (holds, held_new, waiting) = your_holds(w, j, &roster, year, !ahead);
+    let year_money = prog.collective.budget * crate::world::legacy::college::split_q(w, j, 0) + prog.collective.buyouts;
+    let to_come = if ahead && super::program(w) == Some(j) {
+        let share = w.nil_book.new_share[crate::world::nil_bid::level(prog)];
+        (share * year_money - held_new - waiting).max(0.0)
+    } else {
+        0.0
+    };
+    let money = (year_money - waiting - to_come).max(0.0);
+    let rows = rec::roster_split(w, j, &roster, money, s, two, &medians, |_, i| {
+        holds.get(&i).copied().unwrap_or(rec::NilHeld::None)
+    });
     // Sandbox mode's NIL Go switch: nothing held back from your roster.
     let free = rec::nil_go_free(w) == Some(j);
-    roster
-        .iter()
-        .map(|&i| {
+    let mut room = if two { ncaa::share_room(prog, year) } else { 0.0 };
+    rows.into_iter()
+        .map(|row| {
+            let id = w.people[row.i].player.id;
             if !two {
-                return (w.people[i].player.id, budget * value(i) / total.max(1e-9), 0.0, 0.0);
+                return (id, row.school + row.coll, 0.0, 0.0);
             }
-            // The school spreads its share over the roster (minor bug 336).
-            // Your going rate hands out 0.6 of it the same way: your offers
-            // to signees and transfers and the hunt's reserve come out of
-            // the same pot in the year (`budget`), so the rest stays for
-            // them (proposed, not confirmed). The AI pays its whole share
-            // on July 1. The collective's going rate keeps the same room
-            // (the new NIL scheme: NIL Go's range no longer trims it).
-            let (school, meant) =
-                rec::july_split(money, s, (rec::share_value(&w.people[i]), shares), (value(i), total), two);
-            let school = school * rec::NIL_ROSTER;
-            let meant = meant * rec::NIL_ROSTER;
-            let coll =
-                if free { meant } else { rec::nil_go(w.today, meant, rec::go_top_now(w, j, &w.people[i], &medians)) };
-            (w.people[i].player.id, school, coll, meant - coll)
+            // NIL Go clears the collective's part to the top of his range
+            // and moves what it denies into the revenue share while the cap
+            // has room, as on an AI school's July 1.
+            let top = rec::go_top_now(w, j, &w.people[row.i], &medians);
+            let r = crate::world::nil_bid::review(w.today, row.coll, top, room, free);
+            room -= r.moved;
+            (id, row.school + r.moved, r.cleared, (row.coll - r.cleared - r.moved).max(0.0))
         })
         .collect()
+}
+
+/// What each of your players holds going into the roster split, by index,
+/// what your arrivals' deals hold of it, and what the signees not on the
+/// roster yet take of the year's money:
+/// a deal he holds on his file (`rec::ai_held`: signed, landed on, a
+/// multi-year deal, an old staff's keep-him offer), else, with `desk`, the
+/// deal you gave an arrival who hasn't played a season here (a recruit who
+/// signed with you, a transfer you took), where it pays him something.
+/// Everyone else is on his split.
+fn your_holds(
+    w: &World,
+    j: usize,
+    roster: &[usize],
+    year: i32,
+    desk: bool,
+) -> (HashMap<usize, rec::NilHeld>, f64, f64) {
+    let div = w.programs[j].division;
+    let medians = rec::nil_medians(w);
+    let two = ncaa::two_pots(w.today);
+    let mine = deals_now(w, j);
+    let at = |id: u32| -> f64 {
+        let Some((school, coll)) = mine.as_ref() else { return 0.0 };
+        let c = coll.get(&id).copied().unwrap_or(0.0);
+        school.get(&id).copied().unwrap_or(0.0) + if two { coll_cleared(w, j, id, c) } else { c }
+    };
+    let mut holds = HashMap::new();
+    let mut held_new = 0.0;
+    for &i in roster {
+        let p = &w.people[i];
+        let arrival = rec::arrival(p, div, &medians);
+        let h = match rec::ai_held(p, year) {
+            rec::NilHeld::None if arrival && desk => {
+                let x = at(p.player.id);
+                if x > 0.5 { rec::NilHeld::Fixed(x) } else { rec::NilHeld::None }
+            }
+            h => h,
+        };
+        if let (true, rec::NilHeld::Fixed(x)) = (arrival, h) {
+            held_new += x;
+        }
+        if h != rec::NilHeld::None {
+            holds.insert(i, h);
+        }
+    }
+    let on: std::collections::HashSet<u32> = roster.iter().map(|&i| w.people[i].player.id).collect();
+    let waiting = if mine.is_some() {
+        w.front_office.college.signed.iter().filter(|x| !on.contains(&x.0)).map(|x| x.1 + x.2).sum()
+    } else {
+        0.0
+    };
+    (holds, held_new, waiting)
 }
 
 /// Each of program `j`'s players' market price a year (Cain 2026-11-17):

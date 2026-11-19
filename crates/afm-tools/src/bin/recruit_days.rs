@@ -100,7 +100,7 @@ fn main() {
         .iter()
         .filter(|p| p.class_of == next && p.stage == Stage::HighSchool)
         .map(|p| {
-            let read = p.cal.service_read.unwrap_or(0.0);
+            let read = p.cal.service_read.get().unwrap_or(0.0);
             let early = p.cal.early_offers.len();
             let first = p.cal.early_offers.first().map_or(0, |o| o.1.0 as usize);
             (p.stars as f64 * 100.0 + read, early, first)

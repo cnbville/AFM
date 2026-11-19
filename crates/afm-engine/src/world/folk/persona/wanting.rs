@@ -226,12 +226,14 @@ pub fn raw(w: &World, him: Them) -> Vec<(WantKind, f32)> {
 }
 
 /// Whether you've already given a want (question 3): an open or kept P1
-/// promise to him that covers it, or a deal agreed in a talk.
+/// promise to him that covers it, or a deal agreed in a talk. One closed
+/// with nothing to judge (`Promise::quiet`) gives him nothing.
 pub fn met(w: &World, him: Them, k: WantKind) -> bool {
     let to = him.promise_to();
     let promised = w.folk.promises.iter().any(|p| {
         Some(p.to) == to
             && p.kept != Some(false)
+            && !p.quiet()
             && match k {
                 WantKind::Role => matches!(
                     p.kind,

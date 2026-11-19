@@ -68,7 +68,7 @@ pub const TONES: [&str; 4] = ["fiery", "warm", "firm", "calm"];
 /// nothing from them yet.
 /// "early_chance" and "no_redshirt" are two of the five a recruit is
 /// promised (lane 10).
-pub const PROMISE_KINDS: [&str; 12] = [
+pub const PROMISE_KINDS: [&str; 13] = [
     "start",
     "role",
     "touches",
@@ -81,6 +81,7 @@ pub const PROMISE_KINDS: [&str; 12] = [
     "no_redshirt",
     "usage",
     "draft",
+    "captain",
 ];
 pub const PROMISE_BY: [&str; 6] = ["next_game", "opener", "midseason", "this_season", "next_season", "none"];
 pub const CONDITIONS: [&str; 7] = ["stat", "practice", "conduct", "grades", "body", "health", "none"];
@@ -485,6 +486,7 @@ pub fn read(w: &World, s: &Scene, v: &Value, keys: &Keys, words: &str) -> Option
             condition: f("condition", &CONDITIONS),
             condition_words: p.get("condition_words").and_then(Value::as_str).unwrap_or("").chars().take(120).collect(),
             against: person(p.get("against").and_then(Value::as_str)),
+            to: None,
             claim: None,
             usage: read_usage(w, s, p),
         })

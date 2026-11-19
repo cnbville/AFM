@@ -119,3 +119,56 @@ fn your_projects_keep_the_rooms_slots_and_show_only_reads() {
     assert!(w.people[i].player.prog.yours, "your project is marked yours");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn projects_show_their_clues_their_squad_column_and_the_staff_before_you() {
+    let (mut g, dir) = head_coach_world("clues");
+    let c = room_ids(&g, Room::Cb);
+    let k = first_skill(&mut g, c[0]);
+    g.call("player_dev_project_start", &json!({ "id": c[0], "what": k })).unwrap();
+    // Just started: the position coach has no read of it yet.
+    let d = g.call("player_dev", &json!({ "id": c[0] })).unwrap();
+    let tech = d["clues"]["technique"].as_array().unwrap();
+    let on = tech.iter().find(|x| x["on"].is_string()).expect("the project's clue");
+    assert!(on["says"].as_str().unwrap().contains("too early"), "{on}");
+    assert!(!d["clues"]["body"].as_array().unwrap().is_empty());
+    // Ten weeks in, he reads it in words.
+    {
+        let w = g.wm().unwrap();
+        let i = crate::views::person_index(w, c[0]).unwrap();
+        w.people[i].player.prog.project_on = (w.today.0 - 70) as u16;
+    }
+    let d = g.call("player_dev", &json!({ "id": c[0] })).unwrap();
+    let on = d["clues"]["technique"].as_array().unwrap().iter().find(|x| x["on"].is_string()).unwrap().clone();
+    let says = on["says"].as_str().unwrap();
+    assert!(["it's starting to click", "it's coming along", "he's still fighting it"].contains(&says), "{says}");
+    for word in ["knack", "ceiling", "potential"] {
+        assert!(!d["clues"].to_string().contains(word), "{word}");
+    }
+    assert_eq!(d["projects"]["skill"]["on"]["stalled"], json!(false));
+    // The squad's Development view carries it.
+    let sq = g.call("squad", &json!({})).unwrap();
+    let row = sq["rows"].as_array().unwrap().iter().find(|r| r["id"] == json!(c[0])).unwrap().clone();
+    assert_eq!(row["project"]["skill_yours"], json!(true));
+    assert!(row["project"]["skill"].is_string());
+    // One the staff before you set gets a note, once.
+    {
+        let w = g.wm().unwrap();
+        let i = crate::views::person_index(w, c[1]).unwrap();
+        afm_engine::progression::start_project(
+            &mut w.people[i].player,
+            afm_engine::attributes::Attr::ManCoverage,
+            false,
+        );
+        let t = mine(w).unwrap();
+        let roster = roster_people(w, t);
+        let notes = afm_engine::training::seat::holdover_notes(w, &roster);
+        assert_eq!(notes.iter().filter(|n| n.0 == c[1]).count(), 1, "{notes:?}");
+        assert!(notes.iter().all(|n| n.0 != c[0]), "yours gets no holdover note");
+        for (id, dept, text) in notes {
+            w.training.notes.push(afm_engine::training::seat::Note { date: w.today, id, dept: dept.into(), text });
+        }
+        assert!(afm_engine::training::seat::holdover_notes(w, &roster).is_empty(), "written once");
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}

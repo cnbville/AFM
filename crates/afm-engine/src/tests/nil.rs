@@ -38,6 +38,9 @@ fn college(house: bool) -> (World, usize) {
     // NIL Go's book, as July 2025's payday would have read it.
     if house {
         w.nil_book = crate::world::nil_bid::NilBook::from_pots(&w);
+        // The room AI schools paid their arrivals last July (a class and
+        // transfers), which your roster split keeps for yours to come.
+        w.nil_book.new_share = [0.3; 4];
     }
     (w, j)
 }
@@ -97,11 +100,12 @@ fn your_money_is_the_schools_revenue_share() {
     assert!(b.two_pots);
     assert!((b.yours - 12.0e6).abs() < 1.0, "the school's pot is yours: {}", b.yours);
     assert!((b.collective - 8.0e6).abs() < 1.0);
-    // The going rate keeps 0.6 of the collective too, each deal rounded to
-    // the nearest $500.
+    // The going rate is an AI school's split, keeping room for a class and
+    // transfers to come (0.3 of the money here), each deal rounded to the
+    // nearest $500.
     let deals_n = collective_deals(&w, j).len() as f64;
     assert!(
-        b.collective_roster > 0.0 && b.collective_roster <= 0.6 * 8.0e6 + 500.0 * deals_n,
+        b.collective_roster > 0.0 && b.collective_roster <= 0.7 * 8.0e6 + 500.0 * deals_n,
         "{}",
         b.collective_roster
     );
@@ -165,16 +169,19 @@ fn inherited_signees_old_desks_and_screens_keep_their_money() {
     let (mut w, j) = college(true);
     // He signed with the program before your desk existed.
     let class = rec::next_class(&w);
-    // The senior the old staff would have paid the most, so its usual
-    // money is more than nothing (a boy no other school offered is priced
-    // at next to nothing, and the first senior in the list can be one).
+    // The senior the old staff would have paid the least of those it pays
+    // at all, so its usual money is more than nothing (a boy no other
+    // school offered is priced at next to nothing, the first senior in the
+    // list can be one, and one outside its July paid set gets none) and
+    // his waiting deal leaves the class's room as it was.
     let usual_of = |w: &World, i: usize| {
         let (s, c) = crate::world::front_office::college::usual_parts(w, j, w.people[i].player.id);
         s + c
     };
     let k = (0..w.people.len())
         .filter(|&i| w.people[i].stage == Stage::HighSchool && w.people[i].class_of == class)
-        .max_by(|&a, &b| usual_of(&w, a).total_cmp(&usual_of(&w, b)))
+        .filter(|&i| usual_of(&w, i) > 500.0)
+        .min_by(|&a, &b| usual_of(&w, a).total_cmp(&usual_of(&w, b)))
         .unwrap();
     assert!(usual_of(&w, k) > 500.0, "a senior worth the old staff's money: {}", usual_of(&w, k));
     let signee = w.people[k].player.id;
@@ -299,6 +306,8 @@ fn a_player_answers_your_deal_at_your_next_section_and_nothing_moves_yet() {
 
 fn deal_answers(house: bool) {
     let (mut w, j) = college(house);
+    // His answers, not the pot: no budget limit.
+    w.set_sandbox_switch(crate::world::sandbox::Switch::NilBudget, true);
     let (id, usual) = usual_deals(&w, j).into_iter().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
     assert!(usual > 25_000.0, "{usual}");
     let i = w.people.iter().position(|p| p.player.id == id).unwrap();
@@ -338,7 +347,10 @@ fn promise_answers(house: bool) {
     let usual = rec::usual_nil_offer(&w, j, i);
     assert!(usual > 1_000.0, "{usual}");
     let commit = w.people[i].cal.commit;
-    let text = set_promise(&mut w, id, Some(10.0 * usual + 1.0e6), None).unwrap();
+    // Far over his usual money, inside your budget (his place in your July
+    // paid set floors it, Cain 2026-11-19).
+    let promise = (10.0 * usual + 1.0e6).min(0.9 * w.programs[j].collective.budget);
+    let text = set_promise(&mut w, id, Some(promise), None).unwrap();
     assert!(text.contains("He'll get back to you by"), "{text}");
     assert!(reaction(&w, id, MoneyKind::Promise).is_none(), "no answer before its hour");
     let now = (w.today, w.played);
@@ -417,6 +429,10 @@ fn a_transfer_weighs_money_by_his_situation() {
 #[test]
 fn double_the_money_moves_a_recruit_more_than_the_dollars_alone() {
     let (mut w, j) = college(true);
+    // Room for double the best offer, which his place in a $20M school's
+    // July paid set floors (Cain 2026-11-19).
+    w.programs[j].collective.budget = 100.0e6;
+    w.programs[j].collective.school = 60.0e6;
     let (i, id) = lone_recruit(&mut w, None);
     let others: Vec<usize> =
         (0..w.programs.len()).filter(|&x| x != j && w.programs[x].division == w.programs[j].division).take(2).collect();
@@ -759,8 +775,6 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     // And no budget limit: fitting a short pot is its own test below.
     w.set_sandbox_switch(crate::world::sandbox::Switch::NilBudget, true);
     let usual: Vec<(u32, f64)> = usual_deals(&w, j);
-    let coll: std::collections::HashMap<u32, f64> = collective_deals(&w, j).into_iter().map(|x| (x.0, x.1)).collect();
-    let split = |id: u32| usual.iter().find(|x| x.0 == id).unwrap().1 + coll.get(&id).copied().unwrap_or(0.0);
     let at = |w: &World, id: u32| w.people.iter().position(|p| p.player.id == id).unwrap();
     // Three men staying with seasons left (a man leaving keeps the split;
     // the seat's roster is filled with former pros, whose clock has run).
@@ -783,7 +797,7 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     // No season's play to read: no rival bids, so the sums are plain.
     for id in [star, signed, rest] {
         let x = at(&w, id);
-        w.people[x].last_performance = None;
+        w.people[x].last_performance = crate::player::OptF64::NONE;
         w.people[x].cal.nil_deal = None;
         w.people[x].cal.nil_paid = 0.0;
         w.people[x].nil_income = 0.0;
@@ -797,6 +811,11 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     let k = at(&w, signed);
     let year = deals_year(&w);
     w.people[k].cal.nil_deal = Some(NilDeal { year, amount: 123_000.0, kind: DealKind::Transfer, through: 0 });
+    // The split as it stands once his deal is signed: a deal that pays is
+    // fixed, and the rest of the roster shares what it leaves.
+    let usual: Vec<(u32, f64)> = usual_deals(&w, j);
+    let coll: std::collections::HashMap<u32, f64> = collective_deals(&w, j).into_iter().map(|x| (x.0, x.1)).collect();
+    let split = |id: u32| usual.iter().find(|x| x.0 == id).unwrap().1 + coll.get(&id).copied().unwrap_or(0.0);
     assert!(w.front_office.college.deals.is_empty() && !w.front_office.college.seeded);
     ready(&mut w);
     let pay = |w: &World, id: u32| deal_of(w, id).map(|d| d.0 + d.1).unwrap();
@@ -839,4 +858,74 @@ fn inherited_deals_fit_the_pot_raises_first() {
     assert_eq!(fit(175.0, false, &rows), vec![100.0, 50.0, 25.0]);
     // Less than the signed deal: only it stands.
     assert_eq!(fit(50.0, false, &rows), vec![100.0, 0.0, 0.0]);
+}
+
+/// 2026-11-18: your desk's roster split is the split an AI school's July 1
+/// makes (before, a flat 0.6 of it): at an AI program, every player
+/// without a deal is paid exactly the split read the day before.
+#[test]
+fn the_roster_split_is_what_an_ai_school_pays() {
+    use crate::world::front_office::college::splits_for;
+    let (mut w, j) = college(true);
+    w.rebuild_rosters();
+    let k =
+        (0..w.programs.len()).find(|&k| k != j && w.programs[k].division == crate::world::data::Division::FBS).unwrap();
+    // A world with no history has no college players: young pros go back
+    // to the AI school too, as `college` does for yours.
+    let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).take(60).collect();
+    for (n, &i) in pros.iter().enumerate() {
+        let p = &mut w.people[i];
+        p.stage = Stage::College;
+        p.pro = None;
+        p.college = Some(k);
+        p.college_seasons = 1;
+        p.last_role = Some(match n % 3 {
+            0 => crate::player::PlayingTime::Starter,
+            1 => crate::player::PlayingTime::Rotation,
+            _ => crate::player::PlayingTime::Backup,
+        });
+    }
+    w.rebuild_rosters();
+    let c = &mut w.programs[k].collective;
+    c.budget = 20.0e6;
+    c.school = 12.0e6;
+    let year = w.today.year();
+    let split: std::collections::HashMap<u32, f64> =
+        splits_for(&w, k, year).into_iter().map(|x| (x.0, x.1 + x.2)).collect();
+    let free: Vec<u32> = w.programs[k]
+        .roster
+        .iter()
+        .map(|&i| &w.people[i])
+        .filter(|p| p.cal.nil_deal.is_none_or(|d| !d.pays(year)))
+        .map(|p| p.player.id)
+        .collect();
+    assert!(free.len() > 20, "{}", free.len());
+    rec::nil_payouts(&mut w);
+    let mut paid_some = 0;
+    for id in free {
+        let p = w.people.iter().find(|p| p.player.id == id).unwrap();
+        let s = split.get(&id).copied().unwrap_or(0.0);
+        assert!((p.cal.nil_paid as f64 - s).abs() <= 1.0 + 1e-6 * s, "{id}: paid {} against {s}", p.cal.nil_paid);
+        paid_some += (s > 1_000.0) as usize;
+    }
+    assert!(paid_some > 10, "{paid_some}");
+}
+
+/// 2026-11-18: a recruit's stars are read at the school's money level, its
+/// starters' stars under the Power 4's (the Group of 5 signee fix).
+#[test]
+fn a_recruits_stars_read_at_the_schools_level() {
+    use crate::world::nil_bid::{star_at, star_bid, star_bid_at, star_lifts};
+    for s in 1..=5u8 {
+        assert!((star_bid_at(s as f64) - star_bid(s)).abs() < 1e-12, "{s}");
+    }
+    assert!(star_bid_at(3.5) > star_bid(3) && star_bid_at(3.5) < star_bid(4));
+    let (mut w, _) = college(true);
+    let lift = star_lifts(&w);
+    assert_eq!(lift[0], 0.0, "the scale is the Power 4's");
+    assert!(lift.iter().all(|&x| (0.0..3.0).contains(&x)), "{lift:?}");
+    w.nil_book.star_lift = [0.0, 1.0, 1.5, 2.0];
+    assert!((star_at(&w, 0, 3) - star_bid(3)).abs() < 1e-12);
+    assert!((star_at(&w, 1, 3) - star_bid(4)).abs() < 1e-12, "a Group of 5 three-star as its own four-star");
+    assert!((star_at(&w, 1, 5) - star_bid(5)).abs() < 1e-12, "never past a five-star");
 }

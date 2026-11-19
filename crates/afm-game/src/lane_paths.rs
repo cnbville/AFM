@@ -102,7 +102,7 @@ fn fit(w: &World, k: usize, pos: Position, inst: &Installed) -> Option<f64> {
 }
 
 /// How he takes coaching, from your staff's read (trait 1).
-fn coachable(w: &World, k: usize) -> Option<&'static str> {
+pub(crate) fn coachable(w: &World, k: usize) -> Option<&'static str> {
     let staff = readers::seat_staff(w)?;
     let (_, _, f) = readers::read(w, staff, w.people[k].player.id)?;
     let t = f.traits.get(1).filter(|t| t.seen)?;

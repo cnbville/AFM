@@ -95,10 +95,11 @@ pub fn stake_belief(w: &World, id: u32) -> Option<f64> {
     let mine = super::super::makeup::coached_by_you(w, i);
     let mut record = if mine { pr::record(w, i, Hearer::Own) } else { 0.5 };
     for p in w.folk.promises.iter().filter(|p| p.to == PromiseTo::Player(id) && p.made.days_to(w.today) <= 730) {
+        // One closed with nothing to judge counts neither way (`quiet`).
         match p.kept {
-            Some(true) => record += STAKE_KEPT,
+            Some(true) if !p.quiet() => record += STAKE_KEPT,
             Some(false) => record -= STAKE_BROKEN,
-            None => {}
+            _ => {}
         }
     }
     // His place as he sees it, as P1 reads it (`promise::knows`): before
@@ -199,6 +200,7 @@ pub fn weight(w: &World, on: Them, item: &Item, wants: &[Want]) -> Option<f32> {
         Item::HisWord => 0.7,
         // One of the room: a line to the whole team (lane N5d).
         Item::Room => super::super::gameday::group::ROOM_WEIGHT,
+        Item::Group(code) => super::super::crowd::group_weight(w, on, *code),
         // Your manner is sized by how he took it (`manner::took`), never
         // by the ear: no card holds it.
         Item::Manner => return None,
