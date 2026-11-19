@@ -235,12 +235,13 @@ function aiCardHtml(st) {
     else if (ch && ch.phase === "bad") extra = warn(ch.note);
     if (ch && ch.phase === "done") {
       const under = ch.rows.filter((r) => r.score < r.bar).length;
-      const misses = (ch.misses || []).map((m) => `<div class="ai-ms"><span>${esc(m.set)}</span><span>${esc(m.text)}</span><span>${esc(m.why)}</span></div>`).join("");
-      report = `<div class="ai-rep${ch.base ? " cmp" : ""}">${ch.rows.map((r) => `<div class="ai-rr" title="$${Number(r.cost || 0).toFixed(3)} · ${Number(r.seconds || 0).toFixed(1)} s a line"><span class="ai-nm">${esc(r.name)}</span><span class="ai-cbar${r.score < r.bar ? " am" : ""}"><i style="width:${(r.score / r.of) * 100}%"></i><u style="left:${(r.bar / r.of) * 100}%"></u></span><span class="ai-sc"><b>${r.score}</b> <small>of ${r.of}</small>${aiBaseScore(ch.base, r)}</span></div>`).join("")}<div class="ai-rf"><span>${under ? `Needs the tick or more. ${under === 1 ? "One row is" : under + " rows are"} under it.` : "Every row is at the tick or above."}</span><span>${esc(ch.model || "")} · ${ch.calls || ""} calls · $${Number(ch.cost || 0).toFixed(2)} · ${Number(ch.seconds || 0).toFixed(1)} s a line</span></div>${misses ? `<details class="ai-mt"><summary>${(ch.misses || []).length} lines it missed, and why</summary>${misses}</details>` : ""}</div>`;
+      const list = (xs) => (xs || []).map((m) => `<div class="ai-ms"><span>${esc(m.set)}</span><span>${esc(m.text)}</span><span>${esc(m.why)}</span></div>`).join("");
+      const misses = list(ch.misses), skipped = list(ch.not_run);
+      report = `<div class="ai-rep${ch.base ? " cmp" : ""}">${ch.rows.map((r) => `<div class="ai-rr" title="$${Number(r.cost || 0).toFixed(3)} · ${Number(r.seconds || 0).toFixed(1)} s a line"><span class="ai-nm">${esc(r.name)}</span><span class="ai-cbar${r.score < r.bar ? " am" : ""}"><i style="width:${(r.score / Math.max(r.of, 1)) * 100}%"></i><u style="left:${(r.bar / Math.max(r.of, 1)) * 100}%"></u></span><span class="ai-sc"><b>${r.score}</b> <small>of ${r.of}${r.not_run ? ` · ${r.not_run} not run` : ""}</small>${aiBaseScore(ch.base, r)}</span></div>`).join("")}<div class="ai-rf"><span>${under ? `Needs the tick or more. ${under === 1 ? "One row is" : under + " rows are"} under it.` : "Every row is at the tick or above."}</span><span>${esc(ch.model || "")} · ${ch.calls || ""} calls · $${Number(ch.cost || 0).toFixed(2)} · ${Number(ch.seconds || 0).toFixed(1)} s a line</span></div>${misses ? `<details class="ai-mt"><summary>${(ch.misses || []).length} lines it missed, and why</summary>${misses}</details>` : ""}${skipped ? `<details class="ai-mt"><summary>${(ch.not_run || []).length} lines not run: the call failed twice, so they are left out of the score</summary>${skipped}</details>` : ""}</div>`;
     }
     const busy = running ? " disabled" : "";
-    checks = row("Run checks", "Sends the check lines through the reader, the ear (12 facets, with their exploits) and the voice (leak baits) once, about 300 calls. It costs about 10 to 20 cents and takes 5 to 10 minutes.", `<button type="button" class="ai-btn" data-act="aichecks"${busy}>${running ? "Running" : "Run checks"}</button>`, extra)
-      + row("Compare on the bigger model", "Sends the ear's lines to Sonnet 5.5 instead, so you can see the difference. It costs about 50 cents to a dollar.", `<button type="button" class="ai-btn" data-act="aicompare"${busy}>Compare</button>`, "") + report;
+    checks = row("Run checks", "Sends the check lines through the reader, the ear (12 facets with their exploits, then lines no rule was written against) and the voice (leak baits) once, about 430 calls. The ear thinks before it answers, so it costs about 15 to 25 cents and takes 15 to 20 minutes.", `<button type="button" class="ai-btn" data-act="aichecks"${busy}>${running ? "Running" : "Run checks"}</button>`, extra)
+      + row("Compare on the bigger model", "Sends the ear's lines to Sonnet 5.5 instead, thinking the same way, so you can see the difference. It costs about one to three dollars.", `<button type="button" class="ai-btn" data-act="aicompare"${busy}>Compare</button>`, "") + report;
   }
   return head + demo + key + month + checks;
 }
@@ -270,7 +271,7 @@ async function aiRunChecks(args) {
   const a = await aiCall("ai_checks", args, () => true, "checks");
   if (a && a.state === "done" && a.rows) {
     const base = prev && prev.model !== a.model ? { model: prev.model, rows: prev.rows } : null;
-    aiState.card.checks = { phase: "done", rows: a.rows, misses: a.misses, model: a.model, calls: a.calls, cost: a.cost, seconds: a.seconds, base };
+    aiState.card.checks = { phase: "done", rows: a.rows, misses: a.misses, not_run: a.not_run, model: a.model, calls: a.calls, cost: a.cost, seconds: a.seconds, base };
   }
   else aiState.card.checks = { phase: "bad", note: (a && a.note) || "The checks did not finish." };
   await aiCardFresh();

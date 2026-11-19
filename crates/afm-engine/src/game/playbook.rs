@@ -130,6 +130,29 @@ impl Personnel {
     pub fn wide_receivers(self) -> usize {
         self.roles().iter().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2)).count()
     }
+    /// The group's fit to a call that leans `h` toward the run's looks
+    /// (lane SF2): h to the power of how far the group's look leans to the
+    /// run against 11 personnel, as receivers traded for blockers. 10
+    /// personnel -1, 12 and 21 1.25, 13 1.75 and 22 2.75, sized on the real
+    /// fit at the NFL's typical play caller (`calling::Groups::of`). The
+    /// play caller fits his group to his call by it; worked out without
+    /// `powf`, which every call would pay for.
+    pub fn heavy_fit(self, h: f64) -> f64 {
+        let q = h.sqrt().sqrt();
+        match self.base() {
+            Personnel::P10 => 1.0 / h,
+            Personnel::P12 | Personnel::P21 => h * q,
+            Personnel::P13 => h * h.sqrt() * q,
+            Personnel::P22 => h * h * h.sqrt() * q,
+            _ => 1.0,
+        }
+    }
+    /// The man is in this group: the CFL's fifth receiver stands in for
+    /// the tight end in a set without one.
+    pub fn has(self, r: ORole) -> bool {
+        let roles = self.roles();
+        roles.contains(&r) || r == ORole::TE && roles.contains(&ORole::Slot3)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -257,12 +280,13 @@ pub fn align(f: &Formation, role: ORole, los: f64, ball_y: f64) -> V2 {
             _ => {}
         }
     }
-    // A stack: the slot directly behind the flanker.
+    // A stack: the slot directly behind the flanker, who is on the line
+    // unless a tight end is attached on his side (`off_line`).
     if f.set == Set::Stack && role == ORole::Slot {
         return v2(los - 2.6, wide_y(s, ball_y, 11.0));
     }
     if f.set == Set::Stack && role == ORole::Z {
-        return v2(los - 0.8, wide_y(s, ball_y, 11.0));
+        return v2(los - off_line(f, s, 0.8), wide_y(s, ball_y, 11.0));
     }
     // Empty: the back splits out to the weak slot.
     if f.set == Set::Empty && role == ORole::RB {
@@ -305,7 +329,7 @@ pub fn align(f: &Formation, role: ORole, los: f64, ball_y: f64) -> V2 {
         }
         ORole::TE3 => at(-0.8, -4.3 * s),
         ORole::Z => v2(los - 1.2, wide_y(s, ball_y, 9.0)),
-        ORole::X => v2(los - 0.8, wide_y(-s, ball_y, 9.0)),
+        ORole::X => v2(los - off_line(f, -s, 0.8), wide_y(-s, ball_y, 9.0)),
         ORole::Slot => {
             let z = wide_y(s, ball_y, 9.0);
             v2(los - 1.0, ball_y + 0.45 * (z - ball_y) + 2.0 * s)
@@ -325,6 +349,25 @@ pub fn align(f: &Formation, role: ORole, los: f64, ball_y: f64) -> V2 {
             }
         }
     }
+}
+
+/// How far off the line a split receiver lines up on a side (`side`, the
+/// strength's sign or its opposite): his own depth (`own`, on the line),
+/// else a step off it when a tight end is attached on that side. Only the
+/// end men of the line and the backs are eligible (`designer::legal`), so
+/// an attached tight end who runs a route must be the end man, as in real
+/// two-tight-end sets with both ends attached, whose receivers both line up
+/// off the ball. Before, the split end stood on the line outside 12 and
+/// 22's second tight end and 13's third, and the flanker atop a stack
+/// outside the tight end, who all ran routes from a covered spot.
+fn off_line(f: &Formation, side: f64, own: f64) -> f64 {
+    let attached = f.personnel.roles().iter().any(|&e| {
+        matches!(e, ORole::TE | ORole::TE2 | ORole::TE3) && {
+            let p = align(f, e, 0.0, 0.0);
+            p.x >= -0.9 && p.y.abs() < 5.0 && p.y * side > 0.0
+        }
+    });
+    if attached { 1.2 } else { own }
 }
 
 /// Routes (topic 3). Depths in yards past the line.
@@ -434,18 +477,22 @@ impl Route {
     /// toward higher y.
     pub fn points(self, start: V2, los: f64, out: f64) -> (Vec<V2>, bool) {
         let (shape, settle) = self.shape();
+        (shape.iter().map(|&w| self.at(start, los, out, w)).collect(), settle)
+    }
+
+    /// Where the route finishes from a start point (the last of `points`),
+    /// or the start for a route with no waypoints.
+    pub fn end(self, start: V2, los: f64, out: f64) -> V2 {
+        self.shape().0.last().map_or(start, |&w| self.at(start, los, out, w))
+    }
+
+    /// One waypoint of the shape from a start point.
+    fn at(self, start: V2, los: f64, out: f64, (dx, dy): (f64, f64)) -> V2 {
         let d = self.depth();
-        let pts = shape
-            .iter()
-            .map(|&(dx, dy)| {
-                let x = if d > 0.0 { los + d + dx } else { start.x + 1.0 + dx };
-                // Receivers keep room to work at the sideline, as they are
-                // coached to (two and a half yards; it was one, and outs
-                // ended on the line).
-                v2(x, (start.y + dy * out).clamp(2.5, width() - 2.5))
-            })
-            .collect();
-        (pts, settle)
+        let x = if d > 0.0 { los + d + dx } else { start.x + 1.0 + dx };
+        // Receivers keep room to work at the sideline, as they are coached
+        // to (two and a half yards; it was one, and outs ended on the line).
+        v2(x, (start.y + dy * out).clamp(2.5, width() - 2.5))
     }
 
     pub fn blocks(self) -> bool {
@@ -928,6 +975,185 @@ pub fn route_for(c: &PassConcept, role: ORole) -> Route {
         r if r.is_line() => Block,
         _ => Go,
     }
+}
+
+/// The group's tight ends past the first, in the order they take the jobs
+/// of the receivers it lacks (lane SF2, item 2).
+fn extra_ends(p: Personnel) -> &'static [ORole] {
+    match p {
+        Personnel::P13 => &[TE2, TE3],
+        Personnel::P12 | Personnel::P22 => &[TE2],
+        _ => &[],
+    }
+}
+
+/// The receiver whose place a tight end past the first takes in a
+/// concept (lane SF2, item 2): the concept's reads in order, each receiver
+/// the group lacks going to the next of its extra tight ends (the second,
+/// then the third) that the concept doesn't read already. Real offenses
+/// give their second and third tight ends the slot's and the flanker's
+/// places: 2024 NFL, tight ends draw 33% of the targets in 12 personnel,
+/// the second on the field 43% of them, and 56% in 13 (nflverse with FTN
+/// charting). Seven-man protection keeps them in, a screen keeps its own
+/// men, and a receiver who blocks or runs a receiver's screen (the bubble,
+/// the tunnel) leaves no place to take.
+pub(crate) fn stand_in(c: &PassConcept, p: Personnel, te: ORole) -> Option<ORole> {
+    // Only the group's extra tight ends take a place (every call asks this
+    // of all eleven men, so the others leave at once).
+    if c.protection == Protection::Max || c.depth == PassDepth::Screen || !extra_ends(p).contains(&te) {
+        return None;
+    }
+    let mut ends = extra_ends(p).iter().filter(|e| !c.reads.contains(e));
+    for &r in c.reads {
+        if p.has(r) || !matches!(r, X | Z | Slot | Slot2) {
+            continue;
+        }
+        if matches!(route_for(c, r), Block | CheckRelease | Bubble | Tunnel | Screen) {
+            continue;
+        }
+        match ends.next() {
+            Some(&e) if e == te => return Some(r),
+            Some(_) => {}
+            None => return None,
+        }
+    }
+    None
+}
+
+/// The concept's own route for the second tight end, when it takes him
+/// into the pattern: the job the library draws for a heavy set's extra
+/// tight end, mostly the flat.
+fn own_route(c: &PassConcept) -> Option<Route> {
+    c.routes.iter().find(|x| x.0 == TE2).map(|x| x.1).filter(|r| !matches!(r, Block | CheckRelease))
+}
+
+/// The man lines up on the strong side of the ball in this formation,
+/// before any motion.
+fn strong_side(f: &Formation, role: ORole) -> bool {
+    let mid = width() / 2.0;
+    let still = Formation { motion: Motion::None, ..*f };
+    (align(&still, role, 0.0, mid).y - mid) * f.strength > 0.0
+}
+
+/// What the group's routes read of the formation (`route_in`): its set,
+/// for a group whose extra tight ends take missing receivers' places (12,
+/// 13 and 22 personnel), else nothing. The routes read where the men line
+/// up before any motion, the same on either strength, so a group's set
+/// names them: 22's second tight end runs the flanker's route from the
+/// wing and his own from inline across the ball. The call's memo keys
+/// third down's weights on it (`sticks_depth` reads the routes).
+pub(crate) fn route_set(f: &Formation) -> u8 {
+    if extra_ends(f.personnel).is_empty() { 0 } else { f.set as u8 + 1 }
+}
+
+/// A man's route in a pass concept as his group lines up (lane SF2, item
+/// 2). A tight end past the first who takes a missing receiver's place
+/// (`stand_in`) runs that receiver's route, except in four cases, where he
+/// runs the concept's own job for the second tight end (`own_route`)
+/// instead, when it draws him one (Texas doesn't):
+/// - The first of them in an inside place (the slot's or the second
+///   slot's) keeps that route only when it is a tight end's own (the seam,
+///   the corner, the drag: real playbooks' Y-seam, Y-corner and mesh).
+/// - A man who lines up across the ball from the outside receiver whose
+///   place he takes (the flanker's, for an inline tight end on the weak
+///   side) never runs his route: it is drawn for the other side of the
+///   play, the flood's corner on a bootleg that rolls away from him, and
+///   the library's job for a weak-side tight end is his own (the drag back
+///   across into the roll).
+/// - A man across the ball from the inside place he takes keeps its route
+///   only when it works from either side: the seam, the drag, or a route
+///   the concept draws in both inside places (smash's two corners, the
+///   hitches' two seams). Snag's corner belongs to the triangle on the
+///   slot's side, so a weak-side tight end standing in for the slot runs
+///   his own job, not a corner away from it.
+/// - A borrowed route that would finish within three yards of another
+///   receiver's (`lands_on`, the designer's rule that one defender covers
+///   both): the 13 group's second tight end, on the wing beside the first,
+///   ran the flanker's slant a yard and a half from the tight end's slant,
+///   and the flanker's hitch on top of the tight end's sit.
+///
+/// The places follow the concept's reads, so in 13 personnel, which lacks
+/// the flanker too, the second tight end takes the flanker's place in some
+/// concepts and the slot's in others, and the third the next. Real second
+/// and third tight ends run short: 2024 NFL, 6.3 air yards a target for
+/// the second in 12 personnel (the first 7.0), 6.5 and 4.5 for the second
+/// and third in 13 (7.6), a third of their targets quick outs and flats,
+/// and a fifth corners, digs and seams (nflverse with FTN charting).
+/// Everyone else as `route_for`.
+pub fn route_in(c: &PassConcept, f: &Formation, role: ORole) -> Route {
+    let p = f.personnel;
+    let Some(r) = stand_in(c, p, role) else { return route_for(c, role) };
+    let theirs = route_for(c, r);
+    let Some(own) = own_route(c) else { return theirs };
+    let across = strong_side(f, role) != strong_side(f, r);
+    let swap = if matches!(r, X | Z) {
+        across
+    } else {
+        let inside = |e: ORole| stand_in(c, p, e).is_some_and(|x| matches!(x, Slot | Slot2));
+        let first = extra_ends(p).iter().take_while(|e| **e != role).all(|e| !inside(*e));
+        let mirror = if r == Slot { Slot2 } else { Slot };
+        let both_sides = matches!(theirs, Seam | Drag) || c.routes.iter().any(|x| x.0 == mirror && x.1 == theirs);
+        first && !matches!(theirs, Seam | Corner(_) | Drag) || across && !both_sides
+    };
+    if swap || lands_on(c, f, role, theirs) { own } else { theirs }
+}
+
+/// The borrowed route would finish within three yards of another
+/// receiver's, as the group lines up before any motion (the designer's
+/// rule, `designer::review`: one defender covers both). The backs and the
+/// extra tight ends don't count: the backs' routes are checkdowns, and the
+/// concept's own jobs for the extra tight ends are drawn beside the others.
+fn lands_on(c: &PassConcept, f: &Formation, role: ORole, route: Route) -> bool {
+    let mid = width() / 2.0;
+    let still = Formation { motion: Motion::None, ..*f };
+    let end = |o: ORole, r: Route| {
+        let s = align(&still, o, 0.0, mid);
+        r.end(s, 0.0, if s.y >= mid { 1.0 } else { -1.0 })
+    };
+    let mine = end(role, route);
+    f.personnel.roles().iter().any(|&o| {
+        matches!(o, X | Z | Slot | Slot2 | TE) && {
+            let r = route_for(c, o);
+            !matches!(r, Block | CheckRelease | Screen) && end(o, r).dist(mine) < 3.0
+        }
+    })
+}
+
+/// A pass concept's reads as the group lines up (lane SF2, item 2): the
+/// concept's own order, a tight end past the first read where the receiver
+/// whose place he takes would be. Before, no concept read the second or
+/// third tight end.
+pub fn reads_in(c: &PassConcept, f: &Formation) -> Vec<ORole> {
+    reads_of(c, f.personnel).collect()
+}
+
+/// `reads_in` one read at a time, for a caller who wants only the first
+/// few (third down's check of the routes that reach the sticks).
+pub(crate) fn reads_of(c: &PassConcept, p: Personnel) -> impl Iterator<Item = ORole> + '_ {
+    c.reads.iter().filter_map(move |&r| {
+        if p.has(r) { Some(r) } else { extra_ends(p).iter().copied().find(|&e| stand_in(c, p, e) == Some(r)) }
+    })
+}
+
+/// Every library concept's bit in `readable_library`: a group whose mask
+/// is this can run them all.
+pub const LIBRARY_ALL: u64 = u64::MAX >> (64 - PASS_CONCEPTS.len());
+
+/// The group can run the concept: one of its reads is on the field
+/// (`reads_in`).
+pub fn readable(c: &PassConcept, f: &Formation) -> bool {
+    c.reads.iter().any(|r| f.personnel.has(*r))
+        || extra_ends(f.personnel).iter().any(|e| stand_in(c, f.personnel, *e).is_some())
+}
+
+/// The library concepts the group can run (`readable`), one bit a concept,
+/// worked out once a group: the play caller reads it on every pass call.
+pub fn readable_library(p: Personnel) -> u64 {
+    static MASKS: [std::sync::OnceLock<u64>; 16] = [const { std::sync::OnceLock::new() }; 16];
+    *MASKS[p as usize].get_or_init(|| {
+        let f = Formation::plain(p, Backfield::Shotgun, 1.0);
+        PASS_CONCEPTS.iter().enumerate().filter(|(_, c)| readable(c, &f)).fold(0, |m, (i, _)| m | (1 << i))
+    })
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]

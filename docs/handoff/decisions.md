@@ -455,6 +455,13 @@ Cain, 2026-11-17 23:35 UTC: "the game understands groups talks better, right now
 - **Decided under Cain's proxy, 2026-11-18** (for his morning look; every size proposed, not confirmed): "You'll be a captain" is a promise, judged the day your room names its captains (college fall camp, the NFL's veterans report), never on games. The vote runs as always; voted in, kept. Left out, you name him beside the vote (a head coach has the last say), and the room pays by how far down its vote he was: your name with the room, and the first men passed over lose a little trust and mood; half for a coach who picks his own. The agenda's promise plan turns that off, and then the vote stands and breaks it. A missed condition releases you. His belief reads the vote as he sees it. The room can hear you promised it before the vote. Only at college and in the NFL (the world names no high school captains).
 - **Built:** the same night (`world/folk/captain.rs`; how it works in `docs/reference/how-it-works/people.md`, "Captain promises").
 
+## 32. Talk replies that match the game, and talks as a shortcut (thread "Diagnose why talks feel off", 2026-11-19)
+
+Cain shared five odd talks and asked what feels off. Diagnosis and items: `docs/design/talk-replies.md`. Cain, 13:07 UTC: "agree on all but i'm missing some" (items 1-10), then 13:26 UTC on the five additions: "1. Yes, not just for this, but for all possible actions. Live talks needs to devlop into a sophisticated short cut / yes to the rest".
+- **Agreed, lane A (after PR #575):** the voice knows how the line landed; a promise releases his take on it; accepting, refusing or countering his ask counts; his counter names his number; this talk stays this talk; contradicting an open promise breaks it; wants follow the talk (a candidate's wants in an interview, a high school coach sells his players); his own way of talking; the voice thinks a little; a shorter "Heard as"; the whole talk remembered; End always closes the talk and moves an open decision to its screen.
+- **Agreed, lane B (after lane A):** every action a screen can do runs from a talk after one confirm card ("a sophisticated short cut"); a "What he's after" read and Ideas for every person; real haggling round by round, for coaches, agents and your own players.
+- **Proposed, not confirmed:** every size and wording beyond the spec's text.
+
 ## Superseded decisions
 
 | Old | Replaced by | When |

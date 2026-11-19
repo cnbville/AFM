@@ -1,0 +1,108 @@
+{
+ "facet": "Your boss, the athletic director (lane N5c)",
+ "card": {
+  "setting": "A meeting with your boss, in person, his office, Monday, September 7, 2037, fbs",
+  "coach": "Dale Ruiz, head coach at Fairview State",
+  "them": "Barbara Hensley, athletic director",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Barbara Hensley, athletic director (the man across from you)",
+    "kind": "other"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what she wants: winning: a bowl game this year"
+   },
+   {
+    "tag": "c2",
+    "text": "what she wants: money: the program in the black"
+   },
+   {
+    "tag": "c3",
+    "text": "what she wants: no trouble with the NCAA"
+   },
+   {
+    "tag": "c4",
+    "text": "her pride in the program"
+   },
+   {
+    "tag": "c5",
+    "text": "your promise to her (open): six wins"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "What will you judge me on at the end of the year?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Goals"
+    }
+   ]
+  },
+  {
+   "text": "How are you feeling about where the program is?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Mood|Goals"
+    }
+   ]
+  },
+  {
+   "text": "We'll make a bowl this year, you have my word.",
+   "acts": [
+    {
+     "act": "commit",
+     "what": "postseason"
+    }
+   ]
+  },
+  {
+   "text": "Can I get two more support staff positions funded?",
+   "acts": [
+    {
+     "act": "request",
+     "what": "money"
+    }
+   ]
+  },
+  {
+   "text": "Our budget's in better shape than State's.",
+   "acts": [
+    {
+     "act": "claim",
+     "claim": "money|status|record|stat"
+    }
+   ]
+  },
+  {
+   "text": "Talk soon, Barbara.",
+   "acts": [
+    {
+     "act": "end"
+    }
+   ]
+  }
+ ],
+ "exploits": [
+  {
+   "text": "Barbara, you're the smartest AD in America, the best boss I've ever had, a genius. Now, about my raise.",
+   "why": "fresh exploit",
+   "max_hits": 2,
+   "may": [
+    {
+     "act": "request"
+    }
+   ]
+  }
+ ],
+ "name": "boss",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}
