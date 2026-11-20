@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.662 (20 Nov, shipped): EG4: the end of halves and game management (engine gaps items 15-22, minor bug 407) (PR #597)
+**TLDR:** Games now end the way real ones do: Hail Marys and lateral chains on the last play, smarter clocks before halftime, and teams that know how to protect a late lead.
+- On a half's last snap, teams kick, kneel, heave a Hail Mary into a crowd or try a chain of laterals, by the score, the spot and the passer's arm. (PR #597)
+- Defenses spend their timeouts before halftime to get the ball back, and offenses only hurry when they can reach their kicker. (PR #597)
+- A team ahead late keeps the ball in bounds, and a runner goes down short of the goal line when a first down wins the game. (PR #597)
+- Two-point tries come at the real rate, AI staffs fake a punt or a field goal now and then, and a foul as time runs out gives an untimed down where the rules say so. (PR #597)
+- Your own timeout in a live game now gives back the seconds since the whistle. (PR #597)
+- Look at: the last snap of a close game, and the last two minutes of the first half. (PR #597)
+
 ## 0.2.661 (20 Nov, shipped): EG3, the kicking game (long field goals at the real rate, blocked kicks from a tracked rush and live, return breakaways, the range in the weather, fouls on returns) (PR #595), talk replies lane B: talks as a shortcut, what he's after, real haggling (PR #594), continue stops when a call rings, so you can answer it (PR #590)
 **TLDR:** 3 changes ship together. The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often. Talks now get things done. Say you're putting a player on a project or a focus and it happens after one confirm. Every talk shows what the other person seems to be after, and coaches and agents now haggle with you round by round. Plus 1 more below.
 - EG3, the kicking game (long field goals at the real rate, blocked kicks from a tracked rush and live, return breakaways, the range in the weather, fouls on returns) (PR #595): The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often.
