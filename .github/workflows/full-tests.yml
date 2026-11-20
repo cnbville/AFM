@@ -1,12 +1,19 @@
 name: Full tests
-# Every test, the ones that build worlds too: about two hours of tests, shared
-# by three machines so a run takes about an hour. Pull requests run the quick
-# check in ci.yml instead (Cain 2026-10-29: merge on a quick check, one
-# finishing test). This runs:
+# Every test, the ones that build worlds too, shared by thirteen machines so a
+# run takes about two hours. Pull requests run the quick check in ci.yml
+# instead (Cain 2026-10-29: merge on a quick check, one finishing test). This
+# runs:
 # - each night on main, when main has changed since its last green run;
 # - by hand on any branch (Actions, Full tests, Run workflow), for a lane
 #   that wants every test before it merges;
 # - once on main before the world rebuild (lane 12), which waits for green.
+#
+# Why thirteen: the tests that build worlds need the whole runner (4 cores) for
+# a world each, and by 2026-11-20 the three parts this workflow had (units,
+# screens, worlds) each needed more than the 4-hour job limit (they took about
+# an hour on 2026-11-15). Each shard now holds a bit over an hour of tests.
+# `.github/scripts/full-tests-shard.sh` says which tests each one runs and
+# checks it ran some; `full-tests-shard.sh list` names them.
 on:
   # At 01:47 UTC: GitHub delays or drops scheduled runs at the top of the hour
   # under load, and the first night's 01:00 run never started.
@@ -39,27 +46,47 @@ jobs:
     if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.changed.outputs.run == 'yes') }}
     strategy:
       fail-fast: false
-      # Each part builds its libraries with the same packages its tests pick,
+      # Each shard builds its libraries with the same packages its tests pick,
       # so the test step reuses them (afm-tools turns on the engine's debug
       # feature only when it is picked).
       matrix:
         include:
-          # The unit tests (the world log's and the find and logo screens'
-          # included) and the doc tests: about 50 minutes.
-          - part: units
+          # The unit tests of every crate and the doc tests, except the
+          # afm-game ones in the next three shards (the lib tests that build a
+          # world each).
+          - part: units-core
             packages: --workspace
-            run: cargo test --workspace --lib --bins --no-fail-fast
-          # The game's screen tests: each small world is built once and
-          # opened from its file by every test that asks for it.
-          - part: screens
+          - part: units-game-a
+            packages: --workspace
+          - part: units-game-b
+            packages: --workspace
+          - part: units-game-c
+            packages: --workspace
+          # The game's screen tests: each small world is built once per shard
+          # and opened from its file by every test that asks for it, so files
+          # that share a world share a shard.
+          - part: screens-1
             packages: -p afm-game
-            run: cargo test -p afm-game --test '*' --no-fail-fast
-          # Every other integration test: the tools' 3-year world (about 45
-          # minutes), the world reader's book, the national class and the match
-          # engine checks.
-          - part: worlds
+          - part: screens-2
+            packages: -p afm-game
+          - part: screens-3
+            packages: -p afm-game
+          - part: screens-4
+            packages: -p afm-game
+          - part: screens-5
+            packages: -p afm-game
+          # Every other integration test: the world reader's book, the
+          # national class and the match engine checks (worlds-misc), the
+          # three world tests that build their own world, and the fourteen
+          # that share one full-size world.
+          - part: worlds-misc
             packages: --workspace --exclude afm-game
-            run: cargo test --workspace --exclude afm-game --test '*' --no-fail-fast
+          - part: worlds-own-1
+            packages: --workspace --exclude afm-game
+          - part: worlds-own-2
+            packages: --workspace --exclude afm-game
+          - part: worlds-shared
+            packages: --workspace --exclude afm-game
     name: test (${{ matrix.part }})
     runs-on: ubuntu-latest
     timeout-minutes: 240
@@ -78,8 +105,6 @@ jobs:
       # failing test, not only the first. The game's screen tests build each
       # small world once and share it through this folder (new to each run,
       # so no world outlives the code that built it).
-      - run: ${{ matrix.run }}
+      - run: .github/scripts/full-tests-shard.sh ${{ matrix.part }}
         env:
           AFM_TEST_WORLDS: ${{ runner.temp }}/test-worlds
-      - if: ${{ matrix.part == 'units' && !cancelled() }}
-        run: cargo test --workspace --doc --no-fail-fast
