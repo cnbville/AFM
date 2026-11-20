@@ -1878,6 +1878,9 @@ fn main() {
     if std::env::var("AFM_RECDIAG").is_ok() {
         rec_diag(&results, &teams);
     }
+    if std::env::var("AFM_PICKS").is_ok() {
+        pick_diag(&results, &pos_of);
+    }
     if std::env::var("AFM_GAPS").is_ok() {
         gaps_counts(&results, &pos_of, level);
         foul_counts(&results, level);
@@ -3599,4 +3602,120 @@ fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game:
             );
         }
     }
+}
+
+/// AFM_PICKS=1: where picks and breakups come from (scheme-fit lane SF5,
+/// items 15 to 17; the audit's table in `afm/scheme-fit/full-pass.md`,
+/// "Where picks come from"), over every targeted throw in the league: throws
+/// and picks by air yards, picks by the interceptor's position (all, behind
+/// man coverage, on throws of 30+ air yards), the linemen's picks made while
+/// in a block, and breakups a 100 targeted throws by position with picks left
+/// out. Real: the 2024 NFL with FTN coverage charting (`docs/design/scheme-fit.md`).
+fn pick_diag(
+    results: &[afm_engine::game::GameResult],
+    pos_of: &std::collections::HashMap<u32, afm_engine::positions::Position>,
+) {
+    use afm_engine::positions::Position as P;
+    // 0 the line (tackles and edges), 1 linebackers, 2 corners, 3 safeties, 4 anyone else.
+    let grp = |id: Option<u32>| match id.and_then(|i| pos_of.get(&i)) {
+        Some(P::DT | P::EDGE) => 0,
+        Some(P::LB) => 1,
+        Some(P::CB) => 2,
+        Some(P::S) => 3,
+        _ => 4,
+    };
+    // Upper end of each band, its name, and the real share of throws, pick
+    // rate, completion rate (%) and breakups a 100 throws by anyone (2024
+    // NFL play-by-play, regular season: incompletions with a pass defensed).
+    const BANDS: [(f64, &str, f64, f64, f64, f64); 5] = [
+        (0.0, "behind the line", 18.2, 0.80, 78.7, 7.38),
+        (10.0, "0-9", 49.7, 1.22, 71.7, 8.21),
+        (20.0, "10-19", 20.7, 3.39, 55.0, 13.60),
+        (30.0, "20-29", 7.1, 6.06, 38.3, 15.91),
+        (f64::INFINITY, "30+", 4.3, 6.72, 28.9, 18.84),
+    ];
+    // Per band: throws, picks, completions, breakups by the line, by the back seven.
+    let mut band = [[0.0f64; 5]; 5];
+    let mut int_by = [[0.0f64; 5]; 3];
+    let mut pbu_by = [0.0f64; 5];
+    let (mut tgt, mut dl_blk, mut drops) = (0.0f64, 0.0f64, 0.0f64);
+    for r in results {
+        for p in &r.stats.plays {
+            if p.nullified || p.kind != PlayType::Pass || p.throw_away || p.target.is_none() {
+                continue;
+            }
+            tgt += 1.0;
+            let b = BANDS.iter().position(|x| p.air_yards < x.0).unwrap_or(4);
+            band[b][0] += 1.0;
+            band[b][2] += f64::from(u8::from(p.complete));
+            drops += f64::from(u8::from(p.drop));
+            if p.interception {
+                band[b][1] += 1.0;
+                let g = grp(p.interceptor);
+                int_by[0][g] += 1.0;
+                if p.coverage_man {
+                    int_by[1][g] += 1.0;
+                }
+                if b == 4 {
+                    int_by[2][g] += 1.0;
+                }
+                if g == 0 && p.interceptor.is_some_and(|id| p.blocks.iter().any(|x| x.1 == id)) {
+                    dl_blk += 1.0;
+                }
+            } else if p.pbu.is_some() && !p.complete {
+                let g = grp(p.pbu);
+                pbu_by[g] += 1.0;
+                band[b][if g == 0 { 3 } else { 4 }] += 1.0;
+            }
+        }
+    }
+    let picks: f64 = int_by[0].iter().sum();
+    println!(
+        "\nWhere picks and breakups come from (AFM_PICKS): {tgt:.0} targeted throws, picked {:.2}% (real 2.3%)",
+        100.0 * picks / tgt.max(1.0)
+    );
+    for (k, (_, name, real_share, real_int, real_cmp, real_pbu)) in BANDS.iter().enumerate() {
+        let n = band[k][0].max(1.0);
+        println!(
+            "  {name:<16} share {:5.1}% (real {real_share:4.1}%)  picked {:5.2}% (real {real_int:4.2}%)  complete {:5.1}% (real {real_cmp:4.1}%)  broken up {:5.2} (real {real_pbu:5.2}; the line {:4.2}, the back seven {:5.2})",
+            100.0 * band[k][0] / tgt.max(1.0),
+            100.0 * band[k][1] / n,
+            100.0 * band[k][2] / n,
+            100.0 * (band[k][3] + band[k][4]) / n,
+            100.0 * band[k][3] / n,
+            100.0 * band[k][4] / n
+        );
+    }
+    let share = |row: &[f64; 5], g: usize| 100.0 * row[g] / row.iter().sum::<f64>().max(1.0);
+    for (k, (name, real)) in [
+        ("all picks", "line 4% (+5% 3-4 OLBs), safeties 39%"),
+        ("behind man", "safeties 43%"),
+        ("on 30+ throws", "safeties 56-61%"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        println!(
+            "  {name:<14} ({:.0}): line {:4.1}%, linebackers {:4.1}%, corners {:4.1}%, safeties {:4.1}%  (real {real})",
+            int_by[k].iter().sum::<f64>(),
+            share(&int_by[k], 0),
+            share(&int_by[k], 1),
+            share(&int_by[k], 2),
+            share(&int_by[k], 3)
+        );
+    }
+    println!(
+        "  the line's picks made while in a block: {dl_blk:.0} of {:.0} (the audit's league: 175 of 195)",
+        int_by[0][0]
+    );
+    let per = |x: f64| 100.0 * x / tgt.max(1.0);
+    println!(
+        "  breakups a 100 targeted throws, picks left out: the line {:.2} (real 2.0), linebackers {:.2}, corners {:.2}, safeties {:.2}; the back seven {:.2} (real 8.2); drops {:.2}",
+        per(pbu_by[0]),
+        per(pbu_by[1]),
+        per(pbu_by[2]),
+        per(pbu_by[3]),
+        per(pbu_by[1] + pbu_by[2] + pbu_by[3]),
+        per(drops)
+    );
 }
