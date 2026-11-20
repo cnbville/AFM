@@ -5069,10 +5069,10 @@ const MISREAD_LANE: f64 = 1.0;
 /// each defender watching him break on the ball as he really will
 /// (`ball_break`), all of it at `READ_SHARP` points of field read above the
 /// typical starter, and each lane as it is. He used to see every window tighter
-/// than it was, the misread turned around: on main a7c9bf6 Decisions +15 cut
-/// picks 0.02 to 0.23 points of throws by throwing 0.16 to 0.37 yards shorter,
-/// held the ball and scored no more (-0.82 to +0.03 a game). Now he keeps his
-/// depth, takes 0.24 to 0.58 points of dropbacks fewer sacks and scores 0.29 a
+/// than it was, the misread turned around: on main b4c6206 Decisions +15 cut
+/// picks 0.04 to 0.26 points of throws by throwing 0.20 to 0.35 yards shorter,
+/// held the ball and scored no more (-0.33 to +0.29 a game). Now he keeps his
+/// depth, takes 0.20 to 0.54 points of dropbacks fewer sacks and scores 0.35 a
 /// game more on average (`fit_check`, the audit's seeds). The one man he still
 /// gives that respect is a defender underneath reading his eyes, between him
 /// and the spot within `LURK_NEAR` yards of the throw's line: the man who picks
@@ -5175,12 +5175,12 @@ fn ball_break(sim: &Sim, d: usize, r: usize) -> f64 {
 /// Route Running and route craft about his level's typical starter at his
 /// position (sooner for a poorer route runner). Against zone a route used to
 /// read only the room he sits down in and the speed he keeps through the cut:
-/// on main a7c9bf6 Route Running +15 drew 0.8 to 3.6 more targets a 100 routes
-/// against zone into tighter windows (his catch rate there -3.6 to -0.2 points,
-/// separation -0.19 to +0.06 yards). At 0.1 the slot and the tight end gain
-/// 0.01 to 0.27 yards of separation against zone and lose less of their catch
-/// rate there, and every receiver's yards a route against zone rise 0.25 to
-/// 0.58 (`fit_check`, the audit's seeds; proposed, not confirmed).
+/// on main b4c6206 Route Running +15 drew 0.7 to 3.6 more targets a 100 routes
+/// against zone into tighter windows (his catch rate there -3.7 to -0.2 points,
+/// separation -0.14 to +0.07 yards). At 0.1 the slot and the tight end gain
+/// 0.06 to 0.27 yards of separation against zone and lose less of their catch
+/// rate there, and every receiver's yards a route against zone rise 0.19 to
+/// 0.52 (`fit_check`, the audit's seeds; proposed, not confirmed).
 const ZONE_TURN: f64 = 0.1;
 const TURN_NEAR: f64 = 6.0;
 
@@ -7598,9 +7598,9 @@ fn contest_edge(level: crate::player::Level, ra: &Agent, pos: Position) -> f64 {
 /// point off the breakup's base. Wide receivers' catch rate on contested balls
 /// has a true spread of 8.9 points between them (FTN charting 2022-24, 176
 /// receiver seasons with 12 or more, the binomial noise taken out). On world
-/// seed 1's NFL clubs (main a7c9bf6, game seeds 1-4) the engine's was 3.2
+/// seed 1's NFL clubs (main b4c6206, game seeds 1-4) the engine's was 5.3
 /// points, since the receiver's own skill never read in the breakup; at 0.02 it
-/// is 8.1 (the test rosters, narrower in Contested Catch, 5.8). Read with his
+/// is 9.8 (the test rosters, narrower in Contested Catch, 6.3). Read with his
 /// Strength and Jumping as well, it took the world's clubs' breakups down 16%,
 /// because their receivers carry 24 points more Strength than the typical
 /// starter (proposed, not confirmed).
@@ -7611,10 +7611,10 @@ const CONTEST_PBU: f64 = 0.02;
 /// starter at his position. Receivers' drops a target have a true spread
 /// between men of 0.54 points among wide receivers, 1.01 among tight ends and
 /// 1.12 among backs (FTN charting 2022-24, men with 40 or more targets, the
-/// binomial noise taken out). On world seed 1's NFL clubs (main a7c9bf6, game
-/// seeds 1-4) the old 0.00095 a point from none gives 0.60, 0.66 and 0.71, of
-/// which Catching alone spreads 0.34, 0.43 and 0.42, and this gives 0.78, 0.91
-/// and 0.83, of which Catching alone spreads 0.52, 0.50 and 0.72 (a miss is a
+/// binomial noise taken out). On world seed 1's NFL clubs (main b4c6206, game
+/// seeds 1-4) the old 0.00095 a point from none gives 0.62, 0.57 and 0.59, of
+/// which Catching alone spreads 0.34, 0.43 and 0.56, and this gives 0.70, 0.62
+/// and 1.07, of which Catching alone spreads 0.55, 0.66 and 0.70 (a miss is a
 /// drop only when he is open, so the open man drops more); 0.0029 gave 1.49,
 /// 1.24 and 2.18 on one game seed (proposed, not confirmed).
 const CATCH_HANDS: f64 = 0.0016;
