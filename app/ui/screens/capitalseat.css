@@ -1,0 +1,75 @@
+/* Lane styles: Capital's Your seat screen (lane CS6, board 6, CP32-CP37,
+   CP39). Ground's Press Box look: dark panels, ivory text, hairlines, one
+   gold for a rise and for you, amber for a slip. No dollar figures; no
+   saturated fills. The page carries .sl so lane 1's tokens (and the light
+   theme) apply. Every class is cps- so the app's global names never
+   restyle these. */
+
+.cps { --cps-panel: #101217; --cps-gold: #d8b45a; --cps-amber: #f7a25a; --cps-ivory: #e8e6e0; --cps-track: #2a2d35; --cp-gold: #d8b45a; --cp-ivory: #e8e6e0; padding-bottom: 48px; font-variant-numeric: tabular-nums; display: grid; gap: 16px; align-content: start; }
+:root[data-theme="light"] .cps { --cps-panel: #ffffff; --cps-gold: #8f6d12; --cps-amber: #b9611a; --cps-ivory: #1d2026; --cps-track: #dcdde1; --cp-gold: #8f6d12; --cp-ivory: #1d2026; }
+.cps-dim { color: var(--sl-dim); }
+.cps-dim.sm, .cps .sm { font-size: 12px; }
+.cps .up, .cps b.up, .cps .gold { color: var(--cps-gold); }
+.cps .down, .cps .cps-amb { color: var(--cps-amber); }
+
+.cps-top { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 18px; }
+.cps-t { flex: 1 1 280px; display: grid; gap: 2px; }
+.cps-t h1 { margin: 0; font-size: 28px; font-weight: 800; font-stretch: 80%; letter-spacing: -.01em; line-height: 1.1; }
+.cps-k { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sl-dim); }
+.cps-said { padding: 10px 14px; border-radius: 14px; background: var(--cps-panel); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cps-gold) 45%, transparent); font-size: 13.5px; }
+
+.cps-card { background: var(--cps-panel); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--hair); padding: 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cps-card p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.cps-card h2 { margin: 6px 0 0; font-size: 26px; font-weight: 800; font-stretch: 80%; line-height: 1.1; }
+.cps-card h2 + p { margin-top: 6px; }
+.cps-empty { color: var(--sl-dim); max-width: 640px; }
+.cps-main-card { padding: 22px; gap: 14px; }
+
+.cps-cols { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.cps-main { flex: 999 1 640px; min-width: 0; display: grid; gap: 16px; }
+.cps-main-card { flex: 999 1 640px; }
+.cps-side { flex: 1 1 360px; min-width: 0; display: grid; gap: 16px; }
+
+/* the vote */
+.cps-poll { display: grid; gap: 8px; }
+.cps-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.cps-bar { position: relative; height: 14px; border-radius: 8px; background: var(--cps-track); overflow: hidden; }
+.cps-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--cps-gold); display: block; }
+.cps-bar u { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cps-ivory); display: block; text-decoration: none; }
+.cps-result { font-size: 15px !important; }
+.cps-evs { display: grid; gap: 6px; }
+.cps-ev { display: grid; grid-template-columns: 90px minmax(0, 1fr) 54px; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--fill-1); font-size: 13px; }
+.cps-ev > b { text-align: right; }
+.cps-ev.cps-wk { grid-template-columns: minmax(0, 1fr) auto; }
+.cps-ev.cps-wk > span { display: grid; gap: 2px; }
+.cps-ev.cps-wk small { font-size: 12px; line-height: 1.4; }
+.cps-go { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.cps-confirm { box-shadow: inset 0 0 0 1px var(--cps-amber); color: var(--cps-amber); }
+.cps .st-btn.gold { box-shadow: inset 0 0 0 1px var(--cps-gold); color: var(--cps-gold); }
+.cps .st-btn:disabled { opacity: .45; cursor: default; }
+@media (max-width: 600px) { .cps-ev { grid-template-columns: 70px minmax(0, 1fr) 44px; } }
+
+/* rooms */
+.cps-rm { display: grid; grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1.4fr); gap: 14px; align-items: center; padding: 8px 12px; border-radius: 10px; font-size: 13px; }
+.cps-rm .nm { display: grid; gap: 1px; }
+.cps-rm .nm small { font-size: 11.5px; }
+.cps-rm .gv { color: var(--fg2); }
+@media (max-width: 700px) { .cps-rm { grid-template-columns: minmax(0, 1fr) auto; } .cps-rm .gv { grid-column: 1 / -1; } }
+
+/* the report card */
+.cps-gr { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr) minmax(0, 1.5fr); gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--fill-1); font-size: 13px; }
+.cps-gr.cps-hd { background: none; padding-top: 2px; padding-bottom: 2px; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--sl-dim); }
+.cps-gr .nm { display: grid; gap: 4px; justify-items: start; }
+.cps-gr .g { display: grid; gap: 1px; font-weight: 800; font-size: 18px; }
+.cps-gr .g small { font-size: 11px; font-weight: 500; color: var(--sl-dim); }
+.cps-gr .g.up { color: var(--cps-gold); }
+.cps-gr .g.down { color: var(--cps-amber); }
+.cps-gr .sd { color: var(--fg2); line-height: 1.35; }
+@media (max-width: 700px) { .cps-gr { grid-template-columns: minmax(0, 1fr) auto; } .cps-gr .sd { grid-column: 1 / -1; } .cps-gr.cps-hd > :nth-child(3) { display: none; } }
+
+/* leverage and the ask */
+.cps-lev { font-size: 26px; font-weight: 800; font-stretch: 85%; color: var(--cps-gold); }
+.cps-of { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--fill-1); font-size: 13px; }
+.cps-of > span:first-child { display: grid; gap: 2px; }
+.cps-of small { font-size: 12px; line-height: 1.35; }
+.cps-lean { grid-column: 1 / -1; font-size: 12.5px; color: var(--cps-gold); }

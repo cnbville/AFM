@@ -24,10 +24,15 @@ const CAP_TABS = [
   ["capitalseat", "Your seat"],
 ];
 
+// Which seats each tab is for: the college screens are for a college seat,
+// Your seat for the high school and NFL ones.
+const CAP_SEATS = { capitalseat: ["hs", "nfl"] };
+
 // The tab row, with the screen you're on lit. A tab whose screen isn't built
 // (or isn't on this seat) is left out.
 function capTabs(active) {
-  const tabs = CAP_TABS.filter(([go]) => screens[go] || go === active);
+  const seat = typeof seatKind === "function" ? seatKind() : null;
+  const tabs = CAP_TABS.filter(([go]) => (screens[go] || go === active) && (!seat || go === active || (CAP_SEATS[go] || ["college"]).includes(seat)));
   if (tabs.length < 2) return "";
   return `<nav class="cap-tabs" aria-label="Capital screens">${tabs.map(([go, label]) => `<button type="button" class="cap-tab${go === active ? " on" : ""}" data-go="${go}"${go === active ? ' aria-current="page"' : ""}>${esc(label)}</button>`).join("")}</nav>`;
 }
