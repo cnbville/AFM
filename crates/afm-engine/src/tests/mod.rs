@@ -55,6 +55,7 @@ mod hiring;
 mod hs_playoffs;
 mod hunt;
 mod jan1;
+mod kick_game;
 mod kick_units;
 mod lane7;
 mod lane9;

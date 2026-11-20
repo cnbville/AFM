@@ -72,9 +72,9 @@ fn a_kept_game_replays_exactly() {
 }
 
 /// The frames say what bodies do: every recorded snap has a pose for each
-/// player, kick returns are kept too, a pass shows the throw and the
-/// catch, blocks name their man, and a deep ball rises well above the
-/// players.
+/// player, kick returns and blocked kicks are kept too, a pass shows the
+/// throw and the catch, blocks name their man, and a deep ball rises well
+/// above the players.
 #[test]
 fn frames_carry_poses_actions_and_ball_height() {
     let teams = synthetic_league(Level::NFL, 4, 31);
@@ -86,11 +86,21 @@ fn frames_carry_poses_actions_and_ball_height() {
         let r = play_game(&s);
         for (n, frames) in &r.frames {
             let rec = r.stats.plays.iter().find(|p| p.n == *n).expect("frames belong to a logged play");
-            if matches!(rec.kind, PlayType::Kickoff | PlayType::Punt) {
+            // A return's frames start where the ball comes down, and a
+            // blocked kick's where it comes loose (engine gaps lane EG3: the
+            // live ball is tracked), not at a snap.
+            let kick = matches!(rec.kind, PlayType::Kickoff | PlayType::Punt)
+                || (matches!(rec.kind, PlayType::FieldGoal | PlayType::ExtraPoint) && rec.blocked);
+            if kick {
                 kicks += 1;
             } else {
                 snaps += 1;
-                assert!(frames[0].poses.iter().all(|p| p.act == Act::Stance), "everyone is set at the snap");
+                assert!(
+                    frames[0].poses.iter().all(|p| p.act == Act::Stance),
+                    "everyone is set at the snap: play {} ({:?})",
+                    rec.n,
+                    rec.kind
+                );
             }
             for f in frames {
                 assert_eq!(f.poses.len(), f.players.len());

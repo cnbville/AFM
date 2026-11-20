@@ -372,6 +372,11 @@ fn main() {
                 venue.cond.wind = w;
                 venue.cond.wind_along = ((g as f64 * 0.618_034) % 1.0) * 2.0 - 1.0;
             }
+            // AFM_TEMP the kickoff temperature in F (engine gaps item 14's
+            // cold run; the default is 60).
+            if let Some(t) = env("AFM_TEMP") {
+                venue.cond.temperature = t;
+            }
             let seed = seed as u64 * 1_000_003 + g as u64;
             match book {
                 Some((b, y)) => afm_engine::game::quick_game_book(&teams[h], &teams[a], b, y, seed, venue, false),
@@ -1871,7 +1876,7 @@ fn main() {
         );
     }
     if std::env::var("AFM_GAPS").is_ok() {
-        gaps_counts(&results, &pos_of);
+        gaps_counts(&results, &pos_of, level);
         foul_counts(&results, level);
     }
     if !burners.is_empty() {
@@ -1897,6 +1902,7 @@ fn main() {
 fn gaps_counts(
     results: &[afm_engine::game::GameResult],
     pos_of: &std::collections::HashMap<u32, afm_engine::positions::Position>,
+    level: Level,
 ) {
     use afm_engine::game::sim::FoulKind;
     use afm_engine::game::stats::PlayType as PT;
@@ -1942,6 +1948,19 @@ fn gaps_counts(
     let mut late = [0.0f64; 2];
     let mut ot_games = 0.0f64;
     let mut margins: Vec<i32> = Vec::new();
+    // The kicking game (lane EG3): kickoff returns of 40+, punt returns of
+    // 20+, kickoff and punt return touchdowns; blocked kicks of every kind;
+    // blocked punts kept by the punting team (with a first down), returned
+    // for a touchdown and safeties; blocked field goals advanced and
+    // returned for a touchdown; field goals of 50+ tried and made.
+    let mut kk = [0.0f64; 14];
+    // 55+ tries in a half's last 30 seconds and the rest; fourth downs from
+    // their 36-44 outside a half's last two minutes: field goal, punt, go.
+    let mut long = [0.0f64; 2];
+    let mut f4 = [[0.0f64; 3]; 3];
+    let mut rets: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
+    // Accepted fouls on kickoffs and punts by team and kind (bug 403).
+    let mut kfoul: BTreeMap<String, f64> = BTreeMap::new();
     for r in results {
         if r.stats.overtime {
             ot_games += 1.0;
@@ -1963,6 +1982,80 @@ fn gaps_counts(
         }
         let ps = &r.stats.plays;
         for (k, p) in ps.iter().enumerate() {
+            if matches!(p.kind, PT::Kickoff | PT::Punt) {
+                let ko = p.kind == PT::Kickoff;
+                let returned = p.returner.is_some() && !p.touchback && !p.fair_catch && !p.blocked;
+                if returned {
+                    rets[usize::from(!ko)].push(p.return_yards);
+                }
+                if returned && p.return_yards >= if ko { 40.0 } else { 20.0 } {
+                    kk[if ko { 0 } else { 1 }] += 1.0;
+                }
+                if returned && p.touchdown && !p.turnover {
+                    kk[if ko { 2 } else { 3 }] += 1.0;
+                }
+                let kicking = p.kicker.and_then(|id| p.side_of(id)).unwrap_or(p.offense);
+                for f in p.penalties.iter().filter(|f| f.4) {
+                    let by = if f.1 == kicking { "kicking" } else { "receiving" };
+                    *kfoul
+                        .entry(format!("{} {by} {}", if ko { "kickoff" } else { "punt" }, f.0.name()))
+                        .or_default() += 1.0;
+                }
+            }
+            if p.blocked && matches!(p.kind, PT::FieldGoal | PT::Punt | PT::ExtraPoint) {
+                kk[4] += 1.0;
+                let next = ps[k + 1..].iter().find(|n| {
+                    matches!(
+                        n.kind,
+                        PT::Run | PT::Pass | PT::Sack | PT::Scramble | PT::Kneel | PT::Spike | PT::Punt | PT::FieldGoal
+                    )
+                });
+                if p.kind == PT::Punt {
+                    kk[5] += 1.0;
+                    if !p.touchdown
+                        && !p.safety
+                        && next.is_some_and(|n| n.offense == p.offense && n.quarter == p.quarter)
+                    {
+                        kk[6] += 1.0;
+                        if next.is_some_and(|n| n.down == 1) {
+                            kk[7] += 1.0;
+                        }
+                    }
+                    if p.touchdown {
+                        kk[8] += 1.0;
+                    }
+                    if p.safety {
+                        kk[9] += 1.0;
+                    }
+                } else if p.kind == PT::FieldGoal {
+                    kk[10] += 1.0;
+                    if p.return_yards > 0.0 {
+                        kk[11] += 1.0;
+                    }
+                    if p.touchdown {
+                        kk[12] += 1.0;
+                    }
+                }
+            }
+            let half_left = if p.quarter == 2 || p.quarter == 4 { p.clock } else { 999.0 };
+            if p.kind == PT::FieldGoal && p.kick_distance >= 55.0 {
+                long[usize::from(half_left > 30.0)] += 1.0;
+            }
+            if p.down == 4 && half_left > 120.0 && (36.0..45.0).contains(&p.yardline_100) && p.quarter <= 4 {
+                let b = ((p.yardline_100 - 36.0) / 3.0) as usize;
+                let k = match p.kind {
+                    PT::FieldGoal => Some(0),
+                    PT::Punt => Some(1),
+                    PT::Run | PT::Pass | PT::Sack | PT::Scramble => Some(2),
+                    _ => None,
+                };
+                if let Some(k) = k {
+                    f4[b.min(2)][k] += 1.0;
+                }
+            }
+            if p.kind == PT::FieldGoal && p.kick_distance >= 50.0 && p.kick_good {
+                kk[13] += 1.0;
+            }
             for f in &p.penalties {
                 let e = pens.entry(f.0.name().to_string()).or_default();
                 e[0] += 1.0;
@@ -2220,6 +2313,93 @@ fn gaps_counts(
         ko[1] / ko[0].max(1.0),
         ko[2] / ko[1].max(1.0)
     );
+    let fg50: f64 = fg.iter().filter(|(k, _)| k.starts_with('d') || k.starts_with('e')).map(|(_, e)| e[0]).sum();
+    println!(
+        "  50+ {:.3} a team game, make {:.3} (real NFL 2021-25 outdoor: calm and dry 0.386 made 0.657, wind 15+ 0.335 made 0.780, 32 F or colder 0.286 made 0.594)",
+        fg50 / tg,
+        kk[13] / fg50.max(1.0)
+    );
+    println!(
+        "returns: kickoff 40+ {:.3} of returns (real 0.050), punt 20+ {:.3} (real 0.080); return TDs a team game kickoff {:.4} punt {:.4} (real all 0.024)",
+        kk[0] / ko[1].max(1.0),
+        kk[1] / punt[2].max(1.0),
+        kk[2] / tg,
+        kk[3] / tg
+    );
+    println!(
+        "  55+ tries a team game: in a half's last 30 seconds {:.3}, the rest {:.3} (real NFL 2024-25 0.060 and 0.125)",
+        long[0] / tg,
+        long[1] / tg
+    );
+    for (b, row) in f4.iter().enumerate() {
+        let t = row.iter().sum::<f64>().max(1.0);
+        println!(
+            "  fourth downs from their {}-{} outside a half's last two minutes: field goal {:.2}, punt {:.2}, go {:.2} of {:.0} (real NFL 2024-25: {})",
+            36 + 3 * b,
+            38 + 3 * b,
+            row[0] / t,
+            row[1] / t,
+            row[2] / t,
+            t,
+            ["0.56 0.05 0.39", "0.24 0.33 0.43", "0.02 0.60 0.37"][b]
+        );
+    }
+    for (n, v) in rets.iter_mut().enumerate() {
+        v.sort_by(f64::total_cmp);
+        let q = |f: f64| v.get(((v.len() as f64 - 1.0) * f).round().max(0.0) as usize).copied().unwrap_or(0.0);
+        let share = |y: f64| v.iter().filter(|&&r| r >= y).count() as f64 / v.len().max(1) as f64;
+        let marks: [f64; 3] = if n == 0 { [30.0, 40.0, 60.0] } else { [10.0, 20.0, 40.0] };
+        println!(
+            "  {} return yards: p10 {:.0} p25 {:.0} p50 {:.0} p75 {:.0} p90 {:.0} p95 {:.0} p99 {:.0}; {:.0}+ {:.3} {:.0}+ {:.3} {:.0}+ {:.3}",
+            if n == 0 { "kickoff" } else { "punt" },
+            q(0.1),
+            q(0.25),
+            q(0.5),
+            q(0.75),
+            q(0.9),
+            q(0.95),
+            q(0.99),
+            marks[0],
+            share(marks[0]),
+            marks[1],
+            share(marks[1]),
+            marks[2],
+            share(marks[2])
+        );
+    }
+    println!(
+        "blocked kicks {:.4} a team game (real 0.072); blocked punts {:.0}: kept by the punting team {:.3} (with a first down {:.3}), returned for TDs {:.3} (real 17 of 51), safeties {:.3} (3 of 51); blocked FGs {:.0}: advanced {:.3}, returned for TDs {:.3} (real 8 of 101)",
+        kk[4] / tg,
+        kk[5],
+        kk[6] / kk[5].max(1.0),
+        kk[7] / kk[5].max(1.0),
+        kk[8] / kk[5].max(1.0),
+        kk[9] / kk[5].max(1.0),
+        kk[10],
+        kk[11] / kk[10].max(1.0),
+        kk[12] / kk[10].max(1.0)
+    );
+    let kf: f64 = kfoul.values().sum();
+    println!(
+        "accepted fouls on kicks {:.3} a team game (real NFL 2025 0.86: kickoffs 0.54, punts 0.32), by kind:",
+        kf / tg
+    );
+    for (k, v) in &kfoul {
+        println!("  {k:<48} {:.4}", v / tg);
+    }
+    {
+        use afm_engine::attributes::Attr;
+        use afm_engine::game::synthetic::typical_starter as ts;
+        let k = Position::K;
+        println!(
+            "the typical starting kicker: kick power {:.1}, short accuracy {:.1}, long accuracy {:.1}, trajectory {:.1}, get off {:.1}",
+            ts(level, k, Attr::KickPower),
+            ts(level, k, Attr::ShortKickAccuracy),
+            ts(level, k, Attr::LongKickAccuracy),
+            ts(level, k, Attr::KickTrajectory),
+            ts(level, k, Attr::GetOff)
+        );
+    }
     println!(
         "XP {:.2} a team game make {:.3} blocked {:.4}; two-point {:.3} a team game, good {:.3}",
         tries[0] / tg,
