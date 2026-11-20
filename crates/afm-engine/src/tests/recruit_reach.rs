@@ -151,6 +151,93 @@ fn his_family_calls_about_a_commitment_at_his_spot_and_opens_on_it() {
     assert!(reach::family_reason(&w, i, mine).is_none_or(|x| x.0 != Kind::CommitAtSpot));
 }
 
+/// The desk makes the family's call at the office hour, and the people's
+/// end-of-day sweep runs in that same step: it must not hand a call you
+/// never saw to your staff (an empty "Handed to ..." room).
+#[test]
+fn a_family_call_made_at_the_office_hour_waits_for_you() {
+    let (mut w, mine, kids) = class(400);
+    let i = *kids
+        .iter()
+        .find(|&&i| {
+            claims::group_cares(&w.people[i], Ear::Decider)[Group::PlayingTime as usize] >= reach::FAMILY_CARE + 0.1
+        })
+        .expect("a family that weighs playing time");
+    let id = w.people[i].player.id;
+    fc::add(&mut w, id).unwrap();
+    fc::offer(&mut w, id).unwrap();
+    let pos = w.people[i].player.position;
+    let other = *kids.iter().find(|&&k| k != i && w.people[k].player.position == pos).expect("another at his spot");
+    let today = w.today;
+    w.people[other].cal.commit = Some((mine, today, false));
+    let mut sid = None;
+    for _ in 0..7 {
+        let d = w.today;
+        // The office step: the desk's day, then the people's sweep.
+        w.calendar.now = Some((d, crate::calendar::zone::moment(d, crate::world::clock::hour::OFFICE)));
+        reach::day(&mut w, mine, d);
+        sid = w.folk.scenes.iter().find(|s| s.kind == Scenes::FamilyCall && s.a == id as u64).map(|s| s.id);
+        if sid.is_some() {
+            scene::day(&mut w, d);
+            break;
+        }
+        w.today = w.today.add(1);
+    }
+    let sid = sid.expect("they call");
+    let s = w.folk.scenes.iter().find(|s| s.id == sid).unwrap();
+    assert!(!s.done && s.handed.is_none(), "the call waits for you the day it comes");
+    assert!(scene::waiting(&w).iter().any(|s| s.id == sid), "Continue stops for it");
+    // Left alone through the next morning's office hour, your staff takes it.
+    let next = w.today.add(1);
+    w.calendar.now = Some((next, crate::calendar::zone::moment(next, crate::world::clock::hour::OFFICE)));
+    scene::day(&mut w, next);
+    let s = w.folk.scenes.iter().find(|s| s.id == sid).unwrap();
+    assert!(s.done && s.handed.is_some(), "a call that waited a day is handed on");
+}
+
+/// Continue plays on hour by hour: the family's call, made at the office
+/// hour on the way to the next stop, stops the clock as it rings, so you
+/// answer it or hand it on yourself. It used to play past it to the next
+/// stop or the night's sweep, which handed it to your staff unseen.
+#[test]
+fn continue_stops_when_his_family_calls() {
+    let (mut w, mine, kids) = class(400);
+    let i = *kids
+        .iter()
+        .find(|&&i| {
+            claims::group_cares(&w.people[i], Ear::Decider)[Group::PlayingTime as usize] >= reach::FAMILY_CARE + 0.1
+        })
+        .expect("a family that weighs playing time");
+    let id = w.people[i].player.id;
+    fc::add(&mut w, id).unwrap();
+    fc::offer(&mut w, id).unwrap();
+    let pos = w.people[i].player.position;
+    let other = *kids.iter().find(|&&k| k != i && w.people[k].player.position == pos).expect("another at his spot");
+    let call =
+        |w: &World| w.folk.scenes.iter().find(|s| s.kind == Scenes::FamilyCall && s.a == id as u64).map(|s| s.id);
+    let mut sid = None;
+    for _ in 0..60 {
+        // What the family weighs: another at his spot commits to you.
+        let today = w.today;
+        w.people[other].cal.commit = Some((mine, today, false));
+        // Hand on whatever else waits, as the game's staff button does.
+        for s in scene::waiting(&w).iter().map(|s| s.id).collect::<Vec<_>>() {
+            let _ = scene::hand(&mut w, s);
+        }
+        w.continue_until_needed();
+        sid = call(&w);
+        if sid.is_some() {
+            break;
+        }
+    }
+    let sid = sid.expect("they call");
+    let s = w.folk.scenes.iter().find(|s| s.id == sid).unwrap();
+    assert!(!s.done && s.handed.is_none(), "the call waits for you");
+    assert!(scene::waiting(&w).iter().any(|s| s.id == sid), "it rings now: Continue stops for it");
+    assert_eq!(Some(w.now()), s.born, "the clock stands where it rang");
+    assert_eq!(scene::rings(&w, s), w.now());
+}
+
 #[test]
 fn the_official_visit_ends_with_your_case_and_a_promise() {
     let (mut w, mine, kids) = class(30);

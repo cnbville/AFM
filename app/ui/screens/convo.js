@@ -171,7 +171,10 @@ function cvCenter(s, lead, T, key, box) {
   const big = left ? (left.left != null ? left.left : left.min) : s.hours != null ? Math.round(s.hours * 10) / 10 : null;
   const unit = left ? "min" : "h";
   const sub = s.hours != null ? `${Math.round(s.hours * 10) / 10}${T.week ? ` of ${T.week}` : ""} h left this week` : "";
-  const parts = [s.kindName, T.channel, s.place].filter(Boolean);
+  // A family's call says it in the kind and in the title: the channel and the
+  // "A call from ..." place line would only say it again.
+  const fam = s.kind === "FamilyCall";
+  const parts = [s.kindName, fam ? "" : T.channel, fam ? "" : s.place].filter(Boolean);
   const place = parts.filter((x, i) => !parts.slice(0, i).some((y) => y.toLowerCase().includes(x.toLowerCase()) || x.toLowerCase().includes(y.toLowerCase()))).map(esc).join(" · ");
   const ay = aiYours(key);
   const after = T.after || {};
@@ -190,7 +193,7 @@ function cvCenter(s, lead, T, key, box) {
     }
     for (const c of after[i] || []) bits.push(cvCard(c));
   });
-  if (!s.lines.length) bits.push(`<p class="cv-narr cv-quiet">${esc(s.done ? "Nothing was said." : "It's quiet. You speak first.")}</p>`);
+  if (!s.lines.length) bits.push(`<p class="cv-narr cv-quiet">${esc(s.done ? (s.handed ? "You weren't on the line." : "Nothing was said.") : "It's quiet. You speak first.")}</p>`);
   const b = aiState.boxes[key];
   const confirm = cvConfirm(s, T, b);
   const docs = (s.docs || []).map((d) => `<section class="cv-doc"><div class="cv-h">${esc(d.title)}</div>${d.note ? `<p class="cv-small">${cvT(d.note)}</p>` : ""}<table><thead><tr>${d.cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${d.rows.map((r) => `<tr>${r.cells.map((c) => `<td>${cvT(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("");
