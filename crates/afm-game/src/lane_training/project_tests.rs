@@ -155,11 +155,11 @@ fn projects_show_their_clues_their_squad_column_and_the_staff_before_you() {
     {
         let w = g.wm().unwrap();
         let i = crate::views::person_index(w, c[1]).unwrap();
-        afm_engine::progression::start_project(
+        assert!(afm_engine::progression::start_project(
             &mut w.people[i].player,
             afm_engine::attributes::Attr::ManCoverage,
             false,
-        );
+        ));
         let t = mine(w).unwrap();
         let roster = roster_people(w, t);
         let notes = afm_engine::training::seat::holdover_notes(w, &roster);

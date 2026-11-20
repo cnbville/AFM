@@ -392,7 +392,13 @@ pub fn regular_talent(talent_z: f64) -> bool {
 /// quarterbacks a little past that world's own fit, since seed 7's worlds
 /// read about 2 points more Black there), predicting FBS backs at 21.1%
 /// and 76.3% and FBS quarterbacks at 75.1% and 19.7%, every position at
-/// every level within 0.73 of its margin.
+/// every level within 0.73 of its margin. Seed 7's world on the refit read
+/// backs at 20.1% and 76.9% and quarterbacks at 75.2% and 19.5%, but FBS
+/// kickers at 90.5% white (real 84; seed 281 87.1, seed 7 before the refit
+/// 87.9). 355 of seed 281's 396 FBS kickers draw on the kickers' row, and
+/// a share this high moves slowly with its cell, so the row's white cell
+/// is scaled ×0.7, predicting FBS kickers at 83.8% white, FCS 83.3 and
+/// the NFL's 91.3 (real 84, 84 and 91) on seed 281.
 /// Sizes proposed, not confirmed.
 const ODDS_LOW: [[f64; 4]; 11] = [
     [1.87, 0.226, 0.740, 0.740],
@@ -403,7 +409,7 @@ const ODDS_LOW: [[f64; 4]; 11] = [
     [0.542, 0.738, 0.324, 1.84],
     [1.19, 0.637, 0.343, 1.11],
     [0.217, 4.37, 0.308, 0.580],
-    [6.51, 0.00866, 9.04, 1.42],
+    [4.56, 0.00866, 9.04, 1.42],
     [2.05, 0.00910, 0.333, 0.110],
     [5.94, 0.00804, 0.682, 0.580],
 ];
@@ -416,7 +422,7 @@ const ODDS_MID: [[f64; 4]; 11] = [
     [0.322, 0.915, 0.330, 1.84],
     [0.940, 0.745, 0.330, 1.11],
     [0.184, 5.25, 0.288, 0.580],
-    [6.08, 0.00869, 9.92, 1.42],
+    [4.26, 0.00869, 9.92, 1.42],
     [2.02, 0.00907, 0.395, 0.110],
     [5.78, 0.00811, 0.698, 0.580],
 ];
@@ -429,7 +435,7 @@ const ODDS_HIGH: [[f64; 4]; 11] = [
     [0.315, 0.577, 0.342, 1.84],
     [1.03, 0.606, 0.324, 1.11],
     [0.243, 3.59, 0.279, 0.580],
-    [7.40, 0.00842, 8.96, 1.42],
+    [5.18, 0.00842, 8.96, 1.42],
     [2.09, 0.00878, 0.465, 0.110],
     [5.70, 0.00804, 0.716, 0.580],
 ];
