@@ -119,7 +119,7 @@ impl Store {
             if let Some(s) = open.get(super::Level::College, m.id)
                 && s.team == t
             {
-                m.after.add(s, season);
+                m.after.add(&s, season);
             }
         }
     }

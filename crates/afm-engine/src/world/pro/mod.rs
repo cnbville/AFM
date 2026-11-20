@@ -80,8 +80,10 @@ pub struct ProSeason {
     pub stats: crate::game::stats::StatLine,
     /// His playoff games, kept apart (minor bug 93: they were added to the
     /// season line, so a Super Bowl team's passer threw for 21 games).
+    /// Boxed, since most seasons have none (memory diet item 3: a line is
+    /// 630 bytes); written and read as the line itself.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub playoffs: Option<crate::game::stats::StatLine>,
+    pub playoffs: Option<Box<crate::game::stats::StatLine>>,
     /// Playoff games started (the playoff line keeps games, not starts).
     #[serde(default)]
     pub playoff_starts: u32,
@@ -2673,7 +2675,7 @@ pub(crate) fn retire(w: &mut World, i: usize, d: Date, why: &str) {
         && let Some(a) = w.alumni.get_mut(k)
     {
         a.pro = p.pro.clone();
-        a.player = Some(Box::new(p.player.clone()));
+        a.player = Some(crate::world::stored::KeptPlayer::new(&p.player));
         a.notes = p.notes.clone();
     }
     if w.logging() {

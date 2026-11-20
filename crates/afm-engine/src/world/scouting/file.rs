@@ -1321,9 +1321,10 @@ pub fn comparison(w: &World, i: usize, eye: f64, file: &FileRead) -> Option<(Str
         }
     }
     for a in w.alumni.iter().rev().take(4000) {
-        if let (Some(pl), Some(_)) = (a.player.as_ref(), a.pick) {
+        // Unpacked only at his position (memory diet item 3).
+        if let (Some(pl), Some(_)) = (a.player.as_ref().filter(|pl| pl.position == pos), a.pick) {
             let team = a.nfl_team.map_or_else(|| "the NFL".to_string(), |t| t.to_string());
-            consider(pl, &a.name, format!("{team}, {} draft", a.year), None);
+            consider(&pl.get(), &a.name, format!("{team}, {} draft", a.year), None);
         }
     }
     best.map(|b| (b.1, b.2, b.3))

@@ -29,7 +29,7 @@ fn famous_man(w: &mut World, pro_bowls: usize) -> usize {
         .find(|&b| following::kin(seed, key, b).iter().any(|&(nephew, at)| !nephew && at == year))
         .expect("a birth year with a son due");
     let mut a = Alumnus::from_person(&p, year - 20, Some(12), false);
-    a.player = Some(Box::new(p.player.clone()));
+    a.player = Some(crate::world::stored::KeptPlayer::new(&p.player));
     a.name = "Darnell Hayes".into();
     a.born = crate::calendar::Date::ymd(born, 5, 1);
     let mut c = ProCareer::new(None, Status::FreeAgent, year - 20);

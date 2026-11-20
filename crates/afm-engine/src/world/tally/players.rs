@@ -365,8 +365,11 @@ pub struct Season {
     pub game_snaps: Vec<[u16; 2]>,
 }
 
-/// The open season's players, by level and id.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+/// The open season's players, by level and id. A man without a game
+/// through two weekly sweeps has his row packed (`cold.rs`, memory diet
+/// item 10); `get` and `rows` read it back whole, and a save writes every
+/// row as before.
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct Open {
     pub seasons: HashMap<u32, Season>,
     /// NFL seasons are their own rows: (id) for a man who played both in
@@ -382,6 +385,45 @@ pub struct Open {
     /// walks `recent` when a day has dropped off (world speed lane).
     #[serde(skip)]
     oldest: Option<i32>,
+    /// Seasons of men without a game in two sweeps, packed (`cold`).
+    #[serde(skip)]
+    cold: super::cold::Cold,
+}
+
+/// Written as before: every row, packed or not, in `seasons` and `nfl`.
+impl serde::Serialize for Open {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        struct Rows<'a>(&'a HashMap<u32, Season>, Vec<(u32, Season)>);
+        impl serde::Serialize for Rows<'_> {
+            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                use serde::ser::SerializeMap;
+                let mut m = s.serialize_map(Some(self.0.len() + self.1.len()))?;
+                for (k, v) in self.0 {
+                    m.serialize_entry(k, v)?;
+                }
+                for (k, v) in &self.1 {
+                    m.serialize_entry(k, v)?;
+                }
+                m.end()
+            }
+        }
+        let packed: Vec<(u64, Season)> = self.cold.all();
+        let cold = |level: Level| -> Vec<(u32, Season)> {
+            let mut v: Vec<(u32, Season)> = packed
+                .iter()
+                .filter(|(k, _)| (*k >> 32) as u8 == level as u8)
+                .map(|(k, s)| (*k as u32, s.clone()))
+                .collect();
+            v.sort_by_key(|x| x.0);
+            v
+        };
+        let mut st = s.serialize_struct("Open", 3)?;
+        st.serialize_field("seasons", &Rows(&self.seasons, cold(Level::College)))?;
+        st.serialize_field("nfl", &Rows(&self.nfl, cold(Level::Nfl)))?;
+        st.serialize_field("recent", &self.recent)?;
+        st.end()
+    }
 }
 
 /// How many days of games `Open::recent` keeps: the longest charting
@@ -399,7 +441,14 @@ impl Open {
             self.recent.push((date.0, level as u8, g.id, g.depth.clone()));
             self.oldest = Some(self.oldest.map_or(date.0, |o| o.min(date.0)));
         }
+        if self.cold.due(date.0) {
+            self.sweep();
+        }
+        let warm: Option<Season> = self.cold.touch(self::key(level, g.id));
         let m = if level == Level::Nfl { &mut self.nfl } else { &mut self.seasons };
+        if let Some(s) = warm {
+            m.insert(g.id, s);
+        }
         let s = m.entry(g.id).or_insert_with(|| Season { id: g.id, level: level as u8, ..Default::default() });
         s.team = team;
         if g.pos.is_some() {
@@ -430,20 +479,51 @@ impl Open {
         out
     }
 
-    /// Every season for the file, by key (`key`).
-    pub fn rows(&self) -> Vec<(u64, &Season)> {
-        let mut v: Vec<(u64, &Season)> = self
+    /// Packs the rows of men without a game since the sweep before last
+    /// (memory diet item 10) and hands the maps' room back.
+    fn sweep(&mut self) {
+        for (level, m) in [(Level::College, &mut self.seasons), (Level::Nfl, &mut self.nfl)] {
+            let keys: Vec<u32> = m.keys().copied().filter(|&id| self.cold.idle(key(level, id))).collect();
+            if keys.is_empty() {
+                continue;
+            }
+            let rows: Vec<(u64, Season)> =
+                keys.iter().filter_map(|id| m.remove(id)).map(|s| (key(level, s.id), s)).collect();
+            self.cold.sweep(&rows);
+            super::cold::shrink(m);
+        }
+        self.cold.turn();
+    }
+
+    /// Every season for the file, by key (`key`): packed rows unpacked.
+    pub fn rows(&self) -> Vec<(u64, std::borrow::Cow<'_, Season>)> {
+        use std::borrow::Cow;
+        let mut v: Vec<(u64, Cow<'_, Season>)> = self
             .seasons
             .values()
-            .map(|s| (key(Level::College, s.id), s))
-            .chain(self.nfl.values().map(|s| (key(Level::Nfl, s.id), s)))
+            .map(|s| (key(Level::College, s.id), Cow::Borrowed(s)))
+            .chain(self.nfl.values().map(|s| (key(Level::Nfl, s.id), Cow::Borrowed(s))))
+            .chain(self.cold.all::<Season>().into_iter().map(|(k, s)| (k, Cow::Owned(s))))
             .collect();
         v.sort_by_key(|x| x.0);
         v
     }
 
-    pub fn get(&self, level: Level, id: u32) -> Option<&Season> {
-        if level == Level::Nfl { self.nfl.get(&id) } else { self.seasons.get(&id) }
+    /// A player's season (a packed one unpacked).
+    pub fn get(&self, level: Level, id: u32) -> Option<std::borrow::Cow<'_, Season>> {
+        use std::borrow::Cow;
+        let hot = if level == Level::Nfl { self.nfl.get(&id) } else { self.seasons.get(&id) };
+        match hot {
+            Some(s) => Some(Cow::Borrowed(s)),
+            None => self.cold.get(key(level, id)).map(Cow::Owned),
+        }
+    }
+
+    /// Rows and packed bytes held (memory checks): (rows, packed rows,
+    /// packed bytes).
+    pub fn held(&self) -> (usize, usize, usize) {
+        let (n, bytes) = self.cold.held();
+        (self.seasons.len() + self.nfl.len(), n, bytes)
     }
 }
 
