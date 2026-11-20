@@ -159,8 +159,8 @@ pub fn rows(w: &World) -> Vec<(u64, Season)> {
     for (k, s) in t.teams.rows() {
         let e = out.entry(k).or_insert_with(|| Season { level: s.level, team: s.team, ..Default::default() });
         e.games = s.games;
-        let mut v = style_side(s, "o|").to_vec();
-        v.extend(style_side(s, "d|"));
+        let mut v = style_side(&s, "o|").to_vec();
+        v.extend(style_side(&s, "d|"));
         e.style = v;
     }
     // Passing, from each passer's depth counts.
