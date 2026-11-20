@@ -45,7 +45,6 @@ const HANDS: &[Position] = &[RB, WR, TE];
 /// there yet (`docs/reference/how-it-works/ratings.md`, the in-play lists).
 pub(super) const UNREAD: &[(Attr, &[Position])] = &[
     (Attr::LegDrive, &[OT, IOL, EDGE, DT]),
-    (Attr::BallTracking, &[CB, S]),
     (Attr::Decisions, &[LB, S]),
     (Attr::Motor, &[OT, IOL]),
     (Attr::PlayRecognition, &[OT, IOL]),
@@ -339,7 +338,7 @@ pub(super) fn roles(a: Attr) -> Vec<Role> {
         ],
         EyeManipulation => vec![r(
             QBS,
-            "Looking a deep defender off on his first read: the safety is pulled away from the throw he wants.",
+            "Looking a deep defender off: while his eyes stay off his first read, the safety drifts to the read across the field, away from the throw, as far as his reads let him bite.",
             "looking safeties off",
         )],
         BallSecurity => vec![
@@ -403,8 +402,8 @@ pub(super) fn roles(a: Attr) -> Vec<Role> {
             r(&[RB], "Fielding punts and kicks when he returns them: most of the muff chance.", "fielding returns"),
             r(
                 DBS,
-                "Reading the ball in the air. A defender's catch point is played with Catching and Jumping instead.",
-                "reading the ball in the air",
+                "Finding the ball in the air: how soon he finds a ball he saw thrown over his shoulder as he runs to it, and then plays it as a man facing it, with the full pick chance and a fingertip for the breakup.",
+                "finding the ball in the air",
             ),
         ],
         BodyControl => vec![r(
@@ -645,7 +644,12 @@ pub(super) fn roles(a: Attr) -> Vec<Role> {
                 "Which move he picks (the noise shrinks), the counter, and his assignments.",
                 "picks his rush, assignments",
             ),
-            r(SEVEN, "His assignments and run fits: fewer busts, which rise below 60.", "assignments and busts"),
+            r(BACKERS, "His assignments and run fits: fewer busts, which rise below 60.", "assignments and busts"),
+            r(
+                DBS,
+                "His assignments and run fits (fewer busts, which rise below 60), and in a deep zone he reads where the routes are going: he passes one off and picks up the next sooner, and it is a quarter of what keeps him from biting on a look-off.",
+                "assignments, reading routes deep",
+            ),
             r(
                 HANDS,
                 "A back's pickup of a blitzer and a receiver's settle in a zone hole read it.",
@@ -660,7 +664,7 @@ pub(super) fn roles(a: Attr) -> Vec<Role> {
             ),
             r(
                 SEVEN,
-                "Sees the play sooner: his read time falls with it, he breaks on a throw sooner, and it is 40% of his zone read.",
+                "Sees the play sooner: his read time falls with it, he breaks on a throw sooner, it is 40% of his zone read, and in a deep zone a quarter of what keeps him from biting on a look-off.",
                 "sees the play sooner",
             ),
             r(RUSH, "A sooner read on run plays and 15% of shedding blocks.", "sooner run reads"),
@@ -670,8 +674,8 @@ pub(super) fn roles(a: Attr) -> Vec<Role> {
             r(RUSH, "Two fifths of the get-off: reading the snap and the movement.", "reads the snap"),
             r(
                 SEVEN,
-                "Jumping routes (the chance he guesses right) and a better break on the throw; it keeps him from biting on a look-off.",
-                "jumps routes",
+                "Jumping routes (the chance he guesses right); in a deep zone he breaks on the throw sooner as it rises, on the throwing motion when it is high, and it is half of what keeps him from biting on a look-off.",
+                "jumps routes, reads the passer",
             ),
             r(RECS, "Not read yet for receivers.", "not read"),
         ],

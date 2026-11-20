@@ -1288,6 +1288,7 @@ fn kick_sim<'a>(
         designed_run: false,
         lane: None,
         bites: Vec::new(),
+        triggers: Vec::new(),
         two_gap: false,
         help_on: None,
         chip: None,

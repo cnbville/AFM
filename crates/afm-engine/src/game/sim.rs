@@ -1609,6 +1609,10 @@ pub struct Sim<'a> {
     /// Route jumpers who guessed wrong: who, the spot he broke for, and
     /// when.
     pub bites: Vec<(usize, V2, f64)>,
+    /// Deep men who read the passer's throwing motion (scheme-fit item 13):
+    /// who, the receiver the motion was for, when, and the spot he broke for
+    /// (None when it was out of his range, so he played on).
+    pub triggers: Vec<(usize, usize, f64, Option<V2>)>,
     /// The defense plays a two-gap front (a 3-4): its interior linemen
     /// read the block before they pick a gap (S9).
     pub two_gap: bool,

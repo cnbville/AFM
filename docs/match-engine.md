@@ -2246,6 +2246,83 @@ Also fixed: the fake field goal (lane EG4) seated its wall's guards and tackles 
 
 Still off (`GAPS.md`, Engine): long balls are off target too often (58% of 30+ yard throws; their completions 20% to 23%, real 28.9%, and their breakups 12 to 13 a 100, real 18.8), so they are picked 5.3% to 5.8% (real 6.7%); the safeties' share of picks (31% to 33%, real 39%; behind man 27% to 28%, real 43%) needs the free safety at the ball, scheme-fit items 12-14 (lane SF6); throws behind the line are broken up half as often as real (3.6 to 4.1 a 100, real 7.4) and short throws completed 3 to 4 points above real; pass interference at the NFL above real from the throws past the line (at real a target); FBS picks short of real; picks still come from throws the passer saw open (on the lane's last measured build 18% to 20% of them came from throws seen open by 2 yards or more, main 25% and 29%).
 
+## The ballhawk safety (scheme-fit lane SF6, items 4, 12, 13 and 14, 2026-11-20)
+
+Design: `docs/design/scheme-fit.md`, items 4 and 12-14. Eye Manipulation moves the safety off the throw, in a duel with his read of the routes (Play Recognition, and Football IQ with item 12) and of the passer's commit (Anticipation), the eyes-on-the-QB flaw biting more (item 4). A free safety's Football IQ reads the concept (item 12); his Anticipation reads the passer, so he breaks when the passer commits, before the ball is out, and breaking early on a fake burns him (item 13); his Ball Tracking reads the ball from depth (item 14, with the fix list's "Ball tracking for corners and safeties"). Zone Coverage and Play Recognition keep their jobs. Real (2024 NFL, FTN charting): safeties make 39% of the picks, 43% behind Cover 1. Built under Cain's proxy on 2026-11-20.
+
+How it was measured: `fit_check` on the audit's seeds, main 28c7563 and after: the free safety's arms in the four defenses (Cover 2, West Coast's Cover 3, man pressure, quarters) at the NFL (seed 161, 2,400 games an arm) and FBS (seed 151, 3,000), and the passer's Eye Manipulation +15 (West Coast); `match_check` at each level on seeds 1 and 2 (2,000 games, `AFM_PICKS=1`, which now also splits each band's picks by position).
+
+What was wrong on main:
+
+- **The look-off pulled the safety toward the throw.** For his first 0.6 s on his first read, the passer's look-off pulled a deep man toward where he looked, his first read, which is often the throw. It read Eye Manipulation from 60, so the NFL's typical passer had 0.73 of a full one and college and high school passers next to none, and the pull stopped at 4 yards. Eye Manipulation +15 scored -0.19 points a game at the NFL and +0.14 at FBS (neither past the noise).
+- **A deep man's Football IQ, Anticipation and Ball Tracking did nothing.** Football IQ was read for a defender only on busts and in a rusher's move, a deep man's Anticipation only leaned him toward the passer's eyes, and Ball Tracking was never read for a defender. A free safety's +15 in any of them changed his picks by -0.16 to +0.11 a season at the NFL and -0.05 to +0.10 at FBS, none past the noise.
+- **Safeties made 31.6% and 32.8% of the picks** on the NFL test rosters (real 39%), 24.3% and 27.7% behind man (real 43%).
+
+What changed (`game/scrimmage.rs`; every size proposed, not confirmed):
+
+- **The look-off moves the deep man off the throw** (item 4; `decoy`, `look_bite`, `LOOK_OFF_TYPICAL`, `LOOK_ACROSS`). While the passer's eyes are off his first read, they go to the read farthest across the field from it, 8 yards or more, and pull a deep man's spot toward that read by 0.3 × look-off × bite × the gap, as far as his feet take him while it lasts; his lean to the first read falls by the look-off. The look-off reads Eye Manipulation against the level's typical starter: the typical passer has half a full one at every level, +15 a full one, and a better one pulls harder still. The bite is the deep man's side of the duel: half Anticipation, a quarter Play Recognition and a quarter Football IQ against his typical starter's, from the bite the NFL's typical safety had (0.757), more with his eyes stuck on the passer. With every read on one side the eyes only hold him.
+- **Football IQ reads the concept** (item 12; `concept_lead`, `route_read`, `CONCEPT_LEAD`). A deep man reads each route 0.15 s ahead along its points a 10 points of Football IQ over his typical starter (behind, where it was, under him): which routes are in his area, which is the deepest and how he splits two verticals.
+- **Anticipation reads the passer** (item 13; `passer_read`, `motion_break`, `MOTION_ANTIC`, `Sim::triggers`). A deep man who sees the passer breaks on the throw 0.12 s sooner a 10 points of Anticipation over his typical starter (later under him). When that lead beats his read of the ball, he breaks on the throwing motion, no sooner than 0.1 s into it, for the spot the passer leads his man to: before the ball is out. If it then goes to another man, he is out of place and reads it as it comes. The passer's window reads the lead as a sharp reader does (`window`, `ball_break`). The level's typical deep man breaks where he did.
+- **Ball Tracking reads the ball** (item 14; `find_ball`, `FIND_TRACK`). A defender who saw the throw finds the ball over his shoulder 0.2 s sooner a 10 points of Ball Tracking over his typical starter (from lane SF5's 1.2 s, `FIND_BALL`), and from then he plays it as a man facing it: the full pick chance and his jump.
+
+What a free safety's ratings are worth (`fit_check`, the change a season against the typical arm, main > after, in Cover 2, West Coast, man pressure and quarters; FBS played the single ratings in the first two; * past the noise, |z| of 1.96 or more):
+
+| arm | measure | NFL main | NFL after | FBS main | FBS after |
+|---|---|---|---|---|---|
+| Anticipation +15 | picks | -0.04, -0.05, -0.16, +0.11 | +0.55*, +0.48*, +0.60*, +0.96* | -0.05, +0.10 | +0.47*, +0.42* |
+| | breakups | -0.1, +0.0, +0.0, -0.1 | +1.5*, +1.2*, +1.6*, +1.7* | -0.0, +0.1 | +0.7*, +0.9* |
+| | catch rate on him, points | +0.7, +0.9, +0.4, -0.3 | -2.1*, -1.4, -2.7, -3.6* | +0.7, -0.6 | +0.5, -1.9 |
+| Ball Tracking +15 | picks | -0.01, +0.01 | +0.07, +0.14* | +0.00, +0.00 | +0.05*, +0.03 |
+| | catch rate on him, points | +0.1, -0.0 | -0.8*, -0.8* | +0.1, +0.1 | -0.4*, -0.4 |
+| Football IQ +15 | picks | -0.01, +0.01, -0.02, +0.00 | -0.15, -0.12, +0.01, +0.11 | +0.00, +0.01 | +0.05, +0.18* |
+| Football IQ -15 | picks | +0.00 (West Coast) | -0.07 | -0.01 | +0.11 |
+| Zone Coverage, Play Recognition, Football IQ and Anticipation +15 | picks | +1.05*, +1.23*, +0.84*, +1.12* | +1.50*, +1.62*, +1.49*, +1.86* | +0.82*, +0.83*, +0.73*, +0.78* | +1.03*, +1.30*, +0.96*, +1.45* |
+| | points allowed a game | -0.73*, -0.83*, -0.24, -0.47 | -1.20*, -1.17*, -1.00*, -1.70* | -0.81*, -0.53*, -0.81*, -0.65* | -1.18*, -1.12*, -0.80*, -1.37* |
+| the same four -15 (West Coast) | picks | -0.80* | -1.36* | -0.47* | -0.46* |
+| | points allowed a game | +0.17 | +1.08* | +0.57* | +0.36 |
+| Zone Coverage +15 | picks | +0.92*, +1.04*, +0.60*, +0.93* | +0.76*, +0.48*, +0.63*, +0.88* | +0.59*, +0.73* | +0.52*, +0.65* |
+
+A passer's Eye Manipulation +15 (West Coast): at the NFL -0.19 > +0.41* points a game and +0.00 > +0.09* yards of separation on his targets; at FBS +0.14 > +0.60* points, -0.003 > +0.014* EPA a dropback and +0.02 > +0.11* yards.
+
+The typical team (team 0 at its level's typical starter everywhere): its offense scores 27.87 > 28.40 a game at the NFL (West Coast) and 31.41 > 32.05 at FBS. Its defense allows 22.42, 23.35, 21.68 and 23.42 > 22.98, 23.20, 22.39 and 23.99 at the NFL, and 22.02, 21.86, 20.92 and 22.16 > 22.25, 22.80, 21.25 and 22.96 at FBS. Its safeties make 28.7%, 28.5%, 27.7% and 28.3% > 27.8%, 27.6%, 25.3% and 26.5% of its picks at the NFL (behind man 16.9%, 21.2%, 22.8% and 18.1% > 21.8%, 17.2%, 19.1% and 21.5%), and 29.4%, 28.4%, 26.9% and 29.3% > 28.6%, 27.0%, 25.6% and 25.5% at FBS.
+
+The league (2,000 games on seeds 1 and 2 at each level, the mean, main > after, the change's range between the seeds):
+
+| | NFL | FBS | high school | real NFL |
+|---|---|---|---|---|
+| points a team game | 28.00 > 28.64 (+0.47 to +0.81) | 25.96 > 26.48 (+0.39 to +0.65) | 20.22 > 20.54 (+0.27 to +0.36) | 22.51 |
+| yards an attempt | 7.73 > 7.85 | 7.80 > 7.92 | 7.09 > 7.20 | 7.05 |
+| completion rate | 67.2 > 67.3 | 62.5 > 62.7 | 59.8 > 59.8 | 64.5 |
+| interceptions a team game | 0.796 > 0.790 | 0.599 > 0.605 | 0.322 > 0.330 | 0.756 |
+| picked, % of targeted throws | 2.31 > 2.29 | 1.87 > 1.88 | 1.46 > 1.50 | 2.3 |
+| 30+ yard throws picked | 5.64 > 6.02 | 3.84 > 3.97 | 3.27 > 3.29 | 6.72 |
+| the safeties' share of the picks | 32.2 > 32.3 | 34.8 > 34.5 | 31.9 > 31.1 | 39 |
+| behind man | 26.0 > 23.9 | 32.4 > 30.7 | 29.3 > 31.1 | 43 |
+| third down conversion | 46.1 > 46.6 | 42.8 > 43.3 | 41.3 > 41.2 | 39.8 |
+| explosive pass rate | 8.7 > 9.0 | 9.2 > 9.6 | 7.4 > 7.9 | 8.8 |
+| pass interference accepted a team game | 0.596 > 0.584 | 0.489 > 0.470 | 0.286 > 0.281 | 0.497 |
+
+Why:
+
+- **Anticipation and Ball Tracking now make picks** (items 13 and 14). A free safety with Anticipation +15 breaks on the throw 0.18 s sooner, and on the throwing motion when that beats his read of the ball, so he gets to more balls: 0.48 to 0.96 more picks and 1.2 to 1.7 more breakups a season at the NFL, and up to 3.6 points off the catch rate on him. Ball Tracking +15 finds the ball 0.3 s sooner, so more of the balls he reaches he plays as a man facing them: 0.07 and 0.14 more picks and 0.8 points off the catch rate on him. His four reading ratings together are worth 1.5 to 1.9 picks a season and 1.0 to 1.7 points a game at the NFL (main 0.8 to 1.2 and 0.2 to 0.8), and as much the other way at -15.
+- **Football IQ still moves nothing** (item 12, still off). At +15 and at -15, in every defense at both levels, his picks, the catches on him and the points allowed stay inside the noise. So where a deep man reads the routes before the throw is not what decides the deep ball at this size; his break on the throw (Anticipation, Zone Coverage) and the catch point (Ball Tracking) are, and both pay. The typical deep man already reads every route where it is now (underneath men read where it was, `ZONE_LAG`), and a route 0.2 s ahead is about 2 yards on at a receiver's speed.
+- **Eye Manipulation pays** (item 4): 0.41 more points a game at the NFL and 0.60 at FBS, with 0.09 and 0.11 yards more separation. With the 4-yard stop kept (the lane's first build) it paid nothing (+0.12 and -0.22): a +15 passer's pull reached the stop on any read 18 yards across, the typical passer's only past 35.
+- **Points rise 0.3 to 0.6 a team game** (NFL 28.00 to 28.64, real 22.51; FBS 25.96 to 26.48; high school 20.22 to 20.54). The typical passer's look-off now moves the deep man off the throw, where on main it pulled him toward it at the NFL and was next to none below, so the typical offense scores 0.53 more a game at the NFL and 0.64 at FBS. Every total stays inside its test band. The points were already high from elsewhere: sacks at half the real rate (3.2% of dropbacks, real 6.8%) and red zone touchdowns well above it (28.9% of attempts, real 19.0%), lanes SF8 and EG6.
+- **The league's picks hold** (NFL 2.31% to 2.29% of targeted throws, real 2.3%): the typical deep man breaks where he did, and only better and worse readers than the level's typical starter break sooner or later. 30+ yard throws are picked a little more (5.64% to 6.02%, real 6.72%).
+- **The safeties' share stays where it was** (NFL 32.2% to 32.3%, real 39%; behind man 26.0% to 23.9%, real 43%; the typical team's 25% to 28%). Two things hold it there (still off, below). Throws short of 20 yards are picked 13% to 15% above real (0-9 yards 1.38%, real 1.22%; 10-19 3.89%, real 3.39%), and linebackers and corners make 82% and 63% of those picks. And the typical deep man breaks on the ball, not on the throwing motion. Every deep man reading the motion (tried, below) lifted the safeties' share to 34% but put the league's picks at 2.7% of targeted throws, so the short picks come first. On the typical team the look-off takes a point or two off the safeties' share, as it moves them off the throws it opens.
+- **Pass interference falls 2% to 4%** (NFL 0.596 to 0.584 accepted a team game, real 0.497), with the breakups a little down (10.0% to 9.8% of attempts at the NFL): each breakup checks the contact for interference (lane SF5).
+
+The coaches' table (`call_values 2000` on main and after; its run rows don't move): the lane moves the tool's straight pass cells by 1.14 yards a cell (the mean of |change|; +0.47 on average), most of all fades against two-high safeties (against Cover 2 -0.65 to 11.19 yards a snap, against Cover 6 1.38 to 11.17: the look-off no longer pulls the half safety onto the throw) and the shallow cross against Cover 4 (24.28 to 12.12). Those rows already wait for minor bug 405. The rows the table takes from a new run (the three play-action concepts and the fakes' changes, `tools/call_values/compose.py`) move 1.12 yards a cell with the lane, less than main's own new run moves them off the committed table (1.37), so the committed table stands, as at lane SF4.
+
+Speed (`match_check`, 2,000 games at each level on seeds 1 and 2, main 28c7563 and the lane in turn on an otherwise quiet machine, two rounds with the order swapped; the whole run's time): the NFL +1.3% (20.20 s to 20.46 a run; pairs -0.4% to +4.9%), FBS -0.4% (21.53 to 21.44; -2.9% to +1.4%), high school +2.2% (14.96 to 15.29; -2.9% to +6.9%), inside a pair's noise.
+
+Tried and dropped (`match_check nfl 2000 1`, the lane's earlier builds):
+
+- **Every deep man reading the throwing motion**, the level's typical one too: the league's picks 2.67% to 2.70% of targeted throws (main 2.43%, real 2.3%) and the safeties' share 34%; with passers whose window knew it, the throws went short instead (0-9 yards 57.7% of them, real 49.7%; 20 and over 8.7%, real 11.4%).
+- **The look-off's 4-yard stop kept:** Eye Manipulation +15 +0.12 points a game at the NFL and -0.22 at FBS, neither past the noise.
+
+Still off (`GAPS.md`, Engine): the safeties' share of picks (the short throws' picks and the typical deep man's break), a deep man's Football IQ moving nothing (item 12) and Ball Tracking at the catch point (a defender runs to where the ball comes down as if he knew it, whatever his tracking).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).
