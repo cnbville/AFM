@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.664", date: "20 Nov", title: "Receivers who play like themselves",
+    notes: [
+      "Your receivers' hands, routes and contested-ball skills now decide their games, and a smart quarterback finds the open man instead of just playing it safe.",
+      "Quarterbacks with good decision-making read the field as it is and throw to the right man, so they score more without giving up depth.",
+      "Sure-handed receivers drop fewer balls, sharp route runners get open against zone as well as man, and receivers who win contested balls come down with more of them.",
+      "Quarterbacks look first to the men who can really catch, not to whoever has the best overall at the spot, so a back's speed or a tight end's blocking no longer pulls throws his way.",
+      "In two- and three-tight-end sets your best receiving tight end lines up where the play looks first.",
+      "On a last-play lateral, a quarterback who gets the ball back keeps the play alive instead of sliding.",
+    ],
+  },
+  {
     v: "0.2.663", date: "20 Nov", title: "Memory diet lane M2: alumni players packed, leavers and retired coaches kept compact, idle tally rows packed",
     notes: [
       "The game holds less in memory, about a seventh less in season on a small test world, so long careers stay lighter.",
