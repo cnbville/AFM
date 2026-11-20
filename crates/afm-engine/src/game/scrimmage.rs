@@ -580,6 +580,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         fouls: s.rules.foul_book(),
         loose: None,
         fumble_rule: s.fumble,
+        grab: 1.0,
+        ibb: 1.0,
         resume: None,
         caught: -9.0,
         tend_memo: super::sim::tend_memo(),
@@ -2424,11 +2426,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 /// and a half yards behind the ball and the punter at his depth (about 15
 /// yards in the NFL, 14 in college, 12 at high school).
 fn punt_spot(f: &Formation, r: ORole, los: f64, by: f64, level: crate::Level) -> V2 {
-    let deep = match level {
-        crate::Level::NFL => 15.0,
-        crate::Level::HS => 12.0,
-        _ => 14.0,
-    };
+    let deep = super::kicking::punt_depth(level);
     match r {
         ORole::QB => v2(los - 5.5, by),
         ORole::RB => v2(los - deep, by),
@@ -4384,7 +4382,8 @@ pub(crate) fn escort(sim: &mut Sim, i: usize) {
         );
         let key =
             (sim.agents[i].id as u64 * 2654435761 + sim.agents[d].id as u64 * 40503 + (sim.los * 10.0) as u64) % 1000;
-        (key as f64 / 1000.0) < p
+        // A return's blocker throws it more often (bug 403, `Sim.ibb`).
+        (key as f64 / 1000.0) < p * sim.ibb
     };
     match threat {
         Some(d) if sim.closest(i, d) < 1.3 && sim.lands_block(i, d) && (!from_behind(sim, d) || throws_it(sim, d)) => {
