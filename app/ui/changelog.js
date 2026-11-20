@@ -17,6 +17,15 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.663", date: "20 Nov", title: "Memory diet lane M2: alumni players packed, leavers and retired coaches kept compact, idle tally rows packed",
+    notes: [
+      "The game holds less in memory, about a seventh less in season on a small test world, so long careers stay lighter.",
+      "Old players, retired coaches and men who left football take less room.",
+      "Finished teams' and players' season numbers are packed once their season ends.",
+      "Nothing about results, pages or saves changes.",
+    ],
+  },
+  {
     v: "0.2.662", date: "20 Nov", title: "EG4: the end of halves and game management (engine gaps items 15-22, minor bug 407)",
     notes: [
       "Games now end the way real ones do: Hail Marys and lateral chains on the last play, smarter clocks before halftime, and teams that know how to protect a late lead.",

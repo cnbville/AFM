@@ -2471,6 +2471,19 @@
   "title": "EG3, the kicking game (long field goals at the real rate, blocked kicks from a tracked rush and live, return breakaways, the range in the weather, fouls on returns)",
   "tldr": "The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often."
  },
+ "596": {
+  "auto": false,
+  "bullets": [
+   "Old players, retired coaches and men who left football take less room.",
+   "Finished teams' and players' season numbers are packed once their season ends.",
+   "Nothing about results, pages or saves changes."
+  ],
+  "h": "ebfa52ba1dc6",
+  "look": "a long career late in the season.",
+  "players": true,
+  "title": "Memory diet lane M2: alumni players packed, leavers and retired coaches kept compact, idle tally rows packed",
+  "tldr": "The game holds less in memory, about a seventh less in season on a small test world, so long careers stay lighter."
+ },
  "597": {
   "auto": false,
   "bullets": [
@@ -2485,5 +2498,14 @@
   "players": true,
   "title": "EG4: the end of halves and game management (engine gaps items 15-22, minor bug 407)",
   "tldr": "Games now end the way real ones do: Hail Marys and lateral chains on the last play, smarter clocks before halftime, and teams that know how to protect a late lead."
+ },
+ "598": {
+  "auto": false,
+  "bullets": [],
+  "h": "5b7ba6787c13",
+  "look": "",
+  "players": false,
+  "title": "Full tests: thirteen shards so no job nears its 4-hour limit",
+  "tldr": ""
  }
 }
