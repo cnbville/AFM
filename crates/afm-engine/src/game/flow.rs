@@ -16,7 +16,7 @@ use super::playbook::*;
 use super::roster::*;
 use super::rules::{FirstDownStop, Overtime, Rules};
 use super::scrimmage::{self, DSlot, KeepSnap, Snap, SnapResult};
-use super::sim::{Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, LooseEnd, Mood, Notes};
+use super::sim::{ClockRun, Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, LooseEnd, Mood, Notes};
 use super::stats::*;
 use super::tables;
 use crate::attributes::Attr;
@@ -120,6 +120,74 @@ const DT_WAVE_STAY: f64 = 2.0;
 /// from the ready signal (40 seconds otherwise, from the end of the play).
 const ADMIN_PLAY_CLOCK: f64 = 25.0;
 
+/// The half's last snap (engine gaps item 15, `Game::last_call`): no snap
+/// can follow one with this much time or less, nor one with the clock
+/// stopped, no timeouts and `LAST_STOPPED` or less. Kicks are tried from
+/// up to `LONG_TRY` past the kicker's range, and a Hail Mary scores about
+/// one time in fourteen (`HAIL_TD`; real NFL 2021-2025: 6.5% of 62 throws
+/// of 35+ air yards on a half's last snap from 30-70 yards out, the
+/// engine's 6.4%; proposed, not confirmed).
+const LAST_SNAP: f64 = 6.0;
+/// Seconds from the whistle to the snap on the clock play, the offense
+/// rushing to the line to spike it or run its last play (engine gaps item
+/// 15; proposed, not confirmed).
+const CLOCK_PLAY: f64 = 7.0;
+/// Seconds a sideline takes to call a timeout after the whistle (minor bug
+/// 407; proposed, not confirmed).
+const CALL_LAG: f64 = 3.0;
+const LAST_STOPPED: f64 = 15.0;
+const LONG_TRY: f64 = 6.0;
+const HAIL_TD: f64 = 0.07;
+/// Inside this many yards out the last snap is fades to the end zone, not
+/// a Hail Mary (real Hail Marys are 35+ air yard throws; proposed, not
+/// confirmed).
+const HAIL_FROM: f64 = 30.0;
+/// How far short of the goal line a Hail Mary may come down when the side
+/// throwing it is behind at the end of the game (`last_call`): past that it
+/// calls the laterals (real NFL teams switch at about 60 yards out: from
+/// 50-60 yards 13 deep shots and 2 laterals in five seasons, from 60-80
+/// yards 4 and 13, nflverse 2021-2025; proposed, not confirmed).
+const HAIL_SHORT: f64 = 5.0;
+
+/// The fourth-down sums' read of the two teams (engine gaps item 20,
+/// `Game::fourth_read`): the log odds a point of the matchup at the point of
+/// attack; each level's real gross punt (NFL 46.5, FBS 42.3, FCS and below
+/// 40.0 yards: the repo's college targets; high school 36) and the yards of
+/// return and touchback it gives back (proposed, not confirmed, but the
+/// real gross punts).
+const CONV_EDGE: f64 = 0.02;
+const PUNT_GROSS: [f64; 4] = [46.5, 42.3, 40.0, 36.0];
+const PUNT_COST: f64 = 5.5;
+/// The defense's timeout to save time before halftime (engine gaps item 17,
+/// `after_snap_clock`): the chance at a game manager rated 0 (proposed,
+/// not confirmed).
+const Q2_STOP: f64 = 0.16;
+/// The hurry-up offense's timeout after a play in bounds: from this many
+/// seconds left in a half (it was 75; proposed, not confirmed).
+const HURRY_STOP: f64 = 100.0;
+/// A staff's fake punt rides on its read of the look (engine gaps item 21):
+/// the share of punts where the return team shows it and the staff reads
+/// it in the engine (0.156, `match_check nfl 2000`), and the lift that puts
+/// the fakes at the real NFL rate a punt (0.93%; 0.66% at 1.66).
+const LOOK_READ: f64 = 0.156;
+const FAKE_LIFT: f64 = 2.34;
+/// A staff's fake field goal (engine gaps item 21, `Game::fake_field_goal`):
+/// the share of the tries it may fake at a coach's average boldness, about
+/// one in 290 (real NFL 0.0044 fake field goals a team game, 2021-2025;
+/// the engine 0.0031 at 0.003 and 0.0060 at 0.004 on seeds 1 and 2;
+/// proposed, not confirmed).
+const FAKE_FG: f64 = 0.0035;
+
+/// The half's last snap's call (`Game::last_call`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Last {
+    Kick,
+    Kneel,
+    Hail,
+    Laterals,
+    /// Fades to the end zone from inside `HAIL_FROM`.
+    Shot,
+}
 /// Pre-snap fouls (engine gaps lane EG5; proposed, not confirmed). The
 /// snap count on third and fourth down lifts the line's false starts by
 /// this share at home (real NFL 2021-25: x1.95 at home, x1.46 on the
@@ -389,7 +457,7 @@ struct Side<'a> {
     passing: bool,
     series: u16,
     /// The plan's lines that have fired (G20, bits by kind) and the tricks
-    /// used (1 a fake punt, 2 a surprise onside kick).
+    /// used (1 a fake punt, 2 a surprise onside kick, 4 a fake field goal).
     fired: u8,
     tricks: u8,
     /// The quarterback's checks and the "if" lines this game (G19, G20):
@@ -1340,6 +1408,11 @@ struct Game<'a> {
     n: u32,
     after_turnover: bool,
     two_min_warned: bool,
+    /// Seconds the clock ran after the last play ended, before this snap's
+    /// ask (minor bug 407): a timeout called there gives them back.
+    ran_off: f64,
+    /// The period goes on for an untimed down (engine gaps item 22).
+    untimed: bool,
     // overtime
     ot: bool,
     ot_round: u32,
@@ -1404,6 +1477,8 @@ struct Game<'a> {
     /// A fake punt's two units on the field and the look (G18): the next
     /// scrimmage snap is played with them.
     fake: Option<FakeUnits>,
+    /// The fake's units are the field goal unit's (engine gaps item 21).
+    fake_kick: bool,
     /// Players waiting for a sideline word (dialogue D6), the plays read
     /// for mistakes so far, and this drive's offensive fouls (team, id).
     due: Vec<super::talk::WordDue>,
@@ -1593,6 +1668,8 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         n: 0,
         after_turnover: false,
         two_min_warned: false,
+        ran_off: 0.0,
+        untimed: false,
         pace: 1.0,
         no_huddle: false,
         kick_back: 0.0,
@@ -1623,6 +1700,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         kick_look: false,
         kick_delay: false,
         fake: None,
+        fake_kick: false,
         due: Vec::new(),
         scanned: 0,
         drive_fouls: Vec::new(),
@@ -1805,7 +1883,137 @@ impl<'a> Game<'a> {
             college: self.rules().level != Level::NFL,
             lean: self.rules().code.pass_lean,
             weather: self.weather_lean(),
+            half_go: self.quarter == 2 && self.half_left() <= 120.0 && self.half_go(),
+            fourth: if self.down >= self.rules().downs() { self.fourth_read(o) } else { Default::default() },
         }
+    }
+
+    /// The two teams and the level in this side's fourth-down sums (engine
+    /// gaps item 20). The chance to convert moves with the matchup at the
+    /// point of attack: the offense's five starting linemen's run blocking
+    /// and its lead back's leg drive against the defense's four starting
+    /// linemen's block shedding and its first linebacker's tackling, each
+    /// about its level's typical starter, `CONV_EDGE` on the log odds a
+    /// point. The punt is the punter's own: his level's real gross punt
+    /// (`PUNT_GROSS`) less `PUNT_COST` yards of return and touchback, and
+    /// the engine's 0.14 yards a point of punt power about his level's
+    /// typical punter (`kicking::punt`). A miss goes back the level's way
+    /// (`miss_back`).
+    fn fourth_read(&self, o: usize) -> calling::FourthRead {
+        let level = self.rules().level;
+        let mean = |k: usize, picks: &[(Position, usize)], a: Attr| -> f64 {
+            let side = &self.sides[k];
+            let (mut sum, mut n) = (0.0, 0.0);
+            for &(pos, want) in picks {
+                let list = side.depth.list(pos);
+                for &i in list.iter().filter(|&&i| i < side.team.players.len() && !side.out[i]).take(want) {
+                    sum += side.team.players[i].a(a) - super::synthetic::typical(level, pos, a);
+                    n += 1.0;
+                }
+            }
+            if n > 0.0 { sum / n } else { 0.0 }
+        };
+        let line = mean(o, &[(Position::OT, 2), (Position::IOL, 3)], Attr::RunBlocking);
+        let back = mean(o, &[(Position::RB, 1)], Attr::LegDrive);
+        let front = mean(1 - o, &[(Position::DT, 2), (Position::EDGE, 2)], Attr::BlockShedding);
+        let lb = mean(1 - o, &[(Position::LB, 1)], Attr::Tackling);
+        let edge = CONV_EDGE * (line + 0.5 * back - front - 0.5 * lb);
+        let side = &self.sides[o];
+        let p = &side.team.players[side.punter()];
+        let gross = match level {
+            Level::NFL => PUNT_GROSS[0],
+            Level::FBS => PUNT_GROSS[1],
+            Level::FCS | Level::SmallCollege => PUNT_GROSS[2],
+            Level::HS => PUNT_GROSS[3],
+        };
+        let leg = 0.14 * (p.a(Attr::PuntPower) - super::synthetic::typical(level, Position::P, Attr::PuntPower));
+        calling::FourthRead { conv: edge, punt: gross - PUNT_COST + leg, miss_back: self.miss_back() }
+    }
+
+    /// How the man with the ball plays the clock on this snap (engine gaps
+    /// item 18): the side ahead in the last 5:00 keeps it running; when a
+    /// first down lets it kneel out the game (`should_kneel`'s sum with a
+    /// new set of downs, after six seconds of play), its man goes down past
+    /// the line to gain, short of the goal line.
+    fn clock_run(&self) -> ClockRun {
+        let o = self.poss;
+        if self.ot || self.quarter < 4 || self.diff(o) <= 0 || self.game_left() > 300.0 || self.trying {
+            return ClockRun::Normal;
+        }
+        let opp_to = if self.sides[1 - o].coach.read.concede { 0.0 } else { self.sides[1 - o].timeouts as f64 };
+        let need = self.game_left() - 6.0 + opp_to * 38.0;
+        let line = self.x + self.togo;
+        if need <= self.rules().downs() as f64 * 39.0 && line < goal() - 1.0 {
+            ClockRun::Down(line)
+        } else {
+            ClockRun::Stay
+        }
+    }
+
+    /// How far behind the line of scrimmage the other side takes over after
+    /// a missed field goal, for the fourth-down sums, by the level's rule
+    /// (engine gaps item 25, `fouls::missed_fg_spot`): the NFL's spot of
+    /// the kick, 7 yards back; college's line of scrimmage; and high
+    /// school's touchback at the 20 (a try there is a scrimmage kick), as
+    /// yards back from the line.
+    fn miss_back(&self) -> f64 {
+        match self.rules().foul_book() {
+            fouls::Fouls::Nfl => 7.0,
+            fouls::Fouls::Ncaa => 0.0,
+            fouls::Fouls::Nfhs => 20.0 - (goal() - self.x),
+        }
+    }
+
+    /// The second quarter's last two minutes (engine gaps item 17): whether
+    /// the offense goes for points before the half, from the snaps it needs
+    /// to get to its kicker's range and the time they take. A two-minute
+    /// drive gains about six yards a snap; a snap takes about six seconds
+    /// of play and, unless a timeout or the two-minute warning stops the
+    /// clock (or, in college and high school, a first down sets the
+    /// chains), the hurry-up's time to the next one (`win_chance` reckons a
+    /// drive the same way). A bold coach goes with a little less time, a
+    /// careful one wants more (proposed, not confirmed: a tenth of the time
+    /// for each point of boldness from the typical 10). Inside the range it
+    /// always goes.
+    fn half_go(&self) -> bool {
+        let o = self.poss;
+        let yl = goal() - self.x;
+        let need = (yl + kick_add() - self.kicker_range(o)).max(0.0);
+        if need <= 0.0 {
+            return true;
+        }
+        let snaps = (need / 6.0).ceil() + 1.0;
+        let warning = (self.rules().two_minute_warning && !self.two_min_warned) as u8 as f64;
+        // College and high school stop the clock to set the chains after a
+        // first down in a half's last two minutes: about one each ten yards.
+        let chains = if self.rules().first_down_stop == FirstDownStop::Never { 0.0 } else { (need / 10.0).floor() };
+        let stops = self.sides[o].timeouts as f64 + warning + chains;
+        let gap = if self.rules().level == Level::NFL { 19.0 } else { 13.0 };
+        let secs = 6.0 * snaps + gap * (snaps - 1.0 - stops).max(0.0);
+        let bold = clamp(1.0 + 0.1 * (self.sides[o].team.staff.offense.aggressiveness - 10.0), 0.5, 1.5);
+        secs <= self.half_left() * bold
+    }
+
+    /// The seconds under which this side kneels out the half from here
+    /// rather than try a play (engine gaps item 15): the second quarter at
+    /// any score, and the end of regulation when tied. Real NFL teams with
+    /// the ball in their own end and 40 seconds or less left in the second
+    /// quarter knelt on 1% of first snaps with 30-40 s left, 13% with
+    /// 20-30, 49% with 10-20 and 86% with 10 or less (nflverse 2021-2025);
+    /// the farther back, the sooner, and from midfield on hardly ever.
+    /// Tied at the end of regulation a side kneels sooner still, for a
+    /// turnover there loses the game. A bold coach waits longer; the
+    /// coach's own lean is drawn once a drive on its own key (proposed, not
+    /// confirmed: 15 s at his own 25, a second more or less a yard, four
+    /// seconds' spread, a second for each point of boldness).
+    fn kneel_time(&self) -> f64 {
+        let o = self.poss;
+        let yl = goal() - self.x;
+        let drive = (self.stats.team[0].drives + self.stats.team[1].drives) as u64;
+        let noise = 4.0 * crate::world::season::key_normal(self.s.seed ^ 0x4B4E_EE15, drive * 4 + self.quarter as u64);
+        let agg = self.sides[o].team.staff.offense.aggressiveness;
+        let tied_late = self.quarter >= 4 && self.diff(o) == 0;
+        15.0 + (yl - 75.0) - (agg - 10.0) + noise + if tied_late { 12.0 } else { 0.0 }
     }
 
     /// Garbage time (`garbage`): at each new drive and each new quarter both
@@ -1930,24 +2138,103 @@ impl<'a> Game<'a> {
             < clamp(0.45 + 0.025 * study, 0.5, 0.95)
     }
 
-    /// A fake punt (G18): fourth and four or less between your own 25 and
-    /// their 40, not protecting a late lead; only when their return team
-    /// shows the look and your staff reads it (`return_look`), or called at
-    /// the first chance. Once a game.
+    /// A fake punt (G18). Your plan's rules: fourth and four or less
+    /// between your own 25 and their 40, not protecting a late lead; only
+    /// when their return team shows the look and your staff reads it
+    /// (`return_look`), or called at the first chance. The staff's usual
+    /// (rule 0: every AI staff, and yours when the plan leaves it to them)
+    /// is `staff_fake_punt`. Once a game.
     fn fake_punt(&mut self, o: usize, look: bool) -> bool {
         let rule = self.sides[o].team.prep.teams.fake;
-        if rule == 0 || self.sides[o].tricks & 1 != 0 || self.ot {
+        if self.sides[o].tricks & 1 != 0 || self.ot {
             return false;
         }
         let yl = goal() - self.x;
-        let protecting = self.quarter >= 4 && self.diff(o) > 0;
-        if self.togo > 4.0 || !(40.0..=75.0).contains(&yl) || protecting {
-            return false;
-        }
-        let go = rule == 2 || (look && self.sees_look(o));
+        let read = look && self.sees_look(o);
+        let go = if rule == 0 {
+            self.staff_fake_punt(o, read, yl)
+        } else {
+            let protecting = self.quarter >= 4 && self.diff(o) > 0;
+            if self.togo > 4.0 || !(40.0..=75.0).contains(&yl) || protecting {
+                return false;
+            }
+            rule == 2 || read
+        };
         if go {
             self.sides[o].tricks |= 1;
-            self.log(o, "Fake punt: their return team left the middle open.".to_string());
+            let say = if rule != 0 || read {
+                "Fake punt: their return team left the middle open."
+            } else {
+                "Fake punt: the staff rolls the dice."
+            };
+            self.log(o, say.to_string());
+        }
+        go
+    }
+
+    /// The staff's own fake punt (engine gaps item 21), at the NFL's rate
+    /// (2021-25: 98 fakes from punt formation against 10,520 punts): 3.6%
+    /// of punts on fourth and two or less, 1.1% on three or four, 0.8% on
+    /// five or six, 0.5% on seven to ten and 0.34% beyond; 1.4 times that
+    /// behind, 0.57 tied, 1.04 ahead by up to 8 and 0.35 by more; 0.54 in
+    /// the fourth quarter; never from inside his own 10 or past their 40,
+    /// nor protecting a lead in the last five minutes. A staff fakes only
+    /// when the return team shows the look and it reads it (real fakes
+    /// convert 55%, the engine's into the look 53% and its others 13%), at
+    /// that rate over the share of punts it reads one on (`LOOK_READ`,
+    /// `FAKE_LIFT`); a bold coach more (his aggressiveness over 10;
+    /// proposed, not confirmed: the boldness and the look).
+    fn staff_fake_punt(&self, o: usize, read: bool, yl: f64) -> bool {
+        let d = self.diff(o);
+        if !(40.0..=90.0).contains(&yl) || self.quarter >= 4 && d > 0 && self.game_left() < 300.0 {
+            return false;
+        }
+        let t = self.togo;
+        let base = if t <= 2.0 {
+            0.036
+        } else if t <= 4.0 {
+            0.011
+        } else if t <= 6.0 {
+            0.008
+        } else if t <= 10.0 {
+            0.005
+        } else {
+            0.0034
+        };
+        let score = match d {
+            ..=-1 => 1.4,
+            0 => 0.57,
+            1..=8 => 1.04,
+            _ => 0.35,
+        };
+        let q4 = if self.quarter >= 4 { 0.54 } else { 1.0 };
+        let bold = clamp(self.sides[o].team.staff.offense.aggressiveness / 10.0, 0.3, 2.0);
+        read && crate::world::season::key_uniform(self.s.seed ^ 0xFA4E_9007, self.n as u64)
+            < base * score * q4 * bold * FAKE_LIFT / LOOK_READ
+    }
+
+    /// A fake field goal (engine gaps item 21), the staff's usual for
+    /// every staff: fourth and ten or less, never in a half's last two
+    /// minutes, in overtime or on a kick that decides a close game late;
+    /// about one try in 290 times the coach's boldness, the NFL's
+    /// rate of called fakes (2021-25: 12 plays from field goal formation
+    /// in 1,423 games, half of them aborted kicks; proposed, not
+    /// confirmed). Once a game.
+    fn fake_field_goal(&mut self, o: usize) -> bool {
+        let d = self.diff(o);
+        if self.sides[o].tricks & 4 != 0
+            || self.ot
+            || self.togo > 10.0
+            || self.half_left() < 120.0
+            || self.quarter >= 4 && self.game_left() < 300.0 && (-3..=0).contains(&d)
+        {
+            return false;
+        }
+        let bold = clamp(self.sides[o].team.staff.offense.aggressiveness / 10.0, 0.3, 2.0);
+        let go = crate::world::season::key_uniform(self.s.seed ^ 0xFA4E_9009, self.n as u64) < FAKE_FG * bold;
+        if go {
+            self.sides[o].tricks |= 4;
+            self.log(o, "Fake field goal: the holder keeps it.".to_string());
         }
         go
     }
@@ -2189,11 +2476,61 @@ impl<'a> Game<'a> {
         }
     }
 
+    /// Whether the clock runs out on a play of this length (engine gaps
+    /// item 22), and if so whether that ends a half (or the game) rather
+    /// than the first or third quarter.
+    fn ends_period(&self, dur: f64) -> Option<bool> {
+        if self.trying || self.ot && !self.ot_timed() || self.clock - dur > 0.0 {
+            return None;
+        }
+        Some(self.ot || self.quarter == 2 || self.quarter >= 4)
+    }
+
+    /// The 10-second runoff (engine gaps item 22): in a half's last minute
+    /// a foul by `fouler` that stops a running clock costs 10 seconds where
+    /// the book has it (the NFL the offense's fouls, college from 2011
+    /// either team's). The other team takes it when the clock is its
+    /// friend (the defense unless it trails in the fourth quarter, the
+    /// offense only ahead in the fourth); the fouling team saves the time
+    /// with a timeout when it needs it (proposed, not confirmed: who takes
+    /// it and who saves it). Returns whether the runoff was taken.
+    fn runoff(&mut self, fouler: usize) -> bool {
+        let book = self.rules().period_end();
+        let o = self.poss;
+        let late = !self.ot && (self.quarter == 2 || self.quarter == 4) && self.half_left() <= 60.0;
+        if !late || book.runoff == 0 || book.runoff == 1 && fouler != o {
+            return false;
+        }
+        let other = 1 - fouler;
+        let q4 = self.quarter == 4;
+        let takes = if other == o { q4 && self.diff(o) > 0 } else { !q4 || self.diff(other) >= 0 };
+        if !takes {
+            return false;
+        }
+        let needs = if fouler == o { !q4 || self.diff(o) <= 0 } else { q4 && self.diff(fouler) < 0 };
+        if needs && self.sides[fouler].timeouts > 0 {
+            self.sides[fouler].timeouts -= 1;
+            self.running = false;
+            let left = self.sides[fouler].timeouts;
+            self.log(fouler, format!("Timeout to save the 10-second runoff ({left} left)."));
+            return false;
+        }
+        let secs = 10.0f64.min(self.clock.max(0.0));
+        self.tick(secs);
+        self.log(other, format!("10-second runoff: {secs:.0} seconds off the clock."));
+        true
+    }
+
     fn end_of_period(&mut self) {
         if self.over || self.clock > 0.0 {
             return;
         }
         if matches!(self.next, Next::Pat(_)) {
+            return;
+        }
+        // An untimed down (engine gaps item 22): the period goes on for
+        // one more snap.
+        if std::mem::take(&mut self.untimed) && self.next == Next::Scrimmage {
             return;
         }
         if self.ot {
@@ -2827,7 +3164,16 @@ impl<'a> Game<'a> {
         // Up big, nobody goes for two (it reads as running up the score).
         let easing = self.sides[team].coach.read.ease >= 0.5;
         let mut two = forced_two
-            || (!easing && calling::go_for_two(&staff, diff, self.quarter, self.game_left(), safe, &mut self.rng));
+            || (!easing
+                && calling::go_for_two(
+                    &staff,
+                    diff,
+                    self.quarter,
+                    self.game_left(),
+                    safe,
+                    self.rules().level,
+                    &mut self.rng,
+                ));
         let three = !forced_two
             && !easing
             && three_from.is_some()
@@ -3291,12 +3637,13 @@ impl<'a> Game<'a> {
         let sit = self.situation();
         let staff = self.sides[o].team.staff;
         let yl = goal() - self.x;
-        // End of half: kick it if in range, else take a shot.
+        // The half's last snap (engine gaps item 15): a kick, a kneel, a
+        // throw to the end zone or the laterals, by the score, the spot and
+        // the time.
         let fg_dist = yl + kick_add();
         let kicker_range = self.kicker_range(o);
-        let half_end = !self.ot && (self.quarter == 2 || self.quarter == 4) && self.half_left() <= 6.0;
-        if !own && half_end && fg_dist <= kicker_range && (self.quarter == 2 || self.diff(o) <= 0 && self.diff(o) >= -3)
-        {
+        let last = if own { None } else { self.last_call(o, fg_dist, kicker_range) };
+        if last == Some(Last::Kick) {
             if self.probe == Some(Ask::Snap) {
                 let mut p = self.pending(Ask::Snap);
                 p.staff_fourth = Some(FourthDown::FieldGoal);
@@ -3309,7 +3656,7 @@ impl<'a> Game<'a> {
             return;
         }
         // Kneel to run out the clock.
-        if !own && !self.ot && self.should_kneel() {
+        if !own && !self.ot && (last == Some(Last::Kneel) || last.is_none() && self.should_kneel()) {
             let call = OffCall::new(
                 Formation::plain(Personnel::P12, Backfield::UnderCenter, 1.0),
                 PlayKind::Kneel,
@@ -3325,6 +3672,53 @@ impl<'a> Game<'a> {
                 return;
             }
             let r = self.run_scrimmage_call(call, None);
+            self.stats.plays.push(r);
+            return;
+        }
+        // A throw to the end zone (fades from close in, a Hail Mary from
+        // farther), or the laterals off a short cross from too far out (the
+        // men cross close together, so a trailer is near for the pitch).
+        if let Some(l @ (Last::Hail | Last::Laterals | Last::Shot)) = last {
+            let concept = match l {
+                Last::Hail => "four verticals",
+                Last::Shot => "fades",
+                _ => "shallow cross",
+            };
+            let mut call = OffCall::new(
+                Formation::plain(Personnel::P10, Backfield::Shotgun, 1.0),
+                PlayKind::Pass(super::playbook::concept(concept)),
+                1.0,
+                true,
+            );
+            call.hail = l == Last::Hail;
+            call.laterals = l == Last::Laterals;
+            call.why = match l {
+                Last::Hail => "a Hail Mary: time for one throw to the end zone",
+                Last::Shot => "the last play: a throw to the end zone",
+                _ => "the last play: catch and lateral",
+            };
+            if self.probe == Some(Ask::Snap) {
+                let mut p = self.pending(Ask::Snap);
+                p.staff_off = Some(call);
+                p.advice.push(
+                    match l {
+                        Last::Hail => "One play left: your staff calls the Hail Mary.",
+                        Last::Shot => "One play left: your staff throws for the end zone.",
+                        _ => "Too far for a Hail Mary: your staff calls the laterals.",
+                    }
+                    .into(),
+                );
+                p.off_options = self.go_options();
+                self.hold(p);
+                return;
+            }
+            // The defense knows a Hail Mary is coming: four rush and the
+            // rest drop to the goal line (`scrimmage::hail_defense`).
+            let dcall = call.hail.then(|| DefCall::new(DefPersonnel::Dime, Coverage::Cover4, Pressure::Four));
+            let r = self.run_scrimmage_call(call, dcall);
+            if self.paused {
+                return;
+            }
             self.stats.plays.push(r);
             return;
         }
@@ -3429,6 +3823,14 @@ impl<'a> Game<'a> {
                     return;
                 }
                 FourthDown::FieldGoal => {
+                    if self.fake_field_goal(o) {
+                        let r = self.fake_fg_play();
+                        if self.paused {
+                            return;
+                        }
+                        self.stats.plays.push(r);
+                        return;
+                    }
                     self.field_goal(fg_dist);
                     return;
                 }
@@ -3686,19 +4088,94 @@ impl<'a> Game<'a> {
     fn should_kneel(&self) -> bool {
         let o = self.poss;
         let lead = self.diff(o);
-        if lead <= 0 || !self.running && self.quarter < 4 {
-            return false;
-        }
-        if self.quarter == 4 {
+        if self.quarter == 4 && lead > 0 {
             // A beaten team that has given up doesn't spend its timeouts.
             let opp_to = if self.sides[1 - o].coach.read.concede { 0.0 } else { self.sides[1 - o].timeouts as f64 };
             let downs = (self.rules().downs() - self.down + 1) as f64;
             let need = self.game_left() + opp_to * 38.0;
             return need <= downs * 39.0 && self.game_left() < 160.0;
         }
-        self.quarter == 2 && self.half_left() < 30.0 && self.x < 60.0 && self.running
+        // The second quarter at any score, and the end of regulation tied
+        // (engine gaps item 15): out of the kicker's range with too little
+        // time to get there, clock running or not.
+        let in_range = goal() - self.x + kick_add() <= self.kicker_range(o);
+        (self.quarter == 2 || self.quarter == 4 && lead == 0) && !in_range && self.half_left() <= self.kneel_time()
     }
 
+    /// The half's last snap (engine gaps item 15), or None when this isn't
+    /// it or the call is the usual one (a side ahead at the end of the
+    /// game). It is the last when no snap can follow it: 6 seconds or less
+    /// (`LAST_SNAP`), or in range with the clock stopped, no timeouts and
+    /// 15 seconds or less (`LAST_STOPPED`), where a play that ends in
+    /// bounds would end the half. In the second quarter a side in range
+    /// kicks, and from a little past it (`LONG_TRY`) kicks when three
+    /// points at the make are worth more than seven at the Hail Mary's
+    /// (`HAIL_TD`); at the end of the game a side tied or down three or
+    /// less kicks in range, and past it when the make beats the throw. A
+    /// side the clock says should kneel kneels (`kneel_time`). From inside
+    /// `HAIL_FROM` a side throws fades to the end zone, from there to its
+    /// passer's reach a Hail Mary; from farther the second quarter and a
+    /// tie kneel, and a side behind calls the laterals.
+    fn last_call(&self, o: usize, fg_dist: f64, range: f64) -> Option<Last> {
+        if self.ot || !(self.quarter == 2 || self.quarter == 4) {
+            return None;
+        }
+        let left = self.half_left();
+        let in_range = fg_dist <= range;
+        let stopped = !self.running && self.sides[o].timeouts == 0;
+        if !(left <= LAST_SNAP || in_range && stopped && left <= LAST_STOPPED) {
+            return None;
+        }
+        let lead = self.diff(o);
+        if self.quarter == 4 && lead > 0 {
+            return None;
+        }
+        let close = self.quarter == 4 && (-3..=0).contains(&lead);
+        let make = if fg_dist <= range + LONG_TRY { self.fg_make_estimate(o, fg_dist) } else { 0.0 };
+        let kick = in_range && (self.quarter == 2 || close)
+            || self.quarter == 2 && 3.0 * make >= 7.0 * HAIL_TD
+            || close && make >= HAIL_TD;
+        // With the clock running and no timeout the kicking unit can't get
+        // on in time: the offense at the line (`CLOCK_PLAY`) spikes it first
+        // when a snap can still follow (the spike in `scrimmage`), then the
+        // unit kicks with the clock stopped (real NFL spikes are 5.2% of
+        // the second quarter's snaps with 5 s or less and 3.3% of the
+        // fourth's, nflverse 2021-2025).
+        if kick && self.running && self.sides[o].timeouts == 0 && left > 3.0 && self.down < self.rules().downs() {
+            return None;
+        }
+        if kick {
+            return Some(Last::Kick);
+        }
+        if (self.quarter == 2 || lead == 0) && !in_range && left <= self.kneel_time() {
+            return Some(Last::Kneel);
+        }
+        let out = goal() - self.x;
+        if out < HAIL_FROM {
+            return Some(Last::Shot);
+        }
+        // A side throws the Hail Mary when it can get to the end zone;
+        // behind at the end of the game, from a little farther
+        // (`HAIL_SHORT`), and the laterals past that. Past it the second
+        // quarter and a tied side kneel.
+        let reach = self.hail_reach(o) + if self.quarter >= 4 && lead < 0 { HAIL_SHORT } else { 0.0 };
+        if out <= reach {
+            return Some(Last::Hail);
+        }
+        Some(if self.quarter == 2 || lead == 0 { Last::Kneel } else { Last::Laterals })
+    }
+
+    /// How far out a side throws its Hail Mary from (engine gaps item 15):
+    /// where its passer's longest throw, from seven yards back, still gets
+    /// to the goal line (`scrimmage::longest_throw`; proposed, not
+    /// confirmed; real NFL Hail Marys from 60-70 yards out were 6 in five
+    /// seasons, from 40-60 yards 52, nflverse 2021-2025).
+    fn hail_reach(&self, o: usize) -> f64 {
+        let side = &self.sides[o];
+        let qb = side.first_up(side.depth.list(Position::QB)).unwrap_or(0);
+        let level = self.rules().level;
+        super::scrimmage::longest_throw(level, side.team.players[qb].a(Attr::ArmStrength)) - 7.0
+    }
     fn field_goal(&mut self, dist: f64) {
         let o = self.poss;
         // The fouls before the snap (EG5): a dead ball, and the down is
@@ -3853,6 +4330,13 @@ impl<'a> Game<'a> {
     fn fake_punt_play(&mut self, look: bool) -> PlayRecord {
         let o = self.poss;
         let d = 1 - o;
+        // Thrown or run (engine gaps item 21): of the NFL's fake punts in
+        // 2021-25, 30% on fourth and four or less were passes and 55%
+        // beyond, both converting 58%; the punter threw five in six of the
+        // passes (numbers under 20), so a pass is his, the up-back staying
+        // in to protect.
+        let pass = crate::world::season::key_uniform(self.s.seed ^ 0xFA4E_9008, self.n as u64)
+            < if self.togo <= 4.0 { 0.3 } else { 0.55 };
         let (kick_on, ret_on, sn) = self.punt_units();
         let (ps, qs) = (&self.sides[o].team.players, &self.sides[d].team.players);
         let take = |pool: &mut Vec<usize>, n: usize, key: &dyn Fn(usize) -> f64| -> Vec<usize> {
@@ -3868,10 +4352,11 @@ impl<'a> Game<'a> {
             0.4 * p.a(Attr::BallCarrierVision) + 0.3 * p.a(Attr::BallSecurity) + 0.3 * p.a(Attr::Speed)
         };
         let up = take(&mut pool, 1, &runner);
-        let mut off: Vec<(ORole, usize)> = vec![(ORole::C, sn), (ORole::RB, punter)];
+        let (snap_to, back) = if pass { (ORole::QB, ORole::RB) } else { (ORole::RB, ORole::QB) };
+        let mut off: Vec<(ORole, usize)> = vec![(ORole::C, sn), (snap_to, punter)];
         off.extend(line.iter().zip([ORole::LG, ORole::RG, ORole::LT, ORole::RT]).map(|(&i, r)| (r, i)));
         off.extend(gun.iter().zip([ORole::X, ORole::Z]).map(|(&i, r)| (r, i)));
-        off.extend(up.iter().map(|&i| (ORole::QB, i)));
+        off.extend(up.iter().map(|&i| (back, i)));
         off.extend(pool.iter().zip([ORole::TE, ORole::TE2, ORole::Slot]).map(|(&i, r)| (r, i)));
         let returner = ret_on[0];
         let mut pool: Vec<usize> = ret_on.iter().copied().skip(1).collect();
@@ -3884,18 +4369,96 @@ impl<'a> Game<'a> {
         def.extend(wings.iter().zip([DSlot::Sam, DSlot::Will]).map(|(&i, s)| (s, i)));
         def.extend(pool.iter().zip([DSlot::Mike, DSlot::SS, DSlot::NCB]).map(|(&i, s)| (s, i)));
         self.fake = Some((off, def, look));
+        let kind = if pass {
+            PlayKind::Pass(super::playbook::concept("slant-flat"))
+        } else {
+            PlayKind::Run(RunConcept::QbPower)
+        };
         let call = OffCall::new(
             Formation::plain(Personnel::P12, Backfield::Shotgun, 1.0),
-            PlayKind::Run(RunConcept::QbPower),
+            kind,
             if self.rng.chance(0.5) { 1.0 } else { -1.0 },
             false,
         );
         let dcall = DefCall::new(DefPersonnel::Base, Coverage::Cover1, Pressure::Four);
         let mut r = self.run_scrimmage_call(call, Some(dcall));
-        r.call = "punt formation, the snap straight to the up-back".into();
+        r.call =
+            if pass { "punt formation, the punter throws" } else { "punt formation, the snap straight to the up-back" }
+                .into();
         r.personnel = "punt".into();
         r.call_why = if look { "a fake punt: the look was there" } else { "a fake punt, called" };
         r.look = look;
+        r
+    }
+
+    /// A fake field goal (engine gaps item 21): the field goal unit stays
+    /// on against the block unit, the snap goes to the holder, who keeps
+    /// it behind the wall or throws to a tight end leaking out (half and
+    /// half, proposed, not confirmed). The unit is the kick's: the holder,
+    /// the kicker beside him, the long snapper with two guards and two
+    /// tackles, three tight ends and a back as the wings; against three
+    /// tackles, two ends and two linebackers on the line with two corners
+    /// and two safeties outside, who read it late (`Snap::fake_kick`).
+    fn fake_fg_play(&mut self) -> PlayRecord {
+        let o = self.poss;
+        let d = 1 - o;
+        let pass = crate::world::season::key_uniform(self.s.seed ^ 0xFA4E_900A, self.n as u64) < 0.5;
+        let side = &self.sides[o];
+        let k = side.fg_kicker();
+        let sn = side.snapper();
+        let h = side.holder(k, sn);
+        let mut used = vec![k, sn, h];
+        let mut off: Vec<(ORole, usize)> = vec![(ORole::QB, h), (ORole::RB, k), (ORole::C, sn)];
+        let roles = [ORole::LG, ORole::RG, ORole::LT, ORole::RT, ORole::TE, ORole::TE2, ORole::TE3, ORole::FB];
+        let wall: Vec<usize> = side
+            .pick(Position::IOL, 2, &mut used)
+            .into_iter()
+            .chain(side.pick(Position::OT, 2, &mut used))
+            .chain(side.pick(Position::TE, 3, &mut used))
+            .chain(side.pick(Position::RB, 1, &mut used))
+            .collect();
+        off.extend(wall.iter().zip(roles).map(|(&i, r)| (r, i)));
+        let opp = &self.sides[d];
+        let mut used2 = Vec::new();
+        let slots = [
+            DSlot::DTL,
+            DSlot::NT,
+            DSlot::DTR,
+            DSlot::LE,
+            DSlot::RE,
+            DSlot::Mike,
+            DSlot::Will,
+            DSlot::CBL,
+            DSlot::CBR,
+            DSlot::FS,
+            DSlot::SS,
+        ];
+        let block: Vec<usize> = opp
+            .pick(Position::DT, 3, &mut used2)
+            .into_iter()
+            .chain(opp.pick(Position::EDGE, 2, &mut used2))
+            .chain(opp.pick(Position::LB, 2, &mut used2))
+            .chain(opp.pick(Position::CB, 2, &mut used2))
+            .chain(opp.pick(Position::S, 2, &mut used2))
+            .collect();
+        let def: Vec<(DSlot, usize)> = block.iter().zip(slots).map(|(&i, s)| (s, i)).collect();
+        self.fake = Some((off, def, false));
+        self.fake_kick = true;
+        let kind =
+            if pass { PlayKind::Pass(super::playbook::concept("stick")) } else { PlayKind::Run(RunConcept::QbPower) };
+        let call = OffCall::new(
+            Formation::plain(Personnel::P13, Backfield::Shotgun, 1.0),
+            kind,
+            if self.rng.chance(0.5) { 1.0 } else { -1.0 },
+            false,
+        );
+        let dcall = DefCall::new(DefPersonnel::GoalLine, Coverage::Cover1, Pressure::Four);
+        let mut r = self.run_scrimmage_call(call, Some(dcall));
+        r.call =
+            if pass { "field goal formation, the holder throws" } else { "field goal formation, the holder keeps it" }
+                .into();
+        r.personnel = "field goal".into();
+        r.call_why = "a fake field goal, called";
         r
     }
 
@@ -4972,7 +5535,14 @@ impl<'a> Game<'a> {
         let def_script = std::mem::take(&mut self.def_script);
         // A fake punt brings its own two units (`fake_punt_play`).
         let fake = self.fake.take();
+        let fake_kick = std::mem::take(&mut self.fake_kick) && fake.is_some();
         call.formation.personnel = call.formation.personnel.for_players(self.rules().code.players);
+        // The half's last snap (engine gaps items 15 and 16): no snap can
+        // follow, so there is no clock to save (no routes bent to the
+        // sideline, no carrier heading out of bounds) and no check at the
+        // line out of the call.
+        let last =
+            !self.trying && !self.ot && (self.quarter == 2 || self.quarter == 4) && self.half_left() <= LAST_SNAP;
         let mut dcall =
             self.legal_defense(dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four)));
         self.sides[d].frozen = self.no_huddle;
@@ -5065,7 +5635,7 @@ impl<'a> Game<'a> {
         let noise = 1.0 - 0.5 * self.home_crowd(o);
         let sees = clamp((iq - 40.0) / 50.0, 0.05, 0.95) * noise;
         let mut audible = false;
-        if !sit.hurry() && call.kind != PlayKind::Kneel && fake.is_none() {
+        if !sit.hurry() && !last && call.kind != PlayKind::Kneel && fake.is_none() {
             let run_called = matches!(call.kind, PlayKind::Run(_));
             let pass_called = matches!(call.kind, PlayKind::Pass(c) if pass_concept(c).depth != PassDepth::Screen);
             // Run into a loaded box, or throw against a light one with two deep.
@@ -5296,11 +5866,13 @@ impl<'a> Game<'a> {
             record: self.recording(),
             // Your games keep the line chart (lane 9); no other game does.
             chart: self.s.keep || self.ctl.is_some(),
-            hurry: sit.hurry(),
+            hurry: sit.hurry() && !last,
+            clock_run: self.clock_run(),
             two_gap: self.sides[d].team.staff.front == Front::ThreeFour,
             tac,
             mood: self.mood(o),
-            fake_punt: fake.as_ref().map(|f| f.2),
+            fake_punt: fake.as_ref().filter(|_| !fake_kick).map(|f| f.2),
+            fake_kick,
             // Who may advance a fumble (engine gaps item 4): the NFL keeps
             // a fumbling team's recovery to the fumbler on fourth down, on a
             // try and after the two-minute warning of either half, college
@@ -5396,6 +5968,9 @@ impl<'a> Game<'a> {
             }
         }
         r.why = format!("{} on #{} before the snap.", f.kind.name(), f.player);
+        if self.running {
+            self.runoff(team);
+        }
         r.epa = ep_at(self.below_nfl(), self.down, self.togo, goal() - self.x) - r.ep_before;
         // Jumped the count hot (coach fire, item 8).
         if matches!(f.kind, FoulKind::Offside | FoulKind::NeutralZone)
@@ -5759,6 +6334,7 @@ impl<'a> Game<'a> {
         r.pressured = res.pressured;
         r.moving = res.moving;
         r.out_of_bounds = res.out_of_bounds;
+        r.laterals = res.notes.laterals;
         r.pbu = res.pbu;
         r.tacklers = res.notes.tacklers.clone();
         r.missed_tackles = res.notes.missed.clone();
@@ -5847,6 +6423,13 @@ impl<'a> Game<'a> {
         let mut foul_safety = false;
         let college = self.below_nfl();
         let ep = |down: u8, togo: f64, x: f64| ep_at(college, down, togo, goal() - x.clamp(1.0, goal() - 1.0));
+        // The rules at 0:00 (engine gaps item 22): when the clock runs out
+        // on this play and that ends a half, the play is worth only its
+        // points, and a foul's yards are worth something only with the
+        // untimed down the book gives for it.
+        let ends = self.ends_period(res.duration);
+        let half_over = ends == Some(true);
+        let book = self.rules().period_end();
         // Each level's book marks the fouls off (engine gaps lane EG5,
         // `fouls.rs`): its yards, spots and first downs, half the distance,
         // and a foul in the offense's own end zone a safety. The offended
@@ -5871,6 +6454,8 @@ impl<'a> Game<'a> {
             7.0
         } else if safety {
             safety_val
+        } else if half_over {
+            0.0
         } else if turnover {
             -ep(1, 10.0, goal() - new_x)
         } else {
@@ -5902,7 +6487,13 @@ impl<'a> Game<'a> {
             .cloned()
             .map(|f| {
                 let m = if f.side == 1 { fouls::defense(&rules, &f, &play) } else { fouls::offense(&rules, &f, &play) };
-                let (v, first) = after(&m, f.side == 1);
+                // At a half's end a foul the book gives no untimed down for
+                // is worth nothing to either side (engine gaps item 22).
+                let (v, first) = if half_over && !book.extends(f.kind, f.side == 1, true) {
+                    (0.0, false)
+                } else {
+                    after(&m, f.side == 1)
+                };
                 (f, m, v, first)
             })
             .collect();
@@ -6034,6 +6625,18 @@ impl<'a> Game<'a> {
         let _ = clock_running_at_snap;
         let dur = res.duration;
         self.tick(dur);
+        // An untimed down (engine gaps item 22): an accepted foul on the
+        // period's last timed down that the book extends it for, or a
+        // double foul, when the down goes on (no score, no change of the
+        // ball).
+        if let Some(half) = ends {
+            self.untimed = !scored_td
+                && !defense_td
+                && !turnover
+                && !safety
+                && (offsetting
+                    || r.penalties.iter().any(|&(kind, team, _, _, acc)| acc && book.extends(kind, team == d, half)));
+        }
         let mut stop =
             matches!(res.result, R::Incomplete | R::Spike) || accepted_pen || turnover || scored_td || safety;
         // Seconds of the usual time between plays that pass before the clock
@@ -6064,6 +6667,20 @@ impl<'a> Game<'a> {
         }
         let play_stops = matches!(res.result, R::Incomplete | R::Spike) || (res.out_of_bounds && !nfl);
         if accepted_pen && !late && !play_stops {
+            ready = Some(self.rules().play_clock - ADMIN_PLAY_CLOCK);
+        }
+        // The 10-second runoff (engine gaps item 22): one team's accepted
+        // foul stopped a clock that would have run on.
+        let fouled: Vec<usize> = r.penalties.iter().filter(|p| p.4).map(|p| p.1).collect();
+        if ends.is_none()
+            && !play_stops
+            && !res.out_of_bounds
+            && !turnover
+            && !scored_td
+            && !safety
+            && fouled.len() == 1
+            && self.runoff(fouled[0])
+        {
             ready = Some(self.rules().play_clock - ADMIN_PLAY_CLOCK);
         }
         // A celebration (lane 8, C17), on its own keyed draw so no other
@@ -6412,15 +7029,44 @@ impl<'a> Game<'a> {
                 return;
             }
         }
+        // The defense saves time for its own drive before halftime (engine
+        // gaps item 17: real NFL defenses called 1.35 timeouts a game in the
+        // second quarter's last 4:00, in 75% of games; the engine's none).
+        // After a play in bounds from 3:00 to 0:25 that leaves the other
+        // side on third or fourth down, or on second when it is playing the
+        // half out, a defense that hasn't given up stops the clock; a
+        // sharper staff does it more readily (proposed, not confirmed: a
+        // chance of `Q2_STOP` and 0.02 a point of game management, 0.1 to
+        // 0.7).
+        if self.running && !self.ot && self.quarter == 2 {
+            let d = 1 - o;
+            let left = self.half_left();
+            let gm = self.sides[d].team.staff.game_management;
+            if (self.down >= 3 || !sit.half_go && self.down >= 2)
+                && left > 25.0
+                && left <= 180.0
+                && self.sides[d].timeouts > 0
+                && !self.sides[d].coach.read.concede
+                && self.rng.chance(clamp(Q2_STOP + 0.02 * gm, 0.1, 0.7))
+            {
+                self.sides[d].timeouts -= 1;
+                self.running = false;
+                self.recover(0.02);
+                let left = self.sides[d].timeouts;
+                self.log(d, format!("Timeout to save time for the half ({left} left)."));
+                return;
+            }
+        }
         self.pace = 1.0;
         self.no_huddle = false;
+        self.ran_off = 0.0;
         if !self.running {
             // Clock restarts on the snap (or on the ready signal for some stops).
             return;
         }
         let gap = if sit.hurry() {
             // Offense trailing late uses a timeout after an in-bounds play.
-            if self.sides[o].timeouts > 0 && self.half_left() < 75.0 && self.rng.chance(0.75) {
+            if self.sides[o].timeouts > 0 && self.half_left() < HURRY_STOP && self.rng.chance(0.75) {
                 self.sides[o].timeouts -= 1;
                 self.running = false;
                 let left = self.sides[o].timeouts;
@@ -6434,14 +7080,22 @@ impl<'a> Game<'a> {
             // College and high school keep 13 s: their plays a team game
             // were already under real (FBS 64.8, real 66.6) and the chains
             // stop their clock on first downs (proposed, not confirmed).
-            if self.rules().level == Level::NFL { 19.0 } else { 13.0 }
+            let gap = if self.rules().level == Level::NFL { 19.0 } else { 13.0 };
+            // The clock play (engine gaps item 15): with too little time for
+            // the hurry-up's snap, the offense gets to the line at once to
+            // spike it or run its last play (`CLOCK_PLAY`).
+            if (self.quarter == 2 || self.quarter >= 4) && self.half_left() < gap + LAST_SNAP {
+                CLOCK_PLAY
+            } else {
+                gap
+            }
         } else if self.four_minute_rule(o) == Some(live::FourMinute::RunItOut) && super::sheet::four_minute(&sit) {
             39.5
         } else if (self.quarter == 4
             && self.diff(o) > 0
             && !(self.four_minute_rule(o) == Some(live::FourMinute::KeepAttacking) && super::sheet::four_minute(&sit)))
             || self.sides[o].coach.read.ease > 0.0
-            || (self.quarter == 2 && self.half_left() < 120.0 && self.x < 50.0 && self.diff(o) >= 0)
+            || (self.quarter == 2 && self.half_left() < 120.0 && !sit.half_go)
         {
             38.0
         } else if self.user_is(o) && self.tempo != Tempo::Normal {
@@ -6475,7 +7129,12 @@ impl<'a> Game<'a> {
         // the whistle, the spring leagues' 25 from the ready signal.
         let gap = if self.rules().code.american() { gap } else { gap.min(self.rules().play_clock - 1.0) };
         self.pace = gap / 37.5;
-        self.tick((gap - ready.unwrap_or(0.0)).max(0.0));
+        let run = (gap - ready.unwrap_or(0.0)).max(0.0);
+        let before = self.clock;
+        self.tick(run);
+        if self.running {
+            self.ran_off = (before - self.clock).max(0.0);
+        }
     }
 
     fn value_after(&self, gain: f64, new_x: f64) -> f64 {
@@ -6998,6 +7657,14 @@ impl<'a> Game<'a> {
             return;
         }
         self.sides[team].timeouts -= 1;
+        // The seconds the clock ran since the play ended come back, less
+        // the moment the sideline takes to call it (minor bug 407:
+        // `CALL_LAG`; the between-plays time is run off as the play ends,
+        // before the game asks you).
+        if self.running && self.ran_off > 0.0 {
+            self.clock += (self.ran_off - CALL_LAG).max(0.0);
+        }
+        self.ran_off = 0.0;
         self.running = false;
         self.recover(0.02);
         let left = self.sides[team].timeouts;
@@ -7637,6 +8304,8 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         n: 0,
         after_turnover: false,
         two_min_warned: false,
+        ran_off: 0.0,
+        untimed: false,
         pace: 1.0,
         no_huddle: false,
         kick_back: 0.0,
@@ -7668,6 +8337,7 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         kick_look: false,
         kick_delay: false,
         fake: None,
+        fake_kick: false,
         due: Vec::new(),
         scanned: 0,
         drive_fouls: Vec::new(),

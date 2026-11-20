@@ -1284,6 +1284,7 @@ fn kick_sim<'a>(
         // The same lunge in the open field as on a scrimmage play.
         open_reach: SCRIMMAGE_REACH,
         press: 0.0,
+        clock_run: ClockRun::Normal,
         designed_run: false,
         lane: None,
         bites: Vec::new(),

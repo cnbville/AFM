@@ -1792,6 +1792,76 @@ Speed: the same. Over main 569e61f, `match_check nfl 2000` took 16.8 s against m
 
 Still off (`GAPS.md`): kickoff returns of 40+ and punt returns of 20+ at about half of real; no fouls on punts that are not returned; the cover men's face masks on punts at a fifth of real; the half's last kick reads the range alone (55+ tries in the last 30 seconds 0.030 a team game, real 0.060, lane EG4); long kicks in the wind tried 3% less (real 13%) and made 62% (78%); NFL kicks of 55+ made 66% (59.7%); blocked kicks run back for scores below real; high school field goals blocked 8.2% of tries, with no real rate to check; FBS tries few kicks of 50+ (no real count yet).
 
+## The end of halves and game management (engine gaps lane EG4, 2026-11-19)
+
+Engine gaps items 15-22 (`docs/design/engine-gaps.md`; Cain agreed to the audit on 2026-11-17, and the sizes were picked under his proxy: every size below is proposed, not confirmed). The targets are nflverse 2021-25.
+
+What was wrong on main (`AFM_GAPS=1 match_check nfl 2000`, seed 1):
+
+- **A half's last snap was an ordinary call.** Out of range the last snap was the usual two-minute call, with no Hail Mary and no laterals, and a tied team never knelt.
+- **The clock before halftime.** The defense never called a timeout in the second quarter (0.009 a game in its last 4:00, real 1.35), and every offense hurried in its last 2:00 whatever its spot or score. Your own timeout in a live game gave back no seconds (minor bug 407).
+- **Nobody protected a late lead.** The carrier's sideline choice never read the score or the clock: catches by the side ahead in the last 5:00 went out of bounds 22.6% of the time (real 14.7%).
+- **Two-point tries** were 4.9% of tries (real 9.8%), from a fourth-quarter chart and a flat lean.
+- **Fourth-down sums** were the NFL's at every level: a conversion chance from the yards to go only, a 41-yard net punt and the NFL's spot for a miss.
+- **AI staffs never faked a kick**, and no fake field goal existed.
+- **No untimed down at 0:00** after a foul, and no 10-second runoff.
+
+What changed (the formulas are in `docs/reference/how-it-works/play-calling.md`, "Fourth down, tries, onside kicks and the clock", and `match-engine.md`, "The half's last play"):
+
+- **The last snap's call** (`game/flow.rs`, `last_call`; item 15). With 6 s or less, or in range with the clock stopped and no timeouts: a kick in range (or a little past it when the kick is worth more than a Hail Mary), a kneel when the half is better run out (the second quarter, and a tied side at the end of regulation, by the spot and the time), fades from inside 30 yards out, a Hail Mary as far as the passer's arm gets the ball to the end zone, and, behind at the end of the game and too far for that, the laterals. With the clock running and no timeout the kicking unit can't get on, so the offense spikes it first and then kicks.
+- **The Hail Mary** (`game/scrimmage.rs`, `hail_route`, `hail_defense`, `hail_throw`, `crowd_ball`, `longest_throw`). Four verticals flood the end zone against a dime Cover 4 that drops everyone to the goal line, the passer holds it until they get there, and the ball comes down in a crowd where the best high point gets a hand on it first. A typical NFL arm throws 65 yards in the air, 60 in college and 52 at high school.
+- **The laterals** (`lateral`, `Job::PitchMan`; item 16). After a short cross the other backs and receivers trail the ball, and the man with it pitches back when a tackler closes; a pitch he can't gather is a live ball (item 4).
+- **The last play has no clock to save** (`run_scrimmage_call`): no routes bent to the sideline, no carrier heading out of bounds and no check at the line. Before that, the laterals lost the trailers to the sideline routes (2% of the passes had a lateral).
+- **The clock before halftime** (`after_snap_clock`, `Game::half_go`; item 17). The second quarter's last 2:00 are a hurry only for a side that can get to its kicker's range in the time (its timeouts, the two-minute warning and, in college and high school, the chains' stops counted); the rest play the half out. The defense saves time for its own possession with its timeouts after in-bounds plays on later downs. Your live timeout gives back the seconds since the whistle, less 3 for the sideline to call it (minor bug 407, fixed; `user_timeout`).
+- **Protecting a late lead** (`game/flow.rs`, `clock_run`; `game/sim.rs`, `ClockRun`; item 18). The side ahead in the last 5:00 keeps the clock running: its carrier doesn't step out and shies from the sideline, and when a first down wins the game he goes down short of the goal line.
+- **Two-point tries** (`game/calling.rs`, `go_for_two`; `game/tables.rs`, `real_two_point_habit`; item 19). The real habit by the score after the touchdown and the time (`data/real-world/nfl_two_point_habit.csv`), moved toward the numbers by a sharper or bolder coach the way fourth downs are.
+- **Fourth-down sums** (`fourth_read`, `fourth_conv`, `fourth_ev_read`; item 20). The conversion chance reads the matchup at the point of attack, the punt is the punter's own net at his level's real gross punt, and a miss goes back the level's way (`miss_back`, the NFL's spot until item 25).
+- **Fakes** (`fake_punt`, `staff_fake_punt`, `fake_field_goal`, `fake_fg_play`, `scrimmage::punt_spot`, `kick_spot`; item 21). AI staffs fake punts at the NFL's rate by yards to go, score and quarter, only when the return team shows the look and they read it; thrown fakes are the punter's. Every staff has a fake field goal.
+- **The rules at 0:00** (`game/rules.rs`, `PeriodEnd`; `ends_period`, `runoff`; item 22). Each level's untimed down after an accepted foul as the clock runs out, by era, and the 10-second runoff.
+- **The win chance** credits the throw the engine makes on the last snap (`game/win_chance.rs`, `last_shot`): fades, the Hail Mary to the typical arm's reach, then the laterals.
+- **Tools.** `AFM_GAPS=1 match_check` adds the last-snap pool by call, Hail Marys by distance, laterals on the fourth quarter's last passes, timeouts in each half's last 4:00, the sideline when ahead late, fakes and untimed snaps. `play_trace` takes `AFM_HAIL=1` (the Hail Mary against its defense) and `AFM_HAIL=2` (the laterals).
+
+2,000 `AFM_GAPS=1 match_check nfl` games on seed 1, main (a7c9bf6, with lane EG5, and this lane's counts) and after, against nflverse 2021-25:
+
+| NFL | main | after | real |
+|---|---|---|---|
+| Hail Marys (35+ air yards, a half's last snap, 30-70 out): scored / picked | none called | 6.6% / 26.9% at the real mix of distances | 6.5% / 29.0% (62 throws) |
+| Q4 last-snap passes from 40+ out with a lateral (tied or down 1-8) | 0 of 162 | 27.6% of 170 | 22% of 74 |
+| tied at the end of regulation: kneels, share of the pool | 0 | 4.5% | 5.0% |
+| the pool's snaps a game; touchdowns on them | 0.88; 0.7% | 0.50; 1.1% | 0.74; 2.5% |
+| Q2 last 4:00 timeouts a game: defense / offense; games with the defense's | 0.013 / 2.50; 1.3% | 1.25 / 1.82; 70.9% | 1.35 / 1.54; 74.8% |
+| Q4 last 4:00 timeouts a game: defense / offense | 2.00 / 0.54 | 1.92 / 0.74 | 1.83 / 0.77 |
+| points a team game in the last 2:00 of Q2 | 3.29 | 3.24 | 3.05 |
+| ahead in the last 5:00, out of bounds: designed runs / catches | 1.7% / 24.4% | 0.6% / 13.3% | 2.3% / 14.7% |
+| the first three quarters, out of bounds: designed runs / catches | 2.1% / 26.0% | 1.5% / 24.8% | 5.8% / 21.3% |
+| two-point tries a team game (share of tries), made | 0.164 (5.1%), 48.9% | 0.292 (9.0%), 46.3% | 0.244 (9.8%), 47.5% |
+| fake punts a team game, converted | 0 | 0.027, 53% | 0.036, 55% |
+| fake field goals a team game, converted | 0 | 0.0050, 6 of 20 | 0.0044, 1 of 12 |
+| untimed downs at 0:00 | 1 in 2,000 games | 1 in 143 | 1 in 68 |
+| plays a team game | 63.19 | 62.23 | 61.91 |
+| points a team game | 27.73 | 27.92 | 22.51 |
+
+The pool is a half's last snap with 5 s or less: every second-quarter one, and the fourth quarter's when tied or down 1-8. Over main 569e61f, before lane EG5, the lane's numbers were the same within the seeds' noise (Hail Marys 6.2% / 28.7%, laterals 26.7% of 165, untimed downs 1 in 286: EG5's fouls doubled those).
+
+FBS (2,000 games): plays 68.17 to 66.71 a team game (real 66.57), points 26.25 to 26.28, two-point tries 0.139 to 0.301 a team game, the defense's Q2 timeouts 0.009 to 1.34 a game, fake punts 0.037 a team game (61% converted), untimed downs 1 in 111 games, Hail Marys scored 6.3% from 30-39 out, 4.8% from 40-49 and none of 89 from 50-59, laterals on 43% of the fourth quarter's last passes from 40+ out. High school (1,000 games): plays 52.70 to 51.37, points 20.94 to 20.80, two-point tries 0.520 to 0.579, untimed downs 1 in 38 games (every quarter, either team's fouls), laterals on 55% of 49 such passes.
+
+Over lane EG3 (the kicking game), which merged first, the same seeds give at the NFL: Hail Marys 10.5% scored and 27.4% picked at the real mix of distances (446 throws; the real 6.5% is 4 touchdowns in 62), touchdowns on 2.4% of the pool's snaps (real 2.5%), laterals on 29.2% of 144 passes, two-point tries 9.3% of tries, fake punts 0.034 a team game (55% converted), untimed downs 1 in 100 games, 62.15 plays and 27.28 points a team game (EG3 alone 27.15). FBS plays 66.72, high school 51.48. EG3's 55+ field goal tries in a half's last 30 seconds stay at 0.030 a team game (real 0.060): the last snap kicks up to 6 yards past the range when the kick beats a Hail Mary, so the shortfall is in reaching a long kick with time left, not the last call.
+
+The analysts' tables (`world/tally/decide.rs`) stay as main has them (EG3's kick tables, the rest from lane EG5). Refitted over this lane before EG3 (`decide_fit -- 1500 1`), they move about as much as two seeds of one engine do (the NFL's 7-10-to-go conversions 0.342 to 0.349, two-point tries made 0.469 to 0.498 with twice the tries), and that flips the model's call on 4th and 9 at their 12 early in a tied game from the kick to going for it, where a test pins nfl4th's kick (`tests::decide`). The call sits on a near tie because the model scores any conversion as a touchdown once the mean gain of converted plays reaches the goal (17.1 yards for 7-10 to go), which overstates going near the goal line (`GAPS.md`); the world rebuild refits the tables after the engine lanes. The coaches' call table (`call_values.csv`) stays: the tool plays two average NFL teams' ordinary snaps, and nothing this lane changed reaches one (the last play's calls, the fakes, the carrier's clock read late in the fourth and the two-point habit never come up in it).
+
+Speed: the same. `match_check nfl 2000` takes 12.9 and 13.2 s against 13.2 and 13.2 s on main (back to back, 4 cores, the same build settings).
+
+Tried and dropped (NFL, seed 1):
+
+- **The first Hail Mary:** the depth error of a long throw scaled up as on any other (up to 2.4 times), the other receivers kept their routes and a catch's chance went to nothing with three defenders near: almost none scored from 35 out in `play_trace`. Then picks at 0.5 and catches at 0.35: 2.4% scored and 35% were picked.
+- **A 60-yard NFL arm** (56 college, 48 high school): 2.1% scored from 50-59 yards out, where real Hail Marys scored 3 times in 26, and the second quarter threw them from 60-69 yards out 7 to 16 times as often as real teams (6 in five seasons; a side threw it if it came down within 10 yards of the goal line).
+- **Laterals with the trailers escorting ahead** of the man with the ball: no laterals at all. With the hurry-up's habits still on the last play: 2% of the passes.
+- **The defense's Q2 timeout on any down:** 3.06 a game.
+- **Fake punts without the look** at the real rate: 13% converted (real 55%); thrown by the up-back, 4%.
+- **The half's sum without the chains' stops** in college and high school: FBS plays fell to 64.9 a team game (real 66.6).
+
+Still off (`GAPS.md`, over lane EG3): a half's last 5 s take one snap where real teams often fit two (a quick throw at the end zone, then the kick), so of the pool's second-quarter snaps the engine kicks 35% (real 51%) and kneels 51% (18%), and the pool is 0.47 snaps a game (real 0.74); spikes are 0.9% of the pool (real 8.5%); untimed downs come one in 100 games (real one in 68), since the Hail Mary's crowd (`crowd_ball`) skips the catch point where lane EG5 reads pass interference (item 27); the fourth quarter's pool throws deep more and kicks less than real teams' (deep shots 9.7% of the pool, real 2.7%; field goals 5.1%, real 11.1%), likely from where its late drives stand when time runs out rather than the call itself (not measured); laterals come a little often at the NFL (29%, real 22%) and in college and high school (41% and 58%, unmeasured against real); and few plays reach the sideline, the rest of S6.2, which this lane left to the receivers' routes (SF4) and long runs (SF9): designed runs end out of bounds 1.2% of the time (real 5.5%).
+
 ## Injuries on every collision, strains and the sideline (engine gaps lane EG1, 2026-11-18)
 
 Engine gaps items 1-3 (`docs/design/engine-gaps.md`, Cain's yes 2026-11-17): every collision can hurt both men by its force, men get hurt with nobody touching them, and a hurt man goes to the sideline and comes back after a few snaps, a series or not at all, with the concussion rules of his level and era. The targets: each position's share of the injuries that cost a week or more near real (nflverse game-status reports 2012-2025: offensive linemen 17.7%, backs 7.4%), the total where main has it (1.081 a team game in the NFL; real about 1.10), the body parts kept at nflverse's, and about a quarter of injuries with nobody touching him (the mix's own non-contact shares).

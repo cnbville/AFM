@@ -109,6 +109,50 @@ pub struct Rules {
     /// season before 2025. None reads as the level's (`fumble_rule`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fumbles: Option<FumbleRule>,
+    /// The book's rules at 0:00 where they are not the level's today
+    /// (engine gaps item 22): a college season to 2022 or before 2011.
+    /// None reads as the level's (`period_end`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub period_end: Option<PeriodEnd>,
+}
+
+/// A foul on a period's last timed down and the 10-second runoff (engine
+/// gaps item 22). The NFL: the defense's accepted foul (a double foul has
+/// one) gives an untimed down at a half's end, the offense's don't; in a
+/// half's last minute the offense's foul that stops a running clock costs
+/// it 10 seconds, the defense's choice. College: either team's accepted
+/// live-ball foul extends the period (the defense turns down the extension
+/// on the offense's loss-of-down foul), at every quarter's end to 2022 and
+/// a half's from 2023; the runoff from 2011, for either team's foul, the
+/// other team's choice. High school (NFHS): either team's at every
+/// quarter's end, except a loss-of-down or unsportsmanlike foul; no
+/// runoff. A runoff is saved by the fouling team's timeout.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PeriodEnd {
+    /// The offense's fouls extend a period too, not only the defense's.
+    pub either: bool,
+    /// At every quarter's end, not only a half's.
+    pub every_quarter: bool,
+    /// The 10-second runoff: None, the offense's fouls only, or either's.
+    pub runoff: u8,
+    /// Unsportsmanlike fouls never extend it (NFHS).
+    pub no_unsporting: bool,
+}
+
+impl PeriodEnd {
+    pub const NFL: PeriodEnd = PeriodEnd { either: false, every_quarter: false, runoff: 1, no_unsporting: false };
+    pub const NCAA: PeriodEnd = PeriodEnd { either: true, every_quarter: false, runoff: 2, no_unsporting: false };
+    pub const NFHS: PeriodEnd = PeriodEnd { either: true, every_quarter: true, runoff: 0, no_unsporting: true };
+
+    /// Whether this accepted foul gives an untimed down when the clock runs
+    /// out on its play: `defense` the fouling team was on defense, `half`
+    /// the period's end is a half's (or the game's).
+    pub fn extends(&self, kind: super::sim::FoulKind, defense: bool, half: bool) -> bool {
+        use super::sim::FoulKind;
+        (half || self.every_quarter)
+            && (defense || self.either && kind != FoulKind::IntentionalGrounding)
+            && !(self.no_unsporting && kind == FoulKind::UnsportsmanlikeConduct)
+    }
 }
 
 /// The concussion rules of a level and season (engine gaps item 3). The
@@ -267,6 +311,7 @@ impl Rules {
                 fouls: None,
                 year: 0,
                 fumbles: None,
+                period_end: None,
             },
             Level::HS => Rules {
                 level,
@@ -298,6 +343,7 @@ impl Rules {
                 fouls: None,
                 year: 0,
                 fumbles: None,
+                period_end: None,
             },
             // FBS, FCS, D2 and below play NCAA rules.
             _ => Rules {
@@ -327,6 +373,7 @@ impl Rules {
                 fouls: None,
                 year: 0,
                 fumbles: None,
+                period_end: None,
             },
         }
     }
@@ -398,6 +445,16 @@ impl Rules {
                     2008..=2012 => Targeting::Foul,
                     _ => Targeting::Eject,
                 };
+                // A foul on a quarter's last play extended every quarter to
+                // 2022, only a half's from 2023; the 10-second runoff from
+                // 2011 (NCAA rule changes, 2011 and 2023).
+                if year <= 2022 {
+                    r.period_end = Some(PeriodEnd {
+                        every_quarter: true,
+                        runoff: if year >= 2011 { 2 } else { 0 },
+                        ..PeriodEnd::NCAA
+                    });
+                }
                 r.overtime = match year {
                     ..=2018 => Overtime::CollegeEra { two_from: 3, shootout_from: 99 },
                     2019..=2020 => Overtime::CollegeEra { two_from: 3, shootout_from: 5 },
@@ -422,7 +479,7 @@ impl Rules {
     /// item 23). Texas plays NCAA rules (with the UIL's own changes) in
     /// every season and Massachusetts did through 2018 (NFHS from 2019):
     /// their games take the NCAA's foul, kick and fumble rules (`fouls.rs`,
-    /// engine gaps item 4). Both
+    /// engine gaps item 4) and its rules at 0:00 (item 22). Both
     /// keep college hash marks, the fields they were laid out for; every
     /// other state plays the NFHS book. Year 0 reads as today's.
     pub fn high_school(state: &str, year: i32) -> Rules {
@@ -438,6 +495,9 @@ impl Rules {
         if college {
             r.fouls = Some(super::fouls::Fouls::Ncaa);
             r.fumbles = Some(FumbleRule::NCAA);
+            // The NCAA's rules at 0:00 of that season (year 0 reads as
+            // today's).
+            r.period_end = Some(Rules::for_year(Level::FBS, year, false).period_end());
         }
         r
     }
@@ -450,6 +510,16 @@ impl Rules {
 
     /// The fumble rules in play (engine gaps item 4): the book's own where
     /// it has them, otherwise the level's.
+    /// The rules at 0:00 in play (engine gaps item 22): the book's own
+    /// where it has them, otherwise the level's today.
+    pub fn period_end(&self) -> PeriodEnd {
+        self.period_end.unwrap_or(match self.level {
+            Level::NFL => PeriodEnd::NFL,
+            Level::HS => PeriodEnd::NFHS,
+            _ => PeriodEnd::NCAA,
+        })
+    }
+
     pub fn fumble_rule(&self) -> FumbleRule {
         self.fumbles.unwrap_or(match self.level {
             Level::NFL => FumbleRule::NFL,
