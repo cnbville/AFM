@@ -27,8 +27,8 @@ use afm_engine::training::{FAMILIES, Family};
 use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 
-mod craft;
-mod projects;
+pub(crate) mod craft;
+pub(crate) mod projects;
 mod week;
 
 #[cfg(test)]

@@ -329,6 +329,9 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         let mut t = conv.turn(w, &room, &conv.said.reading);
         // A negotiation's own answer, claim and asks (lane N5b).
         let mut notes = negotiate::said(w, played.facet, &mut t);
+        // The game's own actions said in the line (talk replies item 13):
+        // each waits on your confirm, or he hears why it can't run.
+        super::actions::said(w, &er, &keys, &mut t, &mut notes);
         // The game's own staff notes under his line (a firm recruit: what
         // might unsettle him).
         notes.extend(t.notes.iter().cloned());
@@ -626,6 +629,7 @@ fn confirm_words(c: &Confirm) -> String {
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
         Confirm::Request(r) | Confirm::RequestOf(_, r) => format!("Go ahead: {}", asks::request_words(r)),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
+        Confirm::Action(a) => a.card.clone(),
     }
 }
 
@@ -645,6 +649,37 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     let item = wt.items.get_mut(k).and_then(Option::take).ok_or("That isn't on the table.")?;
     if wt.items.iter().all(Option::is_none) {
         g.ai.persona.map.remove(&ticket);
+    }
+    // The game's own actions run through the screens' commands (talk
+    // replies item 13): one you said, or an ask he agreed to that a screen
+    // makes real. A "Not that" on your word to him about his work leaves
+    // it a promise he holds you to.
+    let action = match &item {
+        Confirm::Action(a) => Some(a.clone()),
+        Confirm::Request(r) => g.world.as_ref().and_then(|w| super::actions::of_request(w, him, r)),
+        Confirm::Decision(d) => g.world.as_ref().and_then(|w| super::actions::of_decision(w, him, *d)),
+        _ => None,
+    };
+    if let Some(a) = action {
+        let lines = if yes {
+            // An ask or a decision keeps its own effects on him (his take,
+            // his mood); the screen then makes the move itself.
+            let mut out: Vec<String> = match &item {
+                Confirm::Action(_) => Vec::new(),
+                _ => g.world.as_mut().map(|w| run(w, id, him, &item)).unwrap_or_default(),
+            };
+            out.retain(|l| !l.starts_with("He agreed to "));
+            out.extend(super::actions::run(g, &a));
+            out
+        } else {
+            g.world.as_mut().and_then(|w| super::actions::dropped(w, &a)).into_iter().collect()
+        };
+        if let Some(s) = g.world.as_mut().and_then(|w| w.folk.scenes.iter_mut().find(|s| s.id == id)) {
+            for l in lines {
+                s.narrate(l);
+            }
+        }
+        return g.run("people_scene", &json!({ "id": id }));
     }
     let w = g.world.as_mut().ok_or("No world is loaded.")?;
     if yes {
@@ -743,6 +778,8 @@ fn run(w: &mut World, scene: u32, him: Them, c: &Confirm) -> Vec<String> {
         Confirm::Decision(d) => decide::run(w, him, *d)
             .or_else(|| negotiate::decide(w, him, *d))
             .unwrap_or_else(|| vec![format!("Make it real on its own screen: {}.", channels::decision_words(*d))]),
+        // Run through the screens before this (`confirm`).
+        Confirm::Action(_) => Vec::new(),
     }
 }
 
@@ -824,3 +861,7 @@ mod landing_tests;
 #[cfg(test)]
 #[path = "replies_tests.rs"]
 mod replies_tests;
+
+#[cfg(test)]
+#[path = "shortcut_tests.rs"]
+mod shortcut_tests;

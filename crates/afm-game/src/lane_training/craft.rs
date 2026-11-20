@@ -86,7 +86,7 @@ fn gain_read(truth: f64, eye: f64, reader: u64, id: u32, k: u64) -> (f64, [i64; 
 }
 
 /// The point's label: a flaw's or tool's name, or a rating's.
-pub(super) fn point_label(pt: Point) -> String {
+pub(crate) fn point_label(pt: Point) -> String {
     match pt {
         Point::Craft(c) => c.name().to_string(),
         Point::Rating(a) => format!("{}, all round", a.label()),

@@ -52,6 +52,11 @@ pub enum ActKind {
     Amend,
     /// A commitment to someone you answer to: a goal (`folk::commit`).
     Commit,
+    /// One of the game's own actions, said in the talk (talk replies item
+    /// 13): a project, a focus, a depth chart spot, a move a screen makes.
+    /// The game's side reads and runs it (`afm-game`, `persona::actions`);
+    /// it never reaches the turn as an `Act`.
+    Do,
 }
 
 /// What you can show (5.1): only real things.
@@ -319,6 +324,29 @@ pub enum Confirm {
     /// An ask put to someone else in the room (`Reading::asks_of`): run on
     /// that man once you confirm.
     RequestOf(Them, Request),
+    /// One of the game's own actions said in the talk (talk replies item
+    /// 13), run through the screen's own command once you confirm.
+    Action(Action),
+}
+
+/// A screen action said in a talk (talk replies item 13): what it is, the
+/// screen's command that runs it and the card's words. The game's side
+/// fills it (`afm-game`, `persona::actions`) once the screen's own rule
+/// says it can run.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Action {
+    /// The catalogue's key ("skill_project", "redshirt"...).
+    pub key: String,
+    /// The man it's done to or for, a player's id (a coach's index for a
+    /// coach's own action).
+    pub about: Option<u32>,
+    /// What the card says ("Start a release project for Lampkins?").
+    pub card: String,
+    /// The screen commands it runs, in order, with their arguments.
+    pub steps: Vec<(String, serde_json::Value)>,
+    /// Said as your word to the man across (you'll do it for him): a
+    /// "Not that" leaves him your word to keep (`PromiseKind::Work`).
+    pub word: Option<u8>,
 }
 
 /// One of his own asks this turn (5.4): built from his wants.

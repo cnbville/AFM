@@ -119,9 +119,10 @@ fn the_seating_read_is_the_first_snap() {
             assert!(seats.by_slot(Position::QB).is_empty());
             // The defense's named jobs on its first snap in base, early in
             // the game while everyone is fresh: up to the snap a man of
-            // theirs is hurt on, since the next man up takes a hurt man's
-            // spot (FBS team 3's second corner is hurt on its fourth
-            // defensive snap here).
+            // theirs is hurt on, or the snap a named man who has played
+            // comes off for a breather, since the next man up takes his
+            // spot (FBS team 3's MIKE plays its first three defensive snaps
+            // and sits the fourth, its first in base).
             let jobs = [
                 (DSlot::Sam, "SAM"),
                 (DSlot::Mike, "MIKE"),
@@ -137,7 +138,23 @@ fn the_seating_read_is_the_first_snap() {
                 .iter()
                 .find(|r| r.injuries.iter().any(|i| theirs.contains(&i.id)))
                 .map_or(u32::MAX, |r| r.n);
-            let Some(r) = snaps(&res.stats, 1).take(6).filter(|r| r.n <= hurt).find(in_base) else { continue };
+            let named: Vec<u32> = jobs
+                .iter()
+                .filter_map(|j| seats.at(j.1, 0))
+                .chain([seats.at("CB", 0), seats.at("CB", 1)].into_iter().flatten())
+                .collect();
+            let mut played: Vec<u32> = Vec::new();
+            let mut spelled = u32::MAX;
+            for r in snaps(&res.stats, 1) {
+                if named.iter().any(|id| played.contains(id) && !r.on_field[1].contains(id)) {
+                    spelled = r.n;
+                    break;
+                }
+                played.extend(r.on_field[1].iter().filter(|id| named.contains(id)));
+            }
+            let Some(r) = snaps(&res.stats, 1).take(6).filter(|r| r.n <= hurt && r.n < spelled).find(in_base) else {
+                continue;
+            };
             base += 1;
             for (slot, name) in jobs {
                 assert_eq!(dat(r, slot), seats.at(name, 0), "{level:?} team {t} {name}");

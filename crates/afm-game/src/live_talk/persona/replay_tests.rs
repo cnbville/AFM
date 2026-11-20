@@ -30,7 +30,7 @@ static ASK: Mutex<f64> = Mutex::new(0.0);
 fn sized(line: &str) -> String {
     let ask = *ASK.lock().unwrap();
     let mut out = line.to_string();
-    for (k, x) in [("{a70}", 0.7), ("{a85}", 0.85), ("{a95}", 0.95)] {
+    for (k, x) in [("{a70}", 0.7), ("{a75}", 0.75), ("{a85}", 0.85), ("{a90}", 0.9), ("{a95}", 0.95)] {
         let n = (ask * x / 10_000.0).round() * 10_000.0;
         out = out.replace(k, &afm_engine::world::folk::persona::terms::money_words(n).replace('$', ""));
     }
@@ -179,6 +179,15 @@ fn script(facet: &str) -> &'static str {
         // part of the hire and names them (item 7); a yes counts (item 3).
         "merez" => {
             "Thanks for coming in. What are you looking for in this job?|Depends on your family, i see south carolina as a rebuild. A dynasty, i'm planning on being here a long time and winning championships. And South carolina is not a bad place to celebrate winning in hahaha|They'll get free scholarships if that's what you mean|Considere it done|which of the kids do you feel will imrpove our roster?"
+        }
+        // Talk replies lane B (items 13-15): what you say you'll do runs
+        // after one confirm; his number comes down round by round; the read
+        // of what he's after sharpens.
+        "lampkins_work" => {
+            "How are you feeling about where you're at?|I'm putting you on a release project this winter|And i want a focus on your route breaks this week|We'll move you to slot, you'll be our starting slot"
+        }
+        "donte_haggle" => {
+            "Thanks for coming in. What would it take to get you here?|Okay give me a ball-park|How does {a75} sound ?|I can go to {a85}|{a90}, that's as far as I can go right now|Alright, {a95}. Deal?"
         }
         _ => "Hello.|How are you?",
     }
@@ -385,7 +394,7 @@ fn open(facet: &str) -> Option<(Game, u32)> {
             ok(&mut g, "people_scene", json!({ "id": sid }));
             Some((g, sid))
         }
-        "sanders" | "lampkins" => {
+        "sanders" | "lampkins" | "lampkins_work" => {
             use afm_engine::world::folk::talks::{Promise, PromiseKind, PromiseTo};
             let (mut g, _, him) = game(&format!("replay-{facet}"), true);
             {
@@ -413,7 +422,7 @@ fn open(facet: &str) -> Option<(Game, u32)> {
             let id = talk(&mut g, him, "role");
             Some((g, id))
         }
-        "donte" | "donte_yes" | "merez" => {
+        "donte" | "donte_yes" | "donte_haggle" | "merez" => {
             // A coordinator at another school, or a high school head coach
             // (with players of his when the world has one).
             let (mut g, _, _) = game(&format!("replay-{facet}"), true);
@@ -521,6 +530,8 @@ const FACETS: &[&str] = &[
     "donte",
     "donte_yes",
     "merez",
+    "lampkins_work",
+    "donte_haggle",
 ];
 
 #[test]
@@ -593,6 +604,24 @@ fn replay_talks_on_the_real_model() {
             if let Some(c) = v["confirm"].as_array() {
                 for x in c {
                     println!("  CONFIRM: {}", x["text"].as_str().unwrap_or_default());
+                }
+                // Lane B: the actions said are confirmed, and what the
+                // screens did is printed.
+                if facet.ends_with("_work") {
+                    for x in c {
+                        let Ok(r) = g.call("talk_confirm", &x["args"]) else { continue };
+                        let lines = r["lines"].as_array().cloned().unwrap_or_default();
+                        for l in lines.iter().skip(seen) {
+                            println!("  CONFIRMED: {}", l["text"].as_str().unwrap_or_default());
+                        }
+                        seen = lines.len();
+                    }
+                }
+            }
+            let left = g.call("people_scene", &json!({ "id": id })).ok();
+            if let Some(after) = left.as_ref().and_then(|v| v["talk"]["left"].as_array().cloned()) {
+                for s in after.iter().filter(|s| s["label"] == "What he's after") {
+                    println!("  AFTER: {}", s["paras"]);
                 }
             }
             let log = kept.log.lock().unwrap();
