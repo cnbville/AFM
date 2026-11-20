@@ -17,14 +17,24 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
-    v: "0.2.658", date: "20 Nov", title: "Engine gaps lane EG5: each level's rule book and the flags and 1 more",
+    v: "0.2.658", date: "20 Nov", title: "Engine gaps lane EG5: each level's rule book and the flags",
+    notes: [
+      "Flags now follow each level's own rule book, so college and high school games mark penalties the way their officials do, and NFL flags come at their real rate and size.",
+      "College defensive holding costs 10 yards, and high school pass interference and holding carry no automatic first down (Texas plays college rules).",
+      "Fouls near the goal line are marked half the distance, and a hold in your own end zone is a safety.",
+      "New calls: illegal contact, illegal hands, neutral zone infractions, twelve men on the field, kickoffs out of bounds or short, and free plays after a defender jumps.",
+      "Linemen no longer drift downfield on pass plays, so ineligible man downfield and blocks in the back are rare, as in real games.",
+      "Pass interference changes the catch, false starts climb on third and fourth down with the snap count, and offenses take a delay to back up a punt or try a hard count on fourth and short.",
+    ],
+  },
+  {
+    v: "0.2.657", date: "20 Nov", title: "Ground lane S6: the rival screen",
     notes: [
       "You can now see the rival staff's men on your ground, the race they run for your commits in dated signs, the claims they make about you and what you can do about it.",
       "A new Rivals page lists the men working your areas, your commits in play and the claims out there.",
       "A rival's page shows his style, his ground on the map, and his history with you.",
       "The race for a kid reads as numbered, dated signs, each with where you heard it.",
       "Answer a wavering commit with a call to the family, or a claim about his program (a risk if it isn't true).",
-      "Flags now follow each level's own rule book, so college and high school games mark penalties the way their officials do, and NFL flags come at their real rate and size.",
     ],
   },
   {
