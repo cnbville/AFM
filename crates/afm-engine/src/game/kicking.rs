@@ -531,6 +531,9 @@ pub fn blocked_live(
         }
     }
     sim.close_blocks();
+    // The play's work, as on a return: time in blocks, and strains and
+    // plants with nobody touching him (engine gaps items 1 and 2).
+    sim.wear();
     let l = sim.loose;
     // Out of bounds in the field of play: the kicking team's ball where it
     // went out behind the line, the receiving team's past it (a kick).
@@ -1294,6 +1297,7 @@ fn kick_sim<'a>(
         level: rules.level,
         mood,
         targeting: rules.targeting,
+        concussion: rules.concussion,
         fouls: rules.foul_book(),
         loose: None,
         fumble_rule: FumbleSnap::plain(rules),
@@ -1605,6 +1609,9 @@ fn run_return(
         }
     }
     sim.close_blocks();
+    // The play's work: time in blocks, and strains and plants with nobody
+    // touching him (engine gaps items 1 and 2).
+    sim.wear();
     res.duration = hang + sim.t;
     let mut end = sim.progress;
     // A fumbled return (engine gaps item 4): who has it where, or the score,
