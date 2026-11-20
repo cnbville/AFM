@@ -314,10 +314,40 @@ impl Season {
     }
 }
 
-/// The open season's teams.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+/// The open season's teams. A team without a game through two weekly
+/// sweeps (its season is over) has its row packed (`cold.rs`, memory diet
+/// item 10); `get` and `rows` read it back whole, and a save writes every
+/// row as before.
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct Open {
     pub seasons: HashMap<u64, Season>,
+    #[serde(skip)]
+    cold: super::cold::Cold,
+}
+
+/// Written as before: every row, packed or not, in `seasons`.
+impl serde::Serialize for Open {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{SerializeMap, SerializeStruct};
+        struct Rows<'a>(&'a HashMap<u64, Season>, Vec<(u64, Season)>);
+        impl serde::Serialize for Rows<'_> {
+            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                let mut m = s.serialize_map(Some(self.0.len() + self.1.len()))?;
+                for (k, v) in self.0 {
+                    m.serialize_entry(k, v)?;
+                }
+                for (k, v) in &self.1 {
+                    m.serialize_entry(k, v)?;
+                }
+                m.end()
+            }
+        }
+        let mut packed: Vec<(u64, Season)> = self.cold.all();
+        packed.sort_by_key(|x| x.0);
+        let mut st = s.serialize_struct("Open", 1)?;
+        st.serialize_field("seasons", &Rows(&self.seasons, packed))?;
+        st.end()
+    }
 }
 
 pub fn key(level: Level, team: u32) -> u64 {
@@ -379,6 +409,12 @@ impl Open {
     /// A side's game on `date`: its counts, its and the other side's
     /// advanced numbers and the score (its, theirs).
     pub fn add(&mut self, level: Level, team: u32, date: i32, g: Game, adv: [&super::games::Adv; 2], score: [i32; 2]) {
+        if self.cold.due(date) {
+            self.sweep();
+        }
+        if let Some(s) = self.cold.touch::<Season>(key(level, team)) {
+            self.seasons.insert(key(level, team), s);
+        }
         let s = self.seasons.entry(key(level, team)).or_insert_with(|| Season {
             level: level as u8,
             team,
@@ -414,9 +450,56 @@ impl Open {
         add_adv(&mut s.adv_against, adv[1]);
     }
 
-    pub fn rows(&self) -> Vec<(u64, &Season)> {
-        let mut v: Vec<(u64, &Season)> = self.seasons.iter().map(|(&k, s)| (k, s)).collect();
+    /// Packs the rows of teams without a game since the sweep before last.
+    fn sweep(&mut self) {
+        let keys: Vec<u64> = self.seasons.keys().copied().filter(|&k| self.cold.idle(k)).collect();
+        if !keys.is_empty() {
+            let rows: Vec<(u64, Season)> = keys.iter().filter_map(|k| self.seasons.remove_entry(k)).collect();
+            self.cold.sweep(&rows);
+            super::cold::shrink(&mut self.seasons);
+        }
+        self.cold.turn();
+    }
+
+    /// Every team's season by key: packed rows unpacked.
+    pub fn rows(&self) -> Vec<(u64, std::borrow::Cow<'_, Season>)> {
+        use std::borrow::Cow;
+        let mut v: Vec<(u64, Cow<'_, Season>)> = self
+            .seasons
+            .iter()
+            .map(|(&k, s)| (k, Cow::Borrowed(s)))
+            .chain(self.cold.all::<Season>().into_iter().map(|(k, s)| (k, Cow::Owned(s))))
+            .collect();
         v.sort_by_key(|x| x.0);
         v
+    }
+
+    /// A team's season by key (a packed one unpacked).
+    pub fn get(&self, key: u64) -> Option<std::borrow::Cow<'_, Season>> {
+        match self.seasons.get(&key) {
+            Some(s) => Some(std::borrow::Cow::Borrowed(s)),
+            None => self.cold.get(key).map(std::borrow::Cow::Owned),
+        }
+    }
+
+    /// A team's season taken out of the store.
+    pub fn take(&mut self, key: u64) -> Option<Season> {
+        self.seasons.remove(&key).or_else(|| self.cold.take(key))
+    }
+
+    /// Every season to change (the season's close): packed rows come back
+    /// first.
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Season> {
+        for (k, s) in self.cold.all::<Season>() {
+            self.seasons.insert(k, s);
+        }
+        self.cold = Default::default();
+        self.seasons.values_mut()
+    }
+
+    /// Rows and packed rows and bytes (memory checks).
+    pub fn held(&self) -> (usize, usize, usize) {
+        let (n, b) = self.cold.held();
+        (self.seasons.len(), n, b)
     }
 }

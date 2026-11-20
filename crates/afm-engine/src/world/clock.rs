@@ -507,6 +507,9 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
 fn plan(w: &mut World, d: Date) {
     if d.weekday() == Weekday::Mon {
         timed("training", || crate::training::week::monday(w, d));
+        // Men who left football keep only what their record reads (memory
+        // diet item 6) until the year's cleanup drops them.
+        w.leavers_compact();
     }
 }
 
