@@ -160,6 +160,13 @@ fn projects_show_their_clues_their_squad_column_and_the_staff_before_you() {
             afm_engine::attributes::Attr::ManCoverage,
             false,
         ));
+        // Set by the staff before you at this program. A freshman still
+        // carries his high school staff's code until this staff's first
+        // yearly pass, and a project under that code is left behind, not a
+        // holdover (seed 11's world on f4f7f7b drew one second).
+        let program = w.seat.unwrap().program.unwrap();
+        w.people[i].player.prog.staff =
+            afm_engine::progression::staff_code(afm_engine::progression::StaffAt::College, program);
         let t = mine(w).unwrap();
         let roster = roster_people(w, t);
         let notes = afm_engine::training::seat::holdover_notes(w, &roster);
