@@ -376,6 +376,11 @@ pub struct SnapResult {
     /// fumble's yards run to it (engine gaps item 4).
     #[serde(default)]
     pub fumble_at: Option<f64>,
+    /// The men who rushed the passer on a dropback, as the defense's player
+    /// indices (scheme-fit lane SF8: the Data section counts blitzes from
+    /// it). Empty on runs and kicks.
+    #[serde(default)]
+    pub rushed: Vec<usize>,
 }
 
 struct Pass {
@@ -681,6 +686,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         work: Vec::new(),
         new_series: false,
         fumble_at: None,
+        rushed: Vec::new(),
     };
     res.box_count =
         sim.agents.iter().filter(|a| a.side == 1 && a.pos.x < los + 7.0 && (a.pos.y - by).abs() < 7.5).count() as u8;
@@ -1132,6 +1138,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let fake_block =
                 pass.as_ref().and_then(|ps| ps.fake.as_ref()).filter(|fk| fk.route == Route::Block).map(|fk| fk.man);
             chart_rush(&mut sim, off_n, &slot_of, by, fake_block);
+            res.rushed = (off_n..sim.agents.len())
+                .filter(|&i| matches!(sim.agents[i].job, Job::Rush { .. }))
+                .map(|i| sim.agents[i].p)
+                .collect();
             // The matchup plan (topic 5.4): the quarterback looks first at
             // the receiver on the corner the staff wants to attack, when that
             // man is in the progression.

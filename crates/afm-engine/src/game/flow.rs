@@ -5946,6 +5946,12 @@ impl<'a> Game<'a> {
         ];
         // Where each lined up, for the Data section (lane NB4).
         r.roles = [off.iter().map(|&(rl, _)| rl as u8).collect(), def.iter().map(|&(s, _)| s as u8).collect()];
+        // Who rushed the passer (scheme-fit lane SF8), on the same order.
+        r.rushed = def
+            .iter()
+            .take(16)
+            .enumerate()
+            .fold(0, |m, (k, &(_, i))| if res.rushed.contains(&i) { m | 1 << k } else { m });
         r.box_count = res.box_count;
         r.play_action = res.play_action;
         // Fatigue (topic 6).

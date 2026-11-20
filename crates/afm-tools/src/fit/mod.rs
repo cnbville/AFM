@@ -196,6 +196,17 @@ slots!(
     // Dropbacks with a bust in team 0's coverage and their EPA (item 19).
     d_bdb,
     d_bdb_epa,
+    // The blitz and the pass rush (items 21 and 22): linebackers' and
+    // backs' blitzes and their own pressures on them, and the interior and
+    // edge rushers' wins and the pressures they made on those snaps.
+    d_lbz,
+    d_lbzp,
+    d_dbz,
+    d_dbzp,
+    d_dtw,
+    d_dtwp,
+    d_edw,
+    d_edwp,
 );
 
 // Each watched man's slots: the audit's first, then the items' own.
@@ -214,7 +225,9 @@ slots!(
     tgt_c, rec_c, tgt_rz, td_rz, // his long runs (item 9)
     c20,   // first tackles on runs, and those made from a block he never shed (item 7)
     ftk, ftk_blk, // dropbacks with him on the field and his yards against zone (item 6)
-    on_db_z, ryd_z,
+    on_db_z,
+    ryd_z, // his pass rushes, his blitzes, his pressures on them, and on the snaps he won a rep (items 21, 22)
+    rsh, blz, bprs, wprs,
 );
 
 /// The watched men: one per job on the typical team.
@@ -1683,6 +1696,52 @@ fn items(cx: &Games, p: &afm_engine::game::stats::PlayRecord, off: bool, m: &mut
             m[pi(ri, P::c20)] += 1.0;
         }
     } else {
+        // Who rushed (items 21 and 22): a blitz is a rush from a spot off
+        // the line (`PlayRecord::rushed`), and a man's pressure is his own.
+        if db {
+            use afm_engine::world::tally::depth::dslot;
+            let hurt = |id: &u32| p.pressures.contains(id) || p.sackers.contains(id);
+            for (k, id) in p.on_field[1].iter().enumerate().take(16) {
+                if p.rushed & (1 << k) == 0 {
+                    continue;
+                }
+                let off_line = p.roles[1].get(k).is_some_and(|&x| !dslot::line(x));
+                if off_line {
+                    match pos(Some(*id)) {
+                        Some(Position::LB) => {
+                            add(m, T::d_lbz, 1.0);
+                            add(m, T::d_lbzp, f64::from(hurt(id)));
+                        }
+                        Some(Position::CB | Position::S) => {
+                            add(m, T::d_dbz, 1.0);
+                            add(m, T::d_dbzp, f64::from(hurt(id)));
+                        }
+                        _ => {}
+                    }
+                }
+                if let Some(ri) = ro(id) {
+                    m[pi(ri, P::rsh)] += 1.0;
+                    if off_line {
+                        m[pi(ri, P::blz)] += 1.0;
+                        m[pi(ri, P::bprs)] += f64::from(hurt(id));
+                    }
+                }
+            }
+            let mut won: Vec<u32> = p.rush_wins.iter().map(|w| w.0).collect();
+            won.dedup();
+            for id in &won {
+                let (w, wp) = match pos(Some(*id)) {
+                    Some(Position::DT) => (T::d_dtw, T::d_dtwp),
+                    Some(Position::EDGE) => (T::d_edw, T::d_edwp),
+                    _ => continue,
+                };
+                add(m, w, 1.0);
+                add(m, wp, f64::from(hurt(id)));
+                if let Some(ri) = ro(id) {
+                    m[pi(ri, P::wprs)] += f64::from(hurt(id));
+                }
+            }
+        }
         // A dropback against team 0 with one of its linebackers or backs
         // busting (item 19: a blown coverage should leave a man free).
         if db && p.busts.iter().any(|&b| matches!(pos(Some(b)), Some(Position::LB | Position::CB | Position::S))) {

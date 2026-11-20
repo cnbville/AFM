@@ -308,6 +308,9 @@ pub fn metrics_for(role: &str, s: f64) -> Vec<Metric> {
         mt("sacks/season", p("sck"), g(), s, 2),
         mt("pressure/rush rep%", p("prs"), p("rrep"), 100.0, 1),
         mt("rush win/rep%", p("rwin"), p("rrep"), 100.0, 1),
+        mt("pressure per rush win%", p("wprs"), p("rwin"), 100.0, 1),
+        mt("blitzes/season", p("blz"), g(), s, 1),
+        mt("pressures a blitz", p("bprs"), p("blz"), 1.0, 3),
         mt("beat pass block%", p("pbl"), p("pbf"), 100.0, 1),
         mt("hits/season", p("hit"), g(), s, 1),
     ];
@@ -449,7 +452,7 @@ pub fn metrics_for(role: &str, s: f64) -> Vec<Metric> {
             r(&cov, 9..10),
             r(&rusher, 0..2),
             vec![tdef[5].clone(), tdef[6].clone(), tdef[0].clone()],
-            vec![rusher[2].clone()],
+            vec![rusher[2].clone(), rusher[5].clone(), rusher[6].clone()],
             first,
         ]
         .concat(),
@@ -460,6 +463,7 @@ pub fn metrics_for(role: &str, s: f64) -> Vec<Metric> {
             r(&run_d, 0..1),
             r(&run_d, 3..4),
             vec![tdef[0].clone(), tdef[1].clone(), tdef[2].clone()],
+            vec![rusher[0].clone(), rusher[5].clone(), rusher[6].clone()],
         ]
         .concat(),
         "FS" | "SS" => [
@@ -469,6 +473,7 @@ pub fn metrics_for(role: &str, s: f64) -> Vec<Metric> {
             r(&run_d, 0..4),
             vec![tdef[0].clone(), tdef[2].clone(), tdef[3].clone(), tdef[4].clone(), tdef[5].clone()],
             first,
+            vec![rusher[0].clone(), rusher[5].clone(), rusher[6].clone()],
         ]
         .concat(),
         _ => [team_off, team_def].concat(),
@@ -764,6 +769,8 @@ fn key_measures(group: &str) -> &'static [&'static str] {
             "catch% on him",
             "yds/tgt on him",
             "pressures/season",
+            "blitzes/season",
+            "pressures a blitz",
             "busts/season",
             "team ypc allowed",
             "team EPA/db allowed",
@@ -775,6 +782,7 @@ fn key_measures(group: &str) -> &'static [&'static str] {
             "sacks/season",
             "pressure/rush rep%",
             "rush win/rep%",
+            "pressure per rush win%",
             "beat pass block%",
             "run stops/season",
             "shed%",
@@ -1068,6 +1076,21 @@ fn item_list() -> Vec<Item> {
             3,
             "–",
         ),
+        item(
+            "21",
+            "team 0's linebackers: their own pressures a blitz",
+            t("d_lbzp"),
+            t("d_lbz"),
+            1.0,
+            3,
+            "0.140 (PFR 2018-24)",
+        ),
+        item("21", "team 0's linebacker blitzes, share of dropbacks", t("d_lbz"), t("d_db"), 100.0, 1, "–"),
+        item("21", "team 0's backs: their own pressures a blitz", t("d_dbzp"), t("d_dbz"), 1.0, 3, "–"),
+        item("21", "team 0's pressure rate", t("d_prs"), t("d_db"), 100.0, 1, "22.2% (PFR)"),
+        item("21", "team 0's sack rate", t("d_sack"), t("d_db"), 100.0, 1, "6.8%"),
+        item("22", "team 0's tackles: a rush win that became his pressure", t("d_dtwp"), t("d_dtw"), 100.0, 1, "–"),
+        item("22", "team 0's edges: a rush win that became his pressure", t("d_edwp"), t("d_edw"), 100.0, 1, "–"),
     ]
 }
 

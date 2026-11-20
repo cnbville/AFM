@@ -205,6 +205,12 @@ pub struct PlayRecord {
     /// Next Gen Stats' time to pressure.
     #[serde(default)]
     pub pressure_at: f32,
+    /// Who rushed the passer on a dropback (scheme-fit lane SF8): bit `k`
+    /// for the defense's man `k` in `on_field[1]` order, so a blitz is a
+    /// rusher whose spot in `roles[1]` is off the line. 0 on runs, kicks and
+    /// plays kept before.
+    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    pub rushed: u16,
     /// Each pass rusher's first contact with a blocker, in seconds after
     /// the snap: the get-off the Data section shows.
     #[serde(default)]
@@ -329,6 +335,7 @@ impl PlayRecord {
             hang: 0.0,
             freedom: 0,
             pressure_at: 0.0,
+            rushed: 0,
             contact: Vec::new(),
             moving: false,
             fire: Default::default(),
@@ -1510,6 +1517,10 @@ pub fn as_reported(line: &StatLine, reports: bool, pads: f64) -> Option<StatLine
         l.tackles = (l.tackles as f64 * (1.0 + 2.0 * pads)).round() as u32;
     }
     Some(l)
+}
+
+fn is_zero_u16(v: &u16) -> bool {
+    *v == 0
 }
 
 fn is_zero_u8(v: &u8) -> bool {
