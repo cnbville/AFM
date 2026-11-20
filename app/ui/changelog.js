@@ -17,6 +17,28 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.656", date: "19 Nov", title: "Talk replies that match the game (lane A, items 1-12)",
+    notes: [
+      "The people you talk to now answer what you actually said: they react to how your words landed, take your promises the way their trust in you says, name their price and hold you to your word.",
+      "Promises get a real reaction, and saying the opposite later breaks the promise and he calls you on it.",
+      "Coaches you interview name their number when you ask for a ballpark, and saying yes to their counter makes it your offer.",
+      "A high school coach you interview names his best players and wants them recruited as part of the hire.",
+      "Everyone has their own way of talking, remembers the whole conversation, and \"Heard as\" is shorter.",
+      "Ending a talk always closes it; an open decision moves to its screen with a note in your inbox.",
+    ],
+  },
+  {
+    v: "0.2.655", date: "19 Nov", title: "EG2: ball security (live fumbles by each level's rules, fumbled snaps, strip sacks, backs' fumbles at the real rate) and 3 more",
+    notes: [
+      "Talking to your team now feels like talking to a room full of people, not one captain. Each player takes what you say his own way, and the right man speaks up.",
+      "A line to the defense, the seniors or the backups lands on them, and the room shows who's with you and who's trading looks.",
+      "Captains and leaders pull their friends with them, and calling a man out in front of everyone stings him and his friends harder.",
+      "A promise to the team is a promise to every man in it.",
+      "Ask a full room if anyone has a problem and it goes quiet, but the man who held back may ask to see you the next day.",
+      "Meet each position room once a week with its coach.",
+    ],
+  },
+  {
     v: "0.2.650", date: "19 Nov", title: "Fix minor engine bugs 409-412: the play action leftovers and 7 more",
     notes: [
       "Promising a player he'll be a captain now means something. Keep your word when the team votes, or pay for it.",

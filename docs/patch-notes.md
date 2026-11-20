@@ -8,6 +8,43 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.656 (19 Nov, shipped): talk replies that match the game (lane A, items 1-12) (PR #588)
+**TLDR:** The people you talk to now answer what you actually said: they react to how your words landed, take your promises the way their trust in you says, name their price and hold you to your word.
+- Promises get a real reaction, and saying the opposite later breaks the promise and he calls you on it. (PR #588)
+- Coaches you interview name their number when you ask for a ballpark, and saying yes to their counter makes it your offer. (PR #588)
+- A high school coach you interview names his best players and wants them recruited as part of the hire. (PR #588)
+- Everyone has their own way of talking, remembers the whole conversation, and "Heard as" is shorter. (PR #588)
+- Ending a talk always closes it; an open decision moves to its screen with a note in your inbox. (PR #588)
+- Look at: interview a coordinator and ask "give me a ballpark", then accept his number. (PR #588)
+
+## 0.2.655 (19 Nov, shipped): make group talks feel like a room (PR #561), memory diet lane M2: season rows in 104 bytes, leavers' ledgers dropped (PR #587), NIL: schools pay only recruits their next July paid set takes (PR #589), and 2 more
+**TLDR:** 5 changes ship together. Talking to your team now feels like talking to a room full of people, not one captain. Each player takes what you say his own way, and the right man speaks up. Memory diet lane M2: season rows in 104 bytes, leavers' ledgers dropped Plus 3 more below.
+- Make group talks feel like a room (PR #561): Talking to your team now feels like talking to a room full of people, not one captain. Each player takes what you say his own way, and the right man speaks up.
+- A line to the defense, the seniors or the backups lands on them, and the room shows who's with you and who's trading looks. (PR #561)
+- Captains and leaders pull their friends with them, and calling a man out in front of everyone stings him and his friends harder. (PR #561)
+- A promise to the team is a promise to every man in it. (PR #561)
+- Ask a full room if anyone has a problem and it goes quiet, but the man who held back may ask to see you the next day. (PR #561)
+- Meet each position room once a week with its coach. (PR #561)
+- Memory diet lane M2: season rows in 104 bytes, leavers' ledgers dropped (PR #587): no summary in the PR
+- NIL: schools pay only recruits their next July paid set takes (PR #589): Recruiting money now works like real revenue sharing: schools pay the recruits they expect to play, and pay them what that role is worth.
+- Group of 5 and FCS schools offer money to only a handful of each class, the recruits they see starting or rotating early. (PR #589)
+- A paid Group of 5 recruit now signs for real money, not pocket change. (PR #589)
+- Power 4 recruits who will be paid sign for what their role on the roster pays, so three-stars sign for far more than before. (PR #589)
+- Everyone else signs for the scholarship alone. (PR #589)
+- Read a pro's place from his games in talks and promises (code oddity 29) (PR #319): Your NFL players now judge your promises by how you use them this season, not by their college days.
+- A pro who started in college but sits now is no longer promised he'll keep a starting job he doesn't have. (PR #319)
+- Kickers, punters and long snappers judge a promise by the games they kicked in. (PR #319)
+- A game a player missed hurt no longer counts against your word. (PR #319)
+- Cut or trade a man you promised playing time and that promise is broken; take another job and a finished season's promises are judged, the rest close and count neither way. (PR #319)
+- Coaching in the CFL or another league, promises run on that league's own games and calendar. (PR #319)
+- EG2: ball security (live fumbles by each level's rules, fumbled snaps, strip sacks, backs' fumbles at the real rate) (PR #573): Fumbles now play out live on the field: the ball bounces loose, defenders scoop it up and run it back for scores, and snaps can hit the turf. Backs with sure hands hold on to it, and pass rushers knock it loose as often as real ones do.
+- A fumble is a live ball that bounces, gets fallen on, scooped up or knocked out of bounds, with each level's own rules on who may run with it. (PR #573)
+- Snaps go on the ground now and then, under center and in the shotgun, more often with a shaky snapper or quarterback and in the rain. (PR #573)
+- Pass rushers strip the quarterback about as often as in real football, most of all when he never sees them coming or as he winds up to throw. (PR #573)
+- Backs fumble at a real rate, and a sure-handed back fumbles far less than a loose one, at every level. (PR #573)
+- The play log tells you who came up with the ball, for which side and how far he ran it. (PR #573)
+- Look at: open a team meeting, say "Defense, you were flying around," then "Every job is open," then "Any questions?" (PR #561) the money other schools offer on your recruiting board, at a Group of 5 school and a Power 4 school. (PR #589) an NFL save, a one-on-one with a backup who started in college. (PR #319)
+
 ## 0.2.650 (19 Nov, shipped): make captain promises count (PR #565), fix main's Full tests: world log keeps spotlight, holiday hands yesterday's scenes (PR #566), memory diet lane M1: keep a person's college and recruiting parts only once used (PR #556), and 9 more
 **TLDR:** 12 changes ship together. Promising a player he'll be a captain now means something. Keep your word when the team votes, or pay for it. Fix main's Full tests: world log keeps spotlight, holiday hands yesterday's scenes Plus 10 more below.
 - Make captain promises count (PR #565): Promising a player he'll be a captain now means something. Keep your word when the team votes, or pay for it.
