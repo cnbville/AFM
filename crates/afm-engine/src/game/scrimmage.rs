@@ -2189,8 +2189,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             {
                 sim.notes.tend.cross = Some((sim.agents[c].pos.y - sim.mood.snap_y, t));
             }
-            // A quarterback slides rather than take a hit he doesn't need.
-            if pass.as_ref().is_some_and(|p| !p.broken) && c == qb && slide(&mut sim, c, s) {
+            // A quarterback slides rather than take a hit he doesn't need,
+            // but not on the last play's laterals, where going down ends
+            // the game: a lateral back to him after a catch kept the catch
+            // as a scramble, dead where he stood even as he pitched it
+            // (minor bug 423).
+            if pass.as_ref().is_some_and(|p| !p.broken) && c == qb && !s.call.laterals && slide(&mut sim, c, s) {
                 res.result = Result::Scramble;
             }
         }
