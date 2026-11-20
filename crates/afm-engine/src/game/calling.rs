@@ -460,6 +460,44 @@ pub struct Situation {
     /// How far the weather moves the call toward the run (minor bug 144).
     #[serde(default)]
     pub weather: f64,
+    /// In the second quarter's last two minutes, whether the offense goes
+    /// for points before the half (engine gaps item 17): the game's sum of
+    /// its spot, the score and both sides' timeouts. A side that doesn't
+    /// plays the half out.
+    #[serde(default)]
+    pub half_go: bool,
+    /// What the staff reads into its fourth-down sums from the two teams and
+    /// the level (engine gaps item 20); the default on every other down.
+    #[serde(default)]
+    pub fourth: FourthRead,
+}
+
+/// The two teams and the level in a fourth-down sum (engine gaps item 20):
+/// how far this matchup's short yardage moves the chance to convert (on its
+/// log odds), the punt's expected net yards, and how far behind the line of
+/// scrimmage a missed field goal gives the ball over. The default is the
+/// NFL's typical teams: no edge, a 41-yard net punt and the spot of the
+/// kick, 7 yards back.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct FourthRead {
+    pub conv: f64,
+    pub punt: f64,
+    pub miss_back: f64,
+}
+
+impl Default for FourthRead {
+    fn default() -> FourthRead {
+        FourthRead { conv: 0.0, punt: 41.0, miss_back: 7.0 }
+    }
+}
+
+/// The chance to convert on fourth down from the yards to go (real NFL:
+/// about 70% on fourth and 1, 50% on fourth and 5, 33% on fourth and 10),
+/// moved on its log odds by the matchup (`FourthRead::conv`).
+fn fourth_conv(togo: f64, edge: f64) -> f64 {
+    let base = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
+    let lo = (base / (1.0 - base)).ln() + edge;
+    clamp(1.0 / (1.0 + (-lo).exp()), 0.05, 0.9)
 }
 
 impl Situation {
@@ -478,9 +516,9 @@ impl Situation {
         if self.ease >= 0.5 || self.concede {
             return false;
         }
-        (self.half_left <= 120.0 && self.score_diff <= 0 && self.quarter >= 2)
+        (self.half_left <= 120.0 && self.score_diff <= 0 && self.quarter >= 4)
             || (self.quarter >= 4 && self.half_left <= 300.0 && self.score_diff < 0)
-            || (self.quarter == 2 && self.half_left <= 120.0)
+            || (self.quarter == 2 && self.half_left <= 120.0 && self.half_go)
     }
     /// The pressure a caller feels (topic 6.5): behind in the second half.
     pub fn pressure(&self) -> f64 {
@@ -2529,22 +2567,9 @@ pub enum FourthDown {
 pub fn fourth_down(staff: &Staff, sit: &Situation, level: Level, fg_make: f64, rng: &mut Rng) -> FourthDown {
     let y = sit.yardline_100;
     let togo = sit.togo;
-    // Real NFL fourth-down conversion by distance (about 70% on 4th and 1,
-    // 50% on 4th and 5, 33% on 4th and 10).
-    let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
-    // The level's own expected-points table (update 3, F30).
-    let ep = |d: u8, t: f64, y: f64| tables::expected_points_in(sit.college, d, t, y);
-    let after_score = 0.95;
-    let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };
-    let go_fail = -ep(1, 10.0, 100.0 - y);
-    let ev_go = conv * go_ok + (1.0 - conv) * go_fail;
-    // Where the opponent starts, as their distance to the goal
-    // (`punt_start`).
-    let opp_punt = punt_start(y);
-    let ev_punt = -ep(1, 10.0, opp_punt.min(99.0));
-    // A miss gives them the ball at the spot of the kick (or the 20).
-    let opp_miss = (100.0 - y - 7.0).min(80.0);
-    let ev_fg = fg_make * (3.0 - after_score) + (1.0 - fg_make) * -ep(1, 10.0, opp_miss.max(1.0));
+    // The values from the level's tables and the two teams (engine gaps
+    // item 20: `FourthRead`).
+    let (_, ev_go, ev_punt, ev_fg) = fourth_values(sit, fg_make);
     let mut ev_go_adj = ev_go;
     // The scoreboard late: a team that must score goes; a team ahead plays it safe.
     let late = sit.quarter >= 4 && sit.game_left < 300.0;
@@ -2585,8 +2610,7 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, level: Level, fg_make: f64, r
     // a sharper, bolder one moves toward what the numbers say, a weaker or
     // more cautious one away from it (every coach used to follow them on
     // top of the habit, minor bug 142; proposed, not confirmed).
-    let share = |gm: f64, agg: f64| clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45);
-    let follow = share(gm, agg) - share(super::rules::coach_norm(level), 10.0);
+    let follow = follow_share(gm, agg) - follow_share(super::rules::coach_norm(level), 10.0);
     let says = if ev_go_adj + noise > best_kick.1 + margin { 1.0 } else { 0.0 };
     let go = rng.chance(clamp(habit + follow * (says - habit), 0.0, 1.0));
     if go || (late && sit.score_diff < -3 && sit.game_left < 150.0 && !sit.concede) {
@@ -2600,7 +2624,7 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, level: Level, fg_make: f64, r
 /// topic 6): the chance to convert and the expected points of going,
 /// punting and kicking, from the same real tables `fourth_down` uses.
 pub fn fourth_values(sit: &Situation, fg_make: f64) -> (f64, f64, f64, f64) {
-    fourth_ev(sit.yardline_100, sit.togo, fg_make, sit.college)
+    fourth_ev_read(sit.yardline_100, sit.togo, fg_make, sit.college, sit.fourth)
 }
 
 /// How much more than the punt a long field goal must be worth to a coach
@@ -2619,22 +2643,40 @@ pub const LONG_KICK_CAUTION: f64 = 0.04;
 /// coach valued a punt from their 40 at a touchback and tried the 57-yard
 /// field goal (engine gaps item 11).
 pub fn punt_start(y: f64) -> f64 {
-    100.0 - (y - 41.0).max(12.0)
+    punt_start_net(y, 41.0)
+}
+
+/// `punt_start` for a punter whose own net is `net` yards (engine gaps
+/// item 20: `FourthRead::punt`, his level's gross punt less the cost,
+/// moved by his leg), pinned at their 12 at every level (proposed, not
+/// confirmed).
+pub fn punt_start_net(y: f64, net: f64) -> f64 {
+    100.0 - (y - net).max(12.0)
 }
 
 /// `fourth_values` from the spot alone (yards to the goal, yards to go):
 /// also what the morning-after bots read your calls with (lane 8). Below
 /// the NFL it reads the college table.
 pub fn fourth_ev(y: f64, togo: f64, fg_make: f64, college: bool) -> (f64, f64, f64, f64) {
-    let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
+    fourth_ev_read(y, togo, fg_make, college, FourthRead::default())
+}
+
+/// `fourth_ev` with the two teams and the level read in (engine gaps item
+/// 20): the chance to convert moved by the matchup, the punter's own net
+/// punt and the level's spot for a miss.
+pub fn fourth_ev_read(y: f64, togo: f64, fg_make: f64, college: bool, read: FourthRead) -> (f64, f64, f64, f64) {
+    let conv = fourth_conv(togo, read.conv);
     let ep = |d: u8, t: f64, y: f64| tables::expected_points_in(college, d, t, y);
     let after_score = 0.95;
     let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };
     let go_fail = -ep(1, 10.0, 100.0 - y);
     let ev_go = conv * go_ok + (1.0 - conv) * go_fail;
-    let opp_punt = punt_start(y);
+    // Where the opponent starts after the punt, as its distance to the goal:
+    // the punter's own net, pinned at their 12 (`punt_start_net`).
+    let opp_punt = punt_start_net(y, read.punt);
     let ev_punt = -ep(1, 10.0, opp_punt.min(99.0));
-    let opp_miss = (100.0 - y - 7.0).min(80.0);
+    // A miss gives them the ball back from the level's spot (or the 20).
+    let opp_miss = (100.0 - y - read.miss_back).min(80.0);
     let ev_fg = fg_make * (3.0 - after_score) + (1.0 - fg_make) * -ep(1, 10.0, opp_miss.max(1.0));
     (conv, ev_go, ev_punt, ev_fg)
 }
@@ -2653,10 +2695,42 @@ pub fn go_for_three(staff: &Staff, diff_after_td: i32, quarter: u8, game_left: f
     chart && rng.chance(0.7) || !late && rng.chance(lean.max(0.0))
 }
 
-pub fn go_for_two(staff: &Staff, diff_after_td: i32, quarter: u8, game_left: f64, xp_make: f64, rng: &mut Rng) -> bool {
+pub fn go_for_two(
+    staff: &Staff,
+    diff_after_td: i32,
+    quarter: u8,
+    game_left: f64,
+    xp_make: f64,
+    level: Level,
+    rng: &mut Rng,
+) -> bool {
+    // The real habit by the score and the time (engine gaps item 19: real
+    // NFL teams go for two on 9.8% of tries, the old chart 5.0%). A kicker
+    // under 0.75 on extra points still sends most teams for two.
+    let mut habit = tables::real_two_point_habit(diff_after_td, quarter, game_left);
+    if xp_make < 0.75 {
+        habit = habit.max(0.55);
+    }
+    // What the numbers say: late, the chart of what each score needs;
+    // before that, two points at the real rate (47.5% in the NFL) against
+    // the kick.
     let late = quarter >= 4 && game_left < 900.0;
-    let chart = late && matches!(diff_after_td, -2 | -5 | -10 | -13 | 1 | 4 | 5 | 12 | -16 | 8 | -9);
-    let weak_kicker = xp_make < 0.75;
-    let lean = 0.01 + 0.004 * (staff.offense.aggressiveness - 10.0);
-    chart && rng.chance(0.8) || weak_kicker && rng.chance(0.55) || rng.chance(lean.max(0.0))
+    let chart = matches!(diff_after_td, -2 | -5 | -10 | -13 | 1 | 4 | 5 | 12 | -16 | 8 | -9);
+    let says = if late { chart } else { 2.0 * TWO_POINT_MAKE > xp_make + 0.02 };
+    // The coach moves off the habit toward the numbers the way he does on
+    // fourth downs (`fourth_down`): the level's typical coach keeps it.
+    let follow = follow_share(staff.game_management, staff.offense.aggressiveness)
+        - follow_share(super::rules::coach_norm(level), 10.0);
+    let says = if says { 1.0 } else { 0.0 };
+    rng.chance(clamp(habit + follow * (says - habit), 0.0, 1.0))
+}
+
+/// The real NFL two-point success rate (2021-2025, 47.5%), the one the
+/// coaches weigh against the kick.
+const TWO_POINT_MAKE: f64 = 0.475;
+
+/// How far a coach trusts the numbers over the real habit, by his game
+/// management and boldness (fourth downs and tries).
+fn follow_share(gm: f64, agg: f64) -> f64 {
+    clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45)
 }

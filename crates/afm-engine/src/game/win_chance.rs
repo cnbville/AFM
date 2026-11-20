@@ -287,6 +287,31 @@ fn warning_stop(p: &Params, half_left: f64) -> f64 {
 /// The chances of the drive on the field (`half_left` and `game_left`
 /// seconds left). The split of its points comes from `probe` (the spot or
 /// one further back, see `chance`), the clock from the real spot.
+/// A shot at the end zone on a half's last snap, as the engine throws it
+/// (engine gaps item 15), by the yards to the goal line: fades from inside
+/// 30 yards (on the NFL test league 0.12 from 3 yards out, 0.07 from 6,
+/// 0.18 from 10, 0.15 from 20 and 0.13 from 28, `play_trace` 400 snaps
+/// each; this model had 0.55 × e^(-yards / 14), 0.44 from 3 yards; refit
+/// it when the red zone changes, engine gaps item 26), a Hail Mary from
+/// there to where the level's typical arm gets
+/// the ball to the goal line from seven yards back (`longest_throw`: about
+/// one time in eleven from 30-50 yards out, `match_check nfl 2000` on seeds
+/// 1 and 2), falling away over the ten yards either side of that, and the
+/// laterals past it (proposed, not confirmed).
+pub fn last_shot(level: Level, yards: f64) -> f64 {
+    if yards < 30.0 {
+        return 0.13 - 0.001 * yards;
+    }
+    let arm = super::synthetic::typical(level, crate::positions::Position::QB, crate::attributes::Attr::ArmStrength);
+    let reach = super::scrimmage::longest_throw(level, arm) - 7.0;
+    (HAIL_SHOT * clamp((reach + 2.0 - yards) / 12.0, 0.0, 1.0)).max(LATERALS_SHOT)
+}
+
+/// The Hail Mary's and the laterals' touchdown chance in `last_shot`
+/// (proposed, not confirmed).
+const HAIL_SHOT: f64 = 0.10;
+const LATERALS_SHOT: f64 = 0.01;
+
 fn drive(p: &Params, s: &State, half_left: f64, game_left: f64, probe: f64, pace: Pace) -> Drive {
     let yl = clamp(probe, 0.5, 99.5);
     let real = clamp(s.yl, 0.5, 99.5);
@@ -338,9 +363,8 @@ fn drive(p: &Params, s: &State, half_left: f64, game_left: f64, probe: f64, pace
     let gap = |n: f64| 6.0 * (n - 1.0) + 16.0 * (n - 1.0 - to).max(0.0);
     let ft = if snaps_td > 1.0 { in_time(half_left, gap(snaps_td)) } else { 1.0 };
     let ff = if snaps_fg > 1.0 { in_time(half_left, gap(snaps_fg)) } else { 1.0 };
-    // A shot at the end zone (a Hail Mary from midfield lands about one
-    // time in twenty).
-    let shot = if half_left > 0.0 { 0.55 * (-real / 14.0).exp() } else { 0.0 };
+    // A shot at the end zone, as the engine throws it (`last_shot`).
+    let shot = if half_left > 0.0 { last_shot(p.level, real) } else { 0.0 };
     let td_c = (td * ft).max(shot.min(td));
     // Given no touchdown, a side short of time kicks once it gets to
     // range: from outside it has to get there first.

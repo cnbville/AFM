@@ -29,6 +29,8 @@ fn sit(down: u8, togo: f64, yl: f64) -> Situation {
         college: false,
         lean: 0.0,
         weather: 0.0,
+        half_go: false,
+        fourth: Default::default(),
     }
 }
 

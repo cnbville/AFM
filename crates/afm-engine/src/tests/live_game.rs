@@ -127,6 +127,10 @@ fn a_timeout_stops_the_clock_and_the_snap_asks_again() {
     assert_eq!(after.view.timeouts[1], 2);
     assert!(!after.view.running);
     assert!(step.result.log.iter().any(|l| l.2.contains("Your timeout")));
+    // The seconds run off since the play ended come back, less the moment
+    // the sideline takes to call it (minor bug 407); none run off before
+    // the first snap after a kick.
+    assert!(after.view.clock >= before.view.clock, "{} -> {}", before.view.clock, after.view.clock);
 }
 
 /// The officials over many games: close calls, wrong rulings, reviews and

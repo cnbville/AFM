@@ -1944,8 +1944,27 @@ fn gaps_counts(
     // The half's last snap: each call's count, then [snaps, touchdowns].
     let mut last: BTreeMap<String, f64> = BTreeMap::new();
     let mut last_n = [0.0f64; 2];
+    // Laterals (item 16): passes thrown with 5 s or less left in the
+    // fourth quarter from 40+ yards out, tied or down 1-8, and those with
+    // a lateral.
+    let mut lat = [0.0f64; 2];
+    // Hail Marys (item 15) by yards out (under 40, 40s, 50s, 60s, 70+):
+    // [snaps, touchdowns, interceptions], for the win chance's credit.
+    let mut hail = [[0.0f64; 3]; 5];
     // Points in the last 2:00 of the second and fourth quarters.
     let mut late = [0.0f64; 2];
+    // Timeouts in the last 4:00 of the second and fourth quarters (engine
+    // gaps item 17): [Q2 defense, Q2 offense, Q4 defense, Q4 offense], and
+    // the games with a defensive one in the second quarter's.
+    let mut tos = [0.0f64; 4];
+    let mut to_games = 0.0f64;
+    // Out of bounds (item 18): [designed runs, out, catches, out] by the
+    // side ahead in the last 5:00, then in the first three quarters.
+    let mut oob = [[0.0f64; 4]; 2];
+    // AI fakes (item 21): [fake punts, converted, fake field goals,
+    // converted]; snaps at 0:00 (item 22, untimed downs).
+    let mut fakes = [0.0f64; 4];
+    let mut untimed = 0.0f64;
     let mut ot_games = 0.0f64;
     let mut margins: Vec<i32> = Vec::new();
     // The kicking game (lane EG3): kickoff returns of 40+, punt returns of
@@ -1966,6 +1985,26 @@ fn gaps_counts(
             ot_games += 1.0;
         }
         margins.push((r.stats.score[0] - r.stats.score[1]).abs());
+        let mut q2_def_to = false;
+        for w in r.stats.plays.windows(2) {
+            let (a, b) = (&w[0], &w[1]);
+            let (Some(ta), Some(tb)) = (a.timeouts, b.timeouts) else { continue };
+            if a.quarter != b.quarter || !(b.quarter == 2 || b.quarter == 4) || b.clock > 240.0 {
+                continue;
+            }
+            for k in 0..2 {
+                if tb[k] < ta[k] {
+                    let used = (ta[k] - tb[k]) as f64;
+                    let def = k != b.offense;
+                    let i = if b.quarter == 2 { 0 } else { 2 } + if def { 0 } else { 1 };
+                    tos[i] += used;
+                    q2_def_to |= def && b.quarter == 2;
+                }
+            }
+        }
+        if q2_def_to {
+            to_games += 1.0;
+        }
         for (qi, qs) in r.stats.quarters.iter().enumerate() {
             q[qi.min(4)] += (qs[0] + qs[1]) as f64;
         }
@@ -2229,6 +2268,52 @@ fn gaps_counts(
                 }
                 _ => {}
             }
+            // Out of bounds by the side ahead late, against the first three
+            // quarters: designed runs (no kneels or sneaks) and catches.
+            if !p.nullified && matches!(p.kind, PT::Run | PT::Pass) && !p.scramble {
+                let ahead_late = p.quarter == 4 && p.clock <= 300.0 && p.score[p.offense] > p.score[1 - p.offense];
+                let w = if ahead_late {
+                    Some(0)
+                } else if p.quarter <= 3 {
+                    Some(1)
+                } else {
+                    None
+                };
+                if let Some(w) = w {
+                    let run = p.kind == PT::Run && !p.call.contains("kneel") && !p.call.contains("sneak");
+                    let catch = p.kind == PT::Pass && p.complete;
+                    let k = if run {
+                        Some(0)
+                    } else if catch {
+                        Some(2)
+                    } else {
+                        None
+                    };
+                    if let Some(k) = k {
+                        oob[w][k] += 1.0;
+                        if p.out_of_bounds {
+                            oob[w][k + 1] += 1.0;
+                        }
+                    }
+                }
+            }
+            if p.call_why.starts_with("a fake punt") && matches!(p.kind, PT::Run | PT::Pass) {
+                fakes[0] += 1.0;
+                fakes[1] += (p.first_down || p.touchdown) as u8 as f64;
+            }
+            if p.call_why.starts_with("a Hail Mary") {
+                let b = ((p.yardline_100 - 30.0) / 10.0).clamp(0.0, 4.0) as usize;
+                hail[b][0] += 1.0;
+                hail[b][1] += p.touchdown as u8 as f64;
+                hail[b][2] += p.interception as u8 as f64;
+            }
+            if p.call_why.starts_with("a fake field goal") && matches!(p.kind, PT::Run | PT::Pass) {
+                fakes[2] += 1.0;
+                fakes[3] += (p.first_down || p.touchdown) as u8 as f64;
+            }
+            if p.clock <= 0.0 && p.quarter <= 4 && !matches!(p.kind, PT::ExtraPoint | PT::TwoPoint | PT::NoPlay) {
+                untimed += 1.0;
+            }
             // The half's last snap from scrimmage or a kick, 5 s or less:
             // every second-quarter one, and the fourth quarter's when tied or
             // down 1-8.
@@ -2241,6 +2326,10 @@ fn gaps_counts(
                     last_n[0] += 1.0;
                     if p.touchdown {
                         last_n[1] += 1.0;
+                    }
+                    if p.quarter == 4 && p.kind == PT::Pass && p.yardline_100 >= 40.0 {
+                        lat[0] += 1.0;
+                        lat[1] += (p.laterals > 0) as u8 as f64;
                     }
                 }
             }
@@ -2504,9 +2593,44 @@ fn gaps_counts(
         last_n[0],
         last_n[1] / last_n[0].max(1.0)
     );
+    for (b, h) in hail.iter().enumerate() {
+        println!(
+            "  Hail Marys {}: {} snaps, TD {:.3}, INT {:.3}",
+            ["under 40 out", "40-49 out", "50-59 out", "60-69 out", "70+ out"][b],
+            h[0],
+            h[1] / h[0].max(1.0),
+            h[2] / h[0].max(1.0)
+        );
+    }
+    println!("  Q4 passes from 40+ out with a lateral {:.3} of {} (real 0.22 of 74)", lat[1] / lat[0].max(1.0), lat[0]);
     for (k, v) in &last {
         println!("  {k:<28} {:.3}", v / last_n[0].max(1.0));
     }
+    let g = results.len() as f64;
+    println!(
+        "timeouts a game, last 4:00: Q2 defense {:.3} offense {:.3}, Q4 defense {:.3} offense {:.3}; games with a Q2 defensive one {:.3} (real 1.346 1.544 1.834 0.773; 0.748)",
+        tos[0] / g,
+        tos[1] / g,
+        tos[2] / g,
+        tos[3] / g,
+        to_games / g
+    );
+    let sh = |a: f64, b: f64| a / b.max(1.0);
+    println!(
+        "out of bounds, ahead in the last 5:00: designed runs {:.3}, catches {:.3}; first three quarters {:.3}, {:.3} (real 0.023 0.147; 0.058 0.213)",
+        sh(oob[0][1], oob[0][0]),
+        sh(oob[0][3], oob[0][2]),
+        sh(oob[1][1], oob[1][0]),
+        sh(oob[1][3], oob[1][2])
+    );
+    println!(
+        "fake punts {:.4} a team game, converted {:.3}; fake field goals {:.4}, converted {:.3}; untimed snaps at 0:00 one in {:.0} games (real 0.0361 0.551; 0.0044 0.083; one in 68)",
+        fakes[0] / tg,
+        sh(fakes[1], fakes[0]),
+        fakes[2] / tg,
+        sh(fakes[3], fakes[2]),
+        g / untimed.max(1.0)
+    );
 }
 
 /// AFM_GAPS=1, lane EG5 (each level's rule book and the flags): every foul
