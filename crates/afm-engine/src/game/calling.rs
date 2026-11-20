@@ -2589,8 +2589,16 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, level: Level, fg_make: f64, r
     // Caution: what a coach needs to see before he goes for it.
     let margin = 0.06 * (11.0 - agg) + 0.03 * (11.0 - gm) + 0.35;
     let noise = rng.normal(0.0, 0.5 * (1.3 - gm / 20.0));
-    let best_kick =
-        if ev_fg > ev_punt && fg_make > 0.3 { (FourthDown::FieldGoal, ev_fg) } else { (FourthDown::Punt, ev_punt) };
+    // A long miss costs a coach more than its points: past 50 yards he wants
+    // the kick to beat the punt by more the longer it is, a bold coach less
+    // (`LONG_KICK_CAUTION`; engine gaps item 11).
+    let kick_yards = y + super::flow::kick_add();
+    let caution = LONG_KICK_CAUTION * (kick_yards - 50.0).max(0.0) * clamp(1.5 - agg / 20.0, 0.5, 1.5);
+    let best_kick = if ev_fg > ev_punt + caution && fg_make > 0.3 {
+        (FourthDown::FieldGoal, ev_fg)
+    } else {
+        (FourthDown::Punt, ev_punt)
+    };
     // Real coaches still mostly kick: the real go rate as a habit. In the
     // NFL it is the rate outside the late window the last line fills itself
     // (nflverse 2021-2025: 0.18 of the real 1.46 tries a team game came in
@@ -2619,6 +2627,33 @@ pub fn fourth_values(sit: &Situation, fg_make: f64) -> (f64, f64, f64, f64) {
     fourth_ev_read(sit.yardline_100, sit.togo, fg_make, sit.college, sit.fourth)
 }
 
+/// How much more than the punt a long field goal must be worth to a coach
+/// of average boldness, in points a yard past 50: real NFL coaches kick from
+/// their 39-41 a quarter of the time and punt a third (nflverse 2024-25,
+/// outside a half's last two minutes), where the expected points say kick;
+/// the coach's own aggressiveness scales it from half to one and a half
+/// (proposed, not confirmed).
+pub const LONG_KICK_CAUTION: f64 = 0.04;
+
+/// Where a punt from `y` yards out leaves the other team, as its distance
+/// to the goal: a 41-yard net from deep in his end; from their side of
+/// midfield the punter pins them, so they start about 88 yards out (nflverse
+/// 2024-25: 88 from the 40-44, 87 from the 45-54, 84 from the 55-59). It
+/// was a touchback from inside their 41 and their 8 from the 41-49, so a
+/// coach valued a punt from their 40 at a touchback and tried the 57-yard
+/// field goal (engine gaps item 11).
+pub fn punt_start(y: f64) -> f64 {
+    punt_start_net(y, 41.0)
+}
+
+/// `punt_start` for a punter whose own net is `net` yards (engine gaps
+/// item 20: `FourthRead::punt`, his level's gross punt less the cost,
+/// moved by his leg), pinned at their 12 at every level (proposed, not
+/// confirmed).
+pub fn punt_start_net(y: f64, net: f64) -> f64 {
+    100.0 - (y - net).max(12.0)
+}
+
 /// `fourth_values` from the spot alone (yards to the goal, yards to go):
 /// also what the morning-after bots read your calls with (lane 8). Below
 /// the NFL it reads the college table.
@@ -2636,9 +2671,9 @@ pub fn fourth_ev_read(y: f64, togo: f64, fg_make: f64, college: bool, read: Four
     let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };
     let go_fail = -ep(1, 10.0, 100.0 - y);
     let ev_go = conv * go_ok + (1.0 - conv) * go_fail;
-    // Where the opponent starts after the punt, as its distance to the goal.
-    let land = y - read.punt;
-    let opp_punt = if land < 0.0 { 80.0 } else { 100.0 - land.max(8.0) };
+    // Where the opponent starts after the punt, as its distance to the goal:
+    // the punter's own net, pinned at their 12 (`punt_start_net`).
+    let opp_punt = punt_start_net(y, read.punt);
     let ev_punt = -ep(1, 10.0, opp_punt.min(99.0));
     // A miss gives them the ball back from the level's spot (or the 20).
     let opp_miss = (100.0 - y - read.miss_back).min(80.0);

@@ -1299,6 +1299,12 @@ pub struct Sim<'a> {
     pub loose: Option<Loose>,
     /// The fumble rules on this play.
     pub fumble_rule: FumbleSnap,
+    /// How much more often a beaten blocker grabs on this play than on a
+    /// scrimmage down (1): on a return in space (bug 403, `kicking::run_return`).
+    pub grab: f64,
+    /// How much more often a blocker on a return throws a block in the
+    /// back than on a scrimmage down (bug 403; 1.0 on every snap).
+    pub ibb: f64,
     /// The man who goes on with his play when he picks up his own fumbled
     /// snap behind the line: the quarterback, until he hands off or throws.
     pub resume: Option<usize>,
@@ -1411,21 +1417,16 @@ const STAY_IN: f64 = 2.5;
 /// rather than take him down in bounds (minor bug 141, was 6).
 const PUSH_OUT: f64 = 8.0;
 
-/// How far a free defender in the open field can reach or lunge for the
-/// ball carrier on a return. (2.2 before, and 1.6 on returns: runners
-/// slipped past squared-up defenders untouched, so nine in ten runs past 20
-/// yards went past 40 against two in ten real, and long touchdowns ran near
-/// twice real; proposed, not confirmed.)
-pub const OPEN_REACH: f64 = 2.5;
-
 /// The same reach on scrimmage plays: arm's length and a lunge step. At
 /// 2.5 yards, a full dive, the nearest defender tackled a receiver at the
 /// catch from up to three yards away, so NFL yards after the catch ran 4.3
 /// a catch against the real 5.2 (nflverse 2021-2025), short at every
 /// depth, and yards a carry 3.9 against 4.5 (minor bug 162; 6,000
-/// `match_check` games: 4.8 and 4.4 at 2.0). Returns keep `OPEN_REACH`,
-/// which minor bug 139's return fixes were measured on (proposed, not
-/// confirmed).
+/// `match_check` games: 4.8 and 4.4 at 2.0). Returns read it too (engine
+/// gaps item 13): they kept a 2.5-yard full dive (`OPEN_REACH`, from minor
+/// bug 139), so the nearest cover man reached every returner who broke the
+/// first wave and NFL kickoff returns of 40+ ran 1.6% against the real 5%
+/// (proposed, not confirmed).
 pub const SCRIMMAGE_REACH: f64 = 2.0;
 
 /// A block in space holds a defensive back only while the runner comes at
@@ -2860,7 +2861,7 @@ impl<'a> Sim<'a> {
                 let rush =
                     if e.pass { dd.a(Attr::PowerRush).max(dd.a(Attr::FinesseRush)) } else { dd.a(Attr::BlockShedding) };
                 let beat = 0.5 * (rush + dd.a(Attr::HandUse)) - 0.5 * (tech + bb.a(Attr::HandUse));
-                let p = 0.044 * (1.7 - disc / 14.0) * clamp(1.0 + 0.012 * beat, 0.5, 1.6);
+                let p = 0.044 * (1.7 - disc / 14.0) * clamp(1.0 + 0.012 * beat, 0.5, 1.6) * self.grab;
                 if self.rng.chance(p) {
                     self.eng[k].held = true;
                     self.eng[k].w = 0.35;

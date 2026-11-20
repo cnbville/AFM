@@ -7,7 +7,7 @@ use super::calling::{self, FourthDown, Memory, Situation};
 use super::experiment;
 use super::fouls;
 use super::garbage;
-use super::geom::{FieldGuard, goal, mid, v2};
+use super::geom::{FieldGuard, V2, goal, mid, v2};
 use super::kicking::{self, KickTeams};
 use super::live::{
     self, Ask, CloseCall, Control, Input, Officiating, Pending, Replay, Reviewer, StopCtx, Tempo, TossChoice, View,
@@ -16,7 +16,7 @@ use super::playbook::*;
 use super::roster::*;
 use super::rules::{FirstDownStop, Overtime, Rules};
 use super::scrimmage::{self, DSlot, KeepSnap, Snap, SnapResult};
-use super::sim::{ClockRun, Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, Mood};
+use super::sim::{ClockRun, Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, LooseEnd, Mood};
 use super::stats::*;
 use super::tables;
 use crate::attributes::Attr;
@@ -2935,7 +2935,23 @@ impl<'a> Game<'a> {
         self.running = false;
         self.after_turnover = false;
         let kick_x = if onside { goal() - kr.spot } else { kr.spot };
-        if kr.recovered_by_kicking && kick_x >= goal() {
+        let flag = if kr.returned && !onside { self.return_fouls(&kr, &mut r, team, rec) } else { None };
+        if let Some(ReturnFlag::Safety(why)) = &flag {
+            r.why = why.clone();
+            self.poss = rec;
+            self.kick_safety(r, team, rec);
+            return;
+        }
+        if let Some(ReturnFlag::Spot(x, why)) = flag {
+            self.poss = rec;
+            self.x = x.clamp(1.0, goal() - 1.0);
+            r.why = format!(
+                "Returned {:.0} {} by #{}. {why}",
+                kr.return_yards,
+                crate::world::folk::noun(kr.return_yards.round_ties_even() as i64, "yard"),
+                kr.returner.unwrap_or(0)
+            );
+        } else if kr.recovered_by_kicking && kick_x >= goal() {
             // Fumbled in the returner's own end zone and recovered there by
             // the kicking team: their touchdown.
             self.poss = team;
@@ -3213,7 +3229,11 @@ impl<'a> Game<'a> {
                 self.stats.plays.push(r);
             }
             let mut r = self.new_record(PlayType::ExtraPoint);
-            if self.kick(team, dist, 0.1, &mut r).made {
+            let (fg, live) = self.kick(team, dist, 0.1, &mut r);
+            if let Some(b) = &live {
+                self.blocked_try(team, b, &mut r);
+            }
+            if fg.made {
                 self.add_points(team, 1);
             }
             self.stats.book(&r);
@@ -3229,7 +3249,6 @@ impl<'a> Game<'a> {
         self.next = Next::Kickoff { team, from, onside: false };
     }
 
-    /// A field goal or extra point try. Returns whether it was good.
     /// The field goal and try units: the kicker, the long snapper, the
     /// holder, the wall and the other side's rush. The unit is 11: the
     /// kicker, the holder and a nine-man wall with the long snapper in the
@@ -3263,22 +3282,43 @@ impl<'a> Game<'a> {
         (k, sn, h, protect_on, rush_on)
     }
 
-    fn kick(&mut self, team: usize, dist: f64, pressure: f64, r: &mut PlayRecord) -> kicking::FieldGoal {
-        let (k, sn, h, protect_on, rush_on) = self.fg_units(team);
+    /// A field goal or extra point try: the kick, and the live ball when
+    /// it was blocked (engine gaps item 12).
+    fn kick(
+        &mut self,
+        team: usize,
+        dist: f64,
+        pressure: f64,
+        r: &mut PlayRecord,
+    ) -> (kicking::FieldGoal, Option<kicking::LiveBlock>) {
+        // The rush's call (engine gaps item 12): all out for the block with
+        // a defensive back in an overload off one edge, or a safe rush.
+        let xp = r.kind == PlayType::ExtraPoint;
+        let all_out = self.rng.chance(if xp { kicking::XP_ALL_OUT } else { kicking::fg_all_out(dist) });
+        let (k, sn, h, protect_on, mut rush_on) = self.fg_units(team);
         let side = &self.sides[team];
         let ps = &side.team.players;
         let snapper = &ps[sn];
         let holder = &ps[h];
+        // The wall with the snapper first, as the rush reads it.
+        let protect: Vec<usize> = std::iter::once(sn).chain(protect_on.iter().copied().filter(|&i| i != sn)).collect();
         let opp = &self.sides[1 - team];
-        let protect = kicking::kick_unit_strength(ps, &protect_on, false);
-        let rush = kicking::kick_unit_strength(&opp.team.players, &rush_on, true);
+        // The rest: two corners and two safeties for a fake, one of them in
+        // the rush on an all-out call.
+        let mut used2 = rush_on.clone();
+        let mut back: Vec<usize> =
+            opp.pick(Position::CB, 2, &mut used2).into_iter().chain(opp.pick(Position::S, 2, &mut used2)).collect();
+        if all_out && !back.is_empty() {
+            rush_on.push(back.remove(0));
+        }
         let along = self.wind_along(team);
+        let line =
+            kicking::KickLine { kick: ps, rush: &opp.team.players, protect: &protect, rushers: &rush_on, all_out };
         let fg = kicking::field_goal(
             &ps[k],
             snapper,
             holder,
-            rush,
-            protect,
+            &line,
             dist,
             pressure,
             kicking::season_form(ps[k].id, self.s.year),
@@ -3296,10 +3336,206 @@ impl<'a> Game<'a> {
         r.why = fg.why.clone();
         r.on_field = [
             protect_on.iter().map(|&i| ps[i].id).chain([ps[h].id, ps[k].id]).collect(),
-            rush_on.iter().map(|&i| opp.team.players[i].id).collect(),
+            rush_on.iter().chain(&back).map(|&i| opp.team.players[i].id).collect(),
         ];
         r.duration = 3.0;
-        fg
+        // A blocked kick is a live ball (engine gaps item 12): everyone
+        // where the rush left him, in the kicking team's frame.
+        let mut live = None;
+        if let Some(b) = &fg.block {
+            let los = goal() - (dist - kick_add());
+            let spot = los - kicking::HOLD_DEPTH;
+            let m = mid();
+            let mut men0 = vec![(k, v2(spot - 0.5, m - 0.4)), (h, v2(spot, m + 0.5)), (sn, v2(los - 0.3, m))];
+            let mut wall: Vec<usize> = protect[1..].to_vec();
+            wall.sort_by(|&a, &b| ps[b].weight.total_cmp(&ps[a].weight));
+            for (n, &i) in wall.iter().enumerate() {
+                let lane = (1 + n / 2) as f64 * if n % 2 == 0 { -1.0 } else { 1.0 };
+                men0.push((i, v2(los - 0.4, m + lane)));
+            }
+            let mut men1: Vec<(usize, V2)> =
+                rush_on.iter().enumerate().map(|(j, &i)| (i, v2(los - b.depth[j], m + b.lane[j]))).collect();
+            for (n, &i) in back.iter().enumerate() {
+                let at = match n {
+                    0 => v2(los + 5.0, m - 9.0),
+                    1 => v2(los + 5.0, m + 9.0),
+                    2 => v2(los + 12.0, m - 3.0),
+                    _ => v2(los + 12.0, m + 3.0),
+                };
+                men1.push((i, at));
+            }
+            let mood = self.return_mood(team, 1 - team, false);
+            let try_ends = xp && !self.defense_scores_try();
+            let record = self.recording();
+            let set = kicking::LiveSetup {
+                teams: [ps, &opp.team.players],
+                men: [men0, men1],
+                blocker: b.by,
+                ball: v2(spot + b.at, m + b.across),
+                punt: false,
+                try_ends,
+                energy: [&side.energy, &opp.energy],
+                hurt: [&side.hurt, &opp.hurt],
+                mood,
+                los,
+            };
+            live = Some(kicking::blocked_live(&set, &self.s.rules, &self.s.cond, &self.crew, record, &mut self.rng));
+        }
+        (fg, live)
+    }
+
+    /// Whether the defense scores two by taking a try the other way: the
+    /// NCAA from 1988, the NFL from 2015, never in high school (where the
+    /// try ends when the defense has the ball).
+    fn defense_scores_try(&self) -> bool {
+        match self.s.rules.level {
+            Level::HS => false,
+            Level::NFL => self.s.year >= 2015,
+            _ => self.s.year >= 1988,
+        }
+    }
+
+    /// A blocked try (engine gaps item 12): the defense's two when it takes
+    /// it back (by the book), the kicking team's two when it runs it in, a
+    /// one-point safety for the defense when the kicking team is downed in
+    /// its own end zone (not in high school). Fills in the play.
+    fn blocked_try(&mut self, team: usize, b: &kicking::LiveBlock, r: &mut PlayRecord) {
+        let d = 1 - team;
+        self.blocked_notes(team, b, r);
+        match b.end {
+            LooseEnd::Touchdown(1) if self.defense_scores_try() => {
+                r.turnover = true;
+                r.defense_td = true;
+                r.why = format!("{} Returned the other way for the defense's two.", r.why);
+                self.add_points(d, 2);
+            }
+            LooseEnd::Touchdown(0) => {
+                r.why = format!("{} Picked up and run in for two.", r.why);
+                self.add_points(team, 2);
+            }
+            LooseEnd::Safety(0) if self.s.rules.level != Level::HS => {
+                r.safety = true;
+                r.why = format!("{} Downed in the end zone: one point for the defense.", r.why);
+                self.add_points(d, 1);
+            }
+            _ => {}
+        }
+    }
+
+    /// The live play's notes on the record (a blocked kick).
+    fn blocked_notes(&mut self, team: usize, b: &kicking::LiveBlock, r: &mut PlayRecord) {
+        if let Some(f) = &b.frames {
+            self.res.frames.push((r.n, f.clone()));
+        }
+        r.duration = 1.4 + b.duration;
+        r.tacklers = b.notes.tacklers.clone();
+        r.missed_tackles = b.notes.missed.clone();
+        r.injuries = b.notes.injuries.clone();
+        r.recovered = b.by;
+        if r.kind != PlayType::Punt {
+            r.return_yards = b.ran;
+        }
+        self.apply_injuries(&b.notes.injuries, [team, 1 - team]);
+    }
+
+    /// A blocked field goal or punt played out (engine gaps item 12; minor
+    /// bug 408), in the kicking team's frame, `los` its line. Behind the
+    /// line it is like a fumble: the blocking team takes over where it
+    /// ended or scores; the kicking team keeps it with the line to gain,
+    /// takes the next down on an earlier down, and gives it up on downs on
+    /// fourth. Past the line it is a kick again: the receiving team's ball
+    /// where it ended, unless a receiver touched it there and the kicking
+    /// team fell on it (the kicking team's first down). Books the play.
+    fn blocked_kick(&mut self, team: usize, los: f64, b: kicking::LiveBlock, mut r: PlayRecord) {
+        let d = 1 - team;
+        self.blocked_notes(team, &b, &mut r);
+        self.tick(r.duration);
+        self.running = false;
+        let below = self.below_nfl();
+        let over = |me: &mut Self, mut r: PlayRecord, x_r: f64, why: &str| {
+            let x_r = x_r.clamp(1.0, goal() - 1.0);
+            r.turnover = true;
+            r.why = format!("{} {why}", r.why);
+            r.epa = -ep_at(below, 1, 10.0, goal() - x_r) - r.ep_before;
+            me.stats.book(&r);
+            me.stats.plays.push(r);
+            me.ball_y = mid();
+            me.change_possession(x_r, false);
+        };
+        let (side, x) = match b.end {
+            LooseEnd::Touchdown(s) => {
+                let scorer = if s == 0 { team } else { d };
+                r.touchdown = true;
+                r.turnover = s == 1;
+                r.defense_td = s == 1;
+                r.why = format!(
+                    "{} {}",
+                    r.why,
+                    if s == 1 { "Returned for a touchdown." } else { "Picked up and run in for a touchdown." }
+                );
+                r.epa = if s == 0 { 6.95 } else { -6.95 } - r.ep_before;
+                self.stats.book(&r);
+                self.stats.plays.push(r);
+                self.add_points(scorer, 6);
+                self.poss = scorer;
+                self.drive_start_poss = team;
+                self.next = Next::Pat(scorer);
+                return;
+            }
+            LooseEnd::Safety(s) => {
+                r.why = format!("{} Downed in the end zone for a safety.", r.why);
+                if s == 0 {
+                    self.kick_safety(r, d, team);
+                } else {
+                    self.kick_safety(r, team, d);
+                }
+                return;
+            }
+            LooseEnd::Touchback(s) => {
+                (s, if s == 0 { self.rules().touchback } else { goal() - self.rules().touchback })
+            }
+            LooseEnd::Ball { side, x } => (side, x),
+        };
+        if side == 1 {
+            return over(self, r, goal() - x, "The blocking team has it.");
+        }
+        if b.past {
+            let at = b.rec_x.unwrap_or(x);
+            if b.touched == 1 {
+                // A receiver touched it past the line: the kicking team's ball.
+                r.why = format!("{} Touched past the line and recovered by the kicking team: a first down.", r.why);
+                r.epa = ep_at(below, 1, 10.0, goal() - at) - r.ep_before;
+                self.stats.book(&r);
+                self.stats.plays.push(r);
+                self.x = at.clamp(1.0, goal() - 1.0);
+                self.down = 1;
+                self.togo = 10.0f64.min(goal() - self.x);
+                self.next = Next::Scrimmage;
+                return;
+            }
+            return over(self, r, goal() - at, "Past the line, the receiving team's ball.");
+        }
+        let gained = x - los;
+        // A down left in this league's book (three in the CFL): the next
+        // down from where he came up with it, else over on downs.
+        if gained >= self.togo || self.down < self.rules().downs() {
+            let first = gained >= self.togo;
+            r.why = format!(
+                "{} Recovered by the kicking team{}.",
+                r.why,
+                if first { " past the line to gain" } else { "" }
+            );
+            let (down, togo) = if first { (1, 10.0f64.min(goal() - x)) } else { (self.down + 1, self.togo - gained) };
+            r.epa = ep_at(below, down, togo, goal() - x) - r.ep_before;
+            self.stats.book(&r);
+            self.stats.plays.push(r);
+            self.x = x.clamp(1.0, goal() - 1.0);
+            self.down = down;
+            self.togo = togo;
+            self.next = Next::Scrimmage;
+            return;
+        }
+        over(self, r, goal() - x, "Recovered by the kicking team short of the line to gain: over on downs.");
     }
 
     // ------------------------------------------------------------ scrimmage
@@ -3795,15 +4031,18 @@ impl<'a> Game<'a> {
         choice
     }
 
+    /// His staff's range for the kicker today: six yards inside where his
+    /// leg carries the ball in this air and this wind, with the wind along
+    /// his kick (engine gaps item 14; it read his Kick Power alone).
     fn kicker_range(&self, team: usize) -> f64 {
         let side = &self.sides[team];
         let p = &side.team.players[side.fg_kicker()];
-        38.0 + 0.3 * p.a(Attr::KickPower) - 4.0
+        kicking::fg_reach(p, &self.s.cond, self.wind_along(team)) - 6.0
     }
 
     fn fg_make_estimate(&self, team: usize, dist: f64) -> f64 {
         let side = &self.sides[team];
-        fg_make(&side.team.players[side.fg_kicker()], dist)
+        fg_make_in(&side.team.players[side.fg_kicker()], dist, &self.s.cond, self.wind_along(team))
     }
 
     fn should_kneel(&self) -> bool {
@@ -3932,7 +4171,12 @@ impl<'a> Game<'a> {
             self.log(1 - o, format!("Timeout to ice the kicker ({left} left)."));
         }
         let pressure: f64 = pressure.min(1.0);
-        let fg = self.kick(o, dist, pressure, &mut r);
+        let (fg, live) = self.kick(o, dist, pressure, &mut r);
+        if let Some(b) = live {
+            let los = self.x;
+            self.blocked_kick(o, los, b, r);
+            return;
+        }
         let good = fg.made;
         self.tick(r.duration);
         self.running = false;
@@ -4220,6 +4464,110 @@ impl<'a> Game<'a> {
         (kick_on, ret_on, sn)
     }
 
+    /// The flags on a kick's return (bug 403, engine gaps lane EG3): the
+    /// return runs on the same blocks and tackles as a scrimmage play, so it
+    /// draws the same fouls (`kicking::run_return`), and every level's book
+    /// marks them off the same way, as fouls after the change of
+    /// possession. One a team. The receiving team's (a hold or a block in
+    /// the back on the return) from the spot of the foul, or from where the
+    /// return ended if that is short of it, half the distance to its goal
+    /// at most, and a safety from its own end zone; it keeps the ball, and
+    /// a score on the return comes off. The kicking team's (a face mask or
+    /// a late hit on the tackle) from where the return ended, and a score
+    /// stands. Both: they offset, and the receiving team keeps the ball at
+    /// the spot of its foul or where the return ended. A man thrown out
+    /// sits whether the flag is taken or not, the league office reads the
+    /// personal fouls for its fines, and a big hit sparks his side as on
+    /// any snap (`fire_after`). `kick` and `ret` are the teams; the spot is
+    /// in the receiving team's frame.
+    fn return_fouls(
+        &mut self,
+        kr: &kicking::KickResult,
+        r: &mut PlayRecord,
+        kick: usize,
+        ret: usize,
+    ) -> Option<ReturnFlag> {
+        let mut fouls = kr.notes.fouls.clone();
+        fouls.dedup_by_key(|f| f.side);
+        let theirs = fouls.iter().find(|f| f.side == 0).cloned();
+        let ours = fouls.iter().find(|f| f.side == 1).cloned();
+        let end = if kr.return_td { goal() } else { kr.spot };
+        let mut out = None;
+        if kr.recovered_by_kicking {
+            // The kicking team came up with the ball: it declines them.
+            for f in &fouls {
+                r.penalties.push((f.kind, if f.side == 0 { ret } else { kick }, f.player, 0.0, false));
+            }
+        } else if let (Some(a), Some(b)) = (&theirs, &ours) {
+            let x = a.at.min(end).max(1.0);
+            r.penalties.push((a.kind, ret, a.player, 0.0, true));
+            r.penalties.push((b.kind, kick, b.player, 0.0, true));
+            out = Some(ReturnFlag::Spot(x, format!("Offsetting fouls on the return: the ball at the {:.0}.", x)));
+        } else if let Some(f) = theirs {
+            // The receiving team blocks like an offense, the coverage
+            // tackles like a defense (the level's book, `fouls::penalty`).
+            let yds = fouls::penalty(self.s.rules.foul_book(), self.s.rules.year, f.kind, 0, false).yards;
+            let spot = f.at.min(end);
+            if spot <= 0.0 {
+                r.penalties.push((f.kind, ret, f.player, 0.0, true));
+                out = Some(ReturnFlag::Safety(format!(
+                    "Flag on the return: {} in the end zone, a safety.",
+                    f.kind.name()
+                )));
+            } else {
+                let x = spot - yds.min(spot / 2.0);
+                r.penalties.push((f.kind, ret, f.player, spot - x, true));
+                out = Some(ReturnFlag::Spot(
+                    x,
+                    format!(
+                        "Flag on the return: {} on the receiving team, the ball back to the {:.0}.",
+                        f.kind.name(),
+                        x
+                    ),
+                ));
+            }
+            self.edge_hit(ret, f.player, -1.0);
+        } else if let Some(f) = ours {
+            let yds = fouls::penalty(self.s.rules.foul_book(), self.s.rules.year, f.kind, 1, false).yards;
+            if kr.return_td {
+                r.penalties.push((f.kind, kick, f.player, 0.0, false));
+            } else {
+                let x = (end + yds.min((goal() - end) / 2.0)).min(goal() - 1.0);
+                r.penalties.push((f.kind, kick, f.player, x - end, true));
+                out = Some(ReturnFlag::Spot(
+                    x,
+                    format!("Flag on the coverage: {}, 15 yards added on to the {:.0}.", f.kind.name(), x),
+                ));
+                self.edge_hit(kick, f.player, -1.0);
+            }
+        }
+        let accepted = r.penalties.iter().any(|p| p.4);
+        r.fire = kr.notes.fire.clone();
+        self.hot_tags(r, kick, ret);
+        self.fire_after(r, kick, ret, accepted);
+        out
+    }
+
+    /// A safety against the receiving team on a kick (a hold in its own end
+    /// zone on the return): two points for the kicking team, and the
+    /// receiving team kicks off from its own 20.
+    fn kick_safety(&mut self, r: PlayRecord, kick: usize, ret: usize) {
+        let mut r = r;
+        r.safety = true;
+        self.add_points(kick, 2);
+        self.stats.book(&r);
+        self.stats.plays.push(r);
+        self.running = false;
+        if self.ot {
+            self.drive_start_poss = ret;
+            self.possession_over(true);
+            if self.over || !self.ot_kickoffs() {
+                return;
+            }
+        }
+        self.next = Next::Kickoff { team: ret, from: 20.0, onside: false };
+    }
+
     fn punt(&mut self) {
         let o = self.poss;
         let d = 1 - o;
@@ -4271,6 +4619,15 @@ impl<'a> Game<'a> {
         }
         r.kicker = Some(kt.kick[p].id);
         r.on_field = [kick_on.iter().map(|&i| kt.kick[i].id).collect(), ret_on.iter().map(|&i| kt.ret[i].id).collect()];
+        // A blocked punt is a live ball (engine gaps item 12; minor bug 408).
+        if let Some(b) = kr.live.clone() {
+            r.blocked = true;
+            r.bad_snap = kr.bad_snap;
+            r.why = "Punt blocked.".into();
+            let los = self.x;
+            self.blocked_kick(o, los, b, r);
+            return;
+        }
         r.kick_distance = kr.distance;
         r.touchback = kr.touchback;
         r.fair_catch = kr.fair_catch;
@@ -4301,6 +4658,24 @@ impl<'a> Game<'a> {
         } else {
             format!("Punt of {:.0} yards, downed.", kr.distance)
         };
+        let flag = if kr.returned { self.return_fouls(&kr, &mut r, o, d) } else { None };
+        match flag {
+            Some(ReturnFlag::Safety(why)) => {
+                r.why = format!("{} {why}", r.why);
+                self.kick_safety(r, o, d);
+                return;
+            }
+            Some(ReturnFlag::Spot(x, why)) => {
+                r.why = format!("{} {why}", r.why);
+                r.epa = -ep_at(self.below_nfl(), 1, 10.0, goal() - x.clamp(1.0, goal() - 1.0)) - r.ep_before;
+                self.stats.book(&r);
+                self.stats.plays.push(r);
+                self.ball_y = mid();
+                self.change_possession(x, false);
+                return;
+            }
+            None => {}
+        }
         if kr.return_td {
             r.touchdown = true;
             r.epa = -6.95 - r.ep_before;
@@ -5469,7 +5844,7 @@ impl<'a> Game<'a> {
                 super::sim::FumbleSnap {
                     book,
                     fumbler_only: book.fourth_down && (self.down >= 4 || self.trying) || book.late && late,
-                    defense_ends: self.trying && self.rules().level == Level::HS,
+                    defense_ends: self.trying && !self.defense_scores_try(),
                 }
             },
         };
@@ -6323,14 +6698,16 @@ impl<'a> Game<'a> {
             }
         }
         // A try scores only as a try (its points are added by `pat`): the
-        // defense scores two by taking it the other way, except in high
-        // school, where the try ends when the defense has the ball.
+        // defense scores two by taking it the other way where its era's book
+        // lets it (the NFL from 2015, college from 1988); in high school and
+        // before those years the try ends when the defense has the ball
+        // (`defense_scores_try`).
         if self.trying {
             r.epa = 0.0;
             if turnover && (scored_td || defense_td) || defense_td {
                 r.turnover = true;
                 r.touchdown = false;
-                r.defense_td = self.rules().level != Level::HS;
+                r.defense_td = self.defense_scores_try();
                 if r.defense_td {
                     self.add_points(d, 2);
                 }
@@ -8103,16 +8480,36 @@ fn same_group(pos: Position, sp: Spot) -> bool {
         || pos == Position::WR && to == Position::CB
 }
 
-/// A kicker's chance to make a field goal from a distance, as his staff
-/// reckons it (also the Plans page's 4th-down chart, update 2 G4).
+/// What the flags on a kick's return leave (bug 403): the receiving team's
+/// ball at this spot in its own frame, or a safety; with the line for the
+/// play's why.
+enum ReturnFlag {
+    Spot(f64, String),
+    Safety(String),
+}
+
+/// A kicker's chance to make a field goal from a distance on an ordinary
+/// day (5 mph across, 60 F), as his staff reckons it: the Plans page's
+/// 4th-down chart (update 2 G4) and the game plan's range.
 pub fn fg_make(p: &GamePlayer, dist: f64) -> f64 {
+    fg_make_in(p, dist, &Conditions::default(), 0.0)
+}
+
+/// A kicker's chance to make a field goal from a distance in the day's
+/// weather, with the wind `along` his kick, as his staff reckons it: the
+/// kick's own spread and reach (`kicking::fg_spread`, `fg_reach`), so the
+/// estimate and the kick move together (engine gaps items 11 and 14; the
+/// estimate had its own wider spread at short range, a longer leg and no
+/// weather). It leaves out what the staff can't see before the kick: his
+/// nerve on the day, his season's form and a bad snap or hold.
+pub fn fg_make_in(p: &GamePlayer, dist: f64, cond: &Conditions, along: f64) -> f64 {
     let acc = super::kicking::fg_accuracy(p, dist);
-    let range = 38.0 + 0.3 * p.a(Attr::KickPower);
-    let sd = (2.95 + 0.012 * (dist - 30.0)) * (1.82f64 - 0.0105 * acc).max(0.55);
+    let reach = super::kicking::fg_reach(p, cond, along);
+    let sd = super::kicking::fg_spread(dist, acc, reach, cond);
     let half = (super::geom::field().posts / dist).atan().to_degrees();
     let z = half / sd;
     let p_line = 1.0 - 2.0 * (1.0 - phi(z));
-    let p_range = phi((range - dist) / 3.0);
+    let p_range = phi((reach - dist) / 3.0);
     p_line * p_range
 }
 
