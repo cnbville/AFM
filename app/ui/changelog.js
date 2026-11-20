@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.666", date: "20 Nov", title: "Engine gaps lane EG1: injuries on every collision, strains and the sideline",
+    notes: [
+      "Injuries now happen the way they do on a real field: linemen get hurt in the trenches, receivers pull hamstrings on deep routes, and a player who gets dinged can come back a few snaps later.",
+      "Every collision can hurt both players: tackles, sacks, blocks, piles and big hits at the catch.",
+      "Strains, pulled hamstrings and torn Achilles tendons happen with nobody touching him, more often on tired legs and on turf.",
+      "A hurt player goes to the sideline and comes back after a few snaps or a series, or he is done for the day.",
+      "Concussions follow the rules of their era, and a player checked for one can return once he is cleared.",
+      "An injury a player finished the game on still keeps him out afterwards.",
+    ],
+  },
+  {
     v: "0.2.664", date: "20 Nov", title: "Receivers who play like themselves",
     notes: [
       "Your receivers' hands, routes and contested-ball skills now decide their games, and a smart quarterback finds the open man instead of just playing it safe.",
