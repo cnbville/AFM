@@ -4864,7 +4864,42 @@ impl<'a> Game<'a> {
         add(o.pick(Position::WR, wrs.len(), &mut used), &wrs, &mut off);
         let tes: Vec<ORole> =
             roles.iter().copied().filter(|r| matches!(r, ORole::TE | ORole::TE2 | ORole::TE3)).collect();
-        add(o.pick_pref(Position::TE, tes.len(), &mut used, gl), &tes, &mut off);
+        let mut te_men = o.pick_pref(Position::TE, tes.len(), &mut used, gl);
+        // A throw drawn up for the best receiving tight end (scheme-fit item
+        // 25): when the group's extra tight ends take receivers' places in
+        // the reads (lane SF2), the staff puts its best receiving tight end
+        // (`scrimmage::receiving_edge`) in the tight ends' place the play
+        // reads first as it feeds its best receiver (`feed_chance`, by his
+        // edge over the man the depth chart puts there; a keyed draw, so the
+        // game's own stream is untouched). By the depth chart alone the
+        // second tight end took the flanker's place, which many concepts
+        // read first, so in 13 personnel he drew 46% of the tight ends'
+        // targets and the first 33% (real 29% and 47%); always putting the
+        // best one there gave the first 60%, and this gives the first 41%
+        // and the second 40% (the test league set firmly to 13, main
+        // a7c9bf6; proposed, not confirmed). A run keeps the depth chart's
+        // places, and so does a throw that reads no tight end past the first.
+        if let PlayKind::Pass(i) = call.kind
+            && tes.len() > 1
+            && te_men.len() == tes.len()
+        {
+            let reads = reads_in(pass_concept(i), &call.formation);
+            let first = (0..tes.len()).filter_map(|k| reads.iter().position(|x| *x == tes[k]).map(|at| (at, k))).min();
+            if reads.iter().any(|r| matches!(r, ORole::TE2 | ORole::TE3))
+                && let Some((_, first)) = first
+            {
+                let level = self.rules().level;
+                let edge = |k: usize| scrimmage::receiving_edge(level, &o.team.players[te_men[k]]);
+                let best = (0..te_men.len()).fold(first, |b, k| if edge(k) > edge(b) { k } else { b });
+                if best != first
+                    && crate::world::season::key_uniform(self.s.seed ^ 0x7E5F_EED0, self.n as u64)
+                        < scrimmage::feed_chance(edge(best) - edge(first))
+                {
+                    te_men.swap(best, first);
+                }
+            }
+        }
+        add(te_men, &tes, &mut off);
         if roles.contains(&ORole::FB) {
             match o.pick_fb(&mut used) {
                 Some(i) => off.push((ORole::FB, i)),
