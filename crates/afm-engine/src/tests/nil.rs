@@ -169,16 +169,19 @@ fn inherited_signees_old_desks_and_screens_keep_their_money() {
     let (mut w, j) = college(true);
     // He signed with the program before your desk existed.
     let class = rec::next_class(&w);
-    // The senior the old staff would have paid the most, so its usual
-    // money is more than nothing (a boy no other school offered is priced
-    // at next to nothing, and the first senior in the list can be one).
+    // The senior the old staff would have paid the least of those it pays
+    // at all, so its usual money is more than nothing (a boy no other
+    // school offered is priced at next to nothing, the first senior in the
+    // list can be one, and one outside its July paid set gets none) and
+    // his waiting deal leaves the class's room as it was.
     let usual_of = |w: &World, i: usize| {
         let (s, c) = crate::world::front_office::college::usual_parts(w, j, w.people[i].player.id);
         s + c
     };
     let k = (0..w.people.len())
         .filter(|&i| w.people[i].stage == Stage::HighSchool && w.people[i].class_of == class)
-        .max_by(|&a, &b| usual_of(&w, a).total_cmp(&usual_of(&w, b)))
+        .filter(|&i| usual_of(&w, i) > 500.0)
+        .min_by(|&a, &b| usual_of(&w, a).total_cmp(&usual_of(&w, b)))
         .unwrap();
     assert!(usual_of(&w, k) > 500.0, "a senior worth the old staff's money: {}", usual_of(&w, k));
     let signee = w.people[k].player.id;
@@ -344,7 +347,10 @@ fn promise_answers(house: bool) {
     let usual = rec::usual_nil_offer(&w, j, i);
     assert!(usual > 1_000.0, "{usual}");
     let commit = w.people[i].cal.commit;
-    let text = set_promise(&mut w, id, Some(10.0 * usual + 1.0e6), None).unwrap();
+    // Far over his usual money, inside your budget (his place in your July
+    // paid set floors it, Cain 2026-11-19).
+    let promise = (10.0 * usual + 1.0e6).min(0.9 * w.programs[j].collective.budget);
+    let text = set_promise(&mut w, id, Some(promise), None).unwrap();
     assert!(text.contains("He'll get back to you by"), "{text}");
     assert!(reaction(&w, id, MoneyKind::Promise).is_none(), "no answer before its hour");
     let now = (w.today, w.played);
@@ -423,6 +429,10 @@ fn a_transfer_weighs_money_by_his_situation() {
 #[test]
 fn double_the_money_moves_a_recruit_more_than_the_dollars_alone() {
     let (mut w, j) = college(true);
+    // Room for double the best offer, which his place in a $20M school's
+    // July paid set floors (Cain 2026-11-19).
+    w.programs[j].collective.budget = 100.0e6;
+    w.programs[j].collective.school = 60.0e6;
     let (i, id) = lone_recruit(&mut w, None);
     let others: Vec<usize> =
         (0..w.programs.len()).filter(|&x| x != j && w.programs[x].division == w.programs[j].division).take(2).collect();

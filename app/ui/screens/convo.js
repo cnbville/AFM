@@ -139,7 +139,7 @@ function cvNow(pp, T) {
     ${(pp.reasons || []).slice(0, 4).map((r) => `<p class="cv-entry"><b>${esc(r.date)}</b> ${esc(ppCap(r.why))}</p>`).join("")}
     ${pp.out ? `<p class="cv-entry"><b>Sitting</b> ${esc(pp.out)}</p>` : ""}${pp.life ? `<p class="cv-entry"><b>At home</b> ${esc(ppCap(pp.life))}</p>` : ""}</div>`;
   const word = (pp.promises || []).length
-    ? `<div class="cv-word"><b>Your word to him</b>${pp.promises.map((p) => `<span>${esc(ppCap(p.what))} ${p.kept === true ? "<i class=\"ok\">Kept</i>" : p.kept === false ? "<i class=\"bad\">Broken</i>" : `<i>Due ${esc(p.due)}</i>`}</span>`).join("")}</div>`
+    ? `<div class="cv-word"><b>Your word to him</b>${pp.promises.map((p) => `<span>${esc(ppCap(p.what))} ${p.quiet ? "<i>Closed</i>" : p.kept === true ? "<i class=\"ok\">Kept</i>" : p.kept === false ? "<i class=\"bad\">Broken</i>" : `<i>Due ${esc(p.due)}</i>`}</span>`).join("")}</div>`
     : "";
   return mood + word;
 }
@@ -148,7 +148,7 @@ function cvSideTab(tab, pp, lead) {
     return `<div class="cv-sec">${pp.trust ? `<p class="cv-kv"><span>Trust</span><b>${esc(ppCap(pp.trust.words))}</b></p>` : ""}${pp.mentor ? `<p class="cv-kv"><span>Mentor</span><b>${cvT(pp.mentor)}</b></p>` : ""}${pp.case ? `<p class="cv-kv"><span>A case</span><b>${esc(pp.case)}</b></p>` : ""}${pp.line ? `<p class="cv-kv"><span>Your line</span><b>${esc(ppCap(pp.line))}</b></p>` : ""}<p><a class="link" data-go="player" data-id="${lead.id}">His full page</a></p></div>`;
   }
   if (tab === "With you") {
-    return `<div class="cv-sec">${(pp.promises || []).length ? pp.promises.map((p) => `<p class="cv-entry"><b>${esc(p.due)}</b> ${esc(ppCap(p.what))} ${p.kept === true ? "<i class=\"ok\">Kept</i>" : p.kept === false ? "<i class=\"bad\">Broken</i>" : ""}</p>`).join("") : '<p class="cv-small">No promises between you.</p>'}</div>`;
+    return `<div class="cv-sec">${(pp.promises || []).length ? pp.promises.map((p) => `<p class="cv-entry"><b>${esc(p.due)}</b> ${esc(ppCap(p.what))} ${p.quiet ? "<i>Closed</i>" : p.kept === true ? "<i class=\"ok\">Kept</i>" : p.kept === false ? "<i class=\"bad\">Broken</i>" : ""}</p>`).join("") : '<p class="cv-small">No promises between you.</p>'}</div>`;
   }
   return `<div class="cv-sec">${(pp.ear || []).length ? pp.ear.map((e) => `<p class="cv-entry"><b>${esc(e.sure)}</b> ${cvT(e.who)}<br><span class="cv-small">${esc(e.what)}</span></p>`).join("") : '<p class="cv-small">Nobody your staff knows of.</p>'}</div>`;
 }
