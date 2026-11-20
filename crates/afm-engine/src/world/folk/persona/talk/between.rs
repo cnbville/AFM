@@ -643,6 +643,7 @@ fn promise_words(p: &Promise, v: Voice) -> String {
         PromiseKind::Help(k) if (k as usize) < POSITION_COUNT => format!("help at {}", spot(k)),
         PromiseKind::Help(_) => "help, a starter added before the opener".into(),
         PromiseKind::Captain => format!("that {} be a captain", v.hed()),
+        PromiseKind::Work(k) => format!("{} for {}", crate::world::folk::talks::work_words(k), v.him()),
     }
 }
 
