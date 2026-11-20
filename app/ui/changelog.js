@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.658", date: "20 Nov", title: "Engine gaps lane EG5: each level's rule book and the flags and 1 more",
+    notes: [
+      "You can now see the rival staff's men on your ground, the race they run for your commits in dated signs, the claims they make about you and what you can do about it.",
+      "A new Rivals page lists the men working your areas, your commits in play and the claims out there.",
+      "A rival's page shows his style, his ground on the map, and his history with you.",
+      "The race for a kid reads as numbered, dated signs, each with where you heard it.",
+      "Answer a wavering commit with a call to the family, or a claim about his program (a risk if it isn't true).",
+      "Flags now follow each level's own rule book, so college and high school games mark penalties the way their officials do, and NFL flags come at their real rate and size.",
+    ],
+  },
+  {
     v: "0.2.656", date: "19 Nov", title: "Talk replies that match the game (lane A, items 1-12)",
     notes: [
       "The people you talk to now answer what you actually said: they react to how your words landed, take your promises the way their trust in you says, name their price and hold you to your word.",
