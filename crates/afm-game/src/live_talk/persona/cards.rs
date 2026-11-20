@@ -563,6 +563,12 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         manner: manner_words(w, room, t, him),
         coach_read: coach_read(w, him),
         notebook: store::notebook(w, him),
+        // His life away from football (personal talk): what he'd share
+        // with anyone, never in front of the room.
+        life: if group { Vec::new() } else { life_words(w, him) },
+        told_coach: if group { Vec::new() } else { shared_words(w, him, false) },
+        coach_told: if group { Vec::new() } else { shared_words(w, him, true) },
+        coach_life: if group { Vec::new() } else { afm_engine::world::folk::persona::home::your_life(w) },
         landed: if group { String::new() } else { landed(w, him, t, &wants_all) },
         habits: afm_engine::world::folk::persona::speech::habits(w, him, &folk::scene::your_name(w)),
         openers: openers(s),
@@ -570,6 +576,19 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         so_far: so_far(s),
         line: quoted(line),
     }
+}
+
+/// His life's surface, in the card's words (personal talk, item 1): what
+/// the world stores about his home and the small things drawn for him. His
+/// deeper layers reach the voice only through what the game released.
+fn life_words(w: &World, him: Them) -> Vec<String> {
+    use afm_engine::world::folk::persona::home::{self, Layer};
+    home::bits(w, him).into_iter().filter(|b| b.layer == Layer::Surface).map(|b| b.words).collect()
+}
+
+/// What he told you about his life (`yours` false), or you him.
+fn shared_words(w: &World, him: Them, yours: bool) -> Vec<String> {
+    store::shared(w, him).into_iter().filter(|(y, _)| *y == yours).map(|(_, x)| x).collect()
 }
 
 /// How he took your manner on this line (coach voice, section 7), for him
@@ -751,6 +770,25 @@ impl VoiceCard {
                 out.push_str(&format!("- {a}\n"));
             }
         }
+        if !self.life.is_empty() {
+            out.push_str("Your life away from football (true, and yours: a line that starts with \"He\" or \"His\" is about you; share it when it comes up, never anything deeper than what this turn's list gives, and never invent a name, a job or a family member):\n");
+            for l in &self.life {
+                out.push_str(&format!("- {l}\n"));
+            }
+        }
+        if !self.told_coach.is_empty() {
+            out.push_str("What you've told the coach about your life before (he may bring it back up):\n");
+            for l in &self.told_coach {
+                out.push_str(&format!("- {l}\n"));
+            }
+        }
+        if !self.coach_told.is_empty() {
+            out.push_str("What the coach has told you about his own life:\n");
+            for l in &self.coach_told {
+                out.push_str(&format!("- {l}\n"));
+            }
+        }
+        put_line(&mut out, "What you know of the coach's own life", &self.coach_life.join("; "));
         if !self.notebook.is_empty() {
             out.push_str("Details you've mentioned before (stay the same person):\n");
             for n in &self.notebook {
@@ -781,6 +819,13 @@ impl VoiceCard {
         }
         out.push_str(&format!("</talk_so_far>\n<coach_line>{}</coach_line>", self.line));
         out
+    }
+}
+
+fn put_line(out: &mut String, k: &str, v: &str) {
+    let v = v.trim().trim_end_matches('.');
+    if !v.is_empty() {
+        out.push_str(&format!("{k}: {v}.\n"));
     }
 }
 

@@ -42,7 +42,7 @@ pub fn touchy(t: Topic) -> f64 {
         Topic::Money | Topic::Club | Topic::ScoutFile | Topic::Goals => 0.35,
         Topic::Jobs | Topic::Grapevine | Topic::Opponent => 0.2,
         Topic::HisWord => 0.5,
-        Topic::Rules | Topic::Football | Topic::Scheme | Topic::Nothing => 0.0,
+        Topic::Rules | Topic::Football | Topic::Scheme | Topic::Nothing | Topic::Home => 0.0,
         Topic::Recruiting => 0.1,
         Topic::Job => 0.1,
         Topic::Effort => 0.2,

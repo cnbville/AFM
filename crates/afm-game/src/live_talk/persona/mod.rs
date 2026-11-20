@@ -403,6 +403,15 @@ pub struct VoiceCard {
     pub coach_read: String,
     /// His colour notebook (`memory::Colour`): details he said before.
     pub notebook: Vec<String>,
+    /// His life away from football (personal talk, `home.rs`): the surface
+    /// he'd share with anyone, and anything deeper he has told you.
+    pub life: Vec<String>,
+    /// What he has told you about his life before.
+    pub told_coach: Vec<String>,
+    /// What you have told him about your own life.
+    pub coach_told: Vec<String>,
+    /// What he knows of your life from your profile.
+    pub coach_life: Vec<String>,
     /// How the line landed with him, in his terms (talk replies item 1).
     pub landed: String,
     /// His own way of talking (talk replies item 8, `persona::speech`).

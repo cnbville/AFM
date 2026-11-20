@@ -49,6 +49,7 @@ pub fn items(w: &World, him: Them, wants: &[Want]) -> Vec<(Item, String)> {
         let met = if x.met { " (he has it)" } else { "" };
         out.push((Item::Want(k as u8), format!("what he wants: {}{met}", want_words(x.kind))));
     }
+    out.push((Item::Life, life_words(w, him)));
     let Them::Player(id) = him else {
         // A coach on your ground or a recruit's family: what is between
         // you, from the one memory (Ground, GR62).
@@ -101,6 +102,22 @@ pub fn items(w: &World, him: Them, wants: &[Want]) -> Vec<(Item, String)> {
     out
 }
 
+/// The most things he told you about his life named on his item.
+pub const LIFE_TOLD: usize = 5;
+
+/// His life item (personal talk): his life away from football, and the
+/// newest things he has told you of it, so the ear hears you remember.
+fn life_words(w: &World, him: Them) -> String {
+    let told: Vec<String> =
+        super::store::shared(w, him).into_iter().filter(|(yours, _)| !yours).map(|(_, x)| folk::plain(&x)).collect();
+    let newest: Vec<String> = told.iter().rev().take(LIFE_TOLD).rev().cloned().collect();
+    if newest.is_empty() {
+        "his life away from football".into()
+    } else {
+        format!("his life away from football; what he has told you of it: {}", newest.join("; "))
+    }
+}
+
 /// Whether you already know this item about him, so "Heard as" may name
 /// it (question 2): a point only once it's known to you; your promises,
 /// his friends, his family and his pride always; his wants only through
@@ -135,6 +152,7 @@ pub fn short(w: &World, him: Them, item: &Item) -> String {
         Item::Friend(f) => folk::person(w, *f).map_or("his friend".into(), |j| w.people[j].name.clone()),
         Item::Family => "his family".into(),
         Item::HisWord => "what he told you".into(),
+        Item::Life => "his life".into(),
         Item::Room => "the team".into(),
         Item::Group(c) => super::super::crowd::Bloc::from_code(*c)
             .map_or("the team".into(), |b| b.words(super::super::crowd::level(w))),

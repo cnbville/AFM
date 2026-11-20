@@ -137,6 +137,10 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **A man who held back asks for a scene, not through the people-coming store** (low). `crowd::held` adds a one-on-one for the next day directly, because `coming::comes` isn't wired into the game yet. When it is, he should come through it like everyone else. Same thread.
 - **The room's groups at the NFL read seasons, not real seniority** (low). `Bloc::Seniors` is four or more pro seasons and newcomers are rookies; a veteran's standing in the room (captain votes, money, Pro Bowls) doesn't shape who counts as a veteran. Same thread.
 
+- **The voice's small details feed nothing and may not touch family** (medium). The colour notebook (`memory::Colour`) is saved and read back only by the voice, and its rule bans family details, so what he mentions on his own never reaches the bond, the ear or his file. Found 2026-11-17 (thread "Let talks get personal"); needs Cain's yes.
+- **A player's major, girlfriends and breakups, and a second sport are not real life parts** (medium). The people design (topic 6) has them; personal talk draws a major and a girlfriend as flavour only, so a breakup can't move his mood or portal lean and a high school basketball season takes no training time. Same thread; needs Cain's yes.
+- **Personal talk has no line bank without a key** (low). Typed personal questions need the AI; the picks without a key still deflect ("Coach, I'm fine. Can we talk about football?", `talk.deflect`). Same thread.
+
 - **A college player reads your points at a flat 0.5** (low). `points::skill` gives an agent's skill to a pro's side, but a college player answering for himself, his family decider or his handler all read a cherry-pick at a middling 0.5, whoever they are. Found 2026-11-18 (thread "Make negotiation respond to arguments").
 - **A GM hears no true points** (low). Stats count in your college and pro players' money talks (and with a pro's agent), and film and depth count with a recruit; a stat said to another club's GM in a trade talk counts nothing. Same thread.
 

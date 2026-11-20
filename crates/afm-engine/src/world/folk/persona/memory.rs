@@ -78,6 +78,20 @@ pub struct Colour {
     pub note: String,
 }
 
+/// Something about a life told in a talk (personal talk, item 7): by him
+/// to you (`yours` false; `key` is the thing's kind, `home::Bit::key`), or
+/// by you to him (`yours`; your words, short).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Shared {
+    pub who: Them,
+    pub day: Date,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub yours: bool,
+    #[serde(default)]
+    pub key: u16,
+    pub words: String,
+}
+
 /// A rule break nobody on your staff saw (3.1): teammates who were there
 /// know it. A seen one stays in `folk/rules.rs`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -234,6 +248,10 @@ pub struct Memory {
     /// call (lane N5b).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub ready: Vec<Ready>,
+    /// What he told you about his life and what you told him about yours
+    /// (personal talk, item 7).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub shared: Vec<Shared>,
     /// True points you made about his season in a money talk (the
     /// negotiation overhaul, item 3a), kept a money season: the desk that
     /// prices him reads them (`negotiate::points::pull`).
@@ -299,6 +317,7 @@ impl Memory {
             && self.anchors.is_empty()
             && self.watch.is_empty()
             && self.ready.is_empty()
+            && self.shared.is_empty()
             && self.draft.is_empty()
     }
 }
