@@ -555,7 +555,7 @@ fn rows_of(w: &World, level: Level, season: i32, ids: &[u32]) -> HashMap<u32, pl
     if season == w.tally_open_season() {
         for &id in ids {
             if let Some(s) = w.tallies.players.get(level, id) {
-                out.insert(id, s.clone());
+                out.insert(id, s.into_owned());
             }
         }
         return out;

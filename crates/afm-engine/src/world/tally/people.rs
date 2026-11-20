@@ -126,7 +126,7 @@ fn group(w: &World, s: &TeamSeason) -> String {
 }
 
 /// The season's rows, from its teams.
-pub fn rows(w: &World, season: i32, teams: &[(u64, &TeamSeason)]) -> Vec<UnitRow> {
+pub fn rows(w: &World, season: i32, teams: &[(u64, std::borrow::Cow<'_, TeamSeason>)]) -> Vec<UnitRow> {
     let charge = Charge::new(w, season);
     // Each group's teams: (row, [offense, defense, margins]).
     type Pool = Vec<(usize, [Vec<f32>; 3])>;
@@ -152,7 +152,7 @@ pub fn rows(w: &World, season: i32, teams: &[(u64, &TeamSeason)]) -> Vec<UnitRow
         ] {
             let pool: Vec<Vec<f32>> = list.iter().map(|x| x.1[unit].clone()).collect();
             for (k, vals) in list {
-                let s = teams[*k].1;
+                let s = &*teams[*k].1;
                 let t = match s.level {
                     1 => Team::Nfl(s.team as usize),
                     _ => Team::College(s.team as usize),

@@ -44,7 +44,8 @@ fn college_stats(w: &World, id: u32) -> Vec<Value> {
 pub fn card(w: &World, k: usize, tag: &str) -> Value {
     let a = &w.alumni[k];
     let live = w.people.iter().find(|q| q.pro.as_ref().and_then(|c| c.alumnus) == Some(k));
-    let p = live.map_or_else(|| a.player.as_deref().unwrap(), |q| &q.player);
+    let kept = if live.is_none() { a.player.as_ref().map(|k| k.get()) } else { None };
+    let p = live.map_or_else(|| kept.as_ref().unwrap(), |q| &q.player);
     let notes = live.map_or(&a.notes, |q| &q.notes);
     let pro = live.and_then(|q| q.pro.as_deref()).or(a.pro.as_deref()).map(|c| {
         crate::raw::pro_row(

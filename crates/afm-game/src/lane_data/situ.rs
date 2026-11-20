@@ -244,7 +244,7 @@ fn hs_season(w: &World, sc: &Scope, team: usize) -> Option<(teams::Season, calls
         c.add(tally::Level::Hs, team as u32, k as u64, mine);
     }
     let key = teams::key(tally::Level::Hs, team as u32);
-    let mut ts = t.seasons.remove(&key)?;
+    let mut ts = t.take(key)?;
     ts.last = None;
     Some((ts, c.seasons.remove(&key)?))
 }
