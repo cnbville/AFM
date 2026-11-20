@@ -323,9 +323,10 @@ pub struct Agent {
     pub poise20: f64,
     #[serde(default)]
     pub heat: f64,
-    /// A safety's hitter read this snap (S-A): his weight over his level's
-    /// typical safety in tens of pounds, with his hitting ratings over his
-    /// range ones; 0 for everyone else.
+    /// A safety's fit lean this snap (S-B, scheme-fit item 20): his slot's,
+    /// the mean hitter read of the men his level's staffs list at free or
+    /// strong safety (`synthetic::typical_hitter`), whoever plays it; 0 for
+    /// everyone else.
     #[serde(default)]
     pub hit: f64,
     /// Fire on the field (coach fire): the rating points of power and

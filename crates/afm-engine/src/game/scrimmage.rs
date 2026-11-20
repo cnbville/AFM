@@ -759,8 +759,17 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let eyes = if fooling && slot.is_line() { sim.craft_at(i, crate::craft::Craft::EyesBackfield) } else { 0.0 };
         let pr = sim.agents[i].a(Attr::PlayRecognition) + eyes;
         let bite = clamp(1.5 - 0.05 * sim.trait20(i, Attr::Discipline), 0.5, 1.5);
-        let hit = if matches!(slot, DSlot::FS | DSlot::SS) { hitter(sim.level, sim.player(i)) } else { 0.0 };
-        sim.agents[i].hit = hit;
+        // Where a safety fits is his job's (scheme-fit item 20): the call
+        // puts him there and his skills decide how well he plays it, so each
+        // slot fits as the men the level's staffs list there do on average
+        // (S-B's lean, `typical_hitter`), whoever plays it. Before, his own
+        // ratings set it, so a better cover man fitted the run deeper and
+        // later.
+        sim.agents[i].hit = match slot {
+            DSlot::FS => super::synthetic::typical_hitter(sim.level, crate::spots::Spot::FS),
+            DSlot::SS => super::synthetic::typical_hitter(sim.level, crate::spots::Spot::SS),
+            _ => 0.0,
+        };
         // Flies downhill or reads first (tendencies): a linebacker or
         // safety who triggers on his first read gets there sooner, and
         // bites harder on the fake.
@@ -2679,14 +2688,16 @@ fn snap_jitter(los: f64, k: usize) -> f64 {
 /// a carry either way; proposed, not confirmed).
 const FORCE_WIDE: f64 = 4.0;
 
-/// The rotated-down strong safety's depth (S-A): a hitter sits shallower, a
-/// rangy one deeper, a yard a point of his read over the level's typical
-/// strong safety, and 0.9 either way snap to snap.
+/// The rotated-down strong safety's depth is the call's (scheme-fit item
+/// 20): 8.1 yards, where the level's typical strong safety stood (just
+/// outside the box count), and 0.9 either way snap to snap, whoever plays
+/// it. His staff's read of him (S-A) decides how often the call rotates him
+/// down (`calling`, `DefCtx::hitter`), and his skills how well he plays it.
+/// Before, his own read moved him a yard a point, so a better cover man
+/// played the run deeper.
 fn ss_depth(s: &Snap, di: usize) -> f64 {
-    let h = hitter(s.rules.level, &s.teams[1][di])
-        - super::synthetic::typical_hitter(s.rules.level, crate::spots::Spot::SS);
     let j = snap_jitter(s.los, di) * 2.0 - 1.0;
-    clamp(8.1 - h + 0.9 * j, 5.0, 10.0)
+    8.1 + 0.9 * j
 }
 
 fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2> {
@@ -2847,13 +2858,9 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                         let near = burner_y.is_some_and(|b| (b - by) * (y - mid()) > 0.0);
                         v2(los + 12.5 + 1.5 * fear + if near { fear } else { 0.0 }, y + 0.5 * lean)
                     } else {
-                        // The rotated-down safety (S-A): a hitter sits
-                        // shallower, a rangy one deeper, a yard a point of
-                        // his read over the level's typical strong safety
-                        // (staffs list their hitter there), and 0.9 either
-                        // way snap to snap. The typical man stays just
-                        // outside the box count (7 yards), a heavy one steps
-                        // inside it (proposed, not confirmed).
+                        // The rotated-down safety at the call's depth
+                        // (scheme-fit item 20, `ss_depth`): just outside the
+                        // box count (7 yards), whoever plays it.
                         v2(los + ss_depth(s, *di), by + st * 4.5)
                     }
                 }
@@ -2876,10 +2883,10 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
             }
             match d {
                 DSlot::SS if !two_high || s.dcall.coverage.high() < 2 => {
-                    // He spins at his own depth (minor bug 342): the typical
-                    // man stays just outside the box, a hitter steps into
-                    // it. Before, every spin put him at 5.5 yards, inside
-                    // the box count, so motion alone made an eight-man box.
+                    // He spins at the call's depth (minor bug 342, scheme-fit
+                    // item 20): just outside the box. Before, every spin put
+                    // him at 5.5 yards, inside the box count, so motion
+                    // alone made an eight-man box.
                     v2(los + ss_depth(s, *di), by + mv * 6.0)
                 }
                 DSlot::Sam | DSlot::Mike | DSlot::Will => v2(p.x, p.y + mv * 1.2),
@@ -3197,20 +3204,29 @@ fn assign_defense(
                 _ => middle.clone(),
             }
         };
-        // A blown coverage: he plays the wrong zone or loses his man.
-        if sim.agents[i].bust {
-            if let Job::Man { .. } = sim.agents[i].job {
-                let side = side_of(sim);
-                sim.agents[i].job = hook(side);
-            } else if let Job::Zone { spot, deep, width, .. } = sim.agents[i].job.clone() {
-                sim.agents[i].job = Job::Zone {
-                    spot: v2(spot.x - 5.0, spot.y),
-                    deep: !deep && false,
-                    width: width * 0.6,
-                    matched: false,
-                };
-            }
+    }
+    // A blown coverage (scheme-fit item 19): a coverage man who busts takes
+    // the job of the coverage man nearest him and leaves his own man or area
+    // to nobody, two on one and a receiver running free, as real busts are
+    // (a missed switch, the wrong call heard). Before, a man defender played
+    // a hook zone and a zone defender his own area shallower and narrower,
+    // so the men around him still covered it and a bust cost nothing.
+    // Busts are drawn before the jobs (`run_snap`); with nobody near him to
+    // copy he loses his man where he stands.
+    let covers = |j: &Job| matches!(j, Job::Man { .. } | Job::Zone { .. });
+    for i in off_n..n {
+        if !sim.agents[i].bust || !covers(&sim.agents[i].job) {
+            continue;
         }
+        let me = sim.agents[i].pos;
+        let mate = (off_n..n)
+            .filter(|&k| k != i && !sim.agents[k].bust && covers(&sim.agents[k].job))
+            .min_by(|&a, &b| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me)));
+        sim.agents[i].job = match mate.map(|k| sim.agents[k].job.clone()) {
+            Some(Job::Man { target, .. }) => man_job(sim, i, target),
+            Some(z) => z,
+            None => Job::Zone { spot: me, deep: false, width: 6.0, matched: false },
+        };
     }
     // Cover 3 match: underneath zones carry a vertical in their area like
     // man coverage (pattern matching).
@@ -3470,8 +3486,11 @@ fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
     // The man defender's Man Coverage reads at `MAN_LAG_MC` about his
     // level's typical starter at his position (minor bug 283: at 0.02 about
     // the dressed man it moved the catch rate he allows 0.03 of real
-    // starters' spread), and no floor above none (it was 0.1 s): the best
-    // cover men mirror the break.
+    // starters' spread). No floor (scheme-fit item 18; it stopped at none,
+    // 3 to 5 points above a typical starting corner against a typical
+    // starting receiver, so past that a point only counted at the catch
+    // point): below none he reads the break before it comes, that many
+    // seconds ahead along his man's route (`cover_inner`).
     let t_rr = super::synthetic::typical(sim.level, sim.player(r).position, Attr::RouteRunning);
     let t_mc = super::synthetic::typical(sim.level, sim.player(d).position, Attr::ManCoverage);
     let s_mc = super::synthetic::typical_starter(sim.level, sim.player(d).position, Attr::ManCoverage);
@@ -3482,7 +3501,7 @@ fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
             - MAN_LAG_RR * (s_mc - t_mc)
             - MAN_LAG_MC * (da.a(Attr::ManCoverage) + mc_c - s_mc)
             + 0.003 * (ra.a(Attr::Agility) - (0.6 * da.a(Attr::Agility) + 0.4 * da.a(Attr::Flexibility))),
-        0.0,
+        f64::NEG_INFINITY,
         0.75,
     );
     // A heavy linebacker turns his hips late (L2, bug 307): real ones
@@ -5217,18 +5236,27 @@ fn concept_lead(sim: &Sim, d: usize) -> f64 {
     clamp(CONCEPT_LEAD * (sim.agents[d].a(Attr::FootballIq) - ts) / 10.0, -0.5, 0.5)
 }
 
-/// Where a deep man reads receiver `r` on his route (`concept_lead`):
-/// `lead` seconds ahead along the route's points at his speed now (on past
-/// its last point unless it settles), or where he was `-lead` seconds ago.
+/// Where a defender reads receiver `r` on his route, a deep man by his
+/// Football IQ (`concept_lead`) and a man defender whose lag is below none
+/// (scheme-fit item 18): `lead` seconds ahead along the route's points at
+/// his speed now (on past its last point unless it settles), or where he
+/// was `-lead` seconds ago.
 fn route_read(sim: &Sim, trail: &Trails, r: usize, lead: f64) -> V2 {
-    let a = &sim.agents[r];
     if lead < 0.0 {
         let n = trail.ticks;
         let k = ((-lead / DT).round() as usize).min(n.saturating_sub(1));
-        return if n > 0 { trail.at(n - 1 - k, r).0 } else { a.pos };
+        return if n > 0 { trail.at(n - 1 - k, r).0 } else { sim.agents[r].pos };
     }
+    route_ahead(sim, r, lead).0
+}
+
+/// Where receiver `r`'s route takes him `lead` seconds ahead at his speed
+/// now (on past its last point unless it settles), and the way he is going
+/// there (none once he has settled).
+fn route_ahead(sim: &Sim, r: usize, lead: f64) -> (V2, V2) {
+    let a = &sim.agents[r];
     let Job::Route { pts, next, settle, .. } = &a.job else {
-        return a.pos + a.vel.scale(lead);
+        return (a.pos + a.vel.scale(lead), a.vel.norm());
     };
     let mut p = a.pos;
     let mut left = lead * a.vel.len();
@@ -5237,22 +5265,26 @@ fn route_read(sim: &Sim, trail: &Trails, r: usize, lead: f64) -> V2 {
     while left > 0.0 && k < pts.len() {
         let seg = pts[k] - p;
         let d = seg.len();
+        if d > 1e-9 {
+            dir = seg.scale(1.0 / d);
+        }
         if d >= left {
             p = p + seg.scale(left / d);
             left = 0.0;
             break;
         }
-        if d > 1e-9 {
-            dir = seg.scale(1.0 / d);
-        }
         p = pts[k];
         left -= d;
         k += 1;
     }
-    if left > 0.0 && !*settle {
-        p = p + dir.scale(left);
+    if left > 0.0 {
+        if *settle {
+            dir = V2::default();
+        } else {
+            p = p + dir.scale(left);
+        }
     }
-    v2(p.x.min(end_line() - 1.0), clamp(p.y, 1.0, width() - 1.0))
+    (v2(p.x.min(end_line() - 1.0), clamp(p.y, 1.0, width() - 1.0)), dir)
 }
 
 /// A deep man in zone (scheme-fit items 12 and 13 read only for him).
@@ -7300,8 +7332,9 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                     let boxed = sim.agents[i].force
                         || (!post && back && (me.y - s.ball_y).abs() < 7.5 && (me.x - s.los) * sim.goal < 7.0);
                     let (wait, fill) = if boxed { (1.5, 4.5) } else { (4.75, 9.75) };
-                    // A hitter fits shallower and attacks sooner (S-B): 0.25
-                    // and 0.2 yards a point of his read.
+                    // His job's fit (S-B, scheme-fit item 20): 0.25 and 0.2
+                    // yards a point of the read of the men the level's
+                    // staffs list at his slot, whoever plays it.
                     let h = sim.agents[i].hit;
                     let (wait, fill) = (wait - 0.2 * h, fill - 0.25 * h);
                     // A misfit safety is late to the alley.
@@ -7529,15 +7562,27 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
         Job::Man { target, cushion, lag } => {
             // He mirrors where he last saw his man going (topic 2): when the
             // receiver breaks, he is late by his reaction time.
-            let n = trail.ticks;
-            let k = ((lag / DT).round() as usize).min(n.saturating_sub(1));
-            let (p, v) =
-                if n > 0 { trail.at(n - 1 - k, target) } else { (sim.agents[target].pos, sim.agents[target].vel) };
-            // He is late on where his man turns, not on how fast he runs:
-            // speed he feels at once, direction he sees late.
             let now = sim.agents[target].vel.len();
-            let v = if v.len() > 0.3 { v.norm().scale(now.max(v.len())) } else { sim.agents[target].vel };
-            let est = p + v.scale(lag);
+            let (est, v) = if lag < 0.0 {
+                // A lag below none (scheme-fit item 18) is the lag's mirror:
+                // he reads the break before it comes. He plays his man where
+                // his route will have him `-lag` seconds ahead, less the way
+                // he will be going then, so on a straight stem he stays in
+                // phase beside him, and before a break he turns onto the
+                // break's line that much early.
+                let (ahead, dir) = route_ahead(sim, target, -lag);
+                let v = dir.scale(now);
+                (ahead - v.scale(-lag), v)
+            } else {
+                let n = trail.ticks;
+                let k = ((lag / DT).round() as usize).min(n.saturating_sub(1));
+                let (p, v) =
+                    if n > 0 { trail.at(n - 1 - k, target) } else { (sim.agents[target].pos, sim.agents[target].vel) };
+                // He is late on where his man turns, not on how fast he runs:
+                // speed he feels at once, direction he sees late.
+                let v = if v.len() > 0.3 { v.norm().scale(now.max(v.len())) } else { sim.agents[target].vel };
+                (p + v.scale(lag), v)
+            };
             let me = sim.agents[i].pos;
             let inside = if est.y > s.ball_y { -0.6 } else { 0.6 };
             let deep = est.x - s.los > 8.0;
@@ -7552,12 +7597,8 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
                 (cushion - (t * 2.2)).max(if deep { 0.6 } else { 0.0 })
             };
             let spot = v2(est.x + cush - if deep { 0.3 } else { 0.0 }, est.y + inside);
-            // Bust: lost his man.
-            if sim.agents[i].bust {
-                let s2 = v2(me.x, me.y);
-                sim.go_to(i, s2, 0.4);
-                return;
-            }
+            // A bust has already taken a teammate's man or area
+            // (`assign_defense`, scheme-fit item 19).
             // He runs with his man's (lagged) velocity and closes the gap to
             // his spot on top of that.
             let want = v + (spot - me).scale(2.0);
