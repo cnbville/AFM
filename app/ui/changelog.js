@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.669", date: "20 Nov", title: "Ballhawk safeties and 1 more",
+    notes: [
+      "Interceptions and pass breakups now come from the right places. Defensive linemen stop picking off passes through the line, deep safeties can play a long ball, and defenders get credit for the passes they knock away.",
+      "Linemen still rushing the passer no longer pick off or tip throws in flight; they still bat balls down at the line.",
+      "A defender who saw the throw can find the ball over his shoulder on a long pass and catch it.",
+      "A second defender at the ball, like a safety coming over the top, gets his own play on it.",
+      "Defenders get a hand on more balls, and the breakups on contested and off-target throws are credited to them.",
+      "On a fake field goal, your guards and tackles line up where your depth chart puts them.",
+    ],
+  },
+  {
     v: "0.2.667", date: "20 Nov", title: "Let talks get personal: his life away from football, and first meetings that start with a hello",
     notes: [
       "Players now talk about their lives when you ask: their family, where they're from, what they do on a day off. A first meeting starts with a real hello instead of jumping straight to business.",
