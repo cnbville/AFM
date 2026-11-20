@@ -418,6 +418,10 @@ struct Pass {
     /// In his throwing motion this tick (`quarterback`): a hit now can
     /// knock the ball out as he throws (engine gaps item 6).
     motion: bool,
+    /// When his throwing motion began: a deep man who reads the passer
+    /// breaks no sooner than a tenth of a second into it (scheme-fit item
+    /// 13, `motion_break`).
+    motion_at: Option<f64>,
     /// The ball came loose and the pass is over: whoever has it now runs
     /// with it (engine gaps item 4).
     broken: bool,
@@ -609,6 +613,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         lane: None,
         clock_run: s.clock_run,
         bites: Vec::new(),
+        triggers: Vec::new(),
         two_gap: s.two_gap,
         help_on: None,
         chip: None,
@@ -1040,6 +1045,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 give_up: false,
                 extend: None,
                 motion: false,
+                motion_at: None,
                 broken: false,
                 fake: None,
             });
@@ -1672,6 +1678,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     give_up: false,
                                     extend: None,
                                     motion: false,
+                                    motion_at: None,
                                     broken: false,
                                     fake: None,
                                 });
@@ -5161,6 +5168,181 @@ const BREAKUP_REACH: f64 = 0.3;
 const TIP_PICK: f64 = 0.065;
 const PBU_PICK: f64 = 0.06;
 
+/// Football IQ reads the concept (scheme-fit item 12): seconds ahead along
+/// its route that a deep man sees a receiver, a 10 points of Football IQ
+/// over his level's typical starter at his position (as far behind, where
+/// he was, a 10 points under; at most half a second either way). So a
+/// better one passes off a route leaving his area, picks up one coming into
+/// it and sits where it will be, and the typical one plays where he did.
+/// Proposed, not confirmed.
+const CONCEPT_LEAD: f64 = 0.15;
+
+/// Anticipation reads the passer (scheme-fit item 13): seconds sooner than
+/// his read of the ball that a deep man watching the passer breaks on the
+/// throw, a 10 points of Anticipation over his level's typical starter at
+/// his position (later under him). When his lead passes his read of the
+/// ball, he breaks on the throwing motion, before the ball is out. The
+/// level's typical deep man breaks where he did: the league's picks and
+/// completions by depth were near real, and breaking on the motion for
+/// every deep man put a tenth more picks on the NFL test rosters (2.67% of
+/// targeted throws, real 2.3%) or, with passers who knew it, sent the
+/// throws short (0-9 yards 57.7% of them, real 49.7%; 20 and over 8.7%,
+/// real 11.4%). Proposed, not confirmed.
+const MOTION_ANTIC: f64 = 0.12;
+
+/// Ball Tracking reads the ball (scheme-fit item 14): seconds sooner a
+/// defender finds a ball he saw thrown over his shoulder (`FIND_BALL` for
+/// his level's typical starter at his position), a 10 points of Ball
+/// Tracking over that starter. Proposed, not confirmed.
+const FIND_TRACK: f64 = 0.2;
+
+/// Eye Manipulation (scheme-fit item 4): the look-off of his level's typical
+/// starter, half of a full one, so the typical passer and the typical deep
+/// man meet in an even duel at every level; a 30 points of Eye
+/// Manipulation spans none to a full one, which takes away all of the deep
+/// man's lean to his first read, and a better one pulls him harder still.
+/// On the old scale (Eye Manipulation less 60 over 30, at most 1) the NFL's
+/// typical passer had 0.73 and college and high school passers next to
+/// none. Proposed, not confirmed.
+const LOOK_OFF_TYPICAL: f64 = 0.5;
+
+/// Yards across the field from his first read that the read his eyes go to
+/// on a look-off must be (`decoy`). Proposed, not confirmed.
+const LOOK_ACROSS: f64 = 8.0;
+
+/// Seconds ahead along his route a deep man reads receiver `r`
+/// (`CONCEPT_LEAD`).
+fn concept_lead(sim: &Sim, d: usize) -> f64 {
+    let ts = super::synthetic::typical_starter(sim.level, sim.player(d).position, Attr::FootballIq);
+    clamp(CONCEPT_LEAD * (sim.agents[d].a(Attr::FootballIq) - ts) / 10.0, -0.5, 0.5)
+}
+
+/// Where a deep man reads receiver `r` on his route (`concept_lead`):
+/// `lead` seconds ahead along the route's points at his speed now (on past
+/// its last point unless it settles), or where he was `-lead` seconds ago.
+fn route_read(sim: &Sim, trail: &Trails, r: usize, lead: f64) -> V2 {
+    let a = &sim.agents[r];
+    if lead < 0.0 {
+        let n = trail.ticks;
+        let k = ((-lead / DT).round() as usize).min(n.saturating_sub(1));
+        return if n > 0 { trail.at(n - 1 - k, r).0 } else { a.pos };
+    }
+    let Job::Route { pts, next, settle, .. } = &a.job else {
+        return a.pos + a.vel.scale(lead);
+    };
+    let mut p = a.pos;
+    let mut left = lead * a.vel.len();
+    let mut dir = a.vel.norm();
+    let mut k = *next;
+    while left > 0.0 && k < pts.len() {
+        let seg = pts[k] - p;
+        let d = seg.len();
+        if d >= left {
+            p = p + seg.scale(left / d);
+            left = 0.0;
+            break;
+        }
+        if d > 1e-9 {
+            dir = seg.scale(1.0 / d);
+        }
+        p = pts[k];
+        left -= d;
+        k += 1;
+    }
+    if left > 0.0 && !*settle {
+        p = p + dir.scale(left);
+    }
+    v2(p.x.min(end_line() - 1.0), clamp(p.y, 1.0, width() - 1.0))
+}
+
+/// A deep man in zone (scheme-fit items 12 and 13 read only for him).
+fn deep_zone(a: &Agent) -> bool {
+    matches!(a.job, Job::Zone { deep: true, .. })
+}
+
+/// Seconds sooner than his read of the ball that a deep man watching the
+/// passer breaks on the throw (`MOTION_ANTIC`), and 0 for anyone else.
+fn passer_read(sim: &Sim, d: usize) -> f64 {
+    if !deep_zone(&sim.agents[d]) {
+        return 0.0;
+    }
+    let ts = super::synthetic::typical_starter(sim.level, sim.player(d).position, Attr::Anticipation);
+    MOTION_ANTIC * (sim.agents[d].a(Attr::Anticipation) - ts) / 10.0
+}
+
+/// A deep man whose read of the passer beats his read of the ball breaks
+/// for where it is going before it is out (scheme-fit item 13): that many
+/// seconds before the release the passer is timing (`Pass::commit`), but
+/// not before he has seen a tenth of a second of the throwing motion, for
+/// the spot the passer leads his man to, when it is in his range (the 25
+/// yards a man breaks on a thrown ball from). The spot he broke for, once
+/// he has; each deep man breaks so once a snap (`Sim::triggers`), and if
+/// the ball then goes elsewhere he is out of place and reads it as it comes
+/// (`throw`).
+fn motion_break(sim: &mut Sim, i: usize, qb: usize, pass: &Option<Pass>) -> Option<V2> {
+    if let Some(&(.., spot)) = sim.triggers.iter().find(|x| x.0 == i) {
+        return spot;
+    }
+    let p = pass.as_ref()?;
+    let m = p.motion_at?;
+    let (w, at, _) = p.commit?;
+    if p.thrown.is_some() {
+        return None;
+    }
+    let early = passer_read(sim, i) - ball_read(sim, i, w);
+    if early <= 0.0 || sim.t + 1e-9 < (at - early).max(m + 0.1) || !sim.sees(i, sim.agents[qb].pos) {
+        return None;
+    }
+    let spot = feet_in(window(sim, qb, w).1);
+    let spot = (spot.dist(sim.agents[i].pos) < 25.0).then_some(spot);
+    sim.triggers.push((i, w, sim.t, spot));
+    spot
+}
+
+/// Seconds a defender needs to find a ball he saw thrown over his shoulder
+/// (`FIND_BALL`, `FIND_TRACK`).
+fn find_ball(sim: &Sim, d: usize) -> f64 {
+    let ts = super::synthetic::typical_starter(sim.level, sim.player(d).position, Attr::BallTracking);
+    clamp(FIND_BALL - FIND_TRACK * (sim.agents[d].a(Attr::BallTracking) - ts) / 10.0, 0.4, 2.0)
+}
+
+/// Where the passer's eyes go to look a deep man off (scheme-fit item 4):
+/// the read farthest across the field from his first, at least
+/// `LOOK_ACROSS` yards from it; None when every read is to one side, and
+/// his eyes hold the deep man where he is.
+fn decoy(sim: &Sim, p: &Pass) -> Option<V2> {
+    let first = sim.agents[*p.reads.first()?].pos.y;
+    let mut best: Option<(f64, V2)> = None;
+    for &r in p.reads.iter().skip(1) {
+        let rp = sim.agents[r].pos;
+        let across = (rp.y - first).abs();
+        if across >= LOOK_ACROSS && best.is_none_or(|b| across > b.0) {
+            best = Some((across, rp));
+        }
+    }
+    best.map(|b| b.1)
+}
+
+/// How hard a deep man bites on a look-off (scheme-fit item 4), his side of
+/// the duel with the passer's eyes: his read of the passer (Anticipation,
+/// half) and of the routes (Play Recognition and Football IQ, a quarter
+/// each) about his level's typical starter at his position, from the bite
+/// the NFL's typical safety had on the old scale (1 less 0.01 a point of
+/// Anticipation over 60). Eyes stuck on the quarterback (individual
+/// practice) read his read lower.
+fn look_bite(sim: &mut Sim, i: usize) -> f64 {
+    let stuck = sim.craft_at(i, crate::craft::Craft::EyesOnQb);
+    let pos = sim.player(i).position;
+    let read = |f: &dyn Fn(Attr) -> f64| {
+        0.5 * f(Attr::Anticipation) + 0.25 * f(Attr::PlayRecognition) + 0.25 * f(Attr::FootballIq)
+    };
+    let mine = read(&|a| sim.agents[i].a(a));
+    let typ = read(&|a| super::synthetic::typical_starter(sim.level, pos, a));
+    let b0 = 1.0
+        - 0.01 * (super::synthetic::typical_starter(crate::player::Level::NFL, Position::S, Attr::Anticipation) - 60.0);
+    clamp(b0 - 0.01 * (mine + stuck - typ), 0.3, 1.5)
+}
+
 /// His read of the field (minor bug 283): Decisions and Play Recognition.
 fn field_read(qa: &Agent) -> f64 {
     READ_DECIDE * qa.a(Attr::Decisions) + (1.0 - READ_DECIDE) * qa.a(Attr::PlayRecognition)
@@ -5185,9 +5367,26 @@ fn ball_cover(sim: &Sim, d: usize) -> f64 {
 /// the throw works it out: 0.16 to 0.26 seconds and 0.004 a point of Play
 /// Recognition short of 100, less `ball_cover`, and later when the route
 /// turned him (`zone_turn`).
-fn ball_break(sim: &Sim, d: usize, r: usize) -> f64 {
+fn ball_read(sim: &Sim, d: usize, r: usize) -> f64 {
     (0.21 + 0.004 * (100.0 - sim.agents[d].a(Attr::PlayRecognition)) - ball_cover(sim, d) + zone_turn(sim, d, r))
         .max(0.05)
+}
+
+/// When a defender who sees a throw to `r` breaks on it, on average,
+/// seconds after the release: his read of the ball (`ball_read`), and a
+/// deep man's read of the passer sooner or later (`passer_read`; scheme-fit
+/// item 13), before the release when it beats his read of the ball, but
+/// not before a tenth of a second of the throwing motion.
+fn ball_break(sim: &Sim, qb: usize, d: usize, r: usize) -> f64 {
+    (ball_read(sim, d, r) - passer_read(sim, d)).max(0.1 - motion_len(&sim.agents[qb], 0.0))
+}
+
+/// The passer's throwing motion, seconds: a clean, compact release is
+/// quicker, and a long motion (individual practice, `long` its points) is
+/// slower.
+fn motion_len(qa: &Agent, long: f64) -> f64 {
+    let quick = 0.75 * (qa.a(Attr::QuickRelease) + long) + 0.25 * qa.a(Attr::Footwork);
+    clamp(0.34 - 0.00125 * (quick - 60.0), 0.26, 0.42)
 }
 
 /// Route running against zone (scheme-fit item 6): leverage and timing. A zone
@@ -5517,11 +5716,17 @@ fn quarterback(
     let over = ps.read >= ps.reads.len() || late || urgent || ps.extend.is_some();
     let over_run = ps.read >= ps.reads.len() || late_run || urgent_run || ps.extend.is_some();
     // A good quarterback holds the safety with his eyes before coming back.
-    // (Eye manipulation: nothing for most, up to a full pull for the best.)
     // A pump fake that moves safeties (individual practice): his eyes and
     // shoulders hold the deep man as if his eye work were the tool better.
+    // Within a level (scheme-fit item 4): his Eye Manipulation about his
+    // level's typical starter, whose look-off is half of a full one
+    // (`LOOK_OFF_TYPICAL`), so his duel with the deep man (`look_bite`)
+    // reads the same at every level; past a full one his eyes pull the deep
+    // man harder still (never a cap on freaks).
     let pump = if ps.read == 0 && t - ps.read_since < 0.6 { sim.craft(qb, crate::craft::Craft::PumpFake) } else { 0.0 };
-    let manip = clamp((sim.agents[qb].a(Attr::EyeManipulation) + pump - 60.0) / 30.0, 0.0, 1.0);
+    let manip = (LOOK_OFF_TYPICAL
+        + (sim.agents[qb].a(Attr::EyeManipulation) + pump - ts(Attr::EyeManipulation)) / 30.0)
+        .max(0.0);
     ps.look_off = if ps.read == 0 && t - ps.read_since < 0.6 { manip } else { 0.0 };
     let tired = t - ps.set_at;
     let caution = DECISIONS_CAUTION * (ts(Attr::Decisions) - typ(Attr::Decisions))
@@ -5734,8 +5939,7 @@ fn quarterback(
     // A long motion in traffic (individual practice): with a rusher about
     // to reach him the release slows by the flaw.
     let long = if soon < 1.0 { sim.craft_at(qb, crate::craft::Craft::LongMotion) } else { 0.0 };
-    let quick = 0.75 * (sim.agents[qb].a(Attr::QuickRelease) + long) + 0.25 * sim.agents[qb].a(Attr::Footwork);
-    let release = clamp(0.34 - 0.00125 * (quick - 60.0), 0.26, 0.42);
+    let release = motion_len(&sim.agents[qb], long);
     // A screen is a soft flick lofted over the rush: only a rusher who can
     // get a hand on his arm stops it.
     let (release, reach) = if screen { (0.6 * release, 1.3) } else { (release, 2.8) };
@@ -5754,6 +5958,8 @@ fn quarterback(
     let hurry = pressure > 0.8 || nearest < 2.0 || urgent;
     let in_motion = ps.commit.is_some_and(|(_, at, _)| hurry || t + release + 1e-9 >= at);
     ps.motion = in_motion;
+    // The deep men read the motion from when it began (scheme-fit item 13).
+    ps.motion_at = if in_motion { ps.motion_at.or(Some(t)) } else { None };
     if blocked_throw && !in_motion {
         best = None;
         ps.commit = None;
@@ -5989,9 +6195,11 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         let (react, pace) = if on_him {
             (0.0, 1.0)
         } else if watching && misread < 0.0 && !lurking(a) {
-            // A better reader sees his break as it is (`READ_SHARP`).
+            // A better reader sees his break as it is (`READ_SHARP`), a deep
+            // man's read of him too (`ball_break`), even one who breaks
+            // before the ball is out.
             let sharp = (-10.0 * misread / READ_SHARP).min(1.0);
-            ((0.3 + (ball_break(sim, d, r) - 0.3) * sharp).max(0.0), 0.95)
+            (0.3 + (ball_break(sim, qb, d, r) - 0.3) * sharp, 0.95)
         } else {
             ((0.3 + if watching { MISREAD_EYES * misread } else { 0.0 }).max(0.0), 0.95)
         };
@@ -6016,7 +6224,7 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         let far = flight - tau >= 0.0 && a.vmax >= -2.0 && dist - most > w.min(8.0);
         if !far {
             let v0 = clamp(a.vel.dot((p - a.pos).norm()), -2.0, a.vmax);
-            let drift = v0 * (flight - tau);
+            let drift = v0 * (flight - tau).max(0.0);
             let close = drift + pace * (a.vmax * tau - (a.vmax - v0) * a.tau * (1.0 - (-tau / a.tau).exp())).max(0.0);
             let gap = dist - close;
             w = w.min(gap);
@@ -6387,6 +6595,21 @@ fn throw(
             Some((id, true)) if id == sim.agents[d].id => sim.agents[d].ball_react = t,
             Some((id, false)) if id == sim.agents[d].id => sim.agents[d].ball_react = arrive + 0.3,
             _ => {}
+        }
+        // A deep man watching the passer reads him too (scheme-fit item 13,
+        // `passer_read`): he breaks sooner or later than his read of the
+        // ball, at the release when his read beats it, or when he broke on
+        // the throwing motion before the ball was out (`motion_break`) and
+        // the ball went to the man the motion was for.
+        if deep_zone(&sim.agents[d]) {
+            let broke = sim.triggers.iter().find(|x| x.0 == d && x.1 == r).and_then(|x| x.3.map(|_| x.2));
+            if let Some(at) = broke {
+                sim.agents[d].ball_react = at;
+                sim.agents[d].saw_throw = true;
+            } else if sees {
+                let lead = passer_read(sim, d);
+                sim.agents[d].ball_react = t + ((base - cover + zone_turn(sim, d, r)).max(0.05) - lead).max(0.0);
+            }
         }
     }
     // The receiver looks for it: at once on a timing throw, a beat later
@@ -7387,6 +7610,11 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
             let mut threat_buf = [0usize; 32];
             let mut n_threats = 0usize;
             let mut spill: Vec<usize> = Vec::new();
+            // A deep man reads each route where it is going (scheme-fit item
+            // 12, `concept_lead`): in his area or out of it, and where he
+            // sits under it, by where he sees it (`seen`, by agent).
+            let lead = if deep { concept_lead(sim, i) } else { 0.0 };
+            let mut seen = [V2::default(); super::sim::MAX_AGENTS];
             for r in 0..sim.agents.len() {
                 let a = &sim.agents[r];
                 // The offense comes first in `agents` (`run_snap` puts its
@@ -7399,11 +7627,13 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
                 if !matches!(a.job, Job::Route { .. }) {
                     continue;
                 }
-                let in_zone = (a.pos.y - spot.y).abs() < width / 2.0 + 2.0
+                let ap = if lead != 0.0 { route_read(sim, trail, r, lead) } else { a.pos };
+                seen[r] = ap;
+                let in_zone = (ap.y - spot.y).abs() < width / 2.0 + 2.0
                     && if deep {
-                        a.pos.x > s.los + 6.0 || a.pos.x > s.los + 1.5 && a.vel.x > 4.0
+                        ap.x > s.los + 6.0 || ap.x > s.los + 1.5 && a.vel.x > 4.0
                     } else {
-                        a.pos.x > s.los - 1.0 && a.pos.x < spot.x + 9.0
+                        ap.x > s.los - 1.0 && ap.x < spot.x + 9.0
                     };
                 // A deep defender running with a man feels him over his shoulder.
                 // An underneath defender feels a route going behind him (he
@@ -7435,9 +7665,8 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
             // speed and runs with him (a speed turn) rather than waiting.
             let mut carry = V2::default();
             if deep {
-                if let Some(&r) = threats.iter().max_by(|&&a, &&b| sim.agents[a].pos.x.total_cmp(&sim.agents[b].pos.x))
-                {
-                    let rp = sim.agents[r].pos;
+                if let Some(&r) = threats.iter().max_by(|&&a, &&b| seen[a].x.total_cmp(&seen[b].x)) {
+                    let rp = seen[r];
                     let rv = sim.agents[r].vel;
                     let cushion = 1.5 + 0.4 * rv.x.max(0.0);
                     // Two verticals in his area: he splits them, leaning to the deeper.
@@ -7446,7 +7675,7 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
                     // of the list they went in put them; kept on the stack
                     // (world speed lane).
                     let mut verts: [Option<V2>; 2] = [None, None];
-                    for p in threats.iter().map(|&k| sim.agents[k].pos).filter(|p| p.x > s.los + 8.0) {
+                    for p in threats.iter().map(|&k| seen[k]).filter(|p| p.x > s.los + 8.0) {
                         let first = verts[0];
                         match first {
                             Some(a) if p.x.total_cmp(&a.x).is_le() => {
@@ -7536,25 +7765,40 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
                     target = v2(rp.x - 1.5, rp.y + (q.y - rp.y).signum() * 0.8);
                 }
             }
+            // He reads the passer's throwing motion and breaks for the ball
+            // before it is out (scheme-fit item 13, `motion_break`), his
+            // eyes still on the passer.
+            if deep && let Some(to) = motion_break(sim, i, qb, pass) {
+                sim.go_to(i, to, 1.0);
+                sim.agents[i].face = (q - me).norm();
+                sim.agents[i].face_lock = t + 1.5 * DT;
+                return;
+            }
             if let Some(e) = eyes {
                 let ep = sim.agents[e].pos;
+                // Looked off (scheme-fit item 4): while the passer holds his
+                // eyes off his first read, the defense leans to it as much
+                // less as he holds them, none at all past a full look-off.
+                let held = pass.as_ref().map_or(0.0, |p| p.look_off);
                 if ep.dist(target) < 9.0 {
-                    let lean = clamp(0.004 * (antic - 40.0), 0.0, 0.3);
+                    let lean = clamp(0.004 * (antic - 40.0), 0.0, 0.3) * (1.0 - held).max(0.0);
                     target = target + (ep - target).scale(lean);
                 }
-                // Looked off: a quarterback who holds the safety with his
-                // eyes on the first read pulls a deep man toward it; a safety
-                // who anticipates bites less (proposed, not confirmed).
-                let held = pass.as_ref().map_or(0.0, |p| p.look_off);
-                if deep && held > 0.0 {
-                    // Eyes stuck on the quarterback (individual practice):
-                    // the look-off moves him as if he anticipated the flaw
-                    // less.
-                    let stuck = sim.craft_at(i, crate::craft::Craft::EyesOnQb);
+                // His eyes on the read across the field (`decoy`) pull a deep
+                // man toward it, off the throw he wants, as much as he bites
+                // (`look_bite`), as far as his feet take him while the
+                // look-off lasts; with nobody across they only hold him. It
+                // used to pull him toward the first read, often the throw, so
+                // a better look-off gave up more picks, and at most 4 yards,
+                // so a good passer's eyes moved him no more than the typical
+                // one's (proposed, not confirmed).
+                if deep
+                    && held > 0.0
+                    && let Some(dp) = pass.as_ref().and_then(|p| decoy(sim, p))
+                {
+                    let bite = look_bite(sim, i);
                     sim.craft_at(qb, crate::craft::Craft::PumpFake);
-                    let bite = clamp(1.0 - 0.01 * (antic + stuck - 60.0), 0.3, 1.5);
-                    let pull = clamp(0.3 * held * bite * (ep.y - target.y), -4.0, 4.0);
-                    target.y += pull;
+                    target.y += 0.3 * held * bite * (dp.y - target.y);
                 }
                 // Jumping the route (topic 3.1, tendencies): see `jump_route`.
                 if !deep && let Some(j) = jump_route(sim, i, s, qb, pass, None) {
@@ -7698,12 +7942,16 @@ fn breakup_hands(sim: &mut Sim, d: usize, to: V2, hp: f64) -> f64 {
 }
 
 /// He has the ball in his eyes (scheme-fit item 15): facing it, or he saw
-/// it leave the passer's hand and has had `FIND_BALL` since he broke on it
-/// to find it over his shoulder as he runs to its spot. A man who felt the
-/// throw from his receiver's eyes and hands plays it through the hands.
-fn ball_in_eyes(sim: &Sim, d: usize, from: V2) -> bool {
+/// it leave the passer's hand and has had the time he needs to find it over
+/// his shoulder as he runs to its spot (`find_ball`: `FIND_BALL` for his
+/// level's typical starter, less for a better tracker, scheme-fit item 14)
+/// since he broke on it, or since the release when he broke on the motion
+/// before it. A man who felt the throw from his receiver's eyes and hands
+/// plays it through the hands.
+fn ball_in_eyes(sim: &Sim, d: usize, from: V2, release: f64) -> bool {
     let da = &sim.agents[d];
-    da.face.dot((from - da.pos).norm()) > 0.0 || (da.saw_throw && sim.t - da.ball_react >= FIND_BALL)
+    da.face.dot((from - da.pos).norm()) > 0.0
+        || (da.saw_throw && sim.t - da.ball_react.max(release) >= find_ball(sim, d))
 }
 
 /// The ball arrives (topic 1): who can get to it, and who catches it.
@@ -7845,7 +8093,7 @@ fn catch_point(
             if dd < rd * 0.8 && sim.rng.chance(0.18 * ball_hands(sim, d) / 70.0) {
                 return Catch::Intercepted(d);
             }
-            let sees_ball = ball_in_eyes(sim, d, from);
+            let sees_ball = ball_in_eyes(sim, d, from, release);
             let tip = ball_reach(sim, d, false) + if sees_ball { BREAKUP_REACH } else { 0.0 };
             let over_def = ball_h > high_reach(sim, d, sees_ball) + 2.0;
             if dd < tip && !over_def && sim.t >= sim.agents[d].ball_react {
@@ -7878,7 +8126,7 @@ fn catch_point(
         // how high the ball arrives. On a ball at the chest it hardly
         // matters; on a ball up high the longer man wins it more often,
         // and a ball over the defender's reach is one he can't play.
-        let sees_ball = ball_in_eyes(sim, d, from) || broke;
+        let sees_ball = ball_in_eyes(sim, d, from, release) || broke;
         let def_reach = high_reach(sim, d, sees_ball);
         let up_high = clamp((ball_h - 72.0) / 30.0, 0.0, 1.0);
         let va = clamp((rec_reach - def_reach) / 10.0, -1.5, 1.5) * up_high;

@@ -3814,6 +3814,8 @@ fn pick_diag(
     // Per band: throws, picks, completions, breakups by the line, by the back seven.
     let mut band = [[0.0f64; 5]; 5];
     let mut int_by = [[0.0f64; 5]; 3];
+    // Picks by band and the interceptor's group (scheme-fit lane SF6).
+    let mut int_band = [[0.0f64; 5]; 5];
     let mut pbu_by = [0.0f64; 5];
     let (mut tgt, mut dl_blk, mut drops) = (0.0f64, 0.0f64, 0.0f64);
     for r in results {
@@ -3830,6 +3832,7 @@ fn pick_diag(
                 band[b][1] += 1.0;
                 let g = grp(p.interceptor);
                 int_by[0][g] += 1.0;
+                int_band[b][g] += 1.0;
                 if p.coverage_man {
                     int_by[1][g] += 1.0;
                 }
@@ -3879,6 +3882,16 @@ fn pick_diag(
             share(&int_by[k], 1),
             share(&int_by[k], 2),
             share(&int_by[k], 3)
+        );
+    }
+    for (k, (_, name, ..)) in BANDS.iter().enumerate() {
+        println!(
+            "  picks on {name:<16} ({:.0}): line {:4.1}%, linebackers {:4.1}%, corners {:4.1}%, safeties {:4.1}%",
+            int_band[k].iter().sum::<f64>(),
+            share(&int_band[k], 0),
+            share(&int_band[k], 1),
+            share(&int_band[k], 2),
+            share(&int_band[k], 3)
         );
     }
     println!(
