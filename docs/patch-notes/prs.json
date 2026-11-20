@@ -2093,6 +2093,21 @@
   "title": "Talks know the time of year",
   "tldr": "The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game."
  },
+ "560": {
+  "auto": false,
+  "bullets": [
+   "Ask about his family and he tells you about his people by name, and stays on it.",
+   "How much he shares depends on his personality and how well he knows you. Push about his troubles too soon and he closes up.",
+   "He remembers what he told you and what you told him about yourself. Ask the same thing again and he notices.",
+   "Telling him about your own life counts, more when you share something real.",
+   "Meeting a player for the first time, he says hello his own way, and your hello never reads as dodging him."
+  ],
+  "h": "4c7f2def70c3",
+  "look": "a one-on-one with a player you've never met. Say hello, then ask about his family.",
+  "players": true,
+  "title": "Let talks get personal: his life away from football, and first meetings that start with a hello",
+  "tldr": "Players now talk about their lives when you ask: their family, where they're from, what they do on a day off. A first meeting starts with a real hello instead of jumping straight to business."
+ },
  "561": {
   "auto": false,
   "bullets": [

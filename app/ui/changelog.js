@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.667", date: "20 Nov", title: "Let talks get personal: his life away from football, and first meetings that start with a hello",
+    notes: [
+      "Players now talk about their lives when you ask: their family, where they're from, what they do on a day off. A first meeting starts with a real hello instead of jumping straight to business.",
+      "Ask about his family and he tells you about his people by name, and stays on it.",
+      "How much he shares depends on his personality and how well he knows you. Push about his troubles too soon and he closes up.",
+      "He remembers what he told you and what you told him about yourself. Ask the same thing again and he notices.",
+      "Telling him about your own life counts, more when you share something real.",
+      "Meeting a player for the first time, he says hello his own way, and your hello never reads as dodging him.",
+    ],
+  },
+  {
     v: "0.2.666", date: "20 Nov", title: "Engine gaps lane EG1: injuries on every collision, strains and the sideline",
     notes: [
       "Injuries now happen the way they do on a real field: linemen get hurt in the trenches, receivers pull hamstrings on deep routes, and a player who gets dinged can come back a few snaps later.",

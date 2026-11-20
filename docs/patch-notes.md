@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.667 (20 Nov, shipped): let talks get personal: his life away from football, and first meetings that start with a hello (PR #560)
+**TLDR:** Players now talk about their lives when you ask: their family, where they're from, what they do on a day off. A first meeting starts with a real hello instead of jumping straight to business.
+- Ask about his family and he tells you about his people by name, and stays on it. (PR #560)
+- How much he shares depends on his personality and how well he knows you. Push about his troubles too soon and he closes up. (PR #560)
+- He remembers what he told you and what you told him about yourself. Ask the same thing again and he notices. (PR #560)
+- Telling him about your own life counts, more when you share something real. (PR #560)
+- Meeting a player for the first time, he says hello his own way, and your hello never reads as dodging him. (PR #560)
+- Look at: a one-on-one with a player you've never met. Say hello, then ask about his family. (PR #560)
+
 ## 0.2.666 (20 Nov, shipped): engine gaps lane EG1: injuries on every collision, strains and the sideline (PR #569)
 **TLDR:** Injuries now happen the way they do on a real field: linemen get hurt in the trenches, receivers pull hamstrings on deep routes, and a player who gets dinged can come back a few snaps later.
 - Every collision can hurt both players: tackles, sacks, blocks, piles and big hits at the catch. (PR #569)
