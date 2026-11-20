@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main 55d9dc1 (lanes C1-C6, CS1-CS4) plus lane CS5 (the Pecking order screen) on 2026-11-17.
+Checked against main ffa2cfd (lanes C1-C6, CS1-CS5) plus lane CS6 (the Your seat screen) on 2026-11-20.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -342,6 +342,22 @@ Code: `crates/afm-game/src/lane_capital_pecking.rs` (the command), `app/ui/scree
 - Does the move compare the same conference? Yes: last July counts only when the same conference and level was ranked; a program new to it reads "new".
 - Are there numbers I shouldn't see? No dollars (CP39, the test checks) and not the press's own score: ranks, moves, shares of a goal and words only.
 - Does it change the world? No. It only reads.
+
+## Lane CS6: the Your seat screen
+
+Code: `crates/afm-game/src/lane_capital_seat.rs` (the commands), `app/ui/screens/capitalseat.js` and `.css` (screen `capitalseat`, the Your seat tab of the Capital row, high school and NFL seats; the college tabs hide on those seats, `CAP_SEATS` in `capital.js`). Board 6 of the mock-ups.
+
+### Quick answers
+
+- Who sees it? A high school head coach (bond night, the booster club, the five rooms) and an NFL head coach (the report card by room, leverage, the ask). A college seat gets a plain error pointing to Campus, Donors and The drive, and its tab row does not list Your seat.
+- What does a high school coach see on bond night? The bond's name and what it builds, the district's poll as a bar against the share the law asks (`hs::yes_parts`, the same parts as `hs::expected_yes`, rounded to a whole percent: election night still adds its own luck, `NIGHT_SD`), the outlook in words, the last vote in the district, "What moved the vote" in points of the vote (the season, the crowds, the town's money and football, the tax bill, each piece of your work in town with its date) and, if it passed, the share and the opening year. Every town starts a little over half for it (0.535), which the page says in words instead of listing.
+- What is "your work in town" on the screen? The three pieces from `hs::town_work` (a lunch talk at the Rotary club, a night at the booster club's phone bank, the district's community forum), each with its hours, its points, how often you have done it and a button; it is greyed with its reason when the campaign has not opened (ten weeks before election day), you gave this week's slot already, or the piece has helped as often as it can. `capital_town_work {work}` calls `hs::town_work` and returns the page with `said`.
+- How do I ask the board? `capital_bond_ask` (one confirm on the screen) calls `hs::ask_bond`; `hs::bond_block` says why you can't (asked this money year, not live, a private school, Hawaii, or a bond already under way) and the screen shows that line instead of the button. The board's lean reads in words from `hs::ask_chance` (`capital::odds_words`: "Very likely a yes" to "A long shot").
+- What are the booster club's builds? The rooms the club paid for, newest four (`Boosters.done` that are room projects, `hs::project_rooms`), and the next room on your wish list with how much of its price the club has, in words ("about half of it"; the share of the price grown 3% a year as the AI clubs' rule). No price on screen.
+- What does the NFL screen show? Each room's level, its report card line and latest grade (`nfl::seat_json`), and a line of what the players say by room and grade tone (D+ or worse, C- to B-, B or better: `said`). Rooms with no card line (the film rooms, the indoor field) say what they do instead; the sports science lab and the training room share one line.
+- What is the leverage bar? `nfl::leverage` as a share of its range (0.35 to 2.0), its words, last season's record and note, and whether another club wanted you this past year.
+- How do I ask the owner? In the owner meeting, as before (CP35, `rooms_to_ask`); the screen lists the three rooms he would hear, each with his lean in words (`nfl::ask_chance` through `odds_words`), says when you have asked this league year and what he said, or that a renovation is under way.
+- Does it change the world? No. The two commands call `hs::ask_bond` and `hs::town_work` as the boss meeting and the calendar do; the one refactor in the engine (`yes_parts` and `bond_block` out of `expected_yes` and `ask_bond`) keeps every result (the vote's sum is the same terms). No dollar figure leaves the engine (CP39, the test checks).
 
 ## Related pages
 

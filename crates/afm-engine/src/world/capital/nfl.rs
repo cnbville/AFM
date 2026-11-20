@@ -654,7 +654,23 @@ pub fn seat_json(w: &World) -> Option<serde_json::Value> {
             })
         })
         .collect();
-    let (_, lev) = leverage(w, t);
+    let (f, lev) = leverage(w, t);
+    let last = crate::world::folk::facts::seasons(w, Team::Nfl(t), 1).pop();
+    let asked_now = w.capital.room_asks.iter().rev().find(|a| a.year == w.year);
+    let offers: Vec<serde_json::Value> = rooms_to_ask(w, t)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r| {
+            let p = ask_chance(w, t, r);
+            serde_json::json!({
+                "key": key(r),
+                "name": words(r),
+                "unlocks": unlocks(r),
+                "level": c.shown(r),
+                "chance": super::odds_words(p),
+            })
+        })
+        .collect();
     let build = w.capital.club_builds.iter().rev().find(|b| b.team as usize == t && !b.done).map(|b| {
         serde_json::json!({
             "rooms": ROOMS_NFL.iter().filter(|r| b.rooms & r.bit() != 0).map(|&r| words(r)).collect::<Vec<_>>(),
@@ -665,7 +681,15 @@ pub fn seat_json(w: &World) -> Option<serde_json::Value> {
     Some(serde_json::json!({
         "rooms": rooms,
         "leverage": lev,
-        "asked": w.capital.room_asks.iter().any(|a| a.year == w.year),
+        "leverage_share": clamp((f - 0.35) / 1.65, 0.0, 1.0),
+        "leverage_why": serde_json::json!({
+            "year": last.as_ref().map(|s| s.year),
+            "record": last.as_ref().map(|s| format!("{}-{}", s.wins, s.losses)),
+            "note": last.as_ref().map(|s| s.note.clone()).filter(|n| !n.is_empty()),
+            "wanted": wanted(w),
+        }),
+        "offers": offers,
+        "asked": asked_now.map(|a| serde_json::json!({ "room": words(a.room), "yes": a.yes })),
         "build": build,
         "owner": crate::world::finance::nfl::owner_words(w, t),
     }))

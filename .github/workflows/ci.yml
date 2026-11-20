@@ -102,6 +102,7 @@ jobs:
           --skip lane_capital_project::tests::the_project_screen_answers_an_overrun_and_a_donors_call
           --skip lane_capital_pecking::tests::the_pecking_screen_ranks_the_conference_and_shows_only_what_you_know
           --skip lane_capital_drive::tests::the_drive_reads_in_shares_with_its_calls
+          --skip lane_capital_seat::tests::the_seat_screen_reads_a_high_school_and_an_nfl_seat
       - run: cargo test --workspace --doc
   # Every screen script and data file must parse, on every pull request. On
   # one that skips the engine and changes app/ui, the game's two tests that

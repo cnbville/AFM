@@ -701,10 +701,38 @@ fn coach_work(w: &World, h: usize) -> f64 {
     0.07 * clamp((rel - 5.0) / 15.0, 0.0, 1.0) * (0.4 + 0.6 * u)
 }
 
+/// Where a district's expected yes share comes from, in shares (lane CS6
+/// shows them as points): the town's starting mood, your seasons, the
+/// crowds, the town's money and football, the tax bill and your work.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct YesParts {
+    pub mood: f64,
+    pub season: f64,
+    pub crowds: f64,
+    pub town: f64,
+    pub tax: f64,
+    pub work: f64,
+    /// The district's win share and games behind `season`.
+    pub win: f64,
+    pub games: u32,
+    pub title: bool,
+}
+
+impl YesParts {
+    pub fn total(&self) -> f64 {
+        self.mood + self.season + self.crowds + self.town + self.tax + self.work
+    }
+}
+
 /// The yes share a district's vote expects before election night's luck
 /// (CP32: the season, the crowds, the tax bill, the town's money and
 /// football, the coach's work).
 pub fn expected_yes(w: &World, b: &Bond) -> f64 {
+    yes_parts(w, b).total()
+}
+
+/// `expected_yes` in its parts.
+pub fn yes_parts(w: &World, b: &Bond) -> YesParts {
     let d: Vec<usize> = b.schools.iter().map(|&h| h as usize).collect();
     let lead = d[0];
     let s = &w.high_schools[lead];
@@ -736,9 +764,17 @@ pub fn expected_yes(w: &World, b: &Bond) -> f64 {
         Some(_) => b.work as f64,
         None => coach_work(w, lead),
     };
-    0.535 + 0.1 * (win - 0.5) + if title { 0.03 } else { 0.0 } + crowds + 0.04 * culture + 0.06 * (s.area_money - 0.5)
-        - 0.05 * (burden - 1.0).clamp(-1.0, 3.0)
-        + work
+    YesParts {
+        mood: 0.535,
+        season: 0.1 * (win - 0.5) + if title { 0.03 } else { 0.0 },
+        crowds,
+        town: 0.04 * culture + 0.06 * (s.area_money - 0.5),
+        tax: -0.05 * (burden - 1.0).clamp(-1.0, 3.0),
+        work,
+        win,
+        games,
+        title,
+    }
 }
 
 /// Election night's spread around the expected share (proposed, not
@@ -947,25 +983,40 @@ fn money_year(w: &World) -> i32 {
     if w.today < w.dates.money_year { w.year - 1 } else { w.year }
 }
 
+/// Why you can't ask the board for a stadium bond now, if you can't (lane
+/// CS6 reads it for the button; `ask_bond` answers with it).
+pub fn bond_block(w: &World, h: usize) -> Option<String> {
+    if w.capital.bond_asked == money_year(w) {
+        return Some("You asked the board this year already; the answer stands until next summer.".into());
+    }
+    if !super::live(w) {
+        return Some("Not yet.".into());
+    }
+    if w.high_schools[h].private {
+        return Some("A private school has no bond: its foundation and booster club pay.".into());
+    }
+    let code = &w.states[w.high_schools[h].state].code;
+    if !votes_in(code) {
+        return Some("The state builds its schools' stadiums; there is no local vote.".into());
+    }
+    if busy(w, &district(w, h)) {
+        return Some("A bond is already on the ballot or being built, or the town voted on one lately.".into());
+    }
+    None
+}
+
 /// You ask the superintendent and the board for a stadium bond (once a
 /// money year): their yes puts it on the next ballot at least 78 days out.
 pub fn ask_bond(w: &mut World) -> Result<String, String> {
     let h = your_school(w)?;
     let my = money_year(w);
-    if w.capital.bond_asked == my {
-        return Err("You asked the board this year already; the answer stands until next summer.".into());
+    if super::live(w) {
+        fill(w);
     }
-    if !super::live(w) {
-        return Err("Not yet.".into());
+    if let Some(why) = bond_block(w, h) {
+        return Err(why);
     }
-    fill(w);
     let d = district(w, h);
-    if w.high_schools[h].private {
-        return Err("A private school has no bond: its foundation and booster club pay.".into());
-    }
-    if busy(w, &d) {
-        return Err("A bond is already on the ballot or being built, or the town voted on one lately.".into());
-    }
     w.capital.bond_asked = my;
     let chance = ask_chance(w, h);
     if super::draw(w, 70, (h as u64) << 16 ^ my as u64) >= chance {
@@ -1065,8 +1116,18 @@ pub fn seat_json(w: &World) -> Option<serde_json::Value> {
             .town
             .iter()
             .filter(|t| t.bond == b.id)
-            .map(|t| serde_json::json!({ "date": t.date.pretty(), "work": t.work.key(), "words": t.work.words() }))
+            .map(|t| {
+                let (_, lift, _) = t.work.size();
+                serde_json::json!({
+                    "date": t.date.pretty(),
+                    "work": t.work.key(),
+                    "words": t.work.words(),
+                    "points": (lift as f64 * 1000.0).round() / 10.0,
+                })
+            })
             .collect();
+        let p = yes_parts(w, b);
+        let pts = |x: f64| (x * 1000.0).round() / 10.0;
         serde_json::json!({
             "name": b.name,
             "package": match b.package { Package::New => "new", Package::Renovation => "renovation" },
@@ -1075,14 +1136,34 @@ pub fn seat_json(w: &World) -> Option<serde_json::Value> {
             "shared_with": b.schools.iter().filter(|&&o| o as usize != h).map(|&o| w.school_name(o as usize)).collect::<Vec<_>>(),
             "outlook": if b.pending() { outlook(w, b) } else { "" },
             "passed": b.passed,
+            "yes": b.yes.map(|y| (y as f64 * 100.0).round() as i64),
             "opens": b.opens.map(|o| o.year()),
             "work": mine,
+            "poll": (p.total() * 100.0).round() as i64,
+            "needs": (b.needs as f64 * 100.0).round() as i64,
+            "moved": {
+                "season": pts(p.season), "crowds": pts(p.crowds), "town": pts(p.town), "tax": pts(p.tax),
+                "work": pts(p.work), "win": p.win, "games": p.games, "title": p.title,
+            },
         })
     });
+    // The last vote in your district, for the line under the bar.
+    let last = w
+        .capital
+        .bonds
+        .iter()
+        .filter(|b| b.holds(h) && !b.pending() && Some(b.id) != your_bond(w).map(|y| y.id))
+        .max_by_key(|b| b.day)
+        .map(|b| serde_json::json!({ "year": b.day.year(), "passed": b.passed, "yes": b.yes.map(|y| (y as f64 * 100.0).round() as i64) }));
+    let block = bond_block(w, h);
     Some(serde_json::json!({
         "rooms": rooms,
         "bond": bond,
+        "last": last,
         "asked": w.capital.bond_asked == money_year(w),
+        "can_ask": block.is_none() && bond.is_none(),
+        "why_not": block,
+        "odds": super::odds_words(ask_chance(w, h)),
         "district": district(w, h).into_iter().map(|o| w.school_name(o).to_string()).collect::<Vec<_>>(),
     }))
 }

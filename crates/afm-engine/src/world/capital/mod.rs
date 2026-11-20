@@ -74,6 +74,22 @@ pub use gifts::{Answer, Catch, CatchKind, Side};
 pub use pledges::Pledge;
 pub use race::{Pecking, Placed, Rumor};
 
+/// A yes chance in words, for the screens of your seat (lane CS6): the
+/// board's and the owner's answers read as a lean, never a number.
+pub fn odds_words(p: f64) -> &'static str {
+    if p >= 0.8 {
+        "Very likely a yes."
+    } else if p >= 0.55 {
+        "Probably a yes."
+    } else if p >= 0.35 {
+        "Could go either way."
+    } else if p >= 0.15 {
+        "Probably a no."
+    } else {
+        "A long shot."
+    }
+}
+
 /// The Capital store on `World.capital`.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
