@@ -7,7 +7,7 @@
 use std::cmp::Ordering;
 
 use crate::game::synthetic::synthetic_league;
-use crate::game::win_chance::{Params, State, chance, home_before, home_series};
+use crate::game::win_chance::{Params, State, chance, home_before, home_series, last_shot};
 use crate::game::{GameResult, GameSetup, PlayRecord, PlayType, play_game};
 use crate::player::Level;
 use crate::world::charts::{Charts, Tally, depth_bin};
@@ -86,7 +86,8 @@ fn win_chance_rises_with_the_score_and_the_field() {
 }
 
 /// The last second (R12): a kick only from range, as often as it is good;
-/// past the longest kick, nothing but a Hail Mary, and no cliff a yard
+/// past the longest kick, nothing but the throw the engine makes (a Hail
+/// Mary, or the laterals from farther: `last_shot`), and no cliff a yard
 /// apart.
 #[test]
 fn win_chance_late_kicks_need_range() {
@@ -94,7 +95,7 @@ fn win_chance_late_kicks_need_range() {
         let p = Params::for_level(level);
         let at = |yl: f64| chance(&p, &State { timeouts: [0, 0], ..st(4, 1.0, -2.0, 1, 10.0, yl) });
         let mid = at(50.0);
-        assert!(mid < 0.08, "{level:?} down 2 at the 50 with 0:01 {mid:.3}");
+        assert!(mid < last_shot(level, 50.0) + 0.01, "{level:?} down 2 at the 50 with 0:01 {mid:.3}");
         for yl in 20..70 {
             let (yl, c) = (yl as f64, at(yl as f64));
             let kick = p.fg_make(yl);
@@ -102,7 +103,7 @@ fn win_chance_late_kicks_need_range() {
                 assert!((c - kick).abs() < 0.05, "{level:?} 0:01 at the {yl}: {c:.3}, the kick makes {kick:.3}");
             } else {
                 // Past the longest kick: only a throw at the end zone.
-                let shot = 0.55 * (-yl / 14.0).exp();
+                let shot = last_shot(level, yl);
                 assert!(c < shot + 0.01, "{level:?} 0:01 at the {yl}, out of range: {c:.3}, the throw {shot:.3}");
                 assert!((c - at(yl + 1.0)).abs() < 0.03, "{level:?} 0:01: a cliff past the {yl}");
             }

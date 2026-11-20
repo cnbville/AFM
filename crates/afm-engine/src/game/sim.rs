@@ -900,6 +900,9 @@ pub fn hampered(gp: &GamePlayer, hurt: Option<InjuryKind>) -> std::borrow::Cow<'
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Notes {
     pub pressures: Vec<(u32, f64)>,
+    /// Laterals thrown on the play (engine gaps item 16).
+    #[serde(default)]
+    pub laterals: u8,
     /// Each pass rusher's first contact with a blocker (id, seconds after
     /// the snap): what the Data section reads as his get-off.
     #[serde(default)]
@@ -989,6 +992,19 @@ pub struct FumbleNote {
     /// It went out of bounds before anyone had it.
     #[serde(default)]
     pub out: bool,
+}
+
+/// How the man with the ball plays the clock (engine gaps item 18).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum ClockRun {
+    #[default]
+    Normal,
+    /// Ahead late: he keeps the clock running, cutting back inside rather
+    /// than stepping out, and takes the hit in bounds.
+    Stay,
+    /// Ahead late, and a first down past this line lets his side kneel out
+    /// the game: past it he goes down short of the goal line.
+    Down(f64),
 }
 
 /// A ball on the ground (engine gaps item 4): it rolls and bounces off its
@@ -1249,6 +1265,8 @@ pub struct Sim<'a> {
     /// On a designed run, the lane the back chose when he read the hole
     /// (across the field), once he has read it.
     pub lane: Option<f64>,
+    /// How the man with the ball plays the clock (engine gaps item 18).
+    pub clock_run: ClockRun,
     /// Route jumpers who guessed wrong: who, the spot he broke for, and
     /// when.
     pub bites: Vec<(usize, V2, f64)>,
@@ -1389,6 +1407,11 @@ const RUN_PUSH_UP: f64 = 1.0;
 /// climbing blocker (it was anywhere, so linebackers were blocked to the
 /// whistle 1.5 times a run; minor bug 164; proposed, not confirmed).
 const PHONE_BOOTH: f64 = 1.5;
+
+/// How much a man keeping the clock running ahead late shies from the
+/// sideline within six yards of it (engine gaps item 18; proposed, not
+/// confirmed).
+const STAY_IN: f64 = 2.5;
 
 /// How far from the sideline a tackler can drive the runner out of bounds
 /// rather than take him down in bounds (minor bug 141, was 6).
@@ -3203,7 +3226,13 @@ impl<'a> Sim<'a> {
         // contact sooner, one who seeks it turns up (base proposed,
         // not confirmed: real backs end 4.2% of carries out of
         // bounds, the engine's ended 0.7%).
-        let step = (0.5 - 0.6 * contact).max(0.0);
+        // Ahead late (engine gaps item 18) he keeps the clock running: he
+        // doesn't step out, and the sideline costs him as a hit would
+        // (`STAY_IN`; real NFL designed runs by the side ahead in the last
+        // 5:00 ended out of bounds 2.3% of the time, 5.8% in the first three
+        // quarters, nflverse 2021-2025).
+        let stay = self.clock_run != ClockRun::Normal && me.side == self.carrier_side && self.carrier_side == 0;
+        let step = if stay { 0.0 } else { (0.5 - 0.6 * contact).max(0.0) };
         let vel_n = me.vel.norm();
         let pull = aim.map(|a| (1.2 * (1.0 - 0.6 * bounce), (a - me.pos).norm()));
         let heads = headings();
@@ -3240,6 +3269,12 @@ impl<'a> Sim<'a> {
             let mut closing = open;
             closing -= 10.0 * step * outward.max(0.0);
             closing += 1.5 * contact.max(0.0) * outward.max(0.0);
+            let (open, closing) = if stay && edge < 6.0 {
+                let keep = STAY_IN * outward.max(0.0) * (1.0 - edge / 6.0);
+                (open + keep, closing + keep)
+            } else {
+                (open, closing)
+            };
             let lateral = dir.y.abs() * 0.9 * bounce;
             // In his lane to the line.
             let off_lane = lane.map_or(0.0, |y| 2.0 * ((p.y - y).abs() - 1.5).max(0.0));

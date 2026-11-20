@@ -172,10 +172,45 @@ pub struct Snap<'a> {
     /// when the return team showed the look: its front turns to set up
     /// the return.
     pub fake_punt: Option<bool>,
+    /// A fake field goal (engine gaps item 21): the field goal unit in its
+    /// kick formation against the block unit, the snap to the holder
+    /// (`ORole::QB`; the kicker beside him as `ORole::RB`). The block unit
+    /// comes for the kick and reads the fake late.
+    pub fake_kick: bool,
     /// The fumble rules on this snap (engine gaps item 4): who may advance
     /// a loose ball, by the level's book, the down and the clock.
     pub fumble: super::sim::FumbleSnap,
+    /// How the man with the ball plays the clock (engine gaps item 18).
+    pub clock_run: super::sim::ClockRun,
 }
+
+/// A Hail Mary (engine gaps item 15, proposed, not confirmed): the
+/// receivers' spots spread by this share of how far apart they lined up;
+/// the passer throws when his deepest man is this close to the goal line,
+/// or at `HAIL_WAIT` seconds. In the crowd (`crowd_ball`): a man within
+/// `CROWD_REACH` yards goes up for it, `CROWD_YARD` inches of high point
+/// lost a yard away; a defender's pick, a receiver's catch (over one and
+/// `CROWD_HELP` a defender at him, `CROWD_SHORT` of it on a ball that comes
+/// down short of the goal line) and a tip to the next man.
+const HAIL_SPREAD: f64 = 0.3;
+const HAIL_THROW_AT: f64 = 6.0;
+const HAIL_WAIT: f64 = 6.5;
+const CROWD_REACH: f64 = 3.0;
+const CROWD_YARD: f64 = 6.0;
+const CROWD_PICK: f64 = 0.4;
+const CROWD_CATCH: f64 = 0.9;
+const CROWD_SHORT: f64 = 0.3;
+const CROWD_HELP: f64 = 0.2;
+const CROWD_TIP: f64 = 0.3;
+/// The last play's laterals (engine gaps item 16, proposed, not
+/// confirmed): a man pitches when a free tackler is within `LAT_THREAT`
+/// yards, to a teammate 2 to `LAT_RANGE` yards away and behind him.
+const LAT_THREAT: f64 = 4.0;
+const LAT_RANGE: f64 = 12.0;
+/// The men trailing the ball on the laterals: this far behind it and to
+/// either side (proposed, not confirmed).
+const LAT_TRAIL: f64 = 1.5;
+const LAT_SIDE: f64 = 2.0;
 
 /// What the plan and the game so far bring to one snap (plays and tactics
 /// topics 2-7).
@@ -488,7 +523,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let mut slot_of: Vec<Option<DSlot>> = Vec::new();
     for &(r, p) in s.offense {
         let gp = super::sim::hampered(&s.teams[0][p], s.hurt[0][p]);
-        let pos = if s.fake_punt.is_some() { punt_spot(&f, r, los, by, s.rules.level) } else { align(&f, r, los, by) };
+        let pos = if s.fake_punt.is_some() {
+            punt_spot(&f, r, los, by, s.rules.level, matches!(s.call.kind, PlayKind::Pass(_)))
+        } else if s.fake_kick {
+            kick_spot(&f, r, los, by)
+        } else {
+            align(&f, r, los, by)
+        };
         let mut a = Agent::new(0, p, &gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]);
         if let Some(t) = s.pulse[0].get(p) {
             a.fire_up(t);
@@ -566,6 +607,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         press: 0.0,
         designed_run: false,
         lane: None,
+        clock_run: s.clock_run,
         bites: Vec::new(),
         two_gap: s.two_gap,
         help_on: None,
@@ -736,11 +778,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let new_job = JOB_READ * s.new_job.get(sim.agents[i].p).copied().unwrap_or(0.0) as f64;
         sim.agents[i].read_at = (base + extra + tend + slow + prep + freeze + 0.12 * tac.novelty + new_job).max(0.12);
     }
-    // A fake punt into a return team that turned to set up the return: its
-    // front has its back to the play and reads it late; a disciplined man
+    // A fake punt into a return team that turned to set up the return (its
+    // front has its back to the play), or a fake field goal into a block
+    // unit coming for the kick: the front reads it late; a disciplined man
     // checks for the fake before he turns (proposed, not confirmed: a
     // quarter of a second for an average man, an eighth to three eighths).
-    if s.fake_punt == Some(true) {
+    if s.fake_punt == Some(true) || s.fake_kick {
         for i in off_n..sim.agents.len() {
             let slot = slot_of[i].unwrap_or(DSlot::Mike);
             if matches!(slot, DSlot::FS | DSlot::CBL | DSlot::CBR | DSlot::NCB | DSlot::DCB) {
@@ -917,6 +960,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 // throw). The back who fakes the run away from the roll
                 // takes his route later, from where the fake left him.
                 let out = (boot && r.is_back() && (sim.agents[i].pos.y - by).abs() < 0.5).then_some(side);
+                // A Hail Mary (engine gaps item 15): the backs stay in to
+                // block and everyone else goes to the end zone.
+                if s.call.hail && !matches!(route, Route::Block) {
+                    sim.agents[i].job =
+                        if r.is_back() { Job::PassBlock { target: None } } else { hail_route(&sim.agents[i], los, by) };
+                    continue;
+                }
                 sim.agents[i].job = route_job_to(&sim.agents[i], route, los, by, s.hurry, out);
                 let late = silent_late(&sim, s, i);
                 if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
@@ -1022,6 +1072,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 sim.fake = Some(b);
             }
             assign_defense(&mut sim, s, off_n, &slot_of, &role_of, true);
+            if s.call.hail {
+                hail_defense(&mut sim, off_n);
+            }
             // Who the fake holds, and for how long: everyone who keys the
             // backfield plays the run he is shown until he reads the pass
             // (his own read, which the fake has already made later): the
@@ -1701,8 +1754,19 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 Job::PitchMan => {
                     // He keeps his pitch relationship: about four yards
                     // outside the quarterback and a yard and a half behind.
-                    let q = sim.agents[qb].pos;
-                    let spot = v2(q.x - 1.5, q.y + 4.5 * s.call.dir);
+                    // On the last play's laterals (engine gaps item 16) the
+                    // men trail the ball for the pitch instead, three yards
+                    // behind it and to either side.
+                    let spot = match sim.ball {
+                        Ball::Held(c) if s.call.laterals && c != i => {
+                            let b = sim.agents[c].pos;
+                            v2(b.x - LAT_TRAIL * sim.goal, b.y + if i % 2 == 0 { LAT_SIDE } else { -LAT_SIDE })
+                        }
+                        _ => {
+                            let q = sim.agents[qb].pos;
+                            v2(q.x - 1.5, q.y + 4.5 * s.call.dir)
+                        }
+                    };
                     sim.go_to(i, spot, 1.0);
                 }
                 Job::PassBlock { target } => {
@@ -2105,7 +2169,20 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     a = Some(v2(gp.x - sim.goal * 1.0, gp.y - s.call.dir * 0.8));
                 }
             }
-            if s.hurry && sim.agents[c].side == 0 {
+            if let ClockRun::Down(line) = sim.clock_run
+                && sim.agents[c].side == 0
+                && sim.carrier_side == 0
+                && sim.agents[c].pos.x >= line + 1.0
+            {
+                // Past the line that wins the game: he goes down short of
+                // the goal line rather than score and give the ball back.
+                let me = sim.agents[c].pos;
+                sim.progress = sim.progress.max(me.x);
+                sim.dead = true;
+                sim.ball = Ball::Dead(me);
+            } else if s.call.laterals && sim.agents[c].side == 0 && lateral(&mut sim, c) {
+                // The ball went back to a teammate, or is on the ground.
+            } else if s.hurry && sim.agents[c].side == 0 {
                 hurry_run(&mut sim, c);
             } else {
                 sim.run_carrier(c, a);
@@ -2130,7 +2207,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         if let Ball::Air { to, arrive, target, release, from, .. } = sim.ball
             && t + 1e-9 >= arrive
         {
-            let tgt = target.unwrap_or(qb);
+            let mut tgt = target.unwrap_or(qb);
             let batted = pass.as_ref().and_then(|ps| ps.batted);
             let outcome = match batted {
                 // Batted at the line: knocked down, or now and then caught by
@@ -2144,6 +2221,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     } else {
                         Catch::Incomplete { drop: false, pbu: Some(sim.agents[d].id), sep }
                     }
+                }
+                None if s.call.hail => {
+                    let (c, who) = crowd_ball(&mut sim, tgt, to);
+                    tgt = who;
+                    c
                 }
                 None => {
                     let touch = sim.agents[qb].a(Attr::Touch);
@@ -2176,7 +2258,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     res.carrier = Some(sim.agents[tgt].id);
                     for k in 0..off_n {
                         if k != tgt && sim.agents[k].engaged.is_none() {
-                            sim.agents[k].job = Job::Escort;
+                            // The last play's laterals: the backs and the
+                            // receivers trail the ball for the pitch.
+                            let trail = s.call.laterals && role_of[k].is_some_and(|r| !r.is_line() && r != ORole::QB);
+                            sim.agents[k].job = if trail { Job::PitchMan } else { Job::Escort };
                         }
                     }
                     for k in off_n..sim.agents.len() {
@@ -2421,15 +2506,33 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 /// and behind each tackle, the gunners split wide, the up-back about five
 /// and a half yards behind the ball and the punter at his depth (about 15
 /// yards in the NFL, 14 in college, 12 at high school).
-fn punt_spot(f: &Formation, r: ORole, los: f64, by: f64, level: crate::Level) -> V2 {
+fn punt_spot(f: &Formation, r: ORole, los: f64, by: f64, level: crate::Level, thrown: bool) -> V2 {
     let deep = super::kicking::punt_depth(level);
+    // A thrown fake (engine gaps item 21) goes to the punter where he
+    // stands, the up-back staying in to protect.
+    let (snap_to, back) = if thrown { (deep, 5.5) } else { (5.5, deep) };
     match r {
-        ORole::QB => v2(los - 5.5, by),
-        ORole::RB => v2(los - deep, by),
+        ORole::QB => v2(los - snap_to, by),
+        ORole::RB => v2(los - back, by),
         ORole::TE => v2(los - 1.3, by + 4.4),
         ORole::TE2 => v2(los - 1.3, by - 4.4),
         // A twelfth man (the CFL) is a second up-back.
         ORole::Slot | ORole::Slot2 | ORole::Slot3 | ORole::FB => v2(los - 4.0, by - 1.8),
+        _ => align(f, r, los, by),
+    }
+}
+
+/// The field goal unit's spots on a fake (engine gaps item 21): the holder
+/// seven yards back, the kicker two and a half behind him and to his side,
+/// seven on the line and a wing off each end.
+fn kick_spot(f: &Formation, r: ORole, los: f64, by: f64) -> V2 {
+    match r {
+        ORole::QB => v2(los - 7.0, by),
+        ORole::RB => v2(los - 9.5, by + 1.5),
+        ORole::TE => v2(los - 0.8, by + 4.2),
+        ORole::TE3 => v2(los - 0.8, by - 4.2),
+        ORole::TE2 => v2(los - 1.3, by + 5.4),
+        ORole::FB => v2(los - 1.3, by - 5.4),
         _ => align(f, r, los, by),
     }
 }
@@ -4412,6 +4515,194 @@ pub(crate) fn escort(sim: &mut Sim, i: usize) {
     }
 }
 
+/// The longest throw a passer has, in the air (engine gaps item 15): a
+/// level's typical starter throws 65 yards in the NFL, 60 in college and 52
+/// at high school, half a yard more or less a point of arm strength
+/// (proposed, not confirmed; real NFL Hail Marys from 50-60 yards out
+/// scored 3 times in 26, from 40-50 once in 26, nflverse 2021-2025, so a
+/// typical arm gets there).
+pub fn longest_throw(level: crate::Level, arm: f64) -> f64 {
+    let typ = super::synthetic::typical(level, crate::positions::Position::QB, Attr::ArmStrength);
+    let base = match level {
+        crate::Level::NFL => 65.0,
+        crate::Level::HS => 52.0,
+        _ => 60.0,
+    };
+    base + 0.5 * (arm - typ)
+}
+
+/// A Hail Mary's route (engine gaps item 15): straight up the field, then
+/// to his spot three yards deep in the end zone, the receivers a few yards
+/// apart across the middle by where they lined up, and he waits there for
+/// the ball.
+fn hail_route(a: &Agent, los: f64, by: f64) -> Job {
+    let lane = clamp(mid() + HAIL_SPREAD * (a.pos.y - by), mid() - 8.0, mid() + 8.0);
+    let pts = vec![v2(los + 6.0, a.pos.y), v2(goal() + 3.0, lane)];
+    Job::Route { pts, next: 0, settle: true, name: "Hail Mary", release_delay: 0.0 }
+}
+
+/// The defense against a Hail Mary (engine gaps item 15): it knows it is
+/// coming. Every man not rushing drops to the goal line and plays the ball
+/// from among the receivers: a line of them across the middle at the goal
+/// line and one deeper in the end zone, alternately, three yards apart.
+fn hail_defense(sim: &mut Sim, off_n: usize) {
+    let drop: Vec<usize> =
+        (off_n..sim.agents.len()).filter(|&i| !matches!(sim.agents[i].job, Job::Rush { .. })).collect();
+    let n = drop.len() as f64;
+    let mut by_y = drop.clone();
+    by_y.sort_by(|&a, &b| sim.agents[a].pos.y.total_cmp(&sim.agents[b].pos.y));
+    for (k, &i) in by_y.iter().enumerate() {
+        let y = mid() + 3.0 * (k as f64 - (n - 1.0) / 2.0);
+        let x = goal() + if k % 2 == 0 { 0.5 } else { 4.5 };
+        sim.agents[i].job = Job::Zone { spot: v2(x, y), deep: true, width: 3.0, matched: false };
+    }
+}
+
+/// The passer on a Hail Mary (engine gaps item 15): he holds it until his
+/// deepest man is within `HAIL_THROW_AT` of the goal line, the rush is on
+/// him or `HAIL_WAIT` has gone, then throws it up three yards into the end
+/// zone among his men, or as far as his arm takes it.
+fn hail_throw(
+    sim: &mut Sim,
+    ps: &mut Pass,
+    qb: usize,
+    s: &Snap,
+    pressure: f64,
+    soon: f64,
+) -> Option<(V2, usize, f64, f64, f64)> {
+    let q = sim.agents[qb].pos;
+    let rec: Vec<usize> = (0..sim.agents.len())
+        .filter(|&i| {
+            sim.agents[i].side == 0 && sim.agents[i].up(sim.t) && matches!(sim.agents[i].job, Job::Route { .. })
+        })
+        .collect();
+    let deep = rec.iter().map(|&i| sim.agents[i].pos.x).fold(f64::NEG_INFINITY, f64::max);
+    if rec.is_empty() || !(deep >= goal() - HAIL_THROW_AT || sim.t >= HAIL_WAIT || soon < 0.4) {
+        return None;
+    }
+    let cy = rec.iter().map(|&i| sim.agents[i].pos.y).sum::<f64>() / rec.len() as f64;
+    let spot = v2(goal() + 3.0, cy);
+    let arm = sim.agents[qb].a(Attr::ArmStrength);
+    let longest = longest_throw(sim.level, arm);
+    let p = if q.dist(spot) > longest { q + (spot - q).norm().scale(longest) } else { spot };
+    let r = rec.iter().copied().min_by(|&a, &b| sim.agents[a].pos.dist(p).total_cmp(&sim.agents[b].pos.dist(p)))?;
+    let speed = 16.5 + 0.13 * arm;
+    let dist = q.dist(p);
+    let flight = 0.28 + dist / (speed * (1.0 - 0.005 * (dist - 20.0).max(0.0)));
+    let out = throw(sim, ps, qb, r, p, flight, pressure, s);
+    // Everyone goes up for it: the other receivers run to where the ball
+    // comes down, as the men at the goal line break on it.
+    if let Ball::Air { to, .. } = sim.ball {
+        for i in rec {
+            if i != r {
+                sim.agents[i].job =
+                    Job::Route { pts: vec![to], next: 0, settle: true, name: "Hail Mary", release_delay: 0.0 };
+            }
+        }
+    }
+    Some(out)
+}
+
+/// A ball thrown up into a crowd (a Hail Mary, engine gaps item 15). Every
+/// man on his feet within `CROWD_REACH` of where it comes down goes up for
+/// it, and the best high point gets a hand on it first: his reach at the
+/// top of his jump, less `CROWD_YARD` inches for each yard he is away, with
+/// his timing (Jumping, the Highpointer link) and a little luck. A defender
+/// who gets there first picks it with his hands (`CROWD_PICK` for a
+/// typical starter's) or knocks it down; a receiver catches it among the
+/// defenders around him by his contested catch (`CROWD_CATCH`, over one
+/// and `CROWD_HELP` for each defender within a yard and a half). A ball nobody
+/// holds is tipped up for the next man now and then (`CROWD_TIP`), twice
+/// at most. Returns what happened and the man it went to (proposed, not
+/// confirmed: sized to real NFL Hail Marys, 2021-2025, 35+ air yards on a
+/// half's last snap from 30-70 yards out: 62 throws, 8.1% caught, 6.5%
+/// scored, 29% picked; the engine 6.4% and 29% at their mix of distances,
+/// `match_check nfl 2000` on seeds 1 and 2).
+fn crowd_ball(sim: &mut Sim, r: usize, to: V2) -> (Catch, usize) {
+    let mut men: Vec<(f64, usize)> = Vec::new();
+    for i in 0..sim.agents.len() {
+        if !sim.agents[i].up(sim.t) || sim.agents[i].pos.dist(to) > CROWD_REACH {
+            continue;
+        }
+        let timing = 0.1 * (sim.agents[i].a(Attr::Jumping) - 60.0) + sim.player(i).links.edge(&[Link::Highpointer]);
+        let score = high_reach(sim, i, true) + timing - CROWD_YARD * sim.agents[i].pos.dist(to) + 3.0 * gauss(sim.rng);
+        men.push((score, i));
+    }
+    men.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let sep = (0..sim.agents.len())
+        .filter(|&d| sim.agents[d].side == 1)
+        .map(|d| sim.agents[d].pos.dist(sim.agents[r].pos))
+        .fold(f64::INFINITY, f64::min);
+    // A ball that comes down short of the goal line is the defense's to
+    // play: its men wait there facing it, the receivers come back to it.
+    let short = if to.x < goal() { CROWD_SHORT } else { 1.0 };
+    for &(_, i) in men.iter().take(3) {
+        if sim.agents[i].side == 1 {
+            if sim.rng.chance(CROWD_PICK * ball_hands(sim, i) / 70.0) {
+                return (Catch::Intercepted(i), r);
+            }
+        } else {
+            let a = &sim.agents[i];
+            let near = (0..sim.agents.len())
+                .filter(|&d| sim.agents[d].side == 1 && sim.agents[d].up(sim.t) && sim.agents[d].pos.dist(a.pos) < 1.5)
+                .count() as f64;
+            let fight = 0.5 * a.a(Attr::ContestedCatch) + 0.25 * a.a(Attr::Strength) + 0.25 * a.a(Attr::Jumping);
+            if sim.rng.chance(clamp(CROWD_CATCH * short * fight / 70.0 / (1.0 + CROWD_HELP * near), 0.0, 0.9)) {
+                return (Catch::Complete(sep), i);
+            }
+        }
+        if !sim.rng.chance(CROWD_TIP) {
+            break;
+        }
+    }
+    let pbu = men.iter().find(|m| sim.agents[m.1].side == 1).map(|m| sim.agents[m.1].id);
+    (Catch::Incomplete { drop: false, pbu, sep }, r)
+}
+
+/// The last play's laterals (engine gaps item 16): a man with the ball and a
+/// tackler about to have him pitches it back to a teammate trailing the play
+/// within `LAT_RANGE`, who gathers it by his hands, less for a long toss;
+/// one he can't is on the ground and live (`Sim::fumble_going`, engine gaps
+/// item 4). True when he let it go.
+fn lateral(sim: &mut Sim, c: usize) -> bool {
+    let me = sim.agents[c].pos;
+    let near = (0..sim.agents.len())
+        .filter(|&d| sim.agents[d].side != 0 && sim.agents[d].up(sim.t) && sim.agents[d].engaged.is_none())
+        .map(|d| sim.agents[d].pos.dist(me))
+        .fold(f64::INFINITY, f64::min);
+    if near > LAT_THREAT {
+        return false;
+    }
+    let mate = (0..sim.agents.len())
+        .filter(|&j| {
+            let a = &sim.agents[j];
+            j != c
+                && a.side == 0
+                && a.up(sim.t)
+                && a.engaged.is_none()
+                && (a.pos.x - me.x) * sim.goal <= -0.5
+                && a.pos.dist(me) <= LAT_RANGE
+                && a.pos.dist(me) >= 2.0
+        })
+        .min_by(|&a, &b| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me)));
+    let Some(j) = mate else { return false };
+    let toss = sim.agents[j].pos.dist(me);
+    sim.notes.laterals += 1;
+    let hands = clamp(0.93 + 0.003 * (sim.agents[j].a(Attr::Catching) - 60.0) - 0.008 * (toss - 3.0), 0.6, 0.98);
+    sim.agents[c].job = Job::Escort;
+    if sim.rng.chance(hands) {
+        sim.ball = Ball::Held(j);
+        sim.agents[j].job = Job::Carrier;
+        if (sim.agents[j].pos.x - sim.progress) * sim.goal > 0.0 {
+            sim.progress = sim.agents[j].pos.x;
+        }
+    } else {
+        let v = sim.agents[j].vel;
+        sim.fumble_going(j, FumbleHow::Pitch, v);
+    }
+    true
+}
+
 /// Two-minute drill: get what you can, then get out of bounds.
 fn hurry_run(sim: &mut Sim, c: usize) {
     let me = sim.agents[c].pos;
@@ -5076,6 +5367,9 @@ fn quarterback(
     let early = t < ps.set_at + READ_START && !hot_off_fake;
     if (early && ps.commit.is_none()) || ps.reads.is_empty() {
         return None;
+    }
+    if s.call.hail {
+        return hail_throw(sim, ps, qb, s, pressure, soon);
     }
     // Hot read: an unblocked blitzer gets the ball thrown early (by
     // `HOT_BY`, later by the fake's own time on play action).
@@ -5913,7 +6207,9 @@ fn throw(
     // throw across the field is not a deep ball), and deep balls need the
     // arm too: a weak arm has to put more air under it. (Minor bug 135:
     // 0.022 a yard left 20+ throws complete 39%; 0.035 gives 37.4%.)
-    let judge = 1.0 + 0.035 * (down - 12.0).max(0.0);
+    // A Hail Mary is thrown up to a spot among his men, not to one man on
+    // the run, so its depth is no harder than its line (engine gaps item 15).
+    let judge = if s.call.hail { 1.0 } else { 1.0 + 0.035 * (down - 12.0).max(0.0) };
     let deep = judge * if dist > 25.0 { 1.1 * clamp(1.0 + 0.01 * (75.0 - power), 0.8, 1.4) } else { 1.0 };
     let e1 = sd * deep * gauss(sim.rng);
     let e2 = sd * gauss(sim.rng);
