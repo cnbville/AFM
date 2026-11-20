@@ -36,8 +36,17 @@ fn the_model_reads_known_fourth_downs_and_tries() {
             let w = m.fourth_at(&st(2, 600.0, 0.0, 10.0, 80.0));
             assert!(w.go < w.punt.unwrap() + calls::CLEAR, "{level:?} 4th and 10 at own 20: {w:?}");
         }
-        // 4th and 9 at their 12 early in a tied game: kick.
-        assert_eq!(best(st(1, 700.0, 0.0, 9.0, 12.0)), 2, "{level:?} 4th and 9 at their 12");
+        // 4th and 9 at their 12 early in a tied game: kick where the
+        // kickers make nine in ten from 29 yards (nfl4th says kick). Since
+        // the kick tables read the real make rates (engine gaps lane EG3),
+        // the fit's FCS and high school kickers make about four in five
+        // from there, and the call is close: never a clear go.
+        let w = m.fourth_at(&st(1, 700.0, 0.0, 9.0, 12.0));
+        if matches!(level, Level::NFL | Level::FBS) {
+            assert_eq!(w.best().0, 2, "{level:?} 4th and 9 at their 12: {w:?}");
+        } else {
+            assert!(w.go < w.kick.unwrap() + calls::CLEAR, "{level:?} 4th and 9 at their 12: {w:?}");
+        }
         // Down 4 with a minute left, 4th and 5 at their 30: a field goal
         // doesn't win it, so go.
         assert_eq!(best(st(4, 60.0, -4.0, 5.0, 30.0)), 0, "{level:?} down 4 late");
