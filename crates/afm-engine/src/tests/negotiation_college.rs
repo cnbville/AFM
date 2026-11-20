@@ -70,12 +70,17 @@ fn a_staying_player_has_his_number_and_a_lowball_is_one() {
     let d = Deals { wants: &f };
     let n = deals::own_numbers(&w, him, i, 0.0);
     assert!(n.market >= 400_000.0 - 1.0 && n.lowest <= n.market && n.bar >= n.lowest, "{n:?}");
-    // Before, any amount was a yes from a man not leaving.
-    assert_eq!(d.weigh(&w, him, &money(n.bar * 1.01)), Weighed::Yes);
+    // Before, any amount was a yes from a man not leaving. Haggling (talk
+    // replies item 15): his ask is a yes; under it he opens a round down
+    // from his ask, never under his bar.
+    assert_eq!(d.weigh(&w, him, &money(n.ask * 1.01)), Weighed::Yes);
     assert_eq!(d.weigh(&w, him, &money(n.lowest * 0.4)), Weighed::Lowball);
     match d.weigh(&w, him, &money(n.lowest * 0.8)) {
-        Weighed::Counter(c) => assert_eq!(c.gives, vec![Give::Money(n.bar.round())]),
-        v => panic!("expected his bar back, got {v:?}"),
+        Weighed::Counter(c) => {
+            let m = c.gives.iter().find_map(|g| if let Give::Money(x) = g { Some(*x) } else { None }).unwrap();
+            assert!(m >= n.bar && m <= n.ask.max(n.bar) + 5_000.0, "{m} against {n:?}");
+        }
+        v => panic!("expected his number back, got {v:?}"),
     }
 }
 

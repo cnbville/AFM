@@ -306,6 +306,7 @@ impl Confirm {
             }
             Confirm::Decision(d) => format!("Go ahead: {}", decision_words(*d)),
             Confirm::Request(r) | Confirm::RequestOf(_, r) => format!("Ask him: {}", request_words(r)),
+            Confirm::Action(a) => a.card.clone(),
         }
     }
 }
@@ -570,10 +571,29 @@ impl Acting for Asks {
                 ran.done.push("He'll tell you when something happens.".into());
                 ran.report.push("I'll let you know.".into());
             }
-            (_, other) => {
-                ran.done.push(format!("He agreed to {}.", request_words(other)));
-            }
+            // Nothing the game runs: the ask is his word, and the card says
+            // where the real thing is made, or that nothing holds him to it
+            // (talk replies item 13: the catch-all "He agreed to ..." ran
+            // nothing).
+            (_, other) => ran.done.push(not_run(other)),
         }
         ran
+    }
+}
+
+/// Why an ask that he agreed to runs nothing here (talk replies item 13):
+/// where the screens make the real thing, or that nothing in the game
+/// holds him to it. The game's side runs the asks a screen can make
+/// (`afm-game`, `persona::actions::of_request`) before this.
+pub fn not_run(r: &Request) -> String {
+    let what = request_words(r);
+    match r {
+        Request::Position(_) => format!("He agreed to {what}. The move itself is made on his practice plan."),
+        Request::SpecialTeams => {
+            format!("He agreed to {what}. His spot on a unit is set on the depth chart's special teams boards.")
+        }
+        Request::Weight(_) => format!("He agreed to {what}. His target is set on his practice plan."),
+        Request::Target(_) => format!("He agreed to {what}. The recruit goes on your board from the recruiting desk."),
+        _ => format!("He gave you his word to {what}. Nothing in the game holds him to it."),
     }
 }

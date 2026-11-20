@@ -239,7 +239,26 @@ pub struct Memory {
     /// prices him reads them (`negotiate::points::pull`).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub points: Vec<Point>,
+    /// Haggling with your own college player over his money (talk replies
+    /// item 15): his number now, his walk-away when he named it, the
+    /// rounds he has given.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub haggles: Vec<Haggle>,
 }
+
+/// A round of haggling kept (talk replies item 15).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Haggle {
+    pub with: Them,
+    pub day: crate::calendar::Date,
+    pub now: f64,
+    pub walk: f64,
+    pub gave: u8,
+}
+
+/// How long a haggle's rounds hold: a money season. Proposed, not
+/// confirmed.
+pub const HAGGLE_DAYS: i32 = 180;
 
 /// A true point about his season that landed in a money talk: the stat it
 /// named and the share of the way from his ask to his number it pulls.

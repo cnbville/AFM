@@ -24,6 +24,10 @@ const COLLEGE_GO_CSV: &str = include_str!("../../../../data/real-world/college_f
 /// or more (`nfl_fourth_go_habit.csv`), where every coach goes anyway.
 const GO_HABIT_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go_habit.csv");
 const WP_CSV: &str = include_str!("../../../../data/real-world/nfl_win_prob.csv");
+/// How often real NFL teams go for two (engine gaps item 19), by the time
+/// and the score after the touchdown (`nfl_two_point_habit.csv`,
+/// `nfl_two_point.py`).
+const TWO_CSV: &str = include_str!("../../../../data/real-world/nfl_two_point_habit.csv");
 /// How often real offenses fake the run before a throw (scheme-fit item 3):
 /// FTN charting with nflverse play-by-play, 2022-2025, as a logistic model
 /// on the down and distance, the score and clock, and the field
@@ -279,6 +283,27 @@ pub fn real_fourth_go_habit(togo: f64, yardline_100: f64, score_diff: i32, colle
         }
     }
     real_fourth_go_rate(togo, yardline_100, score_diff, false)
+}
+
+static TWO: LazyLock<HashMap<(i32, i32), f64>> = LazyLock::new(|| {
+    rows(TWO_CSV).map(|r| ((r[0].parse().unwrap(), r[1].parse().unwrap()), r[2].parse().unwrap())).collect()
+});
+
+/// The real NFL share of tries that go for two (engine gaps item 19), by
+/// the score after the touchdown (the scoring side's lead) and the time:
+/// the first half, the third quarter, the fourth with more than 7:00 left
+/// and the last 7:00. A score too rare in its time to count (under 8 tries
+/// in five seasons) reads the time before it; 1.5% where none has it.
+/// Overtime reads the last 7:00.
+pub fn real_two_point_habit(diff_after_td: i32, quarter: u8, game_left: f64) -> f64 {
+    let time = match quarter {
+        1 | 2 => 0,
+        3 => 1,
+        4 if game_left > 420.0 => 2,
+        _ => 3,
+    };
+    let d = diff_after_td.clamp(-25, 25);
+    (0..=time).rev().find_map(|t| TWO.get(&(t, d)).copied()).unwrap_or(0.015)
 }
 
 static WP: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| {

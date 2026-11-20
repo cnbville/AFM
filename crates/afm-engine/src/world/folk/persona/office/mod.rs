@@ -350,7 +350,7 @@ pub fn confirm(w: &mut World, id: u32, him: Them, c: &Confirm) -> Option<Vec<Str
             }
             Some(vec![crate::world::folk::staffing::fire(w, c, "let go by the head coach")])
         }
-        Confirm::Decision(_) => None,
+        Confirm::Decision(_) | Confirm::Action(_) => None,
     }
 }
 

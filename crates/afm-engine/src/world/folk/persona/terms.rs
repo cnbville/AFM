@@ -169,8 +169,16 @@ impl Give {
 pub fn money_words(x: f64) -> String {
     let x = x.max(0.0);
     if x >= 1_000_000.0 {
-        let m = (x / 100_000.0).round() / 10.0;
-        if (m - m.round()).abs() < 1e-9 { format!("${} million", m.round() as i64) } else { format!("${m:.1} million") }
+        // To $50,000, the way it's said across the table ("2.75 million").
+        let k = (x / 50_000.0).round() as i64;
+        let (m, cents) = (k / 20, (k % 20) * 5);
+        if cents == 0 {
+            format!("${m} million")
+        } else if cents % 10 == 0 {
+            format!("${m}.{} million", cents / 10)
+        } else {
+            format!("${m}.{cents:02} million")
+        }
     } else {
         let step = if x >= 100_000.0 { 10_000.0 } else { 1_000.0 };
         let r = ((x / step).round() * step) as i64;
