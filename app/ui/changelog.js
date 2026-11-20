@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.661", date: "20 Nov", title: "Continue stops when a call rings, so you can answer it and 2 more",
+    notes: [
+      "The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often.",
+      "Long field goals are made at the real rate, and coaches try fewer of them, especially into a strong wind or on a freezing day.",
+      "Field goals, extra points and punts can be blocked by a real rush, and the loose ball is live: it can be scooped up and returned for a touchdown.",
+      "Kick and punt returns break into the open more often.",
+      "Flags on returns now count, with the yards, ejections and fines that come with them.",
+      "Talks now get things done. Say you're putting a player on a project or a focus and it happens after one confirm. Every talk shows what the other person seems to be after, and coaches and agents now haggle with you round by round.",
+    ],
+  },
+  {
     v: "0.2.658", date: "20 Nov", title: "Engine gaps lane EG5: each level's rule book and the flags",
     notes: [
       "Flags now follow each level's own rule book, so college and high school games mark penalties the way their officials do, and NFL flags come at their real rate and size.",

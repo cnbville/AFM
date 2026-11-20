@@ -2419,5 +2419,56 @@
   "players": true,
   "title": "NIL: schools pay only recruits their next July paid set takes",
   "tldr": "Recruiting money now works like real revenue sharing: schools pay the recruits they expect to play, and pay them what that role is worth."
+ },
+ "590": {
+  "auto": false,
+  "bullets": [
+   "A call that comes in while the hours play stops the clock the moment it rings.",
+   "Its room opens at once, and the stop card says who is calling.",
+   "Your staff only takes a call if you hand it on, or while you're on holiday.",
+   "A call made for later in the day stops the clock at its own hour."
+  ],
+  "h": "0d955e2e5e98",
+  "look": "a recruit's family calling about a commitment at his spot, or an evening call from a recruit.",
+  "players": true,
+  "title": "Continue stops when a call rings, so you can answer it",
+  "tldr": "Calls now ring when they come in. Continue stops right then so you can take the call yourself or hand it to your staff."
+ },
+ "593": {
+  "auto": false,
+  "bullets": [],
+  "h": "a1b6e4d0022a",
+  "look": "",
+  "players": false,
+  "title": "CI: move three slow capital screen tests to Full tests",
+  "tldr": ""
+ },
+ "594": {
+  "auto": false,
+  "bullets": [
+   "Tell a player you're starting a project, setting his focus, moving him or redshirting him, and one confirm does it, just like the button.",
+   "If it can't be done today, he hears why. If you turn down the confirm, your word still counts as a promise.",
+   "A \"What he's after\" read sits beside every talk. It starts vague and gets sharper as he opens up.",
+   "Coaches you hire, agents and your own players open at their ask and come down a little each round, never past the least they'd take."
+  ],
+  "h": "f9bbd7e53081",
+  "look": "tell a receiver \"I'm putting you on a release project this winter\", then haggle a coordinator up from a low first offer.",
+  "players": true,
+  "title": "Talk replies lane B: talks as a shortcut, what he's after, real haggling",
+  "tldr": "Talks now get things done. Say you're putting a player on a project or a focus and it happens after one confirm. Every talk shows what the other person seems to be after, and coaches and agents now haggle with you round by round."
+ },
+ "595": {
+  "auto": false,
+  "bullets": [
+   "Long field goals are made at the real rate, and coaches try fewer of them, especially into a strong wind or on a freezing day.",
+   "Field goals, extra points and punts can be blocked by a real rush, and the loose ball is live: it can be scooped up and returned for a touchdown.",
+   "Kick and punt returns break into the open more often.",
+   "Flags on returns now count, with the yards, ejections and fines that come with them."
+  ],
+  "h": "0469d08f1c4e",
+  "look": "a cold, windy game's fourth downs near midfield, and the blocked kicks in the play-by-play.",
+  "players": true,
+  "title": "EG3, the kicking game (long field goals at the real rate, blocked kicks from a tracked rush and live, return breakaways, the range in the weather, fouls on returns)",
+  "tldr": "The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often."
  }
 }
