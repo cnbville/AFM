@@ -8,6 +8,23 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.658 (20 Nov, shipped): engine gaps lane EG5: each level's rule book and the flags (PR #578)
+**TLDR:** Flags now follow each level's own rule book, so college and high school games mark penalties the way their officials do, and NFL flags come at their real rate and size.
+- College defensive holding costs 10 yards, and high school pass interference and holding carry no automatic first down (Texas plays college rules). (PR #578)
+- Fouls near the goal line are marked half the distance, and a hold in your own end zone is a safety. (PR #578)
+- New calls: illegal contact, illegal hands, neutral zone infractions, twelve men on the field, kickoffs out of bounds or short, and free plays after a defender jumps. (PR #578)
+- Linemen no longer drift downfield on pass plays, so ineligible man downfield and blocks in the back are rare, as in real games. (PR #578)
+- Pass interference changes the catch, false starts climb on third and fourth down with the snap count, and offenses take a delay to back up a punt or try a hard count on fourth and short. (PR #578)
+- Look at: a college game's play-by-play and its penalties. (PR #578)
+
+## 0.2.657 (20 Nov, shipped): ground lane S6: the rival screen (PR #580)
+**TLDR:** You can now see the rival staff's men on your ground, the race they run for your commits in dated signs, the claims they make about you and what you can do about it.
+- A new Rivals page lists the men working your areas, your commits in play and the claims out there. (PR #580)
+- A rival's page shows his style, his ground on the map, and his history with you. (PR #580)
+- The race for a kid reads as numbered, dated signs, each with where you heard it. (PR #580)
+- Answer a wavering commit with a call to the family, or a claim about his program (a risk if it isn't true). (PR #580)
+- Look at: Ground, Rivals. (PR #580)
+
 ## 0.2.656 (19 Nov, shipped): talk replies that match the game (lane A, items 1-12) (PR #588)
 **TLDR:** The people you talk to now answer what you actually said: they react to how your words landed, take your promises the way their trust in you says, name their price and hold you to your word.
 - Promises get a real reaction, and saying the opposite later breaks the promise and he calls you on it. (PR #588)
