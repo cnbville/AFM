@@ -3095,7 +3095,10 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
                                 && p.college.is_some_and(|c| w.programs[c].division == Division::FBS)
                         })
                         .max_by(|a, b| {
-                            a.1.last_performance.unwrap_or(0.0).total_cmp(&b.1.last_performance.unwrap_or(0.0))
+                            a.1.last_performance
+                                .get()
+                                .unwrap_or(0.0)
+                                .total_cmp(&b.1.last_performance.get().unwrap_or(0.0))
                         })
                         .map(|(i, _)| i)
                 };
@@ -3846,7 +3849,7 @@ fn played_as_redshirt(p: &mut super::Person, burned: bool, seed: u64) {
     }
     let perf = clamp((camp + h.overall) / 2.0 + play, crate::attributes::MIN_RATING, crate::attributes::MAX_RATING);
     h.performance = Some(perf).into();
-    p.last_performance = Some(perf);
+    p.last_performance = Some(perf).into();
 }
 
 /// The lean to leave at which a benched veteran takes the redshirt trick: a

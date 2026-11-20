@@ -84,6 +84,9 @@ pub enum Kind {
     /// A meeting with your leadership council, or your captains (live
     /// talks v3, lane N5d).
     Council,
+    /// A meeting with one position room (group talks, item 9): `a` is the
+    /// room (`coach::Group`).
+    PositionRoom,
     /// A negotiation (live talks v3, lane N5b): a call with a pro's agent,
     /// another club's GM, a prospect in the undrafted rush, or an agent
     /// calling back (`Scene.b`, `persona::negotiate`).
@@ -178,6 +181,7 @@ impl Kind {
             Kind::FamilyCall => "His family calls",
             Kind::OfficialTalk => "Official visit: your case",
             Kind::Council => "The leadership council",
+            Kind::PositionRoom => "A position room",
             Kind::DraftTalk => "The draft side",
             Kind::Sitdown => "A sit-down",
             Kind::Reference => "A reference call",
@@ -326,6 +330,10 @@ pub struct PromiseRead {
     pub condition_words: String,
     /// The teammate he would play ahead of, by id.
     pub against: Option<u32>,
+    /// Who it's made to in a room (group talks, item 3): a man, one of the
+    /// room's groups or the whole room, as the ear tagged it; none for the
+    /// man across.
+    pub to: Option<super::persona::Them>,
     /// The claim it was heard from, when the line stated where he stands
     /// rather than promising it in so many words (the promise design,
     /// section 11: "you're my starter" is a promise about what he'll see).
@@ -398,6 +406,11 @@ pub struct Scene {
     /// stop).
     #[serde(default)]
     pub minute: Option<u16>,
+    /// The moment the scene was added. A meeting born in a step isn't
+    /// handed to your staff by that same step's end-of-day sweep
+    /// (`scene::day`): you get the day to hold it first.
+    #[serde(default)]
+    pub born: Option<crate::calendar::Moment>,
     /// The options behind "bring up something else" (talk facts design,
     /// section 14): a talk shows a few answers at a time and keeps the
     /// rest here, so a typed line can reach every one of them.
@@ -438,6 +451,7 @@ impl Scene {
             f: [0.0; 4],
             team: None,
             minute: None,
+            born: None,
             reach: Vec::new(),
             made: Vec::new(),
             heard: None,
@@ -506,6 +520,13 @@ pub fn add(w: &mut World, mut s: Scene) -> u32 {
     w.folk.next_scene += 1;
     s.id = w.folk.next_scene;
     s.team = s.team.or(Team::seat(w));
+    // The step's own moment; dawn's lines are stamped "all day", so a
+    // scene made then is born at dawn's minute.
+    s.born = Some(match w.calendar.now {
+        Some((_, m)) if m.timed() => m,
+        Some((d, _)) => crate::calendar::zone::moment(d, super::super::clock::hour::DAWN),
+        None => w.now(),
+    });
     if s.minute.is_none() {
         s.minute = hour_in(&s.place).or_else(|| default_hour(w, &s));
     }
@@ -816,6 +837,57 @@ pub fn waiting(w: &World) -> Vec<&Scene> {
     v
 }
 
+/// The moment a meeting that stops you starts to wait for you: its hour
+/// (a scene with no hour, your first section of its day), or the moment it
+/// was made when that came later (a call made after its hour rings as it
+/// is made).
+pub fn rings(w: &World, s: &Scene) -> crate::calendar::Moment {
+    let z = w.seat_zone();
+    let at = match s.minute {
+        Some(m) => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)),
+        None => crate::calendar::zone::moment(s.date, z.stops(s.date)[0]),
+    };
+    s.born.map_or(at, |b| at.max(b))
+}
+
+/// A meeting or call that has started to ring since the clock last stood
+/// (any not in `before`, the ones already waiting): Continue stands for it
+/// at once (`clock::continue_until_needed`).
+pub fn rings_now(w: &World, before: &[u32]) -> bool {
+    let now = w.now();
+    w.folk
+        .scenes
+        .iter()
+        .any(|s| !s.done && s.stops && s.date <= w.today && !before.contains(&s.id) && rings(w, s) <= now)
+}
+
+/// The end of the clock's day (1 AM, the day runs from 5 AM): a meeting
+/// that stops you and whose hour has passed is handed to your staff. A
+/// holiday or a jump comes back at the first section of the next day,
+/// before the office hour that `day` hands at, so without this a meeting
+/// of the last evening (a Ground call at 3 PM on the day before it ends)
+/// would still be waiting when the holiday ends, late and still stopping.
+pub(crate) fn overnight(w: &mut World, d: Date) {
+    let now = crate::calendar::zone::moment(d, super::super::clock::hour::OVERNIGHT);
+    let z = w.seat_zone();
+    let late: Vec<u32> = w
+        .folk
+        .scenes
+        .iter()
+        .filter(|s| !s.done && s.stops && s.date <= d)
+        // One made in this same step (a call at 1 AM) can't have waited.
+        .filter(|s| !s.born.is_some_and(|b| b >= now))
+        .filter(|s| match s.minute {
+            Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
+            _ => true,
+        })
+        .map(|s| s.id)
+        .collect();
+    for id in late {
+        let _ = hand(w, id);
+    }
+}
+
 /// The end of a day: a meeting you didn't hold is handed to your staff; a
 /// scene that waited a week (a press availability, a call) lapses the same
 /// way.
@@ -825,9 +897,16 @@ pub(crate) fn day(w: &mut World, d: Date) {
     // hours at the latest.
     let now = crate::calendar::zone::moment(d, super::super::clock::hour::OFFICE);
     let z = w.seat_zone();
-    let due = |s: &Scene| match s.minute {
-        Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
-        _ => s.date <= d,
+    // A scene born in this very step (the desk's family call, made at the
+    // same office hour) is yours for the day: it can't have waited.
+    let due = |s: &Scene| {
+        if s.born.is_some_and(|b| b >= now) {
+            return false;
+        }
+        match s.minute {
+            Some(m) if s.date == d => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) < now,
+            _ => s.date <= d,
+        }
     };
     let late: Vec<u32> = w
         .folk
@@ -858,9 +937,13 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::Press | Kind::PressIntro | Kind::Media => "press",
         Kind::BossFirst | Kind::BossMeeting => "boss",
         Kind::Booster => "boosters",
-        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall | Kind::Council => {
-            "talk"
-        }
+        Kind::OneOnOne
+        | Kind::TeamMeeting
+        | Kind::TeamTalk
+        | Kind::Parents
+        | Kind::ParentCall
+        | Kind::Council
+        | Kind::PositionRoom => "talk",
         Kind::Holdover | Kind::StaffLine | Kind::Interview | Kind::Firing | Kind::Proposal => "staff",
         Kind::Discipline | Kind::Ritual => "rules",
         Kind::ReachOut | Kind::Trip | Kind::JobCall | Kind::Backchannel => "network",
@@ -893,7 +976,8 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         | Kind::Parents
         | Kind::ParentCall
         | Kind::StaffLine
-        | Kind::Council => super::talks::open(w, s),
+        | Kind::Council
+        | Kind::PositionRoom => super::talks::open(w, s),
         Kind::Press | Kind::PressIntro => super::press::open(w, s),
         Kind::BossFirst | Kind::BossMeeting => super::boss::open(w, s),
         Kind::Discipline | Kind::Ritual => super::rules::open(w, s),
@@ -930,7 +1014,8 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         | Kind::Parents
         | Kind::ParentCall
         | Kind::StaffLine
-        | Kind::Council => super::talks::answer(w, s, code, picked),
+        | Kind::Council
+        | Kind::PositionRoom => super::talks::answer(w, s, code, picked),
         Kind::Press | Kind::PressIntro => super::press::answer(w, s, code, picked),
         Kind::BossFirst | Kind::BossMeeting => super::boss::answer(w, s, code, picked),
         Kind::Discipline | Kind::Ritual => super::rules::answer(w, s, code, picked),

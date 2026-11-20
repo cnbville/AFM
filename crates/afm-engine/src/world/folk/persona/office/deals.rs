@@ -8,6 +8,7 @@
 //! meeting's pick. Anything else falls to lane N3's deals.
 
 use super::super::Them;
+use super::super::haggle;
 use super::super::terms::{Best, Counter, DealKind, Give, Offer, Weighed};
 use crate::world::World;
 use crate::world::coach::Role;
@@ -151,15 +152,30 @@ pub fn weigh(w: &World, him: Them, o: &Offer) -> Option<Weighed> {
                 return Some(Weighed::Lowball);
             }
             let k = hiring::weigh(w, c, role, &t, now);
-            if k.score > k.bar {
+            // Haggling (talk replies item 15): he takes a number at his own
+            // in these talks; under it he gives part of the gap and names
+            // his next number, less each round, never under his walk-away.
+            let h = hiring::haggle(w, c, role, &t);
+            let next = h.map(|h| hiring::haggle_step(&h, t.salary));
+            if k.score > k.bar && (k.cant_say_no || !matches!(next, Some(haggle::Step::Counter(_)))) {
                 return Some(Weighed::Yes);
             }
             // His number, less what the goals are worth to him.
             let worth = t.salary - terms(w, c, role, o).salary;
-            Some(match hiring::would_take(w, c, role, &t, now) {
+            // He names his number, the way it's said across the table (talk
+            // replies item 4: "I'd need more money" left you guessing).
+            let number = match next {
+                Some(haggle::Step::Counter(n)) => Some(n),
+                _ => hiring::would_take(w, c, role, &t, now),
+            };
+            Some(match number {
                 Some(s) => Weighed::Counter(Counter {
-                    asks: vec!["he'd need more money to take the job".into()],
-                    gives: vec![Give::Money(s - worth)],
+                    asks: vec![format!(
+                        "he names his number: {} a year over {} years to take the job",
+                        super::super::terms::money_words(s - worth),
+                        t.years
+                    )],
+                    gives: vec![Give::Money(s - worth), Give::Years(t.years)],
                     terms: Vec::new(),
                     why: None,
                 }),
@@ -178,6 +194,21 @@ pub fn weigh(w: &World, him: Them, o: &Offer) -> Option<Weighed> {
         }
         _ => None,
     }
+}
+
+/// Keeps a round of haggling with a coach you're hiring (talk replies item
+/// 15): his counter's number on your terms, from the turn's weighing.
+pub fn haggled(w: &mut World, him: Them, o: &Offer, wd: &Weighed) {
+    let (Them::Coach(c), Weighed::Counter(k)) = (him, wd) else { return };
+    if c >= w.coaches.len() || super::asks::on_your_staff(w, c) || !staff_deal(o) {
+        return;
+    }
+    let Some(role) = role_for(w, c) else { return };
+    let Some(n) = k.gives.iter().find_map(|g| if let Give::Money(x) = g { Some(*x) } else { None }) else {
+        return;
+    };
+    let worth = weighed_terms(w, c, role, o).salary - terms(w, c, role, o).salary;
+    hiring::haggled(w, c, role, &terms(w, c, role, o), n + worth);
 }
 
 /// An offer to your boss that isn't your extension: he doesn't weigh it as

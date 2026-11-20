@@ -449,6 +449,9 @@ impl Rules {
         }
         code.field.downs = code.field.downs.max(3);
         r.code = code;
+        // Concussion rules came to the other leagues with the NFL's (engine
+        // gaps item 3; proposed, not confirmed).
+        r.concussion = super::rules::Concussion::for_year(Level::NFL, year);
         r
     }
 
@@ -530,6 +533,10 @@ fn cfl(year: i32, code: &mut Code) -> Rules {
     // the play from 2026.
     r.play_clock = if year >= 2026 { 35.0 } else { 30.0 };
     r.down_on_fall = true;
+    // Anyone may advance a fumble; one out of bounds is the team's that
+    // touched it last in the field of play (CFL rule book; engine gaps
+    // item 4).
+    r.fumbles = Some(super::rules::FumbleRule::CFL);
     r
 }
 

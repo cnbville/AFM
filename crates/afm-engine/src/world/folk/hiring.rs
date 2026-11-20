@@ -97,6 +97,94 @@ pub struct Talk {
     pub closed: Option<Date>,
     /// What was said, newest last.
     pub log: Vec<(Date, String)>,
+    /// You ended his interview without a decision on this day: his
+    /// patience runs from it, and your first offer finds it worn by the
+    /// weeks he waited (talk replies item 12).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub waiting: Option<Date>,
+    /// Haggling (talk replies item 15): his number now and his walk-away
+    /// on the terms he last countered, and the rounds he has given.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub haggle: Option<(f64, f64)>,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub gave: u8,
+}
+
+fn is_zero(x: &u8) -> bool {
+    *x == 0
+}
+
+/// Where haggling with him stands on your terms (talk replies item 15):
+/// his number now, his walk-away on these terms, the rounds he has given
+/// and his pace.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Haggle {
+    pub now: f64,
+    pub walk: f64,
+    pub gave: u32,
+    pub pace: f64,
+}
+
+/// The lowball line in his talks (C45, C55): no fixed line; a share of
+/// his ask under which your offer is well short.
+pub fn lowball_line(w: &World, c: usize, asked: f64) -> f64 {
+    asked * (1.0 - clamp(0.25 + 0.06 * super::roll_n(w, 0x10BA ^ c as u64, w.today.0 as u64), 0.12, 0.4))
+}
+
+/// Haggling with a coach you're hiring (talk replies item 15): he opens at
+/// his ask and gives toward his walk-away, the least he'd take on your
+/// terms (`would_take` with your money left out, never under the lowball
+/// line). His pace: his ambition slows him (a coach's greed), the step up
+/// your job is for him and his patience in these talks speed him.
+pub fn haggle(w: &World, c: usize, role: Role, t: &Terms) -> Option<Haggle> {
+    let now_pay = talk(w, c).and_then(|k| k.counter.map(|x| x.0)).unwrap_or_else(|| pay_now(w, c)).max(pay_now(w, c));
+    let mut bare = t.clone();
+    bare.salary = 0.0;
+    let asked = talk(w, c).map(|k| k.ask).filter(|a| *a > 0.0).unwrap_or_else(|| ask(w, c, role));
+    let walk = would_take(w, c, role, &bare, now_pay)?.max(lowball_line(w, c, asked));
+    let k = talk(w, c).filter(|k| k.closed.is_none() && k.role == super::staffing::role_code(role));
+    let (now, gave) = match k.and_then(|k| k.haggle.map(|h| (h, k.gave))) {
+        Some(((n, was), g)) => (super::persona::haggle::moved(n, was, walk), g as u32),
+        None => (asked.max(walk), 0),
+    };
+    let co = &w.coaches[c];
+    let greed = (co.personality.ambition - 10.0) / 10.0;
+    let want = (0.5 + 1.25 * step(w, c, role, t.promises)).clamp(0.0, 1.0);
+    let patience = k.map_or(1.0, |k| k.patience as f64).clamp(0.0, 1.0);
+    Some(Haggle { now, walk, gave, pace: super::persona::haggle::pace(greed, want, patience) })
+}
+
+/// His answer to your number by the haggle: Take, or his next number as
+/// said across the table.
+pub fn haggle_step(h: &Haggle, salary: f64) -> super::persona::haggle::Step {
+    super::persona::haggle::said(h.now, h.walk, h.gave, h.pace, salary)
+}
+
+/// Keeps a round of haggling: his new number on these terms.
+pub fn haggled(w: &mut World, c: usize, role: Role, t: &Terms, number: f64) {
+    let Some(h) = haggle(w, c, role, t) else { return };
+    let tk = talk_mut(w, c, role);
+    tk.haggle = Some((number, h.walk));
+    tk.gave = tk.gave.saturating_add(1);
+}
+
+/// What each week he waited after his interview takes off his patience,
+/// and the most it takes. Proposed, not confirmed.
+pub const WAIT_WEAR: f32 = 0.03;
+pub const WAIT_WEAR_MAX: f32 = 0.3;
+
+/// You ended his interview without a decision (talk replies item 12): the
+/// talks with him open today, so his patience runs from now.
+pub fn left_waiting(w: &mut World, c: usize, role: Role) {
+    if w.coaches.get(c).is_none() {
+        return;
+    }
+    let today = w.today;
+    let tk = talk_mut(w, c, role);
+    if tk.waiting.is_none() {
+        tk.waiting = Some(today);
+        tk.log.push((today, "You ended the interview without a decision.".into()));
+    }
 }
 
 /// A promise you made to a hire (C46-C48, C56).
@@ -628,11 +716,18 @@ pub fn offer(w: &mut World, c: usize, role: Role, mut t: Terms) -> Result<String
             ));
         }
     }
+    // The weeks he waited since the interview wear on him (item 12).
+    if let Some(d) = talk(w, c).and_then(|k| k.waiting) {
+        let weeks = d.days_to(today).max(0) as f32 / 7.0;
+        let tk = talk_mut(w, c, role);
+        tk.patience -= (WAIT_WEAR * weeks).min(WAIT_WEAR_MAX);
+        tk.waiting = None;
+    }
     let k = talk(w, c).cloned().unwrap_or_default();
     let asked = k.ask.max(1.0);
     // The lowball (C45, C55): no fixed line; a warning, then the next offer
     // has to close about a third of the gap.
-    let line = asked * (1.0 - clamp(0.25 + 0.06 * super::roll_n(w, 0x10BA ^ c as u64, today.0 as u64), 0.12, 0.4));
+    let line = lowball_line(w, c, asked);
     let short_of_need = k.need.is_some_and(|n| t.salary < n);
     if t.salary < line || short_of_need {
         let second = k.warned >= 1 && (short_of_need || k.need.is_none());
@@ -705,6 +800,27 @@ pub fn offer(w: &mut World, c: usize, role: Role, mut t: Terms) -> Result<String
             wg.score -= 0.15;
         }
     }
+    // Haggling (talk replies item 15): an offer he'd take, under the number
+    // he's at in these talks, brings his next number instead of a yes.
+    if wg.score > wg.bar
+        && !wg.cant_say_no
+        && let Some(h) = haggle(w, c, role, &t)
+        && let super::persona::haggle::Step::Counter(n) = haggle_step(&h, t.salary)
+    {
+        let name = co.name.clone();
+        let text = format!(
+            "{said}{name} wants more. He'd come for ${} a year.",
+            facts::thousands((n / 1000.0) as u32) + ",000"
+        );
+        let tk = talk_mut(w, c, role);
+        tk.haggle = Some((n, h.walk));
+        tk.gave = tk.gave.saturating_add(1);
+        tk.rounds += 1;
+        tk.patience -= 0.04;
+        tk.last = Some(t.clone());
+        tk.log.push((today, text.clone()));
+        return Ok(text);
+    }
     if wg.score <= wg.bar {
         let name = co.name.clone();
         let why = wg
@@ -759,9 +875,19 @@ fn side_of(role: Role) -> Option<bool> {
 /// After a no: he names his number, or the talks run out (C33, C52).
 fn after_no(w: &mut World, c: usize, role: Role, t: &Terms, text: String) -> String {
     let now = talk(w, c).and_then(|k| k.counter.map(|x| x.0)).unwrap_or_else(|| pay_now(w, c)).max(pay_now(w, c));
-    let named = would_take(w, c, role, t, now);
+    // He names his number in these talks, the haggle's, never his
+    // walk-away (talk replies item 15).
+    let haggled = haggle(w, c, role, t).map(|h| match haggle_step(&h, t.salary) {
+        super::persona::haggle::Step::Counter(n) => (n, h.walk),
+        _ => (h.now, h.walk),
+    });
+    let named = haggled.map(|x| x.0).or_else(|| would_take(w, c, role, t, now));
     let name = w.coaches[c].name.clone();
     let tk = talk_mut(w, c, role);
+    if let Some(h) = haggled {
+        tk.haggle = Some(h);
+        tk.gave = tk.gave.saturating_add(1);
+    }
     let futile = tk.patience <= 0.0 || (tk.rounds >= 4 && named.is_none());
     if futile {
         return close(w, c, format!("{text} {name} is done talking: past a point it's futile. He's staying put."));

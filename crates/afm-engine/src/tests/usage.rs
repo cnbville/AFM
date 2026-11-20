@@ -249,7 +249,7 @@ fn a_plan_that_keeps_nothing_changes_no_game_and_chips_are_saved() {
 #[test]
 fn free_him_up_and_send_him_move_his_rushes() {
     let t = league(72);
-    let base = games(&t[0], &t[1], 24, 2_000);
+    let base = games(&t[0], &t[1], 40, 2_000);
     let stunts = Usage { what: What::Stunts, share: true, ..Usage::default() };
     let blitz = Usage { what: What::Blitzes, share: true, ..Usage::default() };
     let edge = busiest(&t[0], &base, Position::EDGE, &stunts);
@@ -257,7 +257,7 @@ fn free_him_up_and_send_him_move_his_rushes() {
     let mut home = t[0].clone();
     home.prep.keep.free_up = vec![edge];
     home.prep.keep.send = vec![lb];
-    let kept = games(&home, &t[1], 24, 2_000);
+    let kept = games(&home, &t[1], 40, 2_000);
     let rate = |rs: &[GameResult], u: &Usage, id: u32| {
         let (n, of) = pooled(rs, u, id);
         n / of.max(1.0)
@@ -377,6 +377,8 @@ fn game(w: &mut World, p: usize, d: Date, id: u32, rushes: u32, stunts: u32, pun
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
 }
 

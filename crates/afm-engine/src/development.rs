@@ -113,6 +113,15 @@ pub struct SeasonContext {
     /// 4: up to 3, `world::folk::bonds::coachability_lift`).
     #[serde(default)]
     pub bond: f64,
+    /// The share of his position coach's one-on-one time he keeps when the
+    /// room runs projects he isn't on (design item 8,
+    /// `progression::room_time`): 1 with none.
+    #[serde(default = "one")]
+    pub room_time: f64,
+}
+
+fn one() -> f64 {
+    1.0
 }
 
 /// The injuries a player really had since his last development step
@@ -166,14 +175,16 @@ impl YearHurt {
 /// Days out from which a real injury is minor, moderate and major for his
 /// growth (realism audit item 1; proposed, not confirmed): under a week is
 /// a knock that costs nothing, a week to three minor, three to eight
-/// moderate, eight weeks or more major. A torn ACL is always major.
+/// moderate, eight weeks or more major. A torn ACL or Achilles is always
+/// major.
 pub const HURT_MINOR_DAYS: u32 = 7;
 pub const HURT_MODERATE_DAYS: u32 = 21;
 pub const HURT_MAJOR_DAYS: u32 = 56;
 
 /// A real injury's class for growth: 0 a knock, 1 minor, 2 moderate, 3 major.
 pub fn hurt_class(kind: crate::game::sim::InjuryKind, days: u32) -> u8 {
-    if kind == crate::game::sim::InjuryKind::Acl || days >= HURT_MAJOR_DAYS {
+    use crate::game::sim::InjuryKind as K;
+    if matches!(kind, K::Acl | K::Achilles) || days >= HURT_MAJOR_DAYS {
         3
     } else if days >= HURT_MODERATE_DAYS {
         2
@@ -190,12 +201,16 @@ pub fn hurt_class(kind: crate::game::sim::InjuryKind, days: u32) -> u8 {
 /// None: it doesn't touch his legs (a shoulder, a neck, a concussion), so
 /// it costs the year's growth and no burst. A torn ACL keeps the roll's
 /// split (62-74% of NFL players back after a repair, fewer starts after);
-/// another leg injury long enough to be major (a broken bone, a Lisfranc
-/// foot, a bad high ankle) heals fully far more often.
+/// a torn Achilles heals worse (engine gaps item 2: about a third of NFL
+/// players never come back from one, and the rest lose some of their
+/// explosion; proposed, not confirmed: 0.45 and 0.75); another leg injury
+/// long enough to be major (a broken bone, a Lisfranc foot, a bad high
+/// ankle) heals fully far more often.
 pub fn major_heal(kind: crate::game::sim::InjuryKind) -> Option<(f64, f64)> {
     use crate::game::sim::InjuryKind as K;
     match kind {
         K::Acl => Some((0.55, 0.85)),
+        K::Achilles => Some((0.45, 0.75)),
         K::Fracture => Some((0.8, 0.96)),
         K::Knee
         | K::AnkleSprain
@@ -239,6 +254,7 @@ impl SeasonContext {
             results: None,
             hurt: None,
             bond: 0.0,
+            room_time: 1.0,
         }
     }
 }
@@ -740,6 +756,10 @@ pub struct SeasonReport {
     /// the next one (`YearHurt::rehab`, with real injuries).
     #[serde(default)]
     pub rehab_due: bool,
+    /// What his skill project's click added to his ceiling this step (0
+    /// when it didn't click), for your staff's note.
+    #[serde(default)]
+    pub project_click: f64,
 }
 
 /// What one yearly step drew and why (world reader lane R2): every term
@@ -1411,7 +1431,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // part of the room between his everyday ceiling and what his body and
     // makeup allow, by his knack (everyday item 1), and a breakout closes
     // it at a click's size (item 5). On its own stream.
-    why.room_closed = crate::progression::everyday(player, ctx.coaching, ctx.level, pt, ctx.trouble.is_some());
+    // His position coach's one-on-one time, thinner when the room runs
+    // projects he isn't on (design item 8): a little less of his coaching
+    // sticks, in the room's closing and his climb.
+    let room_coaching = ctx.coaching - crate::progression::room_coaching_cut(ctx.coaching, ctx.room_time);
+    why.room_closed = crate::progression::everyday(player, room_coaching, ctx.level, pt, ctx.trouble.is_some());
     why.room_breakout =
         crate::progression::breakout(player, ctx.level, events.has(Ev::Breakout), breakout_mean, tested);
     // His skill project's year (design items 9-11): its ceiling, a click.
@@ -1420,7 +1444,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     why.project_click = project.click;
 
     // --- Growth towards the ceiling --------------------------------------------
-    let coaching_mult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
+    let coaching_mult = 0.75 + room_coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
     // How much of coaching sticks, a close bond with his teacher adding up
     // to 3 points of coachability (coach and player bonds, question 4).
     let coachability_lean = 0.6 + (personality.coachability + ctx.bond.clamp(0.0, 3.0)) * 0.04;
@@ -1751,8 +1775,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         adjustment: if dip > 0.0 { Some(round_half_up(dip * 100.0) / 100.0).into() } else { OptF64::NONE },
         spring_gain: OptF64::NONE,
         spring_open: OptF64::NONE,
-        team: None,
-        depth: None,
+        team: crate::player::OptIdx::NONE,
+        depth: crate::player::DepthLabel::NONE,
         situation: OptF64::NONE,
         results: OptF64::NONE,
     });
@@ -1787,6 +1811,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         events,
         games_missed,
         rehab_due: rehab,
+        project_click: project.click,
     }
 }
 

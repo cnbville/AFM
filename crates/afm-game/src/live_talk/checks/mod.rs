@@ -145,6 +145,8 @@ struct Todo {
     req: Request,
     /// The line in words, for a miss.
     text: String,
+    /// Whether its call already failed once (it is tried again once).
+    retried: bool,
 }
 
 #[derive(Default)]
@@ -158,14 +160,18 @@ struct Tally {
     millis: Vec<u64>,
     /// Lines that missed: the set, the line and why.
     misses: Vec<(String, String, String)>,
+    /// Lines whose call failed twice: never graded, counted apart.
+    not_run: Vec<u32>,
+    /// Those lines: the set, the line and why the call failed.
+    skipped: Vec<(String, String, String)>,
     model: String,
-    /// Calls that failed one after another, and the last one's note.
+    /// Lines not run one after another.
     failed_in_row: u32,
-    failed: Option<String>,
 }
 
-/// Failed calls in a row that end a run (the network is down, the API is
-/// out): before that, a failed call is its line's miss.
+/// Lines not run in a row that end a run (the network is down, the API is
+/// out). A failed call is tried again once; a line whose call fails twice
+/// is "not run", never a miss (the ear audit's item 5).
 pub const MAX_FAILED_IN_ROW: u32 = 3;
 
 impl Tally {
@@ -176,6 +182,7 @@ impl Tally {
         self.of.push(0);
         self.nano.push(0);
         self.millis.push(0);
+        self.not_run.push(0);
         self.names.len() - 1
     }
 }
@@ -246,30 +253,47 @@ pub fn ai_checks(g: &mut Game, args: &Value) -> Reply {
                     check: Check::Reader { keys: keys.clone(), want: line.want.clone() },
                     req: finish(req),
                     text: line.text.clone(),
+                    retried: false,
                 });
             }
         }
     }
     if args.runs("ear") {
+        // The ear's call as the game sends it (`persona::ear::request`):
+        // the same rules, form, thinking and token limit.
+        let ear_line = |todo: &mut Vec<Todo>, k: usize, set: &Arc<ear::EarSet>, line: &ear::EarLine| {
+            let req = persona_ear::request(&set.body(line));
+            if let Some(f) = &fake {
+                let quiet = json!({ "acts": [], "hits": [], "dodged": false, "not_talk": false });
+                f.push(persona_ear::EAR, Ok(afm_ai::fake::body(&quiet.to_string(), 900, 60)));
+            }
+            todo.push(Todo {
+                set: k,
+                check: Check::Ear { set: set.clone(), line: Arc::new(line.clone()) },
+                req: finish(req),
+                text: line.text.clone(),
+                retried: false,
+            });
+        };
         for set in ear::sets() {
             let set = Arc::new(set);
             let plain = tally.add(&format!("ear: {}", set.name), ear::BAR);
             let exploits = tally.add(&format!("ear: {} exploits", set.name), ear::EXPLOIT_BAR);
             for (k, lines) in [(plain, &set.lines), (exploits, &set.exploits)] {
                 for line in lines {
-                    let req = Request::new(persona_ear::EAR, persona_ear::EAR_RULES, &set.body(&line.text))
-                        .schema(persona_ear::schema())
-                        .max_tokens(persona_ear::EAR_TOKENS);
-                    if let Some(f) = &fake {
-                        let quiet = json!({ "acts": [], "hits": [], "dodged": false, "not_talk": false });
-                        f.push(persona_ear::EAR, Ok(afm_ai::fake::body(&quiet.to_string(), 900, 60)));
-                    }
-                    todo.push(Todo {
-                        set: k,
-                        check: Check::Ear { set: set.clone(), line: Arc::new(line.clone()) },
-                        req: finish(req),
-                        text: line.text.clone(),
-                    });
+                    ear_line(&mut todo, k, &set, line);
+                }
+            }
+        }
+        // Lines on the same cards that no rule was written against (ear
+        // audit item 6): the ear on wording it has never seen.
+        let plain = tally.add("ear: unseen lines", ear::BAR);
+        let exploits = tally.add("ear: unseen exploits", ear::EXPLOIT_BAR);
+        for set in ear::unseen() {
+            let set = Arc::new(set);
+            for (k, lines) in [(plain, &set.lines), (exploits, &set.exploits)] {
+                for line in lines {
+                    ear_line(&mut todo, k, &set, line);
                 }
             }
         }
@@ -279,9 +303,7 @@ pub fn ai_checks(g: &mut Game, args: &Value) -> Reply {
         for case in voice::cases() {
             for line in &case.lines {
                 let card = case.card.card(&line.text).text();
-                let req = Request::new(persona_voice::VOICE, persona_voice::VOICE_RULES, &card)
-                    .schema(persona_voice::schema())
-                    .max_tokens(persona_voice::VOICE_TOKENS);
+                let req = persona_voice::request(&card);
                 if let Some(f) = &fake {
                     let said = json!({ "line": "I hear you, Coach.", "colour": "" });
                     f.push(persona_voice::VOICE, Ok(afm_ai::fake::body(&said.to_string(), 600, 40)));
@@ -291,6 +313,7 @@ pub fn ai_checks(g: &mut Game, args: &Value) -> Reply {
                     check: Check::Voice { card: Arc::new(card), line: Arc::new(line.clone()) },
                     req: finish(req),
                     text: line.text.clone(),
+                    retried: false,
                 });
             }
         }
@@ -302,37 +325,43 @@ pub fn ai_checks(g: &mut Game, args: &Value) -> Reply {
 }
 
 /// One line's answer, then the next line on the same ticket.
-fn step(this: Todo, mut todo: Vec<Todo>, mut tally: Tally) -> Next {
+fn step(mut this: Todo, todo: Vec<Todo>, mut tally: Tally) -> Next {
     Box::new(move |_g, r| {
         // One line's failed call (a timeout, a refusal, a reply that won't
-        // read) is that line's miss and the run goes on; a lasting failure
-        // (the key, the credit, the cap) or a few in a row end it.
+        // read) is tried again once; failing twice, the line is not run,
+        // never a miss, and the run goes on. A lasting failure (the key,
+        // the credit, the cap) or a few lines not run in a row end it.
         let reply = match r {
             Ok(x) => {
                 tally.failed_in_row = 0;
-                Some(x)
+                x
             }
             Err(f) => {
-                tally.failed_in_row += 1;
-                if !f.is_retryable() || tally.failed_in_row >= MAX_FAILED_IN_ROW {
+                if !f.is_retryable() {
                     return Step::off(&f);
                 }
-                tally.failed = Some(match &f {
+                if !this.retried {
+                    this.retried = true;
+                    let req = this.req.clone();
+                    return Step::Call(req, step(this, todo, tally));
+                }
+                tally.failed_in_row += 1;
+                if tally.failed_in_row >= MAX_FAILED_IN_ROW {
+                    return Step::off(&f);
+                }
+                let note = match &f {
                     afm_ai::Failure::BadReply(m) => m.clone(),
                     _ => f.note(),
-                });
-                None
+                };
+                tally.not_run[this.set] += 1;
+                tally.skipped.push((tally.names[this.set].clone(), this.text.clone(), note));
+                return next(todo, tally);
             }
         };
-        if let Some(x) = &reply {
-            tally.nano[this.set] += x.nano;
-            tally.millis[this.set] += x.millis;
-        }
+        tally.nano[this.set] += reply.nano;
+        tally.millis[this.set] += reply.millis;
         tally.of[this.set] += 1;
-        let verdict = match (&this.check, reply.as_ref().and_then(|x| x.json.as_ref())) {
-            (_, None) if reply.is_none() => {
-                Err(format!("the call failed: {}", tally.failed.take().unwrap_or_default()))
-            }
+        let verdict = match (&this.check, reply.json.as_ref()) {
             (_, None) => Err("no JSON came back".to_string()),
             (Check::Reader { keys, want }, Some(v)) => {
                 if matches(v, keys, want) {
@@ -352,14 +381,19 @@ fn step(this: Todo, mut todo: Vec<Todo>, mut tally: Tally) -> Next {
                 }
             }
         }
-        match todo.pop() {
-            Some(next) => {
-                let req = next.req.clone();
-                Step::Call(req, step(next, todo, tally))
-            }
-            None => Step::Done(report(&tally)),
-        }
+        next(todo, tally)
     })
+}
+
+/// The next line's call, or the report.
+fn next(mut todo: Vec<Todo>, tally: Tally) -> Step {
+    match todo.pop() {
+        Some(next) => {
+            let req = next.req.clone();
+            Step::Call(req, step(next, todo, tally))
+        }
+        None => Step::Done(report(&tally)),
+    }
 }
 
 /// The most missed lines the report lists.
@@ -367,13 +401,15 @@ pub const MAX_MISSES: usize = 40;
 
 fn report(t: &Tally) -> Value {
     let rows: Vec<Value> = (0..t.names.len())
-        .filter(|&k| t.of[k] > 0)
+        .filter(|&k| t.of[k] + t.not_run[k] > 0)
         .map(|k| {
-            let of = f64::from(t.of[k]);
+            let of = f64::from(t.of[k].max(1));
             json!({
                 "name": t.names[k],
                 "score": t.score[k],
                 "of": t.of[k],
+                // Lines whose call failed twice: not in the score.
+                "not_run": t.not_run[k],
                 // The tick: how many lines should pass (the screen draws
                 // the row amber under it).
                 "bar": (of * t.bars[k]).ceil() as u32,
@@ -391,6 +427,7 @@ fn report(t: &Tally) -> Value {
         "model": t.model,
         "rows": rows,
         "misses": t.misses.iter().map(|(set, text, why)| json!({ "set": set, "text": text, "why": why })).collect::<Vec<_>>(),
+        "not_run": t.skipped.iter().map(|(set, text, why)| json!({ "set": set, "text": text, "why": why })).collect::<Vec<_>>(),
         "calls": t.of.iter().sum::<u32>(),
         "cost": nano as f64 / 1e9,
         "seconds": (millis as f64 / lines / 10.0).round() / 100.0,
@@ -527,7 +564,7 @@ mod tests {
         let tokens = |chars: usize| chars as f64 / 4.0;
         let ear_rules = tokens(persona_ear::EAR_RULES.len() + persona_ear::schema().to_string().len());
         let ear_cards: Vec<usize> =
-            ear::sets().iter().flat_map(|s| s.lines.iter().map(move |l| s.body(&l.text).len())).collect();
+            ear::sets().iter().flat_map(|s| s.lines.iter().map(move |l| s.body(l).len())).collect();
         let ear_card = tokens(ear_cards.iter().sum::<usize>() / ear_cards.len());
         let voice_rules = tokens(persona_voice::VOICE_RULES.len() + persona_voice::schema().to_string().len());
         let voice_cards: Vec<usize> = voice::cases()
@@ -537,14 +574,17 @@ mod tests {
         let voice_card = tokens(voice_cards.iter().sum::<usize>() / voice_cards.len());
         let p = afm_ai::Price::of("claude-haiku-5-5").unwrap().short;
         let dollars = |nano: f64| nano / 1e9;
-        let ear_cost = dollars(ear_rules * p.cache_read as f64 + ear_card * p.input as f64 + 300.0 * p.output as f64);
+        // The ear thinks before it answers (medium): about 700 tokens out a
+        // line, thinking included (the ear audit measured $0.00048 a line).
+        let ear_cost = dollars(ear_rules * p.cache_read as f64 + ear_card * p.input as f64 + 700.0 * p.output as f64);
         let voice_cost =
             dollars(voice_rules * p.cache_read as f64 + voice_card * p.input as f64 + 150.0 * p.output as f64);
         eprintln!(
             "ear: rules+schema {ear_rules:.0} tokens, card {ear_card:.0}, a line ${ear_cost:.5}; voice: rules+schema {voice_rules:.0}, card {voice_card:.0}, a line ${voice_cost:.5}"
         );
-        // Under the design's table (about 3,000 cached, 1,200 new): written-out cards are lighter than a live one.
-        assert!((1500.0..6000.0).contains(&ear_rules), "{ear_rules}");
+        // The ear's meanings and its closed form (every name with what it
+        // means) are cached; written-out cards are lighter than a live one.
+        assert!((3000.0..14000.0).contains(&ear_rules), "{ear_rules}");
         assert!((100.0..1500.0).contains(&ear_card), "{ear_card}");
         assert!((300.0..3000.0).contains(&voice_rules), "{voice_rules}");
         assert!((100.0..1500.0).contains(&voice_card), "{voice_card}");
@@ -577,10 +617,11 @@ mod tests {
     fn the_ear_and_voice_checks_run_on_the_fake_and_report_misses() {
         let (mut g, f) = game("ear");
         let sets = ear::sets();
+        let unseen = ear::unseen();
         let mut wrong = 0;
         // A perfect ear, except it hears every fifth line as no line at all.
         let mut n = 0;
-        for set in &sets {
+        for set in sets.iter().chain(&unseen) {
             for l in set.lines.iter().chain(&set.exploits) {
                 n += 1;
                 let v = if n % 5 == 0 && !l.not_talk {
@@ -595,15 +636,26 @@ mod tests {
         let v = run(&mut g, json!({ "only": "ear" }));
         assert_eq!(v["state"], "done", "{v}");
         let rows = v["rows"].as_array().unwrap();
-        assert_eq!(rows.len(), sets.len() * 2, "a row for each facet and its exploits");
+        assert_eq!(rows.len(), sets.len() * 2 + 2, "a row for each facet and its exploits, then the unseen lines");
         assert!(rows.iter().all(|r| r["name"].as_str().unwrap().starts_with("ear: ")));
+        let names: Vec<&str> = rows.iter().rev().take(2).map(|r| r["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["ear: unseen exploits", "ear: unseen lines"]);
+        assert!(rows.iter().all(|r| r["not_run"] == 0), "{v}");
         let missed: u64 = rows.iter().map(|r| r["of"].as_u64().unwrap() - r["score"].as_u64().unwrap()).sum();
         assert_eq!(missed, wrong, "{v}");
         let misses = v["misses"].as_array().unwrap();
         assert!(misses.iter().any(|m| m["why"].as_str().unwrap().contains("not talk")), "{v}");
         assert!(misses.iter().all(|m| m["set"].is_string() && m["text"].is_string()));
-        let ear_lines: usize = sets.iter().map(|s| s.lines.len() + s.exploits.len()).sum();
+        let ear_lines: usize = sets.iter().chain(&unseen).map(|s| s.lines.len() + s.exploits.len()).sum();
         assert_eq!(v["calls"], ear_lines);
+        // Every call is the game's own: thinking on, the closed form.
+        let asked = f.asked();
+        assert_eq!(asked.len(), ear_lines);
+        assert!(
+            asked
+                .iter()
+                .all(|r| r.think.as_deref() == Some(persona_ear::EAR_THINK) && r.max_tokens == persona_ear::EAR_TOKENS)
+        );
         assert!(v["cost"].as_f64().unwrap() > 0.0);
         // The voice: each line says what the game released, or something plain.
         let mut leaked = false;
@@ -634,29 +686,47 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_call_is_its_lines_miss_and_three_in_a_row_end_the_run() {
+    fn a_failed_call_is_tried_again_then_not_run_and_three_in_a_row_end_the_run() {
         let lines: usize = voice::cases().iter().map(|c| c.lines.len()).sum();
         let plain =
             || Ok(body(&json!({ "line": "Not something I'll get into, Coach.", "colour": "" }).to_string(), 900, 20));
-        // One refusal, one cut-off answer: two misses, and the run goes on.
-        let (mut g, f) = game("failed");
+        // A refusal, then an answer: the line runs on its second try.
+        let (mut g, f) = game("failed-once");
         f.push(persona_voice::VOICE, Err(afm_ai::Failure::Refusal));
-        f.push(persona_voice::VOICE, Err(afm_ai::Failure::BadReply("the answer was cut off".into())));
-        for _ in 2..lines {
+        for _ in 0..lines {
             f.push(persona_voice::VOICE, plain());
         }
         let v = run(&mut g, json!({ "only": "voice" }));
         assert_eq!(v["state"], "done", "{v}");
-        assert_eq!(v["rows"][0]["of"].as_u64(), Some(lines as u64));
-        let misses = v["misses"].as_array().unwrap();
-        assert!(misses[0]["why"].as_str().unwrap().starts_with("the call failed: "), "{v}");
-        assert_eq!(misses[1]["why"], "the call failed: the answer was cut off", "{v}");
-        // Three in a row, or a lasting failure, end it.
+        assert_eq!((v["rows"][0]["of"].as_u64(), v["rows"][0]["not_run"].as_u64()), (Some(lines as u64), Some(0)));
+        assert!(v["misses"].as_array().unwrap().iter().all(|m| !m["why"].as_str().unwrap().contains("failed")), "{v}");
+        assert_eq!(f.asked_count(), lines + 1, "the refused line was asked twice");
+        // A cut-off answer twice: the line is not run, never a miss, and the run goes on.
+        let (mut g, f) = game("failed");
+        for _ in 0..2 {
+            f.push(persona_voice::VOICE, Err(afm_ai::Failure::BadReply("the answer was cut off".into())));
+        }
+        for _ in 1..lines {
+            f.push(persona_voice::VOICE, plain());
+        }
+        let v = run(&mut g, json!({ "only": "voice" }));
+        assert_eq!(v["state"], "done", "{v}");
+        assert_eq!((v["rows"][0]["of"].as_u64(), v["rows"][0]["not_run"].as_u64()), (Some(lines as u64 - 1), Some(1)));
+        let first = &voice::cases()[0].lines[0].text;
+        assert!(v["misses"].as_array().unwrap().iter().all(|m| m["text"] != first.as_str()), "not run is no miss: {v}");
+        assert_eq!(
+            (v["not_run"][0]["text"].as_str(), v["not_run"][0]["why"].as_str()),
+            (Some(first.as_str()), Some("the answer was cut off")),
+            "{v}"
+        );
+        assert_eq!(v["calls"].as_u64(), Some(lines as u64 - 1));
+        // Three lines not run in a row, or a lasting failure, end it.
         let (mut g, f) = game("failed-row");
-        for _ in 0..3 {
+        for _ in 0..6 {
             f.push(persona_voice::VOICE, Err(afm_ai::Failure::Timeout));
         }
         assert_eq!(run(&mut g, json!({ "only": "voice" }))["state"], "off");
+        assert_eq!(f.asked_count(), 6, "each line tried twice");
         let (mut g, f) = game("failed-cap");
         f.push(persona_voice::VOICE, Err(afm_ai::Failure::CapReached));
         assert_eq!(run(&mut g, json!({ "only": "voice" }))["state"], "off");

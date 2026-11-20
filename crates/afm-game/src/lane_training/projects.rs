@@ -22,7 +22,7 @@ use crate::views::{TeamRef, eye_for, mine, person_index, roster_people};
 /// The most project years the read looks ahead.
 const LOOK_YEARS: u32 = 4;
 
-fn room_label(r: Room) -> &'static str {
+pub(crate) fn room_label(r: Room) -> &'static str {
     match r {
         Room::Qb => "QB",
         Room::Rb => "RB",
@@ -45,7 +45,7 @@ fn kind_key(k: BodyKind) -> &'static str {
     }
 }
 
-fn kind_of(s: &str) -> Option<BodyKind> {
+pub(crate) fn kind_of(s: &str) -> Option<BodyKind> {
     match s {
         "strength" => Some(BodyKind::Strength),
         "speed" => Some(BodyKind::Speed),
@@ -53,7 +53,7 @@ fn kind_of(s: &str) -> Option<BodyKind> {
     }
 }
 
-fn kind_label(k: BodyKind) -> &'static str {
+pub(crate) fn kind_label(k: BodyKind) -> &'static str {
     match k {
         BodyKind::Strength => "Strength project",
         BodyKind::Speed => "Speed project",
@@ -222,6 +222,10 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize) -> Value {
     };
     let rs = rooms(w, t);
     let k = ROOMS.iter().position(|&r| r == room).unwrap_or(0);
+    // Weeks on a project teach the coach how he takes to that kind of
+    // technique (design item 3): his read of it stands in for the clue he
+    // gave before any work, on every skill of that kind.
+    let worked = project_read(w, t, i).and_then(|(a, z)| Some((pg::kind_of(a)?, z?)));
     let others = |v: &[usize]| v.iter().copied().filter(|&x| x != i).map(|x| on_json(w, x, false)).collect::<Vec<_>>();
     let others_body =
         |v: &[usize]| v.iter().copied().filter(|&x| x != i).map(|x| on_json(w, x, true)).collect::<Vec<_>>();
@@ -234,7 +238,14 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize) -> Value {
         let (lo, hi, seen) = pg::your_project_read(
             &p.player,
             a,
-            pg::ReadOn { eye, coaching, level, years, seen_top: top_of(a) },
+            pg::ReadOn {
+                eye,
+                coaching,
+                level,
+                years,
+                seen_top: top_of(a),
+                knack_seen: worked.filter(|x| Some(x.0) == pg::kind_of(a)).map(|x| x.1),
+            },
             &mut r,
         );
         let (lo, hi) = (lo.round(), hi.round().max(lo.round()));
@@ -257,6 +268,9 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize) -> Value {
             let mut v = read_skill(a);
             v["years"] = json!(p.player.prog.project_years);
             v["yours"] = json!(p.player.prog.yours);
+            // A dead end your staff sees (design item 15), the same rule as
+            // its note at the checkpoint.
+            v["stalled"] = json!(pg::you_see_dead_end(&p.player));
             v
         }),
         "options": skills,
@@ -338,9 +352,11 @@ fn yours(w: &World, id: u32) -> Result<(usize, TeamRef), String> {
     Ok((i, t))
 }
 
-/// Starts his skill project on a skill (`progression::start_project`,
-/// yours), inside his room's slots.
-pub(super) fn start_skill(w: &mut World, id: u32, key: &str) -> Result<String, String> {
+/// Whether his skill project on a skill can start, by the screen's own
+/// rule (shared with a talk, talk replies item 13): Err says why not; Ok
+/// holds the man whose project it would replace when his room's slots are
+/// all taken (the one with the fewest weeks in).
+pub(crate) fn skill_check(w: &World, id: u32, key: &str) -> Result<Option<u32>, String> {
     let (i, t) = yours(w, id)?;
     let a = Attr::ALL.iter().copied().find(|a| a.key() == key).ok_or("No such skill.")?;
     let p = &w.people[i].player;
@@ -356,14 +372,36 @@ pub(super) fn start_skill(w: &mut World, id: u32, key: &str) -> Result<String, S
         return Err("Past his fourth pro season a project opens nothing.".into());
     }
     let rs = rooms(w, t);
-    let used = rs.skill.iter().find(|r| r.0 == room).map_or(0, |r| r.1.len());
-    if used >= room.slots() {
+    let on: &[usize] = rs.skill.iter().find(|r| r.0 == room).map_or(&[], |r| &r.1);
+    if on.len() >= room.slots() {
+        let today = w.today;
+        let least = on.iter().copied().min_by(|&x, &y| {
+            pg::project_weeks(&w.people[x].player, today).total_cmp(&pg::project_weeks(&w.people[y].player, today))
+        });
+        return least.map(|k| Some(w.people[k].player.id)).ok_or_else(|| "His room has no project slots.".into());
+    }
+    Ok(None)
+}
+
+/// Starts his skill project on a skill (`progression::start_project`,
+/// yours), inside his room's slots.
+pub(super) fn start_skill(w: &mut World, id: u32, key: &str) -> Result<String, String> {
+    if skill_check(w, id, key)?.is_some() {
+        let (i, _) = yours(w, id)?;
+        let room = Room::of(w.people[i].player.position).ok_or("His room has no project slots.")?;
         return Err(format!("The {} room has no free slot: end a project there first.", room_label(room)));
     }
+    let (i, t) = yours(w, id)?;
+    let a = Attr::ALL.iter().copied().find(|a| a.key() == key).ok_or("No such skill.")?;
+    let staff = staff_of(t);
+    let today = w.today;
     let p = &mut w.people[i].player;
     settle(p, staff);
     if !pg::start_project(p, a, true) {
         return Err("That skill isn't one his position builds a project on.".into());
+    }
+    if p.prog.project_on == 0 {
+        p.prog.project_on = today.0.clamp(1, u16::MAX as i32) as u16;
     }
     Ok(format!("{} project started. Its first year counts at his next growth checkpoint.", a.label()))
 }
@@ -385,11 +423,12 @@ pub(super) fn end_skill(w: &mut World, id: u32) -> Result<String, String> {
     Ok(format!("{} project ended. What it built stays.", a.label()))
 }
 
-/// Starts his body project (`progression::start_body`, yours), one a room
-/// at a time on your strength staff.
-pub(super) fn start_body(w: &mut World, id: u32, kind: &str) -> Result<String, String> {
+/// Whether his body project can start, by the screen's own rule (shared
+/// with a talk): Err says why not; Ok holds the man whose body project it
+/// would replace when your strength staff's slot for his room is in use.
+pub(crate) fn body_check(w: &World, id: u32, kind: &str) -> Result<Option<u32>, String> {
     let (i, t) = yours(w, id)?;
-    let kind = kind_of(kind).ok_or("No such body project.")?;
+    kind_of(kind).ok_or("No such body project.")?;
     let p = &w.people[i].player;
     let room = Room::of(p.position).ok_or("Specialists have no body projects.")?;
     let staff = staff_of(t);
@@ -400,13 +439,27 @@ pub(super) fn start_body(w: &mut World, id: u32, kind: &str) -> Result<String, S
         return Err(format!("Past {} his body has done its building.", pg::BODY_UNTIL));
     }
     let rs = rooms(w, t);
-    let used = rs.body.iter().find(|r| r.0 == room).map_or(0, |r| r.1.len());
-    if used >= pg::BODY_SLOTS {
+    let on: &[usize] = rs.body.iter().find(|r| r.0 == room).map_or(&[], |r| &r.1);
+    if on.len() >= pg::BODY_SLOTS {
+        return Ok(on.first().map(|&k| w.people[k].player.id));
+    }
+    Ok(None)
+}
+
+/// Starts his body project (`progression::start_body`, yours), one a room
+/// at a time on your strength staff.
+pub(super) fn start_body(w: &mut World, id: u32, kind: &str) -> Result<String, String> {
+    if body_check(w, id, kind)?.is_some() {
+        let (i, _) = yours(w, id)?;
+        let room = Room::of(w.people[i].player.position).ok_or("Specialists have no body projects.")?;
         return Err(format!(
             "Your strength staff's slot for the {} room is in use: end that one first.",
             room_label(room)
         ));
     }
+    let (i, t) = yours(w, id)?;
+    let kind = kind_of(kind).ok_or("No such body project.")?;
+    let staff = staff_of(t);
     let p = &mut w.people[i].player;
     settle(p, staff);
     if !pg::start_body(p, kind, true) {
@@ -421,4 +474,140 @@ pub(super) fn end_body(w: &mut World, id: u32) -> Result<String, String> {
     let k = p.prog.body_project().ok_or("He has no body project.")?;
     pg::end_body(p);
     Ok(format!("{} ended. What it built stays.", kind_label(k)))
+}
+
+/// A fixed normal for one clue on him, for this career (it never moves, so
+/// a read only sharpens as its clue grows).
+fn clue_draw(w: &World, id: u32, salt: u32) -> f64 {
+    let r = crate::views::reader_key(w);
+    Rng::new((r as u32 ^ (r >> 32) as u32) ^ id.wrapping_mul(0x2C1B_3C6D) ^ salt.wrapping_mul(0x9E37_79B1) ^ 0x0C1E)
+        .normal(0.0, 1.0)
+}
+
+/// His running skill project on your staff and your position coach's read
+/// of how he takes to it (None before `CLUE_WEEKS`).
+fn project_read(w: &World, t: TeamRef, i: usize) -> Option<(Attr, Option<f64>)> {
+    let p = &w.people[i].player;
+    if p.prog.left_behind(staff_of(t)) {
+        return None;
+    }
+    let a = p.prog.project()?;
+    let weeks = pg::project_weeks(p, w.today);
+    let eye = eye_for(w, t, p.position);
+    Some((a, pg::project_clue(p, a, eye, weeks, clue_draw(w, p.id, 1))))
+}
+
+fn sure_words(weeks: f64) -> &'static str {
+    if weeks < 8.0 {
+        "an early read"
+    } else if weeks < 26.0 {
+        "a fair read"
+    } else {
+        "a firm read"
+    }
+}
+
+/// The knack's clues for the Reports sub-tab (design item 3): what his
+/// staff has to go on about how fast he takes new technique and how his
+/// body takes to a program, in words, never a number or a grade.
+pub(super) fn clues(w: &World, t: TeamRef, i: usize) -> Value {
+    let p = &w.people[i];
+    let id = p.player.id;
+    let coach = super::teacher(w, t, i);
+    let coach_name = if coach["you"].as_bool() == Some(true) {
+        "Your own read".to_string()
+    } else {
+        coach["name"].as_str().map_or("His position coach".to_string(), str::to_string)
+    };
+    let mut tech: Vec<Value> = Vec::new();
+    if let Some(words) = crate::lane_paths::coachable(w, i) {
+        tech.push(json!({
+            "who": "Your staff's file",
+            "says": words,
+            "hint": "A small part of how fast he learns new technique.",
+            "sure": "a small part",
+        }));
+    }
+    if let Some((a, z)) = project_read(w, t, i) {
+        let weeks = pg::project_weeks(&p.player, w.today);
+        let kind = pg::kind_of(a).map_or("new", |k| k.name());
+        let says = match z.map(pg::tier) {
+            None => "too early to tell: he has only just started on it".to_string(),
+            Some(0) => "it's starting to click".to_string(),
+            Some(1) => "it's coming along".to_string(),
+            Some(_) => "he's still fighting it".to_string(),
+        };
+        tech.push(json!({
+            "who": coach_name,
+            "on": format!("{} project", a.label()),
+            "says": says,
+            "hint": format!("How he takes to new {} technique. It sharpens the longer he works at it, sooner with a sharper coach.", kind.to_lowercase()),
+            "sure": if z.is_some() { sure_words(weeks) } else { "no read yet" },
+        }));
+    }
+    let mut body: Vec<Value> = Vec::new();
+    // How he filled out in high school against his frame: there is
+    // something to read once he has had a year or two of it.
+    if p.player.age >= 16 {
+        let z = pg::filled_out_clue(&p.player, clue_draw(w, id, 2));
+        body.push(json!({
+            "who": "His high school years",
+            "says": match pg::tier(z) { 0 => "puts weight on easily", 1 => "filled out like most boys his size", _ => "a hard gainer" },
+            "hint": "A fair hint at how his body takes to a program.",
+            "sure": "a fair hint",
+        }));
+    }
+    let key = match t {
+        TeamRef::College(c) => {
+            Some(afm_engine::training::testing::team_key(afm_engine::training::rules::Tier::College, c))
+        }
+        TeamRef::Nfl(c) => Some(afm_engine::training::testing::team_key(afm_engine::training::rules::Tier::Pro, c)),
+        TeamRef::HighSchool(c) => {
+            Some(afm_engine::training::testing::team_key(afm_engine::training::rules::Tier::High, c))
+        }
+        TeamRef::Other(_) => None,
+    };
+    let days = key.map_or(0, |k| p.tests.at(k).count());
+    let head = strength_head(w, t, i);
+    if let Some(z) = pg::testing_clue(&p.player, head, days, clue_draw(w, id, 3)) {
+        body.push(json!({
+            "who": "Your strength staff",
+            "says": match pg::tier(z) { 0 => "took to the program", 1 => "has moved like most", _ => "hasn't moved much" },
+            "hint": "How his body takes to the weight room. Sharper with each testing day, sooner with a better strength coach.",
+            "sure": if days == 1 { "after one testing day".to_string() } else { format!("after {days} testing days") },
+        }));
+    } else {
+        body.push(json!({
+            "who": "Your strength staff",
+            "says": "no testing day with us yet",
+            "hint": "How his body takes to the weight room shows in testing days.",
+            "sure": "no read yet",
+        }));
+    }
+    json!({ "technique": tech, "body": body })
+}
+
+/// His projects for a squad row: the skill project and the body project
+/// running on your staff, with who set them.
+pub(super) fn row(w: &World, t: TeamRef, i: usize) -> Value {
+    let pr = &w.people[i].player.prog;
+    if pr.left_behind(staff_of(t)) {
+        return Value::Null;
+    }
+    let skill = pr.project().map(|a| a.label());
+    let body = pr.body_project().map(|k| match k {
+        BodyKind::Strength => "Strength",
+        BodyKind::Speed => "Speed",
+    });
+    if skill.is_none() && body.is_none() {
+        return Value::Null;
+    }
+    json!({
+        "skill": skill,
+        "skill_years": pr.project_years,
+        "skill_yours": pr.yours,
+        "stalled": pg::you_see_dead_end(&w.people[i].player),
+        "body": body,
+        "body_yours": pr.body_yours,
+    })
 }

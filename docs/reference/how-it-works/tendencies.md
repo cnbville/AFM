@@ -1,6 +1,6 @@
 # Tendencies: how it works today
 
-Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28. The Scramble habit in the spy (minor bug 289) checked over main 460d534 on 2026-11-07. The scouted read's film count (minor bug 382) checked over main 2ecb250 on 2026-11-13. Coach fire's habits and the flinch (`docs/design/coach-fire.md`) checked over main b9fa58d on 2026-11-17, before it merged.
+Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28. The Scramble habit in the spy (minor bug 289) checked over main 460d534 on 2026-11-07. The age-14 centres re-measured over main 349eefb on 2026-11-19. The scouted read's film count (minor bug 382) checked over main 2ecb250 on 2026-11-13. Coach fire's habits and the flinch (`docs/design/coach-fire.md`) checked over main b9fa58d on 2026-11-17, before it merged.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -50,7 +50,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 `tendencies.rs`, `Tendencies::at_14` and `drawn`, on the player's own stream (`Rng::new(id ^ 0x7E4D_3C21)`), called from `player.rs`, `generate_prospect`.
 
-- Each tendency: `N(10.5, 4.4) + clamp(lean, -3, 3)`, then minus `CENTER_14[k]` and rounded, clamped 1-20. `CENTER_14` is measured on 40,000 14-year-olds with `tendency_check nfl 2 1 centers14` (patience, returner risk, upfield and downhill re-measured in update 3, lane 1, when speed stopped riding on talent).
+- Each tendency: `N(10.5, 4.4) + clamp(lean, -3, 3)`, then minus `CENTER_14[k]` and rounded, clamped 1-20. `CENTER_14` is measured on 40,000 14-year-olds with `tendency_check nfl 2 1 centers14` (patience, returner risk, upfield and downhill re-measured in update 3, lane 1, when speed stopped riding on talent; those four and bounce re-measured 2026-11-19 after the athlete-first build moved the speed leans, now within 0.03 of the middle, every other tendency within 0.14).
 - Leans read his ceilings against 70, in steps of 12 (`c(a) = (ceiling - 70) / 12`), plus competitiveness `(comp - 10) / 3.5`, weight `(lb - 215) / 40`, height `(in - 75) / 2.5`:
   - Bounce `1.6*fast + 0.5*elusiveness`; Scramble `1.8*fast`; fast = mean of speed and acceleration.
   - Contact `1.2*big + 0.8*strength + 0.8*toughness`; BigHit `1.0*physicality + 0.5*big`.

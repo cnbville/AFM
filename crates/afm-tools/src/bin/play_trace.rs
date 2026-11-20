@@ -115,7 +115,14 @@ fn main() {
         "speed" => PlayKind::Run(RunConcept::SpeedOption),
         "triple" => PlayKind::Run(RunConcept::TripleOption),
         "jet" => PlayKind::Run(RunConcept::JetSweep),
-        "rpo" => PlayKind::Rpo(RunConcept::InsideZone, concept("RPO glance")),
+        // AFM_RPO=Power:RPO slant picks the run and the throw (default
+        // inside zone with the glance).
+        "rpo" => {
+            let v = std::env::var("AFM_RPO").unwrap_or_default();
+            let (rn, pn) = v.split_once(':').unwrap_or(("InsideZone", "RPO glance"));
+            let rc = RUN_CONCEPTS.iter().copied().find(|r| format!("{r:?}") == rn).unwrap_or(RunConcept::InsideZone);
+            PlayKind::Rpo(rc, concept(pn))
+        }
         "pass" => PlayKind::Pass(4),
         s => PlayKind::Pass(s.parse().unwrap_or(0)),
     };
@@ -145,6 +152,11 @@ fn main() {
     let mut call = OffCall::new(formation, kind, dir, false);
     // AFM_FAKE=1 fakes the run before the throw (play action).
     call.fake = std::env::var("AFM_FAKE").is_ok_and(|v| v == "1");
+    // AFM_HAIL=1 calls the Hail Mary against its defense (engine gaps item
+    // 15), AFM_HAIL=2 the last play's laterals (item 16).
+    let hail = std::env::var("AFM_HAIL").ok();
+    call.hail = hail.as_deref() == Some("1");
+    call.laterals = hail.as_deref() == Some("2");
     // AFM_COV picks the coverage (0 Cover 0 .. 9 Cover 3 match), default Cover 3.
     let cov = env_n("AFM_COV").map_or(Coverage::Cover3, |k| Coverage::ALL[k % COVERAGE_COUNT]);
     // AFM_PRESSURE picks the pressure (0 four-man rush .. 5 fire zone).
@@ -160,10 +172,15 @@ fn main() {
         .map_or(if cov == Coverage::Cover0 { Pressure::DoubleA } else { Pressure::Four }, |k| {
             pressures[k % pressures.len()]
         });
-    let dcall = DefCall::new(if base { DefPersonnel::Base } else { DefPersonnel::Nickel }, cov, pressure);
+    let dcall = if call.hail {
+        DefCall::new(DefPersonnel::Dime, Coverage::Cover4, Pressure::Four)
+    } else {
+        DefCall::new(if base { DefPersonnel::Base } else { DefPersonnel::Nickel }, cov, pressure)
+    };
     // A third argument sweeps that many seeds without the trace.
     if let Some(n) = args.get(3).and_then(|s| s.parse::<u64>().ok()) {
         let mut ys = Vec::new();
+        let mut ends = [0.0f64; 4];
         for s in seed..seed + n {
             let los = std::env::var("AFM_LOS").ok().and_then(|v| v.parse().ok()).unwrap_or(30.0);
             let r = trace_snap_opt(&a, &b, level, call, dcall, los, s, false);
@@ -180,7 +197,18 @@ fn main() {
                 r.why
             );
             ys.push(r.yards);
+            ends[0] += r.complete as u8 as f64;
+            ends[1] += r.touchdown as u8 as f64;
+            ends[2] += r.interception as u8 as f64;
+            ends[3] += (r.laterals > 0) as u8 as f64;
         }
+        println!(
+            "complete {:.3} touchdown {:.3} intercepted {:.3} lateral {:.3}",
+            ends[0] / n as f64,
+            ends[1] / n as f64,
+            ends[2] / n as f64,
+            ends[3] / n as f64
+        );
         ys.sort_by(|a, b| a.total_cmp(b));
         let share = |lo: f64, hi: f64| 100.0 * ys.iter().filter(|&&y| y >= lo && y < hi).count() as f64 / n as f64;
         println!(

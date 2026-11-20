@@ -1,7 +1,10 @@
 //! Memory in season (final build, lane 1): opens a world file the way the
 //! game does, starts a career, and presses Continue to the first game,
 //! printing the live heap and resident memory at every stop. At the end it
-//! weighs the world's stores by dropping them, biggest first.
+//! weighs the world's stores by dropping them, biggest first. With the
+//! fingerprint it prints the world log's print of every store (`wlog::why::
+//! fingerprints`, each store's whole serde form): two builds that print the
+//! same lines played the same season, field for field.
 //! Usage: memory_season <world file> [college|nfl|hs] [team id] [weigh: open|end|none|monthN|days]
 //! (`days` steps a day at a time and prints each day that raised the peak;
 //! `AFM_TRIM=1` also prints resident memory after the allocator lets go).
@@ -142,6 +145,10 @@ fn main() {
         weigh(g.world.as_mut().expect("world"));
         return;
     }
+    if weigh_at == "parts" {
+        parts(g.world.as_mut().expect("world"));
+        return;
+    }
     g.call("start_career", &json!({ "job": { "kind": kind, "id": id }, "seed": 7 })).expect("start");
     line("career started", &t);
     let year = g.world.as_ref().expect("world").today.parts().0;
@@ -200,6 +207,25 @@ fn main() {
             break;
         }
     }
+    // AFM_UNTIL=YYYY-MM-DD (memory diet lane M2's check): Continue on past
+    // the first game to that day, through the year's cleanup, so the prints
+    // cover a whole football year.
+    if let Some(until) = std::env::var("AFM_UNTIL").ok().and_then(|s| {
+        let v: Vec<u32> = s.split('-').filter_map(|x| x.parse().ok()).collect();
+        (v.len() == 3).then(|| afm_engine::calendar::Date::ymd(v[0] as i32, v[1], v[2]))
+    }) {
+        for _ in 0..2000 {
+            if g.world.as_ref().expect("world").today >= until {
+                break;
+            }
+            let r = g.call("continue", &json!({ "staff": true })).expect("continue");
+            if r["studio"]["screen"] == json!("warroom") {
+                war_room(&mut g);
+            }
+        }
+        let (y, m, d) = g.world.as_ref().expect("world").today.parts();
+        line(&format!("on to {y}-{m:02}-{d:02}"), &t);
+    }
     // The film room (lane 13): what watching your last game back adds.
     if let Some(k) = g.world.as_ref().and_then(|w| w.seat_games.len().checked_sub(1)) {
         let before = heap_gb();
@@ -215,8 +241,88 @@ fn main() {
         let _ = g.call("film_close", &json!({}));
     }
     println!("fingerprint {:016x}", fingerprint(g.world.as_ref().expect("world")));
+    for (store, print) in afm_engine::world::wlog::why::fingerprints(g.world.as_ref().expect("world")) {
+        println!("  store print {store:<14} {print}");
+    }
+    kept_parts(g.world.as_ref().expect("world"));
     if weigh_at == "end" {
         weigh(g.world.as_mut().expect("world"));
+    }
+    if weigh_at == "endparts" {
+        parts(g.world.as_mut().expect("world"));
+    }
+}
+
+/// The memory diet's lane M2 parts (items 3, 6, 9, 10), each weighed by
+/// dropping it: men who left football, retired coaches, the alumni's parts
+/// and the tallies' open stores.
+fn parts(w: &mut World) {
+    use afm_engine::world::Stage;
+    let done = w.people.iter().filter(|p| p.stage == Stage::Done).count();
+    let retired = w.coaches.iter().filter(|c| c.retired).count();
+    println!(
+        "  left football {done} ({} B inline each), retired coaches {retired} of {} ({} B inline each), alumni {} ({} B inline), pro seasons {} B",
+        std::mem::size_of::<afm_engine::world::Person>(),
+        w.coaches.len(),
+        std::mem::size_of::<afm_engine::world::coach::Coach>(),
+        w.alumni.len(),
+        std::mem::size_of::<afm_engine::world::Alumnus>(),
+        std::mem::size_of::<afm_engine::world::pro::ProSeason>(),
+    );
+    let mut rows: Vec<(String, f64)> = Vec::new();
+    let mut take = |name: &str, w: &mut World, f: &dyn Fn(&mut World)| {
+        let before = heap_gb();
+        f(w);
+        rows.push((name.to_string(), before - heap_gb()));
+    };
+    let gone = |p: &afm_engine::world::Person| p.stage == Stage::Done;
+    take("left: season rows", w, &|w| {
+        w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.player.history = Vec::new())
+    });
+    take("left: hs lines", w, &|w| w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.hs_lines = Vec::new()));
+    take("left: notes", w, &|w| w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.notes = Vec::new()));
+    take("left: college part", w, &|w| {
+        w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.later = Default::default())
+    });
+    take("left: calendar rest", w, &|w| {
+        w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.cal.more = Default::default())
+    });
+    take("left: pro careers", w, &|w| w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.pro = None));
+    take("left: tests", w, &|w| w.people.iter_mut().filter(|p| gone(p)).for_each(|p| p.tests = Default::default()));
+    take("retired coaches: history", w, &|w| {
+        w.coaches.iter_mut().filter(|c| c.retired).for_each(|c| c.history = Vec::new())
+    });
+    take("retired coaches: ties", w, &|w| {
+        w.coaches.iter_mut().filter(|c| c.retired).for_each(|c| c.ties = Default::default())
+    });
+    take("retired coaches: recent", w, &|w| {
+        w.coaches.iter_mut().filter(|c| c.retired).for_each(|c| c.recent = Vec::new())
+    });
+    take("alumni: pro playoffs", w, &|w| {
+        w.alumni
+            .iter_mut()
+            .filter_map(|a| a.pro.as_mut())
+            .for_each(|c| c.seasons.iter_mut().for_each(|s| s.playoffs = None))
+    });
+    take("alumni: pro careers", w, &|w| w.alumni.iter_mut().for_each(|a| a.pro = None));
+    take("alumni: players", w, &|w| w.alumni.iter_mut().for_each(|a| a.player = None));
+    take("alumni: notes and summaries", w, &|w| {
+        w.alumni.iter_mut().for_each(|a| {
+            a.notes = Vec::new();
+            a.background_summary = String::new();
+        })
+    });
+    take("tallies: players", w, &|w| w.tallies.players = Default::default());
+    take("tallies: teams", w, &|w| w.tallies.teams = Default::default());
+    take("tallies: squads", w, &|w| w.tallies.squads = Default::default());
+    take("tallies: calls", w, &|w| w.tallies.calls = Default::default());
+    take("tallies: prospects", w, &|w| w.tallies.prospects = Default::default());
+    take("tallies: classes", w, &|w| w.tallies.classes = Default::default());
+    take("tallies: moves", w, &|w| w.tallies.moves = Default::default());
+    take("tallies: games", w, &|w| w.tallies.games = Default::default());
+    println!("\n| part | MB |\n|---|---|");
+    for (name, gb) in &rows {
+        println!("| {name} | {:.1} |", gb * 1000.0);
     }
 }
 
@@ -299,4 +405,69 @@ fn weigh(w: &mut World) {
         println!("| {name} | {gb:.3} |");
     }
     println!("| everything else | {rest:.3} |");
+}
+
+/// How many people keep their calendar's rest and their college part
+/// (memory diet, lane M1: kept only once used), and how many of them are
+/// high schoolers.
+fn kept_parts(w: &World) {
+    use afm_engine::world::Stage;
+    let count = |f: &dyn Fn(&afm_engine::world::Person) -> bool| {
+        let all = w.people.iter().filter(|p| f(p)).count();
+        let hs = w.people.iter().filter(|p| p.stage == Stage::HighSchool && f(p)).count();
+        (all, hs)
+    };
+    let (cal, cal_hs) = count(&|p| p.cal.more.stored().is_some());
+    let (later, later_hs) = count(&|p| p.later.stored().is_some());
+    println!(
+        "  kept parts of {} people: calendar rest {cal} ({cal_hs} high schoolers), college part {later} ({later_hs} high schoolers)",
+        w.people.len()
+    );
+    // Lane M2 (items 3, 9, 10): what is packed or dropped now.
+    let retired = w.coaches.iter().filter(|c| c.retired).count();
+    let kept: Vec<usize> = w.alumni.iter().filter_map(|a| a.player.as_ref().map(|k| k.packed_len())).collect();
+    let (p_hot, p_cold, p_bytes) = w.tallies.players.held();
+    let (t_hot, t_cold, t_bytes) = w.tallies.teams.held();
+    println!(
+        "  retired coaches {retired} of {}; alumni players packed {} ({:.1} MB); open tallies: players {p_hot} rows, {p_cold} packed ({:.1} MB), teams {t_hot} rows, {t_cold} packed ({:.1} MB)",
+        w.coaches.len(),
+        kept.len(),
+        kept.iter().sum::<usize>() as f64 / 1e6,
+        p_bytes as f64 / 1e6,
+        t_bytes as f64 / 1e6
+    );
+    // A Data page's read of every open row (packed rows unpacked).
+    let t = std::time::Instant::now();
+    let (mut n, mut games) = (0usize, 0u64);
+    w.tally_players(w.tally_open_season(), |s| {
+        n += 1;
+        games += s.games as u64;
+    });
+    let mut teams = 0usize;
+    w.tally_teams(w.tally_open_season(), |_| teams += 1);
+    println!(
+        "  reading every open row: {n} players ({games} games) and {teams} teams in {:.1} ms",
+        t.elapsed().as_secs_f64() * 1e3
+    );
+    let t = std::time::Instant::now();
+    let mut last = 0usize;
+    w.tally_players(w.tally_open_season() - 1, |_| last += 1);
+    println!("  reading last season's closed file: {last} players in {:.1} ms", t.elapsed().as_secs_f64() * 1e3);
+    // The squad boards' worst case: every kept alumni player unpacked once.
+    let t = std::time::Instant::now();
+    let ages: u64 = w.alumni.iter().filter_map(|a| a.player.as_ref()).map(|k| k.get().age as u64).sum();
+    let one = t.elapsed().as_secs_f64() * 1e3;
+    let t = std::time::Instant::now();
+    use rayon::prelude::*;
+    let par: u64 = w.alumni.par_iter().filter_map(|a| a.player.as_ref()).map(|k| k.get().age as u64).sum();
+    let most = afm_engine::positions::Position::ALL
+        .iter()
+        .map(|&p| w.alumni.iter().filter(|a| a.position == p && a.player.is_some()).count())
+        .max()
+        .unwrap_or(0);
+    println!(
+        "  unpacking all {} alumni players: {one:.1} ms on one core, {:.1} ms on all (ages {ages} {par}); the biggest position has {most}",
+        kept.len(),
+        t.elapsed().as_secs_f64() * 1e3
+    );
 }

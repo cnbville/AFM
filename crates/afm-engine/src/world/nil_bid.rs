@@ -70,6 +70,60 @@ pub fn star_bid(stars: u8) -> f64 {
     }
 }
 
+/// [`star_bid`] on a smooth scale (`x` stars, 1 to 5), between the whole
+/// stars on a log scale: the talent of a recruit whose stars are read
+/// against a school's level (`star_at`).
+pub fn star_bid_at(x: f64) -> f64 {
+    let x = x.clamp(1.0, 5.0);
+    let lo = x.floor();
+    let t = x - lo;
+    let a = star_bid(lo as u8).ln();
+    let b = star_bid((lo as u8 + 1).min(5)).ln();
+    (a + t * (b - a)).exp()
+}
+
+/// A recruit's stars as a school at money level `l` reads them (the
+/// Group of 5 signee fix, 2026-11-18): his stars plus the level's lift,
+/// how far its starters' stars sit under the Power 4's
+/// ([`NilBook::star_lift`]). [`star_bid`] is a Power 4 scale, a recruit's
+/// price against a median Power 4 starter, so read nationally a Group of 5
+/// school priced its three-star signee, its future starter, at 7% of its
+/// starters' money, where a Power 4 school pays its four-star, its own
+/// future starter, 25%: the same mistake 2a fixed for players with a
+/// season (`recruiting::bid_lifts`).
+pub fn star_at(w: &World, l: usize, stars: u8) -> f64 {
+    star_bid_at(stars.max(1) as f64 + w.nil_book.star_lift[l.min(3)])
+}
+
+/// Each money level's star lift (`star_at`): the mean recruiting stars of
+/// the Power 4's college starters less the level's own, never below 0.
+pub fn star_lifts(w: &World) -> [f64; 4] {
+    let mut sum = [(0.0f64, 0usize); 4];
+    for p in w.people.iter() {
+        if p.stage == Stage::College
+            && p.last_role == Some(PlayingTime::Starter)
+            && !p.player.position.is_specialist()
+            && let Some(c) = p.college
+        {
+            let prog = &w.programs[c];
+            if prog.collective.budget <= 0.0 && !matches!(prog.division, Division::FBS | Division::FCS) {
+                continue;
+            }
+            let s = &mut sum[level(prog)];
+            s.0 += p.stars.max(1) as f64;
+            s.1 += 1;
+        }
+    }
+    let mean = |l: usize| (sum[l].1 >= 50).then(|| sum[l].0 / sum[l].1 as f64);
+    let mut lift = [0.0; 4];
+    if let Some(top) = mean(0) {
+        for (l, x) in lift.iter_mut().enumerate().skip(1) {
+            *x = mean(l).map_or(0.0, |m| (top - m).max(0.0));
+        }
+    }
+    lift
+}
+
 /// His talent as the market prices it: a recruit's stars (None: no college
 /// season yet), else his role and his play over the level's starters at his
 /// spot (`edge`, points).
@@ -142,6 +196,23 @@ pub struct NilBook {
     pub year: i32,
     pub top: [f64; 4],
     pub n: [u32; 4],
+    /// Each money level's star lift (`star_lifts`), read each July 1.
+    #[serde(default)]
+    pub star_lift: [f64; 4],
+    /// The share of a year's money each money level's AI schools paid
+    /// their arrivals (signees and transfers on the deals they came on)
+    /// last July 1 (`recruiting::nil_payouts`): the room your desk's roster
+    /// split keeps for a class and transfers not yet signed
+    /// (`front_office::college::splits`).
+    #[serde(default)]
+    pub new_share: [f64; 4],
+    /// Each program's signees holding a deal for next July, not yet
+    /// enrolled, as the last signing stage left them
+    /// (`recruiting::signed_paid`): the first places in its July paid set,
+    /// read by your desk's view of who a school would pay
+    /// (`recruiting::pays_recruit`). July 1 starts it again.
+    #[serde(default)]
+    pub signed_paid: Vec<u16>,
 }
 
 impl NilBook {
@@ -168,7 +239,7 @@ impl NilBook {
     /// from before the scheme, or NIL Go's first July): each program's pot
     /// over its roster's payroll weight, what its July split pays a unit.
     pub fn from_pots(w: &World) -> NilBook {
-        NilBook::read(w.today.year(), Vec::new(), pot_rates(w))
+        NilBook { star_lift: star_lifts(w), ..NilBook::read(w.today.year(), Vec::new(), pot_rates(w)) }
     }
 }
 
@@ -478,10 +549,11 @@ impl Market {
     /// What wins college player `i` from the rest of the market (item 9):
     /// (the best rival's top bid, never past his own school's, that rival
     /// bid, his play over his level's starters at his spot). His own
-    /// school's top bid reads his role there (a starter's, for December's
-    /// keep-him offers; a landed transfer's, the place he landed in); a rival is any FBS or FCS program where he would
-    /// start or rotate, his play read at its level. None with no season's
-    /// play to read or no bid.
+    /// school's top bid reads his role there (last season's, for December's
+    /// keep-him offers; a landed transfer's, the place he landed in); a
+    /// rival is any FBS or FCS program where he would start or rotate, his
+    /// play read at its level. None with no season's play to read or no
+    /// bid.
     pub(crate) fn bid(&self, w: &World, i: usize) -> Option<(f64, f64, f64)> {
         self.bid_read(w, i, true)
     }
@@ -573,10 +645,14 @@ pub fn market_all(w: &World) -> Vec<(usize, f64, f64)> {
 }
 
 /// December's keep-him offers before the January window (item 9): each AI
-/// program prices every starter it wants back (one with a season left who
+/// program prices every player it wants back (one with a season left who
 /// isn't leaving) at the best rival's top bid for him and offers up to its
-/// own top bid. A rival is any FBS or FCS program where he would start or
-/// rotate, his play read at its level. The offer is his floor on July 1
+/// own top bid in the role he has there. Every role, not only starters
+/// (2026-11-18): before, a rotation player or backup a rival would start
+/// or rotate was left on the split, never his market price; the offer
+/// still stands only where it beats his split (`recruiting::NilHeld`). A
+/// rival is any FBS or FCS program where he would start or rotate, his
+/// play read at its level. The offer is his floor on July 1
 /// (`DealKind::Keep`), and his stay read weighs it (`stay_read`).
 /// Your program's money is yours alone (Cain 2026-11-08), so it makes none.
 pub(crate) fn keep_offers(w: &mut World, label: i32) {
@@ -594,7 +670,7 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
             let p = &wr.people[i];
             let c = p.college?;
             if p.stage != Stage::College
-                || p.last_role != Some(PlayingTime::Starter)
+                || p.last_role.is_none()
                 || p.cal.portal.is_some()
                 || p.cut_here().is_some()
                 || p.cal.declare_plan == Some(true)
@@ -619,7 +695,8 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
         let prog = &w.programs[j];
         let b = prog.collective.budget;
         let s = if b > 0.0 { (super::ncaa::school_pot(prog, today) / b).clamp(0.0, 1.0) } else { 0.0 };
-        let top = range_top(w, j, &w.people[i], Some(PlayingTime::Starter), edge.max(-99.0));
+        let role = w.people[i].last_role;
+        let top = range_top(w, j, &w.people[i], role, edge.max(-99.0));
         let room = super::ncaa::share_room(prog, year);
         let coll = keep * (1.0 - s);
         let r = review(today, coll, top, room, free == Some(j));
@@ -651,6 +728,16 @@ pub fn ensure(w: &mut World) {
     if w.nil_rev >= NIL_REV {
         return;
     }
+    if w.nil_rev < 2 {
+        refit(w);
+    }
+    // 3: recruits' stars read at the school's level (`star_at`).
+    w.nil_book.star_lift = star_lifts(w);
+    w.nil_rev = NIL_REV;
+}
+
+/// `ensure` before version 2: the money year's pots again and the book.
+fn refit(w: &mut World) {
     let d = w.today;
     // The book on February's signing day set the coming money year's
     // budgets (`staff::update_programs`).
@@ -664,18 +751,18 @@ pub fn ensure(w: &mut World) {
     if super::ncaa::two_pots(d) {
         w.nil_book = NilBook::from_pots(w);
     }
-    w.nil_rev = NIL_REV;
 }
 
 /// The new NIL scheme's version of a world's money (`ensure`).
 /// 2: the Group of 5's money refit to real payments (2b, 2026-11-18).
-pub(crate) const NIL_REV: u8 = 2;
+/// 3: recruits' stars read at the school's level (2026-11-18).
+pub(crate) const NIL_REV: u8 = 3;
 
 /// July 1's book (item 10): NIL Go's comparisons for the coming year,
 /// read from the third-party money each player cleared today.
-pub(crate) fn read_book(w: &mut World, deals: Vec<(usize, f64)>) {
+pub(crate) fn read_book(w: &mut World, deals: Vec<(usize, f64)>, new_share: [f64; 4]) {
     let pots = pot_rates(w);
-    w.nil_book = NilBook::read(w.today.year(), deals, pots);
+    w.nil_book = NilBook { star_lift: star_lifts(w), new_share, ..NilBook::read(w.today.year(), deals, pots) };
 }
 
 /// How much of his tape the college market adds to his season's play
@@ -723,6 +810,6 @@ pub fn tape(w: &World, p: &Person) -> Option<f64> {
 /// his games showed below his ratings lowers what other schools would pay.
 /// The stars, the draft and development keep reading `last_performance`.
 pub fn season_read(w: &World, p: &Person) -> Option<f64> {
-    let perf = p.last_performance?;
+    let perf = p.last_performance.get()?;
     Some(perf + TAPE_W * tape(w, p).unwrap_or(0.0).clamp(-TAPE_CAP, TAPE_CAP))
 }

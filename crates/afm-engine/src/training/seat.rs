@@ -875,6 +875,67 @@ pub struct SeatTeam {
     pub games: Vec<Date>,
 }
 
+/// Your staff's code for a project's owner (`progression::staff_code`).
+pub(crate) fn seat_staff_code(w: &World) -> Option<u32> {
+    use crate::progression::{StaffAt, staff_code};
+    let seat = w.seat?;
+    Some(match (seat.nfl_team, seat.program, w.seat_school()) {
+        (Some(t), _, _) => staff_code(StaffAt::Nfl, t),
+        (_, Some(c), _) => staff_code(StaffAt::College, c),
+        (_, _, Some(h)) => staff_code(StaffAt::HighSchool, h),
+        _ => return None,
+    })
+}
+
+/// The words that mark a holdover project's note, so it is written once.
+const HOLDOVER: &str = "the staff before you set";
+
+/// A note for each project the staff before you set that still runs on your
+/// team (the gap "projects the staff before you set"): no AI staff manages
+/// your rooms, so it runs until you end it. The position coach (a skill
+/// project) or the strength staff (a body project) writes it once, the
+/// first week it runs on your staff.
+pub fn holdover_notes(w: &World, roster: &[usize]) -> Vec<(u32, &'static str, String)> {
+    let Some(staff) = seat_staff_code(w) else { return Vec::new() };
+    let mut out = Vec::new();
+    for &i in roster {
+        let p = &w.people[i].player;
+        let pr = &p.prog;
+        if pr.left_behind(staff) {
+            continue;
+        }
+        let said =
+            |dept: &str| w.training.notes.iter().any(|n| n.id == p.id && n.dept == dept && n.text.contains(HOLDOVER));
+        if let Some(a) = pr.project().filter(|_| !pr.yours)
+            && !said("position")
+        {
+            out.push((
+                p.id,
+                "position",
+                format!(
+                    "is on a {} project {HOLDOVER}. It runs until you end it on his Development tab, and his other technique grows at {}% of its pace while it does",
+                    a.label().to_lowercase(),
+                    (100.0 * (1.0 - crate::progression::PROJECT_COST)).round()
+                ),
+            ));
+        }
+        if let Some(k) = pr.body_project().filter(|_| !pr.body_yours)
+            && !said("strength")
+        {
+            let what = match k {
+                crate::progression::BodyKind::Strength => "strength",
+                crate::progression::BodyKind::Speed => "speed",
+            };
+            out.push((
+                p.id,
+                "strength",
+                format!("is on a {what} project {HOLDOVER}. It runs until you end it on his Development tab"),
+            ));
+        }
+    }
+    out
+}
+
 /// Your team now, with its frame for the football year of `y`.
 pub fn seat_team(w: &World, frames: &Frames) -> Option<SeatTeam> {
     let seat = w.seat?;
@@ -1853,6 +1914,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     // Installs: this week's team and situation periods put in the plan's
     // families and your designs (plays and tactics topic 4).
     install_week(w, &pw);
+    notes.extend(holdover_notes(w, &st.roster));
     for (id, dept, text) in notes {
         let name = w.people.iter().find(|p| p.player.id == id).map_or(String::new(), |p| p.name.clone());
         w.training.note(d, id, dept, format!("[[p:{id}|{name}]] {text}."));
@@ -1883,8 +1945,9 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
 }
 
 /// Game injuries that outlast the game (update 3, A1): a college or high
-/// school player hurt in a game, who didn't play through it, misses the
-/// games until he heals, as an NFL player does. The medical staff's head
+/// school player hurt in a game misses the games until he heals, as an NFL
+/// player does, whether or not he finished the game on it (engine gaps
+/// item 3). The medical staff's head
 /// brings him back sooner (up to 12%, the NFL's figure; high schools have
 /// none). Yours go on your trainers' list with a note, everyone else's on
 /// the world's. `injuries` are the game's, by its team (0 home); `seat`
@@ -1902,8 +1965,10 @@ pub(crate) fn game_injuries(
         w.training.others_hurt.retain(|_, x| x.0 > date);
         w.training.others_floor = Some(date);
     }
+    // One he finished the game on, playing on hurt or back in after the
+    // sideline looked at him, heals its weeks too (engine gaps item 3).
     for (team, inj) in injuries {
-        if inj.plays_on || *team > 1 {
+        if *team > 1 {
             continue;
         }
         let days = (inj.weeks * (1.0 - 0.12 * medical[*team]) * 7.0).ceil().max(1.0) as i32;

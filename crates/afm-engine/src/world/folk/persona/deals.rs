@@ -30,7 +30,7 @@
 //! believed in full. Every size here is Claude's (proposed, not confirmed).
 
 use super::Them;
-use super::memory::{Agreed, Anchor, Owed};
+use super::memory::{Agreed, Anchor, HAGGLE_DAYS, Haggle, Owed};
 use super::terms::{Best, Counter, DealKind, Give, Offer, Valuing, Weighed};
 use super::wants::{Want, WantKind, Wanting};
 use crate::calendar::Date;
@@ -204,9 +204,13 @@ fn meets(w: &World, i: Option<usize>, give: &Give, money: f64) -> Vec<(WantKind,
         })
     };
     match *give {
-        Give::Scholarship(None) => vec![(WantKind::Academics, 0.5), (WantKind::Development, 0.4)],
+        // A high school coach you're hiring hears scholarships as his
+        // players coming with him (talk replies item 7).
+        Give::Scholarship(None) => {
+            vec![(WantKind::Academics, 0.5), (WantKind::Development, 0.4), (WantKind::Players, 0.6)]
+        }
         Give::Scholarship(Some(id)) if family(id) => vec![(WantKind::Family, 0.6)],
-        Give::Scholarship(Some(_)) => vec![(WantKind::Friends, 0.5)],
+        Give::Scholarship(Some(_)) => vec![(WantKind::Friends, 0.5), (WantKind::Players, 0.6)],
         Give::Money(x) | Give::Outside(x) => vec![(WantKind::Money, (x / money.max(1.0)).clamp(0.0, 1.0))],
         Give::Years(y) => vec![(WantKind::Security, (y as f64 / 5.0).min(1.0))],
         Give::Guaranteed(g) => vec![(WantKind::Security, (g / (2.0 * money.max(1.0))).clamp(0.0, 1.0))],
@@ -440,6 +444,49 @@ fn own_counter(w: &World, i: usize, offer: &Offer, n: &Numbers) -> Counter {
     Counter { asks: vec![Give::Money(bar).words()], gives: vec![Give::Money(bar)], terms: vec![], why: None }
 }
 
+/// Your own college player's answer to your number by the haggle (talk
+/// replies item 15): his number now (his ask before any round, moved by
+/// how far his bar moved since), his bar as his walk-away, his pace from
+/// his greed, his loyalty and his temper.
+fn own_haggle(w: &World, him: Them, i: usize, n: &Numbers, x: f64) -> super::haggle::Step {
+    use super::haggle as hg;
+    let kept = w.folk.live.persona.haggles.iter().find(|h| h.with == him && h.day.days_to(w.today) < HAGGLE_DAYS);
+    let (now, gave) = match kept {
+        Some(h) => (hg::moved(h.now, h.walk, n.bar), h.gave as u32),
+        None => (n.ask.max(n.bar), 0),
+    };
+    let want = 0.5 + 0.25 * z(w, i, Trait::Loyalty);
+    let patience = 0.5 - 0.25 * z(w, i, Trait::Temper);
+    hg::said(now, n.bar, gave, hg::pace(z(w, i, Trait::Greed), want, patience), x)
+}
+
+/// Keeps a round of haggling with your own college player: his counter's
+/// money and his bar today.
+fn own_haggled(w: &mut World, him: Them, offer: &Offer, wd: &Weighed) {
+    let Weighed::Counter(c) = wd else {
+        if matches!(wd, Weighed::Yes) {
+            w.folk.live.persona.haggles.retain(|h| h.with != him);
+        }
+        return;
+    };
+    let Them::Player(id) = him else { return };
+    let Some(i) = crate::world::folk::person(w, id) else { return };
+    if w.people[i].stage != Stage::College || offer_money(offer).is_none() {
+        return;
+    }
+    let m: f64 =
+        c.gives.iter().filter_map(|g| if let Give::Money(x) | Give::Incentives(x) = g { Some(*x) } else { None }).sum();
+    if m <= 0.0 {
+        return;
+    }
+    let bar = own_numbers(w, him, i, offer.argued as f64).bar;
+    let today = w.today;
+    let hs = &mut w.folk.live.persona.haggles;
+    let gave = hs.iter().find(|h| h.with == him && h.day.days_to(today) < HAGGLE_DAYS).map_or(0, |h| h.gave);
+    hs.retain(|h| h.with != him && h.day.days_to(today) < HAGGLE_DAYS);
+    hs.push(Haggle { with: him, day: today, now: m, walk: bar, gave: gave.saturating_add(1) });
+}
+
 /// The money in an offer: its largest money give (NIL and revenue share
 /// together, as both pots pay him).
 fn offer_money(offer: &Offer) -> Option<f64> {
@@ -574,6 +621,14 @@ fn counter_for(w: &World, who: Who, wants: &[Want], offer: &Offer, money: Option
             WantKind::Loyalty | WantKind::Development => vec![Give::Stay],
             WantKind::Career => vec![Give::StaffJob(None)],
             WantKind::Kids => vec![Give::Favour],
+            WantKind::Players => {
+                return Some(Counter {
+                    asks: vec!["scholarship offers for his best players as part of the hire".into()],
+                    gives: vec![Give::Scholarship(None)],
+                    terms: vec![],
+                    why: Some(*want),
+                });
+            }
             WantKind::Name => vec![Give::Council],
             _ => continue,
         };
@@ -759,12 +814,16 @@ impl Deals<'_> {
         if lean <= STAY_LEAN {
             if college && let Some(x) = offer_money(offer) {
                 let n = own_numbers(w, him, i, offer.argued as f64);
-                return if x >= n.bar {
-                    Weighed::Yes
-                } else if x < OWN_LOWBALL * n.lowest {
-                    Weighed::Lowball
-                } else {
-                    Weighed::Counter(own_counter(w, i, offer, &n))
+                if x < OWN_LOWBALL * n.lowest {
+                    return Weighed::Lowball;
+                }
+                // Haggling (talk replies item 15): he opens at his ask and
+                // gives toward his bar, round by round.
+                return match own_haggle(w, him, i, &n, x) {
+                    super::haggle::Step::Take => Weighed::Yes,
+                    super::haggle::Step::Counter(m) => {
+                        Weighed::Counter(own_counter(w, i, offer, &Numbers { bar: m, ..n }))
+                    }
                 };
             }
             // He isn't going anywhere: more is welcome, if it meets
@@ -959,6 +1018,9 @@ fn upset_on_the_day(w: &mut World, him: Them, offer: &Offer, weighed: &Weighed) 
 /// an answer he owes you when he took time.
 pub fn offered(w: &mut World, him: Them, offer: &Offer, weighed: &Weighed) {
     upset_on_the_day(w, him, offer, weighed);
+    // A round of haggling kept (talk replies item 15).
+    super::office::deals::haggled(w, him, offer, weighed);
+    own_haggled(w, him, offer, weighed);
     let today = w.today;
     let m = &mut w.folk.live.persona;
     if let Some(x) = offer_money(offer) {

@@ -1168,7 +1168,9 @@ impl Tone {
 fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
     let roster = team.roster(w);
     let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach);
-    let n = roster.len();
+    // The men in the room, as the talk's room counts them (not the ones
+    // gone for the draft).
+    let n = super::persona::gameday::group::in_room(w, team).len();
     let close: Vec<usize> = roster.iter().copied().filter(|&i| tie_to_old(w, i, old) > 0.45).collect();
     let captains = captains_of(w, team);
     // What the room knows on your first day (talk facts lane L9): the
@@ -2160,7 +2162,7 @@ pub fn standing(w: &World, i: usize) -> f64 {
         Some(PlayingTime::Backup) => 8.0,
         _ => 4.0,
     };
-    role + p.last_performance.unwrap_or(40.0) * 0.5 + p.stars as f64 * 3.0 + p.player.age as f64 * 0.3
+    role + p.last_performance.get().unwrap_or(40.0) * 0.5 + p.stars as f64 * 3.0 + p.player.age as f64 * 0.3
 }
 
 fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -2534,7 +2536,7 @@ fn flight_risks(w: &mut World, s: &mut Scene, team: Team) {
         let t = &p.player.personality.traits;
         let unhappy_role =
             matches!(p.last_role, Some(PlayingTime::Backup | PlayingTime::Rotation)) && t.get(Trait::Ambition) >= 12.0;
-        let courted = p.stars >= 4 || p.last_performance.unwrap_or(0.0) > 70.0;
+        let courted = p.stars >= 4 || p.last_performance.get().unwrap_or(0.0) > 70.0;
         let lean = p.cal.lean;
         let mut score = 0.0;
         let mut why = Vec::new();

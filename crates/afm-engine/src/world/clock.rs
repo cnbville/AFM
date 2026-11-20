@@ -289,20 +289,31 @@ pub(crate) fn next_day(w: &mut World) {
 /// Plays today's steps in clock order through day minute `last`
 /// (inclusive): a stop at `last` stands at `last + 1`.
 pub(crate) fn play_through(w: &mut World, last: u16) {
+    play_until(w, last, &mut |_| false);
+}
+
+/// `play_through`, standing the clock right after a step for which `stop`
+/// says so (the clock then stands at that step's minute + 1). Returns true
+/// when `stop` stood it.
+fn play_until(w: &mut World, last: u16, stop: &mut dyn FnMut(&World) -> bool) -> bool {
     let d = w.today;
     // Your draft war room holds the clock where it opened.
     if super::scouting::live::holds(w) {
-        return;
+        return false;
     }
     while let Some(t) = next_step(w, d, w.played).filter(|&t| t <= last) {
         run_step(w, t);
         w.played = t + 1;
         // Your draft war room holds the clock where it opened.
         if super::scouting::live::holds(w) {
-            return;
+            return false;
+        }
+        if stop(w) {
+            return true;
         }
     }
     w.played = w.played.max(last + 1);
+    false
 }
 
 /// The next step of day `d` at or after day minute `from`: a fixed hour or
@@ -496,6 +507,9 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
 fn plan(w: &mut World, d: Date) {
     if d.weekday() == Weekday::Mon {
         timed("training", || crate::training::week::monday(w, d));
+        // Men who left football keep only what their record reads (memory
+        // diet item 6) until the year's cleanup drops them.
+        w.leavers_compact();
     }
 }
 
@@ -950,6 +964,9 @@ const SMALL_EVENT_YEARS: i32 = 5;
 
 /// The last day of a football year has passed: the next one starts.
 fn rollover(w: &mut World) {
+    // Every pro's role is the one his season gave him (code oddity 29),
+    // before the world log takes the year.
+    super::pro::role::write_all(w);
     // The world log takes the year before the calendar drops it.
     super::wlog::year_end(w);
     // The Data section's tallies close the season (lane NB1).
@@ -1168,27 +1185,61 @@ fn anniversaries(w: &mut World, d: Date) {
 /// days before it whole, then `d` to that minute. Holds where your draft
 /// war room opens.
 pub(crate) fn run_to(w: &mut World, d: Date, m: u16) {
+    run_until(w, d, m, &mut |_| false);
+}
+
+/// `run_to`, standing the clock right after any step for which `stop`
+/// says so. Returns true when `stop` stood it.
+fn run_until(w: &mut World, d: Date, m: u16, stop: &mut dyn FnMut(&World) -> bool) -> bool {
     while w.today < d {
-        play_through(w, zone::DAY - 1);
+        if play_until(w, zone::DAY - 1, stop) {
+            return true;
+        }
         if super::scouting::live::holds(w) {
-            return;
+            return false;
         }
         end_day(w);
     }
-    play_through(w, m);
+    play_until(w, m, stop)
 }
 
 /// Continue (the six-part day, topic 1 and 2): plays to your next stop,
 /// the first minute of your next section or a live moment inside it, and
 /// stands there. What you decide at a stop happens at that hour. Returns
 /// the world day it stopped on.
+///
+/// The stop is worked out again after every step: a meeting or a call
+/// made on the way (the desk's family call, a recruit ringing in the
+/// evening) stops the clock the moment it rings, or at its own hour when
+/// that comes before the stop. Without this the days played on past it
+/// and the end-of-day sweep (`folk::scene::day`, `overnight`) handed it to
+/// your staff before you ever saw it.
 pub fn continue_until_needed(w: &mut World) -> Date {
     // The draft is live in your war room: nothing moves until it's done.
     if super::scouting::live::holds(w) {
         return w.today;
     }
-    let (d, m) = w.next_stop();
-    run_to(w, d, m);
+    // What already waits (the tools play on past it) doesn't stop the run.
+    let before: Vec<u32> = super::folk::scene::waiting(w).iter().map(|s| s.id).collect();
+    let mut target = w.next_stop();
+    loop {
+        let mut sooner = None;
+        let stood = run_until(w, target.0, target.1, &mut |w| {
+            if super::folk::scene::rings_now(w, &before) {
+                return true;
+            }
+            let n = w.next_stop();
+            if n < target {
+                sooner = Some(n);
+                return true;
+            }
+            false
+        });
+        match sooner {
+            Some(n) if stood => target = n,
+            _ => break,
+        }
+    }
     w.today
 }
 

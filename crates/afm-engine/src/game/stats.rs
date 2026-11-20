@@ -104,6 +104,9 @@ pub struct PlayRecord {
     pub penalties: Vec<(FoulKind, usize, u32, f64, bool)>,
     /// Blocks: (blocker, defender, pass, won, seconds, gave up pressure).
     pub blocks: Vec<(u32, u32, bool, bool, f64, bool)>,
+    /// Laterals on the play (engine gaps item 16).
+    #[serde(default)]
+    pub laterals: u8,
     pub rush_wins: Vec<(u32, Move, f64)>,
     /// Every move a pass rusher tried (his counter too), on plays that keep
     /// frames only; never written (minor bug 317, `film::tape`).
@@ -214,6 +217,14 @@ pub struct PlayRecord {
     /// men it carried, footsteps and ejections. Empty on most plays.
     #[serde(default, skip_serializing_if = "super::sim::FireNotes::is_empty")]
     pub fire: super::sim::FireNotes,
+    /// The play's first fumble (engine gaps items 4-7): how the ball came
+    /// out, how far the man who came up with it took it and whether it
+    /// went out of bounds; `recovered` is who came up with it. None on
+    /// almost every play.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fumble: Option<super::sim::FumbleNote>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovered: Option<u32>,
 }
 
 impl PlayRecord {
@@ -284,6 +295,7 @@ impl PlayRecord {
             kick_pressure: 0.0,
             penalties: Vec::new(),
             blocks: Vec::new(),
+            laterals: 0,
             rush_wins: Vec::new(),
             rush_moves: Vec::new(),
             craft: Vec::new(),
@@ -320,6 +332,8 @@ impl PlayRecord {
             contact: Vec::new(),
             moving: false,
             fire: Default::default(),
+            fumble: None,
+            recovered: None,
         }
     }
 
@@ -719,6 +733,19 @@ impl StatLine {
     }
 }
 
+/// The calls a no-play before a kick's snap carries (EG5): a foul by
+/// either unit there falls under special teams, and the tools tell these
+/// snaps from scrimmage downs.
+pub const KICK_PUNT: &str = "punt";
+pub const KICK_FG: &str = "field goal";
+pub const KICK_TRY: &str = "extra point";
+pub const KICK_BACK_UP: &str = "delay of game to back up the punt";
+
+/// A no-play before a punt, field goal or try (EG5).
+pub fn kick_no_play(r: &PlayRecord) -> bool {
+    r.kind == PlayType::NoPlay && [KICK_PUNT, KICK_FG, KICK_TRY, KICK_BACK_UP].contains(&r.call.as_str())
+}
+
 /// Field goal distance bands: under 30, 30-39, 40-49, 50+.
 pub fn fg_band(d: f64) -> usize {
     if d < 30.0 {
@@ -923,7 +950,8 @@ impl GameStats {
             x[2 * f + 1] += 1.0;
         };
         let dropback = matches!(r.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
-        let kick = matches!(r.kind, PlayType::Punt | PlayType::Kickoff | PlayType::FieldGoal | PlayType::ExtraPoint);
+        let kick = matches!(r.kind, PlayType::Punt | PlayType::Kickoff | PlayType::FieldGoal | PlayType::ExtraPoint)
+            || kick_no_play(r);
         // A penalty falls under the job he had on the snap: the passer's
         // passing, a blocker's blocking, a runner's running, a target's
         // catching; on defense the rush, coverage or the run. A foul before
@@ -1355,6 +1383,13 @@ impl GameStats {
             if r.fumble_lost {
                 self.team[team].fumbles_lost += 1;
                 self.team[team].turnovers += 1;
+            }
+            // The man of the other side who came up with it (engine gaps
+            // item 4: it was never counted).
+            if let Some(rid) = r.recovered
+                && side(rid, d) != team
+            {
+                self.line(side(rid, d), rid).fumble_rec += 1;
             }
         }
         // A turnover in the box score is an interception or a lost fumble

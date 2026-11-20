@@ -696,7 +696,19 @@ pub fn judge_said(w: &World, id: u32, p: &Proposal, said: Said) -> Result<Judged
     o.help = said.help.map_or(0.0, |pos| help_part(w, i, pos)) as f32;
     let s = offer_score(w, i, &o, &ideal, own);
     let want = want_factor(w, i, t, kind);
-    let ask = want_ask(w, i, t, kind, &ideal, own, want);
+    let mut ask = want_ask(w, i, t, kind, &ideal, own, want);
+    // Haggling (talk replies item 15): on a deal with your own man his
+    // agent opens at his ask and gives part of the gap each round, less
+    // each time, down to the least he signs for on your terms.
+    let haggled = match kind {
+        TalkKind::ReSign | TalkKind::Extension if w.year >= 1993 || kind != TalkKind::ReSign => {
+            haggle(w, i, id, t, p, &ideal, own, &ask, own_bar(w, i, kind), want)
+        }
+        _ => None,
+    };
+    if let Some(crate::world::folk::persona::haggle::Step::Counter(n)) = haggled {
+        ask.apy = n;
+    }
     let prove = prove_it(w, i, t, p, &ask, &ideal, own);
     let (ask, prove_it) = match prove {
         Some((a, u)) => (a, Some(u)),
@@ -706,7 +718,8 @@ pub fn judge_said(w: &World, id: u32, p: &Proposal, said: Said) -> Result<Judged
     let mut verdict = Verdict::Counter;
     match kind {
         TalkKind::ReSign | TalkKind::Extension => {
-            if s >= own_bar(w, i, kind) || w.year < 1993 && kind == TalkKind::ReSign {
+            let holds = matches!(haggled, Some(crate::world::folk::persona::haggle::Step::Counter(_)));
+            if (s >= own_bar(w, i, kind) && !holds) || w.year < 1993 && kind == TalkKind::ReSign {
                 verdict = Verdict::Signed;
             }
         }
@@ -752,6 +765,49 @@ pub fn judge_said(w: &World, id: u32, p: &Proposal, said: Said) -> Result<Judged
         if speaks { claim_parts(w, i, t, kind, s, &ideal).map(|c| (c.plain, c.true_claim, c.read)) } else { None };
     let prove_it = prove_it.filter(|_| speaks);
     Ok(Judged { kind, verdict, score: s, ask: speaks.then_some(ask), gap: gap_words(s), patience, claim, prove_it })
+}
+
+/// The agent's answer to your number by the haggle (talk replies item 15):
+/// his number now is his last ask in this talk (his ask before any round),
+/// his walk-away the least money a year he signs for on your other terms
+/// (the desk's own score against his bar), the rounds are your offers so
+/// far. His pace: his greed slows him, wanting your club and his patience
+/// speed him. None when your terms can't reach his bar at his ask.
+#[allow(clippy::too_many_arguments)]
+fn haggle(
+    w: &World,
+    i: usize,
+    id: u32,
+    t: usize,
+    p: &Proposal,
+    ideal: &Ideal,
+    own: Option<usize>,
+    ask: &Proposal,
+    bar: f64,
+    want: f64,
+) -> Option<crate::world::folk::persona::haggle::Step> {
+    use crate::world::folk::persona::haggle as hg;
+    let at = |apy: f64| offer_score(w, i, &Proposal { apy, ..*p }.offer(t), ideal, own) >= bar;
+    if !at(ask.apy.max(p.apy)) {
+        return None;
+    }
+    let (mut lo, mut hi) = (0.3 * ask.apy, ask.apy.max(p.apy));
+    for _ in 0..24 {
+        let m = 0.5 * (lo + hi);
+        if at(m) { hi = m } else { lo = m }
+    }
+    let q = if hi >= 2e6 { 250_000.0 } else { 25_000.0 };
+    let walk = (hi / q).ceil() * q;
+    let talk = w.front_office.nfl.talk(id);
+    let rounds = talk.map_or(0, |k| k.lines.iter().filter(|l| l.ours).count()) as u32;
+    let now = talk.and_then(|k| k.ask).map_or(ask.apy, |a| a.apy.min(ask.apy)).max(walk);
+    let g = market::goals(w, i);
+    let patience = talk.map_or(1.0, |k| k.patience as f64);
+    let pace = hg::pace(2.0 * (g.greed - 0.5), (0.5 + 2.0 * (1.0 - want)).clamp(0.0, 1.0), patience);
+    Some(match hg::step(now, walk, rounds, pace, p.apy) {
+        hg::Step::Counter(n) => hg::Step::Counter(round_q(n).max(walk)),
+        s => s,
+    })
 }
 
 /// "Earn it back" (negotiation item 3b): once a true performance point has
@@ -1662,6 +1718,7 @@ pub fn release(w: &mut World, id: u32, june1: bool) -> Result<String, String> {
     let (now, later) =
         c.contract.as_ref().map_or((0.0, 0.0), |k| k.dead_if_cut(year, today, june1 || pro::after_june1(w, today)));
     let name = w.people[i].name.clone();
+    pro::club_lets_go(w, i);
     pro::release_with(w, i, today, "released by your front office", june1, true, DeadWhy::Released);
     if june1 {
         w.front_office.nfl.june1.push((id, year));

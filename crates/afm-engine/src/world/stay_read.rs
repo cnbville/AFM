@@ -155,6 +155,10 @@ pub(crate) struct Ctx {
     /// his current head coach (role, belief), and whether that coach broke
     /// one (promises lane P2).
     ai: HashMap<u32, (Option<(PlayingTime, f64)>, bool)>,
+    /// Your players' money next year as July 1 will pay it: your desk's
+    /// deals (`front_office::college::next_year_pay`), by id. Empty when
+    /// the desk doesn't pay a program of yours.
+    next_deal: HashMap<u32, f64>,
 }
 
 /// The money level a program pays at: Power 4, the rest of FBS, FCS, below.
@@ -185,7 +189,9 @@ impl Ctx {
             let div = w.programs[c].division;
             let pos = p.player.position.index();
             if nil_era {
-                pay.entry((money_level(w, c, label), pos, role_key(p.last_role))).or_default().push(p.nil_income);
+                // What schools and collectives pay, apart from his own
+                // brand deals (2026-11-18: before, his whole NIL income).
+                pay.entry((money_level(w, c, label), pos, role_key(p.last_role))).or_default().push(p.nil_paid());
             }
             if p.cal.portal.is_some()
                 || p.cal.declare_plan == Some(true)
@@ -207,7 +213,8 @@ impl Ctx {
             .collect();
         let mine = super::front_office::program(w);
         let ai = super::folk::ai_promise::index(w);
-        let mut ctx = Ctx { label, returning, nil_median, nil_era, mine, level: HashMap::new(), ai };
+        let next_deal = mine.map(|j| super::front_office::college::next_year_pay(w, j)).unwrap_or_default();
+        let mut ctx = Ctx { label, returning, nil_median, nil_era, mine, level: HashMap::new(), ai, next_deal };
         ctx.levels(w);
         ctx
     }
@@ -499,7 +506,18 @@ fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
         // buyout out of what it would give him (item 12).
         let deal = p.cal.nil_deal.filter(|d| d.contract());
         let buyout = deal.map_or(0.0, |d| d.buyout());
-        let money = p.nil_income.max(keep).max(deal.map_or(0.0, |d| d.amount));
+        // His money is next year's, the year he would leave for: at your
+        // program the deal your desk has him on for next July (a raise in
+        // the spring holds him in the spring window, a cut pushes him),
+        // elsewhere what his school and collective paid him (never his own
+        // brand deals, which go with him) or a deal he holds for next year
+        // (2026-11-18: before, last July's whole NIL income, brand money in).
+        let year = super::nil_bid::deal_year(w.today);
+        let base = match ctx.next_deal.get(&p.player.id) {
+            Some(&x) if Some(c) == ctx.mine => x,
+            _ => p.nil_paid().max(p.cal.nil_deal.filter(|d| d.pays(year)).map_or(0.0, |d| d.amount)),
+        };
+        let money = base.max(keep).max(deal.map_or(0.0, |d| d.amount));
         if money < 0.5 * rate || rival - buyout > 1.5 * money.max(1.0) {
             parts.push((UNDERPAID, 1.0 + UNDERPAID_PUSH * m));
         } else if money >= rate && wants_out && m > 0.0 {

@@ -58,6 +58,11 @@ pub enum ActKind {
     /// A hello, "nice to meet you", "how you doing", welcome: the small
     /// talk people open with (personal talk, first meetings).
     Greet,
+    /// One of the game's own actions, said in the talk (talk replies item
+    /// 13): a project, a focus, a depth chart spot, a move a screen makes.
+    /// The game's side reads and runs it (`afm-game`, `persona::actions`);
+    /// it never reaches the turn as an `Act`.
+    Do,
 }
 
 /// What you can show (5.1): only real things.
@@ -250,6 +255,10 @@ pub enum Item {
     /// The team as a whole: a line to the room in a group talk (lane N5d),
     /// heard by each man as one of the room.
     Room,
+    /// One of the room's groups (`crowd::Bloc`, by its code): a line to the
+    /// starters, the defense, the receivers, heard by each man in it as one
+    /// of them (group talks, item 1).
+    Group(u8),
     /// How you said it (coach voice): your manner's own hit on each man,
     /// never one of his things. It makes no line touch him and "Heard as"
     /// never lists it; it counts in how a line that did touch him went over
@@ -302,6 +311,13 @@ pub struct Reading {
     /// an act, so it is never a greeting (`Turn::greeting`).
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub wrapped: bool,
+    /// Asks you put to someone else in the room than the man across, by
+    /// name ("Gil, find out what his old coach thinks of him", to your
+    /// scout in a prospect's interview): who is asked, and what. The game
+    /// weighs, runs and answers each on that man (ear audit item 4); one
+    /// who isn't in the room is asked nothing.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub asks_of: Vec<(Them, Request)>,
 }
 
 /// A hit as the game sized it, from how much the item weighs for him and
@@ -323,6 +339,32 @@ pub enum Confirm {
     Offer(Offer),
     Decision(Decision),
     Request(Request),
+    /// An ask put to someone else in the room (`Reading::asks_of`): run on
+    /// that man once you confirm.
+    RequestOf(Them, Request),
+    /// One of the game's own actions said in the talk (talk replies item
+    /// 13), run through the screen's own command once you confirm.
+    Action(Action),
+}
+
+/// A screen action said in a talk (talk replies item 13): what it is, the
+/// screen's command that runs it and the card's words. The game's side
+/// fills it (`afm-game`, `persona::actions`) once the screen's own rule
+/// says it can run.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Action {
+    /// The catalogue's key ("skill_project", "redshirt"...).
+    pub key: String,
+    /// The man it's done to or for, a player's id (a coach's index for a
+    /// coach's own action).
+    pub about: Option<u32>,
+    /// What the card says ("Start a release project for Lampkins?").
+    pub card: String,
+    /// The screen commands it runs, in order, with their arguments.
+    pub steps: Vec<(String, serde_json::Value)>,
+    /// Said as your word to the man across (you'll do it for him): a
+    /// "Not that" leaves him your word to keep (`PromiseKind::Work`).
+    pub word: Option<u8>,
 }
 
 /// One of his own asks this turn (5.4): built from his wants.
@@ -440,6 +482,9 @@ pub struct Turn {
     pub promised: Vec<u32>,
     /// Each request and his answer, and what ran.
     pub asked: Vec<(Request, Willing, Option<Ran>)>,
+    /// Each ask put to someone else in the room, and that man's answer
+    /// (`Reading::asks_of`).
+    pub asked_of: Vec<(Them, Request, Willing)>,
     /// His own counter beyond an offer's.
     pub counter: Option<Counter>,
     pub his_asks: Vec<HisAsk>,
@@ -478,6 +523,12 @@ pub struct Turn {
     pub personal: bool,
     /// He went short on his troubles, asked too soon.
     pub closed: bool,
+    /// A line to a room (`crowd`): who answered and how, who answers after,
+    /// who held back, who walked out.
+    pub crowd: Option<super::crowd::Turned>,
+    /// Your staff's notes under his line, never his words (a recruit firm
+    /// with another school: what might unsettle him).
+    pub notes: Vec<String>,
     /// The stat points made in a money talk and what his season says of
     /// each (negotiation item 3a), kept in `apply`.
     pub points: Vec<super::negotiate::points::Read>,
@@ -486,6 +537,15 @@ pub struct Turn {
     pub recruit_points: Vec<super::negotiate::points::RecruitPoint>,
     /// How the line went over with the man across ("Heard as").
     pub landing: Landing,
+    /// Your line answered his counter (taken up, turned down or met with a
+    /// counter of yours): it is off the table (talk replies item 3).
+    pub answered: bool,
+    /// Open promises of yours this line went back on (P1's indexes), broken
+    /// in `apply` with the promise layer's cost (talk replies item 6).
+    pub broken: Vec<u32>,
+    /// What this line settled, for the talk's settled list (talk replies
+    /// item 11): "agreed: ...", "promised: ...", "refused: ...", "open: ...".
+    pub settled: Vec<String>,
 }
 
 /// The game's side of a line (lane N4).

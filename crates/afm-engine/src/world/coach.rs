@@ -294,29 +294,28 @@ impl UnitRecord {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+/// A coach. His working part (`Work`: ability, personality, ties, units,
+/// systems, contract and the rest a coach in the game uses) is read and
+/// written as his own fields through `Deref` (`c.ability`). A retired coach
+/// never comes back (memory diet item 9), so his working part is dropped
+/// at the year's cleanup and on load (`Coach::retire_work`); what his page,
+/// the Hall, the trees and the stories read stays here. World files hold
+/// every field flat, by name, as before (`coach_form.rs`).
+#[derive(Clone, Debug)]
 pub struct Coach {
     pub id: usize,
     pub name: String,
     pub ethnicity: Ethnicity,
     pub age: u32,
     /// His date of birth (A1): the age the game shows counts from it.
-    #[serde(default = "crate::calendar::born::unknown")]
     pub born: crate::calendar::Date,
-    /// Hidden. The game shows reputation, never this.
-    pub(crate) ability: Ability,
-    /// How far his ability can still grow (hidden), 1-20.
-    pub(crate) learning_ceiling: f64,
     /// Public reputation, 1-20: what schools and the media think of him.
     pub reputation: f64,
-    pub personality: CoachPersonality,
     /// The head coach he learned under longest: his coaching tree.
     pub mentor: Option<usize>,
     pub ex_pro: bool,
     pub job: Option<Job>,
     pub history: Vec<Stint>,
-    /// Results against expectation, most recent last (+1 = a season one win-share above).
-    pub recent: Vec<f64>,
     /// Current stint record.
     pub wins: u32,
     pub losses: u32,
@@ -324,28 +323,59 @@ pub struct Coach {
     /// State or conference or national titles across his career.
     pub career_titles: u32,
     pub retired: bool,
+    /// The group he came up coaching (a DB coach, an offensive line coach):
+    /// public, part of his story.
+    pub came_up: Group,
+    /// Hidden: the state he calls home, where his family roots are (11.13).
+    /// Set with his first job.
+    pub(crate) home_state: Option<usize>,
+    /// The last season an NCAA show-cause order keeps him out of college
+    /// coaching (dynasty item 11.6).
+    pub show_cause: Option<i32>,
+    /// What he played and how good he was (C11); None if he never played
+    /// past high school.
+    pub played: Option<super::former::Played>,
+    /// His name (C10), 1-20: what fans, boosters, recruits and small
+    /// schools know of him. `reputation` is his standing: what owners,
+    /// general managers, big programs' athletic directors and other coaches
+    /// think of his coaching. 0 in a world written before the split.
+    pub renown: f64,
+    /// The part of his name that comes from his playing days, fading.
+    pub fame: f64,
+    /// His junior post (C36): a graduate assistant, analyst or
+    /// quality-control coach, held now (`until` None) or before his first
+    /// full-time job.
+    pub junior: Option<Junior>,
+    /// Hidden. The game shows reputation, never this. Kept after he
+    /// retires: his bonds with his old players and his voice in the
+    /// stories read it, with his personality.
+    pub(crate) ability: Ability,
+    pub personality: CoachPersonality,
+    /// His working part; None only for a retired coach (memory diet item 9).
+    pub(crate) work: Option<Box<Work>>,
+}
+
+/// What a coach in the game works with (memory diet item 9): read and
+/// written as the coach's own fields (`c.ties`). Dropped once he retires.
+#[derive(Clone, Debug)]
+pub struct Work {
+    /// How far his ability can still grow (hidden), 1-20.
+    pub(crate) learning_ceiling: f64,
+    /// Results against expectation, most recent last (+1 = a season one win-share above).
+    pub recent: Vec<f64>,
     /// The year a school gave him a "prove it" extension instead of firing him (note 1).
     pub prove_it: Option<i32>,
     /// Recruiting ties to high schools, 0-1, built from impact players he
     /// coached. They travel with him from job to job (note 4).
     pub ties: HashMap<usize, f64>,
-    /// The group he came up coaching (a DB coach, an offensive line coach):
-    /// public, part of his story.
-    pub came_up: Group,
     /// His visible teaching record by group.
     pub units: [UnitRecord; GROUP_COUNT],
     /// Hidden, 1-20: how soon he takes his starters out of a decided game
     /// (dynasty item 3). Not part of his reputation.
     pub(crate) sportsmanship: f64,
-    /// Hidden: the state he calls home, where his family roots are (11.13).
-    /// Set with his first job.
-    pub(crate) home_state: Option<usize>,
     /// Hidden: the age his sharpness starts to fade, and how fast (11.14).
     pub(crate) decline_from: f64,
     pub(crate) decline_rate: f64,
-    /// The last season an NCAA show-cause order keeps him out of college
-    /// coaching (dynasty item 11.6).
-    pub show_cause: Option<i32>,
     /// A college head coach's contract (trial 4 topic 4).
     pub contract: Option<Contract>,
     /// Hidden: what he knows of each system (S1-S4).
@@ -359,26 +389,58 @@ pub struct Coach {
     /// middle (`set_freedom_norms`): freedom is read against it.
     pub freedom_norm: f64,
     /// Your own coach's four extra ratings; None for every AI coach.
-    #[serde(default)]
     pub(crate) yours: Option<Yours>,
-    /// What he played and how good he was (C11); None if he never played
-    /// past high school.
-    #[serde(default)]
-    pub played: Option<super::former::Played>,
-    /// His name (C10), 1-20: what fans, boosters, recruits and small
-    /// schools know of him. `reputation` is his standing: what owners,
-    /// general managers, big programs' athletic directors and other coaches
-    /// think of his coaching. 0 in a world written before the split.
-    #[serde(default)]
-    pub renown: f64,
-    /// The part of his name that comes from his playing days, fading.
-    #[serde(default)]
-    pub fame: f64,
-    /// His junior post (C36): a graduate assistant, analyst or
-    /// quality-control coach, held now (`until` None) or before his first
-    /// full-time job.
-    #[serde(default)]
-    pub junior: Option<Junior>,
+}
+
+impl Default for Work {
+    fn default() -> Work {
+        Work {
+            learning_ceiling: 0.0,
+            recent: Vec::new(),
+            prove_it: None,
+            ties: HashMap::new(),
+            units: [UnitRecord::default(); GROUP_COUNT],
+            sportsmanship: 0.0,
+            decline_from: 0.0,
+            decline_rate: 0.0,
+            contract: None,
+            systems: Default::default(),
+            stat_buzz: 0.0,
+            style_set: None,
+            freedom_norm: 0.0,
+            yours: None,
+        }
+    }
+}
+
+/// The blank working part a retired coach reads (made once).
+pub(super) fn blank_work() -> &'static Work {
+    static BLANK: std::sync::LazyLock<Work> = std::sync::LazyLock::new(Work::default);
+    &BLANK
+}
+
+impl std::ops::Deref for Coach {
+    type Target = Work;
+    #[inline]
+    fn deref(&self) -> &Work {
+        match &self.work {
+            Some(w) => w,
+            None => {
+                super::stored::tripwire("read of a retired coach's working part");
+                blank_work()
+            }
+        }
+    }
+}
+
+impl std::ops::DerefMut for Coach {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Work {
+        if self.work.is_none() {
+            super::stored::tripwire("write to a retired coach's working part");
+        }
+        self.work.get_or_insert_with(Box::default)
+    }
 }
 
 /// A college head coach's contract (trial 4 topic 4): the last season it
@@ -502,43 +564,54 @@ pub fn generate_coach_as(
         ethnicity,
         age,
         born: crate::calendar::born::UNKNOWN,
-        ability,
-        learning_ceiling,
         reputation,
-        personality,
         mentor: None,
         ex_pro,
         job: None,
         history: Vec::new(),
-        recent: Vec::new(),
         wins: 0,
         losses: 0,
         titles: 0,
         career_titles: 0,
         retired: false,
-        prove_it: None,
-        ties: HashMap::new(),
         came_up,
-        units: [UnitRecord::default(); GROUP_COUNT],
-        sportsmanship: 10.0,
         home_state: None,
-        decline_from,
-        decline_rate,
         show_cause: None,
-        contract: None,
-        systems: Default::default(),
-        stat_buzz: 0.0,
-        style_set: None,
-        freedom_norm: 0.0,
-        yours: None,
         played: None,
         renown: 0.0,
         fame: 0.0,
         junior: None,
+        ability,
+        personality,
+        work: Some(Box::new(Work {
+            learning_ceiling,
+            recent: Vec::new(),
+            prove_it: None,
+            ties: HashMap::new(),
+            units: [UnitRecord::default(); GROUP_COUNT],
+            sportsmanship: 10.0,
+            decline_from,
+            decline_rate,
+            contract: None,
+            systems: Default::default(),
+            stat_buzz: 0.0,
+            style_set: None,
+            freedom_norm: 0.0,
+            yours: None,
+        })),
     }
 }
 
 impl Coach {
+    /// A retired coach never comes back: his working part goes (memory
+    /// diet item 9). Called at the year's cleanup and on load. One who
+    /// still holds an off-field post (`junior_now`) keeps it while he does.
+    pub(crate) fn retire_work(&mut self) {
+        if self.retired && self.junior_now().is_none() && !super::stored::kept_whole("coaches") {
+            self.work = None;
+        }
+    }
+
     /// Development quality he gives one position group, 1-20, as a head coach
     /// who also teaches it himself (high school) or with coordinators.
     pub(crate) fn teaching(&self, g: Group) -> f64 {
@@ -769,7 +842,8 @@ impl Coach {
                     self.ability.teaching[g] += 0.06 * gap;
                 }
             }
-            for (mine, theirs) in [(&mut self.ability.scheme, m.scheme), (&mut self.ability.network, m.network)] {
+            let a = &mut self.ability;
+            for (mine, theirs) in [(&mut a.scheme, m.scheme), (&mut a.network, m.network)] {
                 if theirs > *mine {
                     *mine += 0.06 * (theirs - *mine);
                 }

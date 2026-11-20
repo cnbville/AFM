@@ -508,6 +508,12 @@ fn hire(rng: &mut Rng, year: i32, budget: f64, era: f64, d: Dept) -> Staffer {
     Staffer { name, she, rating, since: year, born, pay: 0.0, coach: None }
 }
 
+/// How far under a fresh head's rating at the post a team's own assistant
+/// can sit and still be ready for it, in rating points (bug 422; proposed,
+/// not confirmed). Assistants are drawn 1 to 1.5 under their heads with the
+/// same spread, so about 57% of them are ready.
+const READY_BELOW: f64 = 2.0;
+
 /// A raise big enough to move a head to another team (item 10; proposed,
 /// not confirmed).
 const POACH_RAISE: f64 = 1.25;
@@ -539,15 +545,6 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
         done.push((who, d));
         let fresh = hire(rng, year, hire_level(w, who), era, d);
         let mut best = (fresh.rating, 0u8, None::<usize>, None::<Who>);
-        // Support departments: his own staff's best assistant on the head's
-        // ladder is the first man up (an assistant trainer for the head
-        // trainer's job; proposed, not confirmed: yes 85% of the time).
-        if let Some((k, r)) = super::departments::best_ladder(w, who, d)
-            && r > best.0
-            && rng.chance(0.85)
-        {
-            best = (r, 3, Some(k), None);
-        }
         // The men out of work who'd take it (at least 70% of what they had).
         if let Some((k, f)) = w
             .support_market
@@ -589,6 +586,23 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
                 best = (r, 4, Some(k), Some(o));
                 break;
             }
+        }
+        // Support departments: his own staff's best assistant on the head's
+        // ladder. His team has watched him work for years, so it needs no
+        // market to know what it has: if he is ready (within `READY_BELOW`
+        // of what a fresh head at this post rates, as a college staff's own
+        // off-field man is for a position job, `staff::ready_at_home`) the
+        // post is his, and a man who isn't ready still gets it when he
+        // out-rates everyone the market offers. Yes 85% of the time. Before
+        // this the house man had to out-rate every man the market offered
+        // (the best of the free men, three poached heads and three
+        // assistants elsewhere) and won 1-2 posts in 430 (bug 422; proposed,
+        // not confirmed).
+        if let Some((k, r)) = super::departments::best_ladder(w, who, d)
+            && (f64::from(r) >= fresh_mean(hire_level(w, who), era) - READY_BELOW || r > best.0)
+            && rng.chance(0.85)
+        {
+            best = (r, 3, Some(k), None);
         }
         let mut man = match best {
             (_, 1, Some(k), _) => {
@@ -1274,6 +1288,91 @@ enum Room {
     Club(usize),
 }
 
+/// Captains a room names: 4 in college, 6 at an NFL club.
+pub(crate) const CAPTAINS: (usize, usize) = (4, 6);
+
+/// A head coach this strict (discipline) picks his own captains.
+pub(crate) const STRICT: f64 = 14.0;
+
+/// What his role this season adds to his standing.
+fn role_standing(role: Option<PlayingTime>) -> f64 {
+    match role {
+        Some(PlayingTime::Starter) => ROLE_STANDING.0,
+        Some(PlayingTime::Rotation) => ROLE_STANDING.1,
+        _ => 0.0,
+    }
+}
+
+/// His standing before his role this season: years, star status, the
+/// quarterback spot.
+fn room_base(w: &World, room: Room, i: usize) -> f64 {
+    let p = &w.people[i];
+    let years = match room {
+        Room::College(_) => p.college_seasons as f64,
+        Room::Club(t) => p.pro.as_ref().map_or(0.0, |c| c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64),
+    };
+    // A kicker's or snapper's rating isn't a room's standing: the
+    // specialists rarely lead one (bug 34).
+    let spec = if p.player.position.is_specialist() { 0.25 } else { 1.0 };
+    let star = spec * (p.player.overall() - 60.0) / 10.0;
+    let qb = if p.player.position == Position::QB { 1.0 } else { 0.0 };
+    1.0 + 0.3 * years.min(5.0) + star.max(0.0) + qb
+}
+
+/// A college team doesn't make a first-year player a captain (unless the
+/// room is tiny).
+fn votable(w: &World, room: Room, size: usize, i: usize) -> bool {
+    !matches!(room, Room::College(_)) || w.people[i].college_seasons > 0 || size < 8
+}
+
+/// His vote before the noise: a room's (leadership, a little ego, three
+/// times his standing), or a strict coach's pick (leadership,
+/// professionalism, his standing and the men he plays).
+fn vote_score(w: &World, room: Room, strict: bool, i: usize, role: Option<PlayingTime>) -> f64 {
+    let t = &w.people[i].player.personality.traits;
+    let lead = t.get(Trait::Leadership);
+    let base = room_base(w, room, i);
+    let role = role_standing(role);
+    // A coach who picks his own captains picks among the men he plays, as
+    // surely as a room does.
+    if strict {
+        lead + 0.5 * t.get(Trait::Professionalism) + 2.0 * base + 3.0 * role
+    } else {
+        lead + 0.3 * t.get(Trait::Ego) + 3.0 * (base + role)
+    }
+}
+
+/// The room's vote as a man on it reads it (`room_read`).
+pub(crate) struct RoomRead {
+    /// Every votable man and his score, best first.
+    pub votes: Vec<(usize, f64)>,
+    /// The head coach picks his own captains.
+    pub strict: bool,
+    /// The captains it names.
+    pub n: usize,
+}
+
+/// The room's vote as a man on it reads it today (the captain promise,
+/// `folk::captain::likely`): every votable man's score without the noise,
+/// each with the role he had last, best first; and whether the head coach
+/// picks his own. None for a team with no room.
+pub(crate) fn room_read(w: &World, team: super::folk::Team) -> Option<RoomRead> {
+    let (room, coach, n) = match team {
+        super::folk::Team::College(k) => (Room::College(k), w.programs[k].head_coach, CAPTAINS.0),
+        super::folk::Team::Nfl(t) => (Room::Club(t), w.nfl[t].head_coach, CAPTAINS.1),
+        _ => return None,
+    };
+    let roster = team.roster(w);
+    let strict = coach.is_some_and(|c| w.coaches[c].ability().discipline >= STRICT);
+    let mut v: Vec<(usize, f64)> = roster
+        .iter()
+        .filter(|&&i| votable(w, room, roster.len(), i))
+        .map(|&i| (i, vote_score(w, room, strict, i, w.people[i].last_role)))
+        .collect();
+    v.sort_by(|a, b| b.1.total_cmp(&a.1));
+    Some(RoomRead { votes: v, strict, n })
+}
+
 /// The room (topic 4): standing from role, years, star status and the
 /// quarterback spot; captains voted on leadership, standing, play and ego
 /// (ego wins some early votes, Grijalva 2015), or picked by a strict head
@@ -1291,53 +1390,31 @@ enum Room {
 /// backups or redshirts.
 fn settle_room(w: &mut World, room: Room, roster: &[usize], roles: &std::collections::HashMap<usize, PlayingTime>) {
     let (coach, n) = match room {
-        Room::College(k) => (w.programs[k].head_coach, 4),
-        Room::Club(t) => (w.nfl[t].head_coach, 6),
+        Room::College(k) => (w.programs[k].head_coach, CAPTAINS.0),
+        Room::Club(t) => (w.nfl[t].head_coach, CAPTAINS.1),
     };
-    let strict = coach.is_some_and(|c| w.coaches[c].ability().discipline >= 14.0);
-    // His standing before his role this season: years, star status, the
-    // quarterback spot.
-    let base = |i: usize| -> f64 {
-        let p = &w.people[i];
-        let years = match room {
-            Room::College(_) => p.college_seasons as f64,
-            Room::Club(t) => {
-                p.pro.as_ref().map_or(0.0, |c| c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64)
-            }
-        };
-        // A kicker's or snapper's rating isn't a room's standing: the
-        // specialists rarely lead one (bug 34).
-        let spec = if p.player.position.is_specialist() { 0.25 } else { 1.0 };
-        let star = spec * (p.player.overall() - 60.0) / 10.0;
-        let qb = if p.player.position == Position::QB { 1.0 } else { 0.0 };
-        1.0 + 0.3 * years.min(5.0) + star.max(0.0) + qb
-    };
-    let role = |i: usize| match roles.get(&i) {
-        Some(PlayingTime::Starter) => ROLE_STANDING.0,
-        Some(PlayingTime::Rotation) => ROLE_STANDING.1,
-        _ => 0.0,
-    };
-    let standing = |i: usize| base(i) + role(i);
+    let strict = coach.is_some_and(|c| w.coaches[c].ability().discipline >= STRICT);
+    let role = |i: usize| roles.get(&i).copied();
     let mut votes: Vec<(usize, f64)> = roster
         .iter()
-        // A college team doesn't make a first-year player a captain.
-        .filter(|&&i| !matches!(room, Room::College(_)) || w.people[i].college_seasons > 0 || roster.len() < 8)
+        .filter(|&&i| votable(w, room, roster.len(), i))
         .map(|&i| {
-            let p = &w.people[i];
-            let t = &p.player.personality.traits;
-            let lead = t.get(Trait::Leadership);
-            // A coach who picks his own captains picks among the men he
-            // plays, as surely as a room does.
-            let v = if strict {
-                lead + 0.5 * t.get(Trait::Professionalism) + 2.0 * base(i) + 3.0 * role(i)
-            } else {
-                lead + 0.3 * t.get(Trait::Ego) + 3.0 * standing(i)
-            };
+            let v = vote_score(w, room, strict, i, role(i));
             (i, v + 1.5 * key_normal(w.options.seed as u64 ^ 0xCA97 ^ (w.year as u64) << 20, i as u64))
         })
         .collect();
     votes.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let captains: Vec<usize> = votes.iter().take(n).map(|x| x.0).collect();
+    let mut captains: Vec<usize> = votes.iter().take(n).map(|x| x.0).collect();
+    // Your room: a captaincy you promised is your word to keep when the
+    // room names its captains (`folk::captain`).
+    let team = match room {
+        Room::College(k) => super::folk::Team::College(k),
+        Room::Club(t) => super::folk::Team::Nfl(t),
+    };
+    if super::folk::Team::seat(w) == Some(team) {
+        super::folk::captain::name(w, team, &votes, strict, &mut captains);
+    }
+    let standing = |i: usize| room_base(w, room, i) + role_standing(role(i));
     let (mut sum, mut wsum) = (0.0, 0.0);
     for &i in roster {
         let p = &w.people[i];
@@ -1373,6 +1450,9 @@ fn settle_room(w: &mut World, room: Room, roster: &[usize], roles: &std::collect
             w.clubs[t].team_mood = mood;
             w.clubs[t].captains = captains;
         }
+    }
+    if super::folk::Team::seat(w) == Some(team) {
+        super::folk::captain::named(w, team);
     }
 }
 

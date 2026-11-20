@@ -3966,6 +3966,8 @@ pub(crate) fn take_job(w: &mut World, e: Employer, r: Role) {
     let Some(me) = market::me(w) else { return };
     let old = w.coaches[me].job;
     if old.is_some() {
+        // What is settled at the old team is judged first (code oddity 29).
+        super::folk::talks::leaving_for(w, super::folk::Team::from_employer(e));
         leave(w, me, "left for another job");
     }
     hire(w, me, e, r);

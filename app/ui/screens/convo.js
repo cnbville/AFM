@@ -109,7 +109,11 @@ function cvLeft(s, lead, pp, cast, peek, head, T) {
   const bio = peek
     ? `<p class="cv-bio">${[peek["class"], peek.ht && `${peek.ht}, ${peek.wt}`, peek.where].filter(Boolean).map(esc).join(" · ")}</p>`
     : lead.pos ? `<p class="cv-bio">${esc(lead.pos)}</p>` : "";
-  const pic = head
+  // A room (a team meeting, a position room) shows your team's mark, not a
+  // face: nobody in it is the one man across.
+  const pic = T.team && T.room
+    ? `<div class="cv-photo cv-photo-sil">${mark(T.team, 120)}</div>`
+    : head
     ? `<div class="cv-photo">${num}${head}<span class="cv-tags"><b>${tagText}</b>${prime && prime.stars ? `<b>${esc(prime.stars)}</b>` : ""}</span></div>`
     : lead.kind === "cast" ? "" : `<div class="cv-photo cv-photo-sil">${face({ name: plainText(lead.link), id: lead.id }, 120)}</div>`;
   const nameRow = `<div class="cv-namerow"><h2 class="cv-name">${cvT(lead.link)}</h2>${prime && prime.tag ? `<em class="cv-tag ${esc(prime.tagKind || "")}">${esc(prime.tag)}</em>` : ""}</div>`;
@@ -135,7 +139,7 @@ function cvNow(pp, T) {
     ${(pp.reasons || []).slice(0, 4).map((r) => `<p class="cv-entry"><b>${esc(r.date)}</b> ${esc(ppCap(r.why))}</p>`).join("")}
     ${pp.out ? `<p class="cv-entry"><b>Sitting</b> ${esc(pp.out)}</p>` : ""}${pp.life ? `<p class="cv-entry"><b>At home</b> ${esc(ppCap(pp.life))}</p>` : ""}</div>`;
   const word = (pp.promises || []).length
-    ? `<div class="cv-word"><b>Your word to him</b>${pp.promises.map((p) => `<span>${esc(ppCap(p.what))} ${p.kept === true ? "<i class=\"ok\">Kept</i>" : p.kept === false ? "<i class=\"bad\">Broken</i>" : `<i>Due ${esc(p.due)}</i>`}</span>`).join("")}</div>`
+    ? `<div class="cv-word"><b>Your word to him</b>${pp.promises.map((p) => `<span>${esc(ppCap(p.what))} ${p.quiet ? "<i>Closed</i>" : p.kept === true ? "<i class=\"ok\">Kept</i>" : p.kept === false ? "<i class=\"bad\">Broken</i>" : `<i>Due ${esc(p.due)}</i>`}</span>`).join("")}</div>`
     : "";
   return mood + word;
 }
@@ -144,7 +148,7 @@ function cvSideTab(tab, pp, lead) {
     return `<div class="cv-sec">${pp.trust ? `<p class="cv-kv"><span>Trust</span><b>${esc(ppCap(pp.trust.words))}</b></p>` : ""}${pp.mentor ? `<p class="cv-kv"><span>Mentor</span><b>${cvT(pp.mentor)}</b></p>` : ""}${pp.case ? `<p class="cv-kv"><span>A case</span><b>${esc(pp.case)}</b></p>` : ""}${pp.line ? `<p class="cv-kv"><span>Your line</span><b>${esc(ppCap(pp.line))}</b></p>` : ""}<p><a class="link" data-go="player" data-id="${lead.id}">His full page</a></p></div>`;
   }
   if (tab === "With you") {
-    return `<div class="cv-sec">${(pp.promises || []).length ? pp.promises.map((p) => `<p class="cv-entry"><b>${esc(p.due)}</b> ${esc(ppCap(p.what))} ${p.kept === true ? "<i class=\"ok\">Kept</i>" : p.kept === false ? "<i class=\"bad\">Broken</i>" : ""}</p>`).join("") : '<p class="cv-small">No promises between you.</p>'}</div>`;
+    return `<div class="cv-sec">${(pp.promises || []).length ? pp.promises.map((p) => `<p class="cv-entry"><b>${esc(p.due)}</b> ${esc(ppCap(p.what))} ${p.quiet ? "<i>Closed</i>" : p.kept === true ? "<i class=\"ok\">Kept</i>" : p.kept === false ? "<i class=\"bad\">Broken</i>" : ""}</p>`).join("") : '<p class="cv-small">No promises between you.</p>'}</div>`;
   }
   return `<div class="cv-sec">${(pp.ear || []).length ? pp.ear.map((e) => `<p class="cv-entry"><b>${esc(e.sure)}</b> ${cvT(e.who)}<br><span class="cv-small">${esc(e.what)}</span></p>`).join("") : '<p class="cv-small">Nobody your staff knows of.</p>'}</div>`;
 }
@@ -152,7 +156,9 @@ function cvSideTab(tab, pp, lead) {
 // Who is in the room (a home visit, a group): everyone hears you.
 function cvRoom(s, T, pic, nameRow, bio, prime) {
   const others = T.room.filter((p) => !p.lead);
-  const n = T.room.length;
+  // The men in the room as the talk counts them (a room's own list leads with
+  // the room itself).
+  const n = T.roomN != null ? T.roomN : T.room.length;
   const people = others.map((p) => `<div class="cv-who"><span class="cv-ini ${esc(p.tone || "")}">${esc(p.ini || cvIni(p.name))}</span><div><div class="cv-whoh"><b>${esc(p.name)}</b>${p.tag ? `<em class="cv-tag ${esc(p.tagKind || "")}">${esc(p.tag)}</em>` : ""}</div><p>${esc(p.line || "")}</p></div></div>`).join("");
   const acts = (T.roomActs || []).length
     ? `<div class="cv-sec"><div class="cv-h">Change who's in the room</div>${T.roomActs.map((a) => `<button type="button" class="cv-pill" data-act="cvdo" data-cmd="${esc(a.cmd)}" data-args='${esc(JSON.stringify(a.args || {}))}'>${esc(a.text)}</button>`).join("")}</div>` : "";
@@ -165,7 +171,10 @@ function cvCenter(s, lead, T, key, box) {
   const big = left ? (left.left != null ? left.left : left.min) : s.hours != null ? Math.round(s.hours * 10) / 10 : null;
   const unit = left ? "min" : "h";
   const sub = s.hours != null ? `${Math.round(s.hours * 10) / 10}${T.week ? ` of ${T.week}` : ""} h left this week` : "";
-  const parts = [s.kindName, T.channel, s.place].filter(Boolean);
+  // A family's call says it in the kind and in the title: the channel and the
+  // "A call from ..." place line would only say it again.
+  const fam = s.kind === "FamilyCall";
+  const parts = [s.kindName, fam ? "" : T.channel, fam ? "" : s.place].filter(Boolean);
   const place = parts.filter((x, i) => !parts.slice(0, i).some((y) => y.toLowerCase().includes(x.toLowerCase()) || x.toLowerCase().includes(y.toLowerCase()))).map(esc).join(" · ");
   const ay = aiYours(key);
   const after = T.after || {};
@@ -184,7 +193,7 @@ function cvCenter(s, lead, T, key, box) {
     }
     for (const c of after[i] || []) bits.push(cvCard(c));
   });
-  if (!s.lines.length) bits.push(`<p class="cv-narr cv-quiet">${esc(s.done ? "Nothing was said." : "It's quiet. You speak first.")}</p>`);
+  if (!s.lines.length) bits.push(`<p class="cv-narr cv-quiet">${esc(s.done ? (s.handed ? "You weren't on the line." : "Nothing was said.") : "It's quiet. You speak first.")}</p>`);
   const b = aiState.boxes[key];
   const confirm = cvConfirm(s, T, b);
   const docs = (s.docs || []).map((d) => `<section class="cv-doc"><div class="cv-h">${esc(d.title)}</div>${d.note ? `<p class="cv-small">${cvT(d.note)}</p>` : ""}<table><thead><tr>${d.cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${d.rows.map((r) => `<tr>${r.cells.map((c) => `<td>${cvT(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("");

@@ -78,6 +78,8 @@ fn game(w: &mut World, p: usize, d: Date, lines: &[(u32, u32, u32)]) {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
 }
 
@@ -386,13 +388,16 @@ fn an_nfl_start_promise_is_judged_on_his_first_four_games() {
     let club = w.seat.and_then(|s| s.nfl_team).unwrap_or(0);
     let i = w.clubs[club].roster[0];
     let year = w.year;
+    // The starts he saw (half the most snaps on his side); the club's
+    // listed starts say nothing.
     let row = |w: &mut World, team: usize, games: u32, starts: u32| {
         let c = w.people[i].pro.as_mut().unwrap();
         c.seasons.retain(|s| s.year != year);
         let s = c.season_mut(year);
         s.team = Some(team);
         s.games = games;
-        s.starts = starts;
+        s.starts = games - starts;
+        s.field_starts = Some(starts);
     };
     // Not a game dressed for the club yet: nothing to judge (never the chart).
     row(&mut w, club, 0, 0);
@@ -409,6 +414,11 @@ fn an_nfl_start_promise_is_judged_on_his_first_four_games() {
     let other = (club + 1) % w.clubs.len();
     row(&mut w, other, 4, 4);
     assert_eq!(promise::nfl_start_kept(&w, i, club), None);
+    // A row from before kept only the listed starts.
+    row(&mut w, club, 4, 0);
+    let s = w.people[i].pro.as_mut().unwrap().seasons.last_mut().unwrap();
+    s.field_starts = None;
+    assert_eq!(promise::nfl_start_kept(&w, i, club), Some(true));
 }
 
 #[test]

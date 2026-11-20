@@ -4350,7 +4350,7 @@ pub const PANELS: &[Panel] = &[
         area: "G33",
         title: r#"Injuries of a week or more by kind against real body parts"#,
         kind: "bars",
-        note: r#"Share of game injuries that cost a week or more, by kind. Real: NFL injury episodes by body part (development_injuries.json, games missed); where two kinds share a body part (knee and ACL, ankle and high ankle) the real share is split between them as the world splits them; kinds with no real body part of their own (bruise, hand, ribs, fracture) have no real bar. Foot, groin, calf, neck, hip and quad are their own kinds since minor bug 145."#,
+        note: r#"Share of game injuries that cost a week or more, by kind. Real: NFL injury episodes by body part (development_injuries.json, games missed); where two kinds share a body part (knee and ACL, ankle and high ankle) the real share is split between them as the world splits them; kinds with no real body part of their own (bruise, hand, ribs, fracture, the torn Achilles) have no real bar. Foot, groin, calf, neck, hip and quad are their own kinds since minor bug 145."#,
         sql: r#"WITH inj AS (SELECT CASE WHEN g.stream = 'nfl' THEN 'NFL' WHEN g.stream = 'college' THEN 'College' WHEN g.stream = 'hs' THEN 'High school' ELSE COALESCE(g.league, 'Other') END AS lv,
                   g.season AS year, i.*, CASE i.kind WHEN 'Acl' THEN 'Knee' WHEN 'Knee' THEN 'Knee' WHEN 'AnkleSprain' THEN 'Ankle' WHEN 'HighAnkleSprain' THEN 'Ankle' WHEN 'Shoulder' THEN 'Shoulder'
                        WHEN 'Concussion' THEN 'Concussion' WHEN 'Hamstring' THEN 'Hamstring' WHEN 'Back' THEN 'Back' WHEN 'Foot' THEN 'Foot'

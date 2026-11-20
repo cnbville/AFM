@@ -8,6 +8,7 @@
 //!
 //! Counts only: nothing here is a hidden rating.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
@@ -44,16 +45,16 @@ pub(crate) fn level_of(tier: Tier) -> Option<tally::Level> {
 /// One player's season of depth counts: his counts, less the games your
 /// charting hasn't reached yet (`less`).
 pub(crate) struct One<'b> {
-    pub depth: &'b [(u16, f32)],
+    pub depth: Cow<'b, [(u16, f32)]>,
     pub less: Option<&'b [(u16, f32)]>,
     pub team: u32,
-    pub played: &'b [u64],
-    pub snaps: &'b [[u16; 2]],
+    pub played: Cow<'b, [u64]>,
+    pub snaps: Cow<'b, [[u16; 2]]>,
 }
 
 impl One<'_> {
     pub fn get(&self, code: u16) -> f64 {
-        let v = dp::get(self.depth, code);
+        let v = dp::get(&self.depth, code);
         match self.less {
             Some(l) if !dp::is_max(code) => v - dp::get(l, code),
             _ => v,
@@ -72,19 +73,33 @@ impl Src<'_> {
     pub fn one(&self, id: u32) -> Option<One<'_>> {
         match self {
             Src::None => None,
-            Src::Open { open, level, less } => open.get(*level, id).map(|s| One {
-                depth: &s.depth,
-                less: less.get(&id).map(|d| d.as_slice()),
-                team: s.team,
-                played: &s.played,
-                snaps: &s.game_snaps,
+            // A row the open season has packed (memory diet item 10) comes
+            // back owned.
+            Src::Open { open, level, less } => open.get(*level, id).map(|s| {
+                let less = less.get(&id).map(|d| d.as_slice());
+                match s {
+                    Cow::Borrowed(s) => One {
+                        depth: Cow::Borrowed(&s.depth),
+                        less,
+                        team: s.team,
+                        played: Cow::Borrowed(&s.played),
+                        snaps: Cow::Borrowed(&s.game_snaps),
+                    },
+                    Cow::Owned(s) => One {
+                        depth: Cow::Owned(s.depth),
+                        less,
+                        team: s.team,
+                        played: Cow::Owned(s.played),
+                        snaps: Cow::Owned(s.game_snaps),
+                    },
+                }
             }),
             Src::Closed(m) => m.get(&id).map(|s| One {
-                depth: &s.depth,
+                depth: Cow::Borrowed(&s.depth),
                 less: None,
                 team: s.team,
-                played: &s.played,
-                snaps: &s.game_snaps,
+                played: Cow::Borrowed(&s.played),
+                snaps: Cow::Borrowed(&s.game_snaps),
             }),
         }
     }
@@ -713,11 +728,11 @@ pub fn player_data(w: &World, args: &Value) -> Value {
     let since = ch.as_ref().filter(|_| open).map(|c| Date(w.today.0 - (c.days as i32 - 1)));
     let less = since.map(|d| w.tally_depth_since(level, d)).unwrap_or_default();
     let one = One {
-        depth: &s.depth,
+        depth: Cow::Borrowed(&s.depth),
         less: less.get(&id).map(|d| d.as_slice()),
         team: s.team,
-        played: &s.played,
-        snaps: &s.game_snaps,
+        played: Cow::Borrowed(&s.played),
+        snaps: Cow::Borrowed(&s.game_snaps),
     };
     let group = s
         .pos

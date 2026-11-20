@@ -305,7 +305,7 @@ fn seen(w: &World, team: Team, i: usize) -> Vec<Seen> {
     for g in w.seat_games.iter().rev().filter(|g| g.date <= w.today) {
         let Some(side) = super::side_of(g, team) else { continue };
         let line = g.stats.players[side].get(&id);
-        let hurt = w.training.hurt.iter().any(|h| h.id == id && h.from <= g.date && g.date <= h.until);
+        let hurt = crate::world::folk::seen::hurt_in(w, g, id);
         if line.is_none() && (hurt || since.is_some_and(|d| d > g.date)) {
             continue;
         }

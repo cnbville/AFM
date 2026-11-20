@@ -158,29 +158,23 @@ fn an_ask_for_his_read_is_a_request_and_a_decision_on_another_man_drops() {
             Act::Decision(Decision::CoachLetGo),
         ]
     );
-    assert!(ear::EAR_RULES.contains("Still deciding is never a decision"));
+    assert!(ear::EAR_RULES.contains(
+        "Deciding, weighing, a deadline to decide by, or asking for a read before deciding is never a decision"
+    ));
 }
 
 #[test]
 fn a_thank_you_ends_a_talk_only_with_a_goodbye() {
-    let end = Reading { acts: vec![Act::End], ..Default::default() };
-    let kept = |line: &str| ear::keep_open(end.clone(), line).acts;
     // The talks audit, 2026-11-16: thanks mid-talk was heard as the coach
-    // closing.
-    assert!(kept("I wanted to say thanks for everything you do for this program.").is_empty());
-    assert!(kept("Appreciate you coming by. How's the family?").is_empty());
-    for bye in [
-        "Thanks, that's all for today.",
-        "I appreciate your time tonight.",
-        "Thanks for calling, let me know if you need anything else.",
-        "Thanks, I\u{2019}ll let you get back to it.",
-        "Thanks, keep me posted.",
-    ] {
-        assert_eq!(kept(bye), vec![Act::End], "{bye}");
-    }
-    // A goodbye with no thanks in it is the ear's to read.
-    assert_eq!(kept("Good talk. My door's always open."), vec![Act::End]);
-    assert_eq!(kept("Alright, let's go to work."), vec![Act::End]);
+    // closing. The ear's meaning of an end says so (the check sets hold
+    // thanks with a goodbye and thanks alone), and the game keeps the end
+    // the ear reads: no word list second-guesses it (ear audit item 7).
+    assert!(
+        ear::EAR_RULES.contains("Thanks or praise alone is not an end, nor is agreeing; thanks with a goodbye is.")
+    );
+    let r: EarReply = serde_json::from_str(r#"{"acts": [{"act": "end"}]}"#).unwrap();
+    let tags = ear::Tags { today: afm_engine::calendar::Date::ymd(2030, 3, 1), pos: None };
+    assert_eq!(tags.resolve(&r, &EarKeys::default()).acts, vec![Act::End]);
 }
 
 #[test]

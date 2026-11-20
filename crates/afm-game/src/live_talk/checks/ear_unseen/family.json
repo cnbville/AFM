@@ -1,0 +1,95 @@
+{
+ "facet": "A recruit's family (lane N5a)",
+ "card": {
+  "setting": "A call with a recruit's family, a phone call, Monday, September 7, 2037, fbs",
+  "coach": "Dale Ruiz, head coach at Fairview State",
+  "them": "Tanya Brooks, his mother",
+  "people": [
+   {
+    "tag": "p1",
+    "text": "Tanya Brooks, his mother (the man across from you)",
+    "kind": "family"
+   },
+   {
+    "tag": "p2",
+    "text": "Jaylen Brooks, WR, high school senior (her son)",
+    "kind": "player"
+   }
+  ],
+  "items": [
+   {
+    "tag": "c1",
+    "text": "what she wants: his family's good"
+   },
+   {
+    "tag": "c2",
+    "text": "what she wants: his classes and his degree"
+   },
+   {
+    "tag": "c3",
+    "text": "what she wants: being close to home"
+   },
+   {
+    "tag": "c4",
+    "text": "on her mind: whether he'll be looked after away from home"
+   },
+   {
+    "tag": "c5",
+    "text": "her pride in her son"
+   }
+  ],
+  "on_table": [],
+  "so_far": []
+ },
+ "lines": [
+  {
+   "text": "What would it take for you to feel good about him being six hours away?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Wants"
+    }
+   ]
+  },
+  {
+   "text": "How has all of this been on you, the whole recruiting circus?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Mood"
+    }
+   ]
+  },
+  {
+   "text": "How's he doing in his math class?",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Grades",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Ma'am, you've done a remarkable job with him.",
+   "hits": [
+    {
+     "item": "c5",
+     "how": "respected|flattered"
+    }
+   ]
+  },
+  {
+   "text": "He's going to be my starting receiver the day he walks on campus.",
+   "acts": [
+    {
+     "act": "promise",
+     "what": "start|role"
+    }
+   ]
+  }
+ ],
+ "exploits": [],
+ "name": "family",
+ "today": "Monday, September 7, 2037 (2037-09-07)"
+}

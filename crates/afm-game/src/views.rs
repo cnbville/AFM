@@ -988,8 +988,6 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> 
         })
         .collect();
     let upcoming = next_dates(w, 1).into_iter().next();
-    // Now: the live moment, or your day's next thing.
-    let now_line = now_line(w, live.as_ref().map(|l| l.what.as_str()), first_stop);
     // The rooms a stop opens.
     let games = w.seat_games();
     let game = games.iter().rposition(|g| g.whistle.is_some_and(|m| m > from && m <= now)).map(|k| {
@@ -1001,15 +999,22 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> 
         .scenes
         .iter()
         .filter(|s| !s.done && s.stops && s.kind != afm_engine::world::folk::scene::Kind::Story)
-        .filter(|s| match s.minute {
-            Some(m) => {
-                let at = w.seat_zone().to_eastern(Moment::at(s.date, m / 60, m % 60));
-                at > from && at <= now
-            }
-            None => s.date == w.today && first_stop,
+        .filter(|s| {
+            // It rang since the last stop: at its hour, or as it was made
+            // (a call made on the way stops Continue right then).
+            let at = afm_engine::world::folk::scene::rings(w, s);
+            (s.date <= w.today && at > from && at <= now) || (s.minute.is_none() && s.date == w.today && first_stop)
         })
         .map(|s| s.id)
         .min();
+    // Now: the live moment, a call that rang on the way, or your day's next
+    // thing.
+    let rang =
+        meeting.filter(|_| live.is_none() && !first_stop).and_then(|id| w.folk.scenes.iter().find(|s| s.id == id));
+    let now_line = match rang {
+        Some(s) => format!("{}: now.", crate::lane_people::plain(&s.title)),
+        None => now_line(w, live.as_ref().map(|l| l.what.as_str()), first_stop),
+    };
     let studio = if afm_engine::world::pro::cfl::holds(w) {
         Some(json!({ "screen": "cfldraft", "cfltab": "Draft room" }))
     } else {
@@ -2616,7 +2621,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
             let team = match h.level {
                 Level::HS => w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
                 // A pro season with no club: unsigned all year.
-                Level::NFL => Some(h.team.map_or("Unsigned".to_string(), |t| w.nfl_team_name(t))),
+                Level::NFL => Some(h.team.get().map_or("Unsigned".to_string(), |t| w.nfl_team_name(t))),
                 _ => {
                     row += 1;
                     (p.college_staff.len() == college_rows)

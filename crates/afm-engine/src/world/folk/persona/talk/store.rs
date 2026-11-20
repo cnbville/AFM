@@ -10,7 +10,7 @@ use super::super::ear::{Act, Hit, How, Item, Turn};
 use super::super::knows::Topic;
 use super::super::memory::{Colour, Line, Memory, Saved, Shared, Treated, Treatment};
 use super::super::room::{Present, Room};
-use super::super::terms::Request;
+use super::super::terms::{Give, Offer, Request};
 use super::super::wants::{Boil, Heat, Patience, WantKind, Willing};
 use super::{Said, channels};
 use crate::calendar::Date;
@@ -79,11 +79,50 @@ pub struct Open {
     /// surface only for the rest of the talk.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub closed: bool,
+    /// In a room, how the last line landed with each man (group talks:
+    /// his tag in the room list): signed, with the way it hit him hardest.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub takes: Vec<(Them, f32, How)>,
     /// The first line only said hello (`Turn::greeting`): his opening's
     /// question is on the table for the line after it too.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub greeted: bool,
+    /// The promises made in this talk (P1's indexes): his card shows them
+    /// as "earlier in this talk", never in his history with you (talk
+    /// replies item 5).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub promised: Vec<u32>,
+    /// His counter still on the table, for your answer to it (talk replies
+    /// item 3): what he wants given and how he wants to be used, his words
+    /// for it, and the offer or ask it answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counter: Option<OnTable>,
+    /// What this talk has settled so far, in order (talk replies item 11):
+    /// agreed, promised, refused, still open. The cards carry it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settled: Vec<String>,
 }
+
+/// His counter on the table (talk replies item 3).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct OnTable {
+    /// The line it was said on.
+    pub line: u8,
+    pub asks: Vec<String>,
+    pub gives: Vec<Give>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub terms: Vec<crate::world::folk::usage::Usage>,
+    /// The offer he countered, when it was one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offer: Option<Offer>,
+    /// The ask of yours he countered, when it was one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request: Option<Request>,
+}
+
+/// The most entries kept on a talk's settled list. Proposed, not confirmed.
+pub const KEEP_SETTLED: usize = 16;
 
 impl Open {
     pub fn new(scene: u32, room: &Room) -> Open {
@@ -104,7 +143,11 @@ impl Open {
             over: false,
             personal: false,
             closed: false,
+            takes: Vec::new(),
             greeted: false,
+            promised: Vec::new(),
+            counter: None,
+            settled: Vec::new(),
         }
     }
 
@@ -228,6 +271,17 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
     }
     o.hits.extend(t.hits.iter().map(|h| (h.hit.on, h.hit.item.clone(), h.hit.how)));
     o.reviewed = o.reviewed.saturating_add(t.reviewed);
+    if t.crowd.is_some() {
+        o.takes = o
+            .room
+            .present
+            .iter()
+            .filter_map(|p| {
+                let (tr, md, how) = super::super::crowd::take(&t.hits, p.who);
+                how.map(|h| (p.who, tr + md, h))
+            })
+            .collect();
+    }
     for act in &said.reading.acts {
         if let Act::Question { topic, about, .. } = act {
             o.asked.push(*about);
@@ -241,6 +295,46 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
             o.refused.push(r.clone());
         }
     }
+    // His counter stays on the table for your answer; anything else you
+    // put to him, or your answer to it, takes it off (talk replies item 3).
+    let line = o.lines;
+    if let Some(c) = &t.counter {
+        let offer = t.weighed.iter().rev().find(|(_, wd)| matches!(wd, super::super::terms::Weighed::Counter(_)));
+        let request = t.asked.iter().rev().find(|(_, wl, _)| matches!(wl, Willing::If(_)));
+        o.counter = Some(OnTable {
+            line,
+            asks: c.asks.clone(),
+            gives: c.gives.clone(),
+            terms: c.terms.clone(),
+            offer: offer.map(|x| x.0.clone()),
+            request: request.map(|x| x.0.clone()),
+        });
+    } else if t.answered || !t.weighed.is_empty() {
+        o.counter = None;
+    }
+    for x in &t.settled {
+        if !o.settled.contains(x) {
+            o.settled.push(x.clone());
+        }
+    }
+    if o.settled.len() > KEEP_SETTLED {
+        let cut = o.settled.len() - KEEP_SETTLED;
+        o.settled.drain(..cut);
+    }
+}
+
+/// The promises a talk made, kept so his card shows them as said in this
+/// talk (talk replies item 5).
+pub fn promised(w: &mut World, scene: u32, ks: impl Iterator<Item = u32>) {
+    if let Some(o) = w.folk.live.persona.open.iter_mut().find(|o| o.scene == scene) {
+        o.promised.extend(ks);
+    }
+}
+
+/// Every promise made in a talk still open: his history with you leaves
+/// them out (talk replies item 5).
+pub fn in_open_talks(w: &World) -> Vec<u32> {
+    w.folk.live.persona.open.iter().flat_map(|o| o.promised.iter().copied()).collect()
 }
 
 /// The talk is over and the meeting waits on a decision: the talk's state

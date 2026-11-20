@@ -93,6 +93,169 @@ pub struct Rules {
     /// The targeting rule of the level and season (coach fire).
     #[serde(default)]
     pub targeting: Targeting,
+    /// The concussion rules of the level and season (engine gaps item 3).
+    #[serde(default)]
+    pub concussion: Concussion,
+    /// Whose foul rules the game is played under (engine gaps lane EG5,
+    /// `fouls.rs`): `None` is the level's own; a high school in a state
+    /// that plays college rules takes the NCAA's (`Rules::high_school`).
+    #[serde(default)]
+    pub fouls: Option<super::fouls::Fouls>,
+    /// The season the rule book is read in (0: today's).
+    #[serde(default)]
+    pub year: i32,
+    /// The book's fumble rules where they are not the level's own (engine
+    /// gaps item 4): a state on college rules, the CFL, a high school
+    /// season before 2025. None reads as the level's (`fumble_rule`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fumbles: Option<FumbleRule>,
+    /// The book's rules at 0:00 where they are not the level's today
+    /// (engine gaps item 22): a college season to 2022 or before 2011.
+    /// None reads as the level's (`period_end`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub period_end: Option<PeriodEnd>,
+}
+
+/// A foul on a period's last timed down and the 10-second runoff (engine
+/// gaps item 22). The NFL: the defense's accepted foul (a double foul has
+/// one) gives an untimed down at a half's end, the offense's don't; in a
+/// half's last minute the offense's foul that stops a running clock costs
+/// it 10 seconds, the defense's choice. College: either team's accepted
+/// live-ball foul extends the period (the defense turns down the extension
+/// on the offense's loss-of-down foul), at every quarter's end to 2022 and
+/// a half's from 2023; the runoff from 2011, for either team's foul, the
+/// other team's choice. High school (NFHS): either team's at every
+/// quarter's end, except a loss-of-down or unsportsmanlike foul; no
+/// runoff. A runoff is saved by the fouling team's timeout.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PeriodEnd {
+    /// The offense's fouls extend a period too, not only the defense's.
+    pub either: bool,
+    /// At every quarter's end, not only a half's.
+    pub every_quarter: bool,
+    /// The 10-second runoff: None, the offense's fouls only, or either's.
+    pub runoff: u8,
+    /// Unsportsmanlike fouls never extend it (NFHS).
+    pub no_unsporting: bool,
+}
+
+impl PeriodEnd {
+    pub const NFL: PeriodEnd = PeriodEnd { either: false, every_quarter: false, runoff: 1, no_unsporting: false };
+    pub const NCAA: PeriodEnd = PeriodEnd { either: true, every_quarter: false, runoff: 2, no_unsporting: false };
+    pub const NFHS: PeriodEnd = PeriodEnd { either: true, every_quarter: true, runoff: 0, no_unsporting: true };
+
+    /// Whether this accepted foul gives an untimed down when the clock runs
+    /// out on its play: `defense` the fouling team was on defense, `half`
+    /// the period's end is a half's (or the game's).
+    pub fn extends(&self, kind: super::sim::FoulKind, defense: bool, half: bool) -> bool {
+        use super::sim::FoulKind;
+        (half || self.every_quarter)
+            && (defense || self.either && kind != FoulKind::IntentionalGrounding)
+            && !(self.no_unsporting && kind == FoulKind::UnsportsmanlikeConduct)
+    }
+}
+
+/// The concussion rules of a level and season (engine gaps item 3). The
+/// NFL barred a same-day return for any player with concussion symptoms in
+/// December 2009, put athletic trainers in the booth as spotters in 2011
+/// and independent neurotrauma consultants on the sidelines in 2013. The
+/// NCAA required that a student diagnosed with a concussion not return the
+/// same day from 2010; the NFHS rule from 2010-11 removes a player showing
+/// signs, and by 2014 every state's law kept a player removed for a
+/// suspected concussion out for the day (Arizona and South Carolina let a
+/// cleared one back). Before those years the doctors could send him back
+/// in: in the NFL in 1996-2001 15.2% of concussed players went straight
+/// back and 34.3% rested and went back in the same game (Pellman et al.
+/// 2005).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Concussion {
+    /// A diagnosed concussion sits the rest of the day.
+    pub no_same_day: bool,
+    /// The share of concussions the sideline catches: spotters in the NFL
+    /// (0.92 from 2011), trainers in college (0.8), and some high schools
+    /// have nobody (0.6). Before the rules about 0.6 of that: reported NFL
+    /// concussions were 0.41 a game in 1996-2001 (Pellman et al. 2003)
+    /// against 0.45-0.74 in 2012-17. Proposed, not confirmed: 0.85 in the
+    /// NFL's 2009-10 and every size before the rules.
+    pub caught: f64,
+    /// Men pulled for a check on his signs who turn out clear, for each
+    /// concussion caught. The NFL ran 538 in-game concussion evaluations in
+    /// 2025 for 168 concussions in games, about 3.2 a concussion; 3.4 clear
+    /// for each one caught gives that from the spotters on, as a
+    /// concussion nobody caught or one from the trench draws no check.
+    /// Proposed, not confirmed: 1.0 in 2009-10, 1.5 in college and 0.75 in
+    /// high school (trainers at fewer games), none before the rules.
+    pub checks: f64,
+    /// A man pulled for signs sits the rest of the game even when he
+    /// checks out (high school, the state laws).
+    pub removal_sits: bool,
+    /// A concussion's time out against today's protocol: NFL players lost
+    /// a mean 1.9 days a concussion in 1996-2001 and 4.7 in 2002-07 (Casson
+    /// et al. 2010), against about nine days today. Proposed, not
+    /// confirmed: 0.2 before 2002 and 0.5 until the level's rule, at every
+    /// level.
+    pub length: f64,
+}
+
+impl Default for Concussion {
+    fn default() -> Concussion {
+        Concussion::for_year(Level::NFL, 0)
+    }
+}
+
+impl Concussion {
+    /// A level's concussion rules in a season; year 0 reads as today's.
+    pub fn for_year(level: Level, year: i32) -> Concussion {
+        let year = if year == 0 { 9999 } else { year };
+        let (rule_from, checks, caught) = match level {
+            Level::NFL if year >= 2011 => (2009, 3.4, 0.92),
+            Level::NFL => (2009, 1.0, 0.85),
+            Level::HS => (2010, 0.75, 0.6),
+            _ => (2010, 1.5, 0.8),
+        };
+        if year >= rule_from {
+            Concussion { no_same_day: true, caught, checks, removal_sits: level == Level::HS, length: 1.0 }
+        } else {
+            let caught = 0.6 * if level == Level::NFL { 0.92 } else { caught };
+            let length = if year < 2002 { 0.2 } else { 0.5 };
+            Concussion { no_same_day: false, caught, checks: 0.0, removal_sits: false, length }
+        }
+    }
+
+    /// Before the rules, the share of caught concussions that went back in
+    /// the same game, and of those the share that went straight back (the
+    /// NFL in 1996-2001: 15.2% straight back and 34.3% after a rest,
+    /// Pellman et al. 2005).
+    pub const BACK_BEFORE: (f64, f64) = (0.495, 0.31);
+}
+
+/// Who may advance a fumble and where one out of bounds is spotted (engine
+/// gaps item 4). The defense may always advance a fumble at every level.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct FumbleRule {
+    /// On fourth down and on a try only the fumbler may advance his own
+    /// team's fumble: a teammate's recovery is dead, back at the spot of
+    /// the fumble if he got it ahead of it (the NFL since 1979, the NCAA).
+    pub fourth_down: bool,
+    /// The same after the two-minute warning of either half (the NFL).
+    pub late: bool,
+    /// A fumble that goes forward and out of bounds between the goal lines
+    /// comes back to the spot of the fumble (the NFL, the NCAA, the NFHS
+    /// from 2025); a muffed snap is spotted where it went out.
+    pub forward_back: bool,
+    /// A ball out of bounds belongs to the team that touched it last in
+    /// the field of play, not the team that last had it (the CFL).
+    pub last_touch: bool,
+}
+
+impl FumbleRule {
+    pub const NFL: FumbleRule = FumbleRule { fourth_down: true, late: true, forward_back: true, last_touch: false };
+    pub const NCAA: FumbleRule = FumbleRule { fourth_down: true, late: false, forward_back: true, last_touch: false };
+    /// The NFHS: anyone may advance a fumble (`forward_back` from 2025).
+    pub const NFHS: FumbleRule = FumbleRule { fourth_down: false, late: false, forward_back: true, last_touch: false };
+    /// The CFL: anyone may advance a fumble; out of bounds it is the team's
+    /// that touched it last.
+    pub const CFL: FumbleRule = FumbleRule { fourth_down: false, late: false, forward_back: false, last_touch: true };
 }
 
 /// The targeting rule (coach fire, item 4): a forcible hit to the head or
@@ -144,6 +307,11 @@ impl Rules {
                 down_on_fall: false,
                 code: Default::default(),
                 targeting: Targeting::None,
+                concussion: Concussion::for_year(level, 0),
+                fouls: None,
+                year: 0,
+                fumbles: None,
+                period_end: None,
             },
             Level::HS => Rules {
                 level,
@@ -164,8 +332,18 @@ impl Rules {
                 timeouts: 3,
                 play_clock: 40.0,
                 down_on_fall: true,
-                code: Default::default(),
+                // NFHS goalposts: 23 feet 4 inches between the uprights, the
+                // NCAA's and the NFL's 18 feet 6 inches (engine gaps item 11).
+                code: super::books::Code {
+                    field: super::geom::Field { posts: 3.889, ..super::geom::Field::AMERICAN },
+                    ..Default::default()
+                },
                 targeting: Targeting::Foul,
+                concussion: Concussion::for_year(level, 0),
+                fouls: None,
+                year: 0,
+                fumbles: None,
+                period_end: None,
             },
             // FBS, FCS, D2 and below play NCAA rules.
             _ => Rules {
@@ -191,6 +369,11 @@ impl Rules {
                 down_on_fall: true,
                 code: Default::default(),
                 targeting: Targeting::Eject,
+                concussion: Concussion::for_year(level, 0),
+                fouls: None,
+                year: 0,
+                fumbles: None,
+                period_end: None,
             },
         }
     }
@@ -203,6 +386,8 @@ impl Rules {
         if year == 0 {
             return r;
         }
+        r.concussion = Concussion::for_year(level, year);
+        r.year = year;
         match level {
             Level::NFL => {
                 // Kickoffs from the 30 to 2010, then the 35; the touchback
@@ -231,6 +416,11 @@ impl Rules {
                 if year < 2013 {
                     r.targeting = Targeting::None;
                 }
+                // A forward fumble out of bounds came back to the spot of
+                // the fumble only from 2025 (NFHS rule 4-3-1 exception).
+                if year < 2025 {
+                    r.fumbles = Some(FumbleRule { forward_back: false, ..FumbleRule::NFHS });
+                }
             }
             _ => {
                 // Kickoffs from the 35, the 30 in 2007-2011, the 35 again
@@ -255,6 +445,16 @@ impl Rules {
                     2008..=2012 => Targeting::Foul,
                     _ => Targeting::Eject,
                 };
+                // A foul on a quarter's last play extended every quarter to
+                // 2022, only a half's from 2023; the 10-second runoff from
+                // 2011 (NCAA rule changes, 2011 and 2023).
+                if year <= 2022 {
+                    r.period_end = Some(PeriodEnd {
+                        every_quarter: true,
+                        runoff: if year >= 2011 { 2 } else { 0 },
+                        ..PeriodEnd::NCAA
+                    });
+                }
                 r.overtime = match year {
                     ..=2018 => Overtime::CollegeEra { two_from: 3, shootout_from: 99 },
                     2019..=2020 => Overtime::CollegeEra { two_from: 3, shootout_from: 5 },
@@ -275,10 +475,57 @@ impl Rules {
         }
     }
 
-    /// States that play high school football under NCAA rules (Texas,
-    /// Massachusetts): college hashes and clock, still high school length.
-    pub fn high_school_on_college_rules() -> Rules {
-        Rules { hash: 6.667, ..Rules::for_level(Level::HS) }
+    /// A high school game in a state in a season (engine gaps lane EG5,
+    /// item 23). Texas plays NCAA rules (with the UIL's own changes) in
+    /// every season and Massachusetts did through 2018 (NFHS from 2019):
+    /// their games take the NCAA's foul, kick and fumble rules (`fouls.rs`,
+    /// engine gaps item 4) and its rules at 0:00 (item 22). Both
+    /// keep college hash marks, the fields they were laid out for; every
+    /// other state plays the NFHS book. Year 0 reads as today's.
+    pub fn high_school(state: &str, year: i32) -> Rules {
+        let mut r = Rules::for_year(Level::HS, year, false);
+        if matches!(state, "TX" | "MA") {
+            r.hash = 6.667;
+        }
+        let college = match state {
+            "TX" => true,
+            "MA" => year != 0 && year <= 2018,
+            _ => false,
+        };
+        if college {
+            r.fouls = Some(super::fouls::Fouls::Ncaa);
+            r.fumbles = Some(FumbleRule::NCAA);
+            // The NCAA's rules at 0:00 of that season (year 0 reads as
+            // today's).
+            r.period_end = Some(Rules::for_year(Level::FBS, year, false).period_end());
+        }
+        r
+    }
+
+    /// Whose foul rules the game is played under: the NFL's (the other
+    /// leagues too, `books.rs`), the NCAA's, or the NFHS's.
+    pub fn foul_book(&self) -> super::fouls::Fouls {
+        self.fouls.unwrap_or(super::fouls::Fouls::of_level(self.level))
+    }
+
+    /// The fumble rules in play (engine gaps item 4): the book's own where
+    /// it has them, otherwise the level's.
+    /// The rules at 0:00 in play (engine gaps item 22): the book's own
+    /// where it has them, otherwise the level's today.
+    pub fn period_end(&self) -> PeriodEnd {
+        self.period_end.unwrap_or(match self.level {
+            Level::NFL => PeriodEnd::NFL,
+            Level::HS => PeriodEnd::NFHS,
+            _ => PeriodEnd::NCAA,
+        })
+    }
+
+    pub fn fumble_rule(&self) -> FumbleRule {
+        self.fumbles.unwrap_or(match self.level {
+            Level::NFL => FumbleRule::NFL,
+            Level::HS => FumbleRule::NFHS,
+            _ => FumbleRule::NCAA,
+        })
     }
 }
 

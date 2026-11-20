@@ -154,10 +154,10 @@ impl Store {
                 return;
             }
             if let Some(s) = open.get(super::Level::College, id) {
-                out.college.add(s, season);
+                out.college.add(&s, season);
             }
             if let Some(s) = open.get(super::Level::Nfl, id) {
-                out.nfl.add(s, season);
+                out.nfl.add(&s, season);
             }
             out.through = season;
         };

@@ -366,7 +366,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "staff": a.college_staff,
         });
         if let Some(p) = &a.player {
-            v["detail"] = player_detail(p);
+            v["detail"] = player_detail(&p.get());
         }
         f.put(v);
     }
@@ -386,7 +386,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "potential": r1(debug::person_potential(q)), "stars": q.stars, "camp_stars": q.camp_stars, "class_of": q.class_of,
             "state": STATE_CENTERS[q.home_state].0, "hs": q.hs, "college": q.college, "path": q.path,
             "college_seasons": q.college_seasons, "transfers": q.transfers, "juco": q.juco, "nil": q.nil_income.round(),
-            "role": q.last_role.map(|r| r.name()), "perf": q.last_performance.map(r1), "gpa": q.gpa_at_signing.map(r2),
+            "role": q.last_role.map(|r| r.name()), "perf": q.last_performance.get().map(r1), "gpa": q.gpa_at_signing.map(r2),
             "mood": r2(q.mood as f64), "coach_trust": r2(q.trust as f64), "mood_why": q.mood_why,
         });
         if college {
@@ -459,7 +459,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         f.put(v);
     }
     for a in w.alumni.iter().filter(|a| a.pro.is_some()) {
-        let (id, age) = a.player.as_ref().map_or((0, 0), |p| (p.id, p.age));
+        let (id, age) = a.player.as_ref().map_or((0, 0), |p| (p.id, p.get().age));
         f.put(pro_row(
             w,
             id,

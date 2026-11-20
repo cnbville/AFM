@@ -1493,11 +1493,7 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     let s = w.high_schools.get(me)?.state;
     let st = &hs.states[s];
     let code = w.states[s].code.clone();
-    let rules = if matches!(code.as_str(), "TX" | "MA") {
-        crate::game::Rules::high_school_on_college_rules()
-    } else {
-        crate::game::Rules::for_level(crate::player::Level::HS)
-    };
+    let rules = crate::game::Rules::high_school(&code, w.year);
     // (home, away, week index, seed, key, final, playoff)
     let found = if let Some(k) = st.weeks.iter().position(|&g| g == d) {
         let seed = (w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 8 ^ 0x6761) ^ 0x55;
@@ -1618,11 +1614,7 @@ fn engine_games(
     if games.is_empty() {
         return Vec::new();
     }
-    let rules = if matches!(w.states[s].code.as_str(), "TX" | "MA") {
-        crate::game::Rules::high_school_on_college_rules()
-    } else {
-        crate::game::Rules::for_level(crate::player::Level::HS)
-    };
+    let rules = crate::game::Rules::high_school(&w.states[s].code, w.year);
     let seat = w.seat_school();
     let logging = w.logging();
     let trial_log = w.options.keep_game_log && w.recording;
@@ -2357,7 +2349,7 @@ fn all_state(w: &mut World, s: usize, d: Date) {
                     continue;
                 }
                 // Games missed count against him: voters reward a full season.
-                let perf = p.last_performance.unwrap_or(p.player.overall()) - 0.6 * p.cal.hs_grade_out as f64;
+                let perf = p.last_performance.get().unwrap_or(p.player.overall()) - 0.6 * p.cal.hs_grade_out as f64;
                 by_pos[p.player.position.index()].push((perf, i));
             }
         }
@@ -2771,7 +2763,7 @@ pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
             })
             .map(|(i, p)| {
                 let stars = if pos.is_specialist() { p.camp_stars } else { p.stars } as f64;
-                let read = p.cal.service_read.unwrap_or(p.player.overall());
+                let read = p.cal.service_read.get().unwrap_or(p.player.overall());
                 let mut score = 10.0 * stars
                     + 0.25 * film_raw(p, &played)
                     + 0.75 * read
@@ -3078,6 +3070,31 @@ impl World {
     /// Whether a school is in its state's playoff field and still alive.
     pub fn hs_alive(&self, h: usize) -> bool {
         self.hs_season.as_ref().is_some_and(|hs| hs.brackets.iter().any(|b| b.alive(h as u32)))
+    }
+
+    /// The date of a school's next playoff game: its round in its state's
+    /// bracket (the next one after a bye; a bracket that starts late starts
+    /// at its own round), or, before the state draws its brackets (on its
+    /// first round's morning), in the field its results will draw
+    /// (`hs_playoffs::build`, as `seed_playoffs` draws it). None out of the
+    /// field, or crowned without a game.
+    pub(crate) fn hs_next_round(&self, h: usize) -> Option<Date> {
+        let hs = self.hs_season.as_ref()?;
+        let s = self.high_schools.get(h)?.state;
+        let st = hs.states.get(s).filter(|st| !st.done)?;
+        let me = h as u32;
+        let next = |b: &super::hs_playoffs::Bracket| -> Option<Date> {
+            if !b.alive(me) {
+                return None;
+            }
+            let plays = b.games().iter().any(|&(x, y)| x == me || y == me);
+            st.rounds.get(b.round as usize + usize::from(!plays)).copied()
+        };
+        if hs.brackets.iter().any(|b| b.state as usize == s) {
+            return hs.brackets.iter().filter(|b| b.state as usize == s).find_map(next);
+        }
+        let opps = super::hs_playoffs::opponents(self.high_schools.len(), &hs.played);
+        super::hs_playoffs::build(self, s, &hs.results, &hs.district, &opps, st.rounds.len()).iter().find_map(next)
     }
 
     /// The day this year's new class joins the high school rosters.

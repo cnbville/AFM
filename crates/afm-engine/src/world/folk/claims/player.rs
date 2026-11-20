@@ -406,7 +406,7 @@ fn sightings(r: &Reader, m: &Man) -> Vec<Seen> {
             let snaps = |l: &crate::game::stats::StatLine| if offense { l.snaps_off } else { l.snaps_def };
             let line = g.stats.players[side].get(&m.id);
             // A game he wasn't with you for, or missed hurt, says nothing.
-            let hurt = w.training.hurt.iter().any(|h| h.id == m.id && h.from <= g.date && g.date <= h.until);
+            let hurt = crate::world::folk::seen::hurt_in(w, g, m.id);
             if line.is_none() && (hurt || since.is_none_or(|d| d > g.date)) {
                 continue;
             }
@@ -752,9 +752,9 @@ fn life_events(r: &Reader, m: &Man) -> Vec<Point> {
 }
 
 /// A promise's topic, so two promises due the same day are two points.
-pub(super) const PROMISE_TOPICS: [&str; 14] = [
+pub(super) const PROMISE_TOPICS: [&str; 16] = [
     "start", "snaps", "contract", "stay", "booster", "raise", "place", "join", "recruit", "touches", "position",
-    "usage", "draft", "help",
+    "usage", "draft", "help", "captain", "work",
 ];
 
 fn promise_topic(k: talks::PromiseKind) -> &'static str {
@@ -774,6 +774,8 @@ fn promise_topic(k: talks::PromiseKind) -> &'static str {
         P::Usage => 11,
         P::Draft(_) => 12,
         P::Help(_) => 13,
+        P::Captain => 14,
+        P::Work(_) => 15,
     }]
 }
 

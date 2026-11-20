@@ -79,6 +79,8 @@ fn game(w: &mut World, p: usize, ago: i32, score: [u32; 2], snaps: &[(u32, u32)]
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
     w.seat_games.sort_by_key(|g| g.date);
 }

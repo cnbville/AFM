@@ -39,6 +39,7 @@
 //! (`live_talk::persona`), beside the whitelist card and the reply filter
 //! they reuse.
 
+pub mod after;
 pub mod asks;
 pub mod deals;
 // Lane N5e, scouting and the draft.
@@ -46,6 +47,7 @@ pub mod draft;
 pub mod ear;
 pub mod evaluate;
 pub mod fake;
+pub mod haggle;
 pub mod knows;
 // How you talk (coach voice): your manner read, kept and reacted to.
 pub mod home;
@@ -62,6 +64,7 @@ pub mod wants;
 // and patience, the stores, people coming to you.
 pub mod coaching;
 pub mod coming;
+pub mod crowd;
 pub mod feel;
 pub mod football;
 pub mod gameday;
@@ -76,6 +79,7 @@ pub mod wanting;
 // references, staff contracts, your own deal, boosters, compliance).
 pub mod office;
 pub mod review;
+pub mod speech;
 
 use super::cast::CastRef;
 

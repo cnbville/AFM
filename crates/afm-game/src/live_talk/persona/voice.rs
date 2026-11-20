@@ -12,8 +12,22 @@ use crate::live_talk::filter;
 /// The voice's label (the fake's queue uses it too).
 pub const VOICE: &str = "persona_voice";
 
-/// The voice's longest answer, in tokens. Proposed, not confirmed.
-pub const VOICE_TOKENS: u32 = 450;
+/// The voice's longest answer, in tokens, its short think included
+/// (thinking counts toward the limit). Proposed, not confirmed.
+pub const VOICE_TOKENS: u32 = 1600;
+
+/// How hard the voice thinks before it answers (talk replies item 9):
+/// adaptive thinking at low effort, a short think, as the ear has had
+/// since its audit. About double a reply's cost and a second slower.
+/// Proposed, not confirmed.
+pub const VOICE_THINK: &str = "low";
+
+/// The voice's call for one card's text: its rules (cached), its form, its
+/// limit and its think. Every voice call is built here, so a talk, a game
+/// day and the checks ask the same way.
+pub fn request(card_text: &str) -> afm_ai::Request {
+    afm_ai::Request::new(VOICE, VOICE_RULES, card_text).schema(schema()).max_tokens(VOICE_TOKENS).think(VOICE_THINK)
+}
 
 /// The longest colour note kept, in characters. Proposed, not confirmed.
 pub const COLOUR_CHARS: usize = 120;
@@ -29,6 +43,12 @@ Rules:
 - Play toward what the talk is to you: what rides on it and what you want from it. Push for it the way this man would: make your case from what the card says you can point to, ask what you need to know, bargain. Never act surprised by what the card says you already know is at stake.
 - When the coach pushes back or puts you on the spot (your job, your role, a decision against you, a doubt about your work), argue with reasons the way a real professional does: what you've done, why it went the way it did, what you'd change, what you need. Your reasons come from the card (what you can point to, your football, the talk so far), never a number, score, game or stat it doesn't give you. Don't deflect, change the subject, threaten or give up while he's still talking it through. Take a no, with the grace or the edge this man has, once he makes it final.
 - When the card says what the coach just did, react to that first, in your own words: take it, or fight it with your reasons.
+- The card says how the coach's line landed with you. Let your answer show it, never name it: eased, you warm a little; it stung or didn't sit well, you cool, push back or go short; it didn't move you, you stay where you were. Never thank him for a line that didn't land.
+- When he makes you a promise, take it the way the card says you take it: believe it, take it warily, or doubt it out loud. Ask for it in writing or on paper only when the card says you want it in writing.
+- Remember the whole talk and what the card says it has settled so far: never reopen what's agreed, never forget what he promised or turned down earlier in this talk, and never ask for something he's already given.
+- Money the way people say it: \"$2.8 million\" can be \"two-eight\" or \"2.8\", \"$850,000\" can be \"eight-fifty\". Say only figures the card gives you.
+- Talk the way the card's Your way of talking says, every line. Don't open with \"Coach,\" by habit, don't open with \"I appreciate\" or \"I hear you\", and never open by repeating the coach's words back (\"Slot?\", \"A star, huh?\", \"Elite hands, you say?\"). Start each line differently from your earlier ones.
+- Your line is only what you say out loud: never narrate what you do or describe yourself in the third person (\"He walks out.\"). When the card says you walk out, say what you say on your way out.
 - React to the coach's specifics the way this man would.
 - Live in the card's Time of year: it says where your team's year is and what comes next. Out of season there is no game to see anything in, so when you want to see something proven or a promise kept, name the next real moment the card gives (winter workouts, spring practice, OTAs, camp, the first game), never \"on the field\", \"this week\" or \"Saturday\" when no game is coming.
 - Say everything on the card's list of what you say this turn, in your own words, and add no fact, name, date, number, result, offer or promise that isn't on the card. If the coach asked for more than the list gives, you don't give it: deflect, hold back or say you don't know, as the card says.
@@ -61,6 +81,7 @@ pub fn schema() -> Value {
 /// filter against the card. None when the line doesn't pass.
 pub fn read(v: &Value, card_text: &str) -> Option<(String, Option<String>)> {
     let line = unparrot(v.get("line").and_then(Value::as_str)?, card_text)?;
+    let line = no_paper(&line, card_text)?;
     // A line with one bad sentence keeps the rest (`filter::salvage`).
     let line = match filter::check(&line, card_text) {
         Ok(l) => l,
@@ -74,6 +95,31 @@ pub fn read(v: &Value, card_text: &str) -> Option<(String, Option<String>)> {
         .and_then(|c| filter::check(c, card_text).ok())
         .filter(|c| !c.chars().any(|x| x.is_ascii_digit()));
     Some((line, colour))
+}
+
+/// The stock asks for paper (talk replies item 2): "I've heard promises
+/// before, show me on paper" turned up in 4 of Cain's 17 replies, and
+/// "I need it on paper" again on the voice's own after the rule against it.
+pub const PAPER: [&str; 4] = ["on paper", "in writing", "put it in writing", "in ink"];
+
+/// His line without a sentence that asks for paper, unless the game decided
+/// he wants it in writing ("He wants it in writing." on the card). A line
+/// that is all about paper stands as it is.
+pub fn no_paper(line: &str, card_text: &str) -> Option<String> {
+    if card_text.contains("He wants it in writing.") {
+        return Some(line.to_string());
+    }
+    let paper = |s: &str| {
+        let low = s.to_lowercase();
+        PAPER.iter().any(|p| low.contains(p))
+    };
+    let all = filter::sentences(line);
+    if !all.iter().any(|s| paper(s)) {
+        return Some(line.to_string());
+    }
+    let kept: Vec<String> = all.iter().filter(|s| !paper(s)).cloned().collect();
+    // All of it about paper: his line stands rather than a stock fallback.
+    Some(if kept.is_empty() { line.to_string() } else { kept.join(" ") })
 }
 
 /// The words a card line about him starts with that, said by him, give the

@@ -27,6 +27,35 @@ const JOB_MISFIT: f64 = 0.03;
 /// count he watches the ball, not the cadence. (0.3 until every receiver
 /// had a release (minor bug 135), which left the NFL edge at 1.5 points.)
 const SILENT_RELEASE: f64 = 0.38;
+/// A fumbled snap (engine gaps item 5): its chance under center and in the
+/// shotgun with a typical starting center and quarterback, the
+/// quarterback's share of the blame, and each point of a rating under the
+/// level's typical starter's (the quarterback's Ball Handling, the
+/// center's Shotgun Snap). Real, nflverse 2021-25: 0.185 a team game, 0.467%
+/// of snaps under center and 0.228% in the shotgun, the offense keeping
+/// 75%; it was never fumbled. Of the center's own bad snaps half under
+/// center and a quarter in the shotgun never get to the quarterback (the
+/// center's fumble). Proposed, not confirmed.
+const SNAP_UNDER_CENTER: (f64, f64) = (0.0049, 0.7);
+const SNAP_SHOTGUN: (f64, f64) = (0.00247, 0.4);
+const SNAP_SLOPE: f64 = 0.03;
+const SNAP_WILD: (f64, f64) = (0.5, 0.25);
+/// A handoff on the ground (engine gaps item 7): 0.06%, about one in 1,700,
+/// with a typical starting back and quarterback, 3% more a point under
+/// them (one in 500 before, read raw). Proposed, not confirmed.
+const EXCHANGE: f64 = 0.0006;
+const EXCHANGE_SLOPE: f64 = 0.03;
+/// A strip sack (engine gaps item 6) with a typical sack's force (1,500
+/// times `hit_scale`, read straight), a passer at his level's typical
+/// starting back's Ball Security who saw it coming; × 2.3 for a hit he
+/// never saw, × 1.6 in his throwing motion, 2.5% a point of Ball Security
+/// under that back's. Real 12.4% of sacks (engine 4.7%). Proposed, not
+/// confirmed.
+const STRIP_SACK: f64 = 0.0635;
+const STRIP_SACK_FORCE: f64 = 1500.0;
+const STRIP_UNSEEN: f64 = 2.3;
+const STRIP_MOTION: f64 = 1.6;
+const STRIP_BS: f64 = 0.025;
 use super::playbook::*;
 use super::roster::GamePlayer;
 use super::rules::Rules;
@@ -143,7 +172,45 @@ pub struct Snap<'a> {
     /// when the return team showed the look: its front turns to set up
     /// the return.
     pub fake_punt: Option<bool>,
+    /// A fake field goal (engine gaps item 21): the field goal unit in its
+    /// kick formation against the block unit, the snap to the holder
+    /// (`ORole::QB`; the kicker beside him as `ORole::RB`). The block unit
+    /// comes for the kick and reads the fake late.
+    pub fake_kick: bool,
+    /// The fumble rules on this snap (engine gaps item 4): who may advance
+    /// a loose ball, by the level's book, the down and the clock.
+    pub fumble: super::sim::FumbleSnap,
+    /// How the man with the ball plays the clock (engine gaps item 18).
+    pub clock_run: super::sim::ClockRun,
 }
+
+/// A Hail Mary (engine gaps item 15, proposed, not confirmed): the
+/// receivers' spots spread by this share of how far apart they lined up;
+/// the passer throws when his deepest man is this close to the goal line,
+/// or at `HAIL_WAIT` seconds. In the crowd (`crowd_ball`): a man within
+/// `CROWD_REACH` yards goes up for it, `CROWD_YARD` inches of high point
+/// lost a yard away; a defender's pick, a receiver's catch (over one and
+/// `CROWD_HELP` a defender at him, `CROWD_SHORT` of it on a ball that comes
+/// down short of the goal line) and a tip to the next man.
+const HAIL_SPREAD: f64 = 0.3;
+const HAIL_THROW_AT: f64 = 6.0;
+const HAIL_WAIT: f64 = 6.5;
+const CROWD_REACH: f64 = 3.0;
+const CROWD_YARD: f64 = 6.0;
+const CROWD_PICK: f64 = 0.4;
+const CROWD_CATCH: f64 = 0.9;
+const CROWD_SHORT: f64 = 0.3;
+const CROWD_HELP: f64 = 0.2;
+const CROWD_TIP: f64 = 0.3;
+/// The last play's laterals (engine gaps item 16, proposed, not
+/// confirmed): a man pitches when a free tackler is within `LAT_THREAT`
+/// yards, to a teammate 2 to `LAT_RANGE` yards away and behind him.
+const LAT_THREAT: f64 = 4.0;
+const LAT_RANGE: f64 = 12.0;
+/// The men trailing the ball on the laterals: this far behind it and to
+/// either side (proposed, not confirmed).
+const LAT_TRAIL: f64 = 1.5;
+const LAT_SIDE: f64 = 2.0;
 
 /// What the plan and the game so far bring to one snap (plays and tactics
 /// topics 2-7).
@@ -300,6 +367,15 @@ pub struct SnapResult {
     pub frames: Option<Vec<Frame>>,
     /// Effort per agent: (side, player index, work).
     pub work: Vec<(usize, usize, f64)>,
+    /// The offense has the ball back after the defense had it (a fumbled
+    /// interception return it recovered): a new series, first and ten
+    /// (engine gaps item 4).
+    #[serde(default)]
+    pub new_series: bool,
+    /// Where a loose ball came out, x in the offense's frame: a lost
+    /// fumble's yards run to it (engine gaps item 4).
+    #[serde(default)]
+    pub fumble_at: Option<f64>,
 }
 
 struct Pass {
@@ -339,6 +415,12 @@ struct Pass {
     /// Out of the pocket with his eyes still downfield (the scramble
     /// drill): the side he broke to and when (minor bug 138).
     extend: Option<(f64, f64)>,
+    /// In his throwing motion this tick (`quarterback`): a hit now can
+    /// knock the ball out as he throws (engine gaps item 6).
+    motion: bool,
+    /// The ball came loose and the pass is over: whoever has it now runs
+    /// with it (engine gaps item 4).
+    broken: bool,
     /// The play fake (scheme-fit item 3), when there is a back to fake to.
     fake: Option<Fake>,
 }
@@ -424,6 +506,13 @@ thread_local! {
         const { std::cell::Cell::new(Trails { n: 0, ticks: 0, rows: Vec::new() }) };
 }
 
+/// The wind's miss on a throw, a mph squared at low speeds, and the wind
+/// in mph where it starts to level off (item 30; `throw`).
+const WIND_MISS: f64 = 0.00129;
+const WIND_GALE: f64 = 20.0;
+/// A wet ball's miss on a throw, a yard of its flight (item 30).
+const WET_THROW: f64 = 0.007;
+
 /// Run a snap.
 pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let los = s.los;
@@ -434,7 +523,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let mut slot_of: Vec<Option<DSlot>> = Vec::new();
     for &(r, p) in s.offense {
         let gp = super::sim::hampered(&s.teams[0][p], s.hurt[0][p]);
-        let pos = if s.fake_punt.is_some() { punt_spot(&f, r, los, by, s.rules.level) } else { align(&f, r, los, by) };
+        let pos = if s.fake_punt.is_some() {
+            punt_spot(&f, r, los, by, s.rules.level, matches!(s.call.kind, PlayKind::Pass(_)))
+        } else if s.fake_kick {
+            kick_spot(&f, r, los, by)
+        } else {
+            align(&f, r, los, by)
+        };
         let mut a = Agent::new(0, p, &gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]);
         if let Some(t) = s.pulse[0].get(p) {
             a.fire_up(t);
@@ -506,10 +601,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         fight: Vec::new(),
         fight_since: 0.0,
         screen: None,
+        hold_edge: None,
+        hold_slip: [0.0; super::sim::MAX_AGENTS],
         open_reach: SCRIMMAGE_REACH,
         press: 0.0,
         designed_run: false,
         lane: None,
+        clock_run: s.clock_run,
         bites: Vec::new(),
         two_gap: s.two_gap,
         help_on: None,
@@ -520,6 +618,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         level: s.rules.level,
         mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
         targeting: s.rules.targeting,
+        concussion: s.rules.concussion,
+        fouls: s.rules.foul_book(),
+        loose: None,
+        fumble_rule: s.fumble,
+        grab: 1.0,
+        ibb: 1.0,
+        resume: None,
+        caught: -9.0,
         tend_memo: super::sim::tend_memo(),
         reach_memo: super::sim::reach_memo(),
     };
@@ -568,6 +674,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         notes: Notes::default(),
         frames: None,
         work: Vec::new(),
+        new_series: false,
+        fumble_at: None,
     };
     res.box_count =
         sim.agents.iter().filter(|a| a.side == 1 && a.pos.x < los + 7.0 && (a.pos.y - by).abs() < 7.5).count() as u8;
@@ -671,11 +779,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let new_job = JOB_READ * s.new_job.get(sim.agents[i].p).copied().unwrap_or(0.0) as f64;
         sim.agents[i].read_at = (base + extra + tend + slow + prep + freeze + 0.12 * tac.novelty + new_job).max(0.12);
     }
-    // A fake punt into a return team that turned to set up the return: its
-    // front has its back to the play and reads it late; a disciplined man
+    // A fake punt into a return team that turned to set up the return (its
+    // front has its back to the play), or a fake field goal into a block
+    // unit coming for the kick: the front reads it late; a disciplined man
     // checks for the fake before he turns (proposed, not confirmed: a
     // quarter of a second for an average man, an eighth to three eighths).
-    if s.fake_punt == Some(true) {
+    if s.fake_punt == Some(true) || s.fake_kick {
         for i in off_n..sim.agents.len() {
             let slot = slot_of[i].unwrap_or(DSlot::Mike);
             if matches!(slot, DSlot::FS | DSlot::CBL | DSlot::CBR | DSlot::NCB | DSlot::DCB) {
@@ -831,7 +940,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     sim.agents[i].job = Job::Passer;
                     continue;
                 }
-                let mut route = route_for(c, r);
+                // As his group lines up: a second or third tight end takes
+                // the route of the receiver whose spot he stands in (lane SF2).
+                let mut route = route_in(c, &f, r);
                 // Release him (the promises on usage, lane N2): the man your
                 // word lets out runs a route where the call keeps him in, a
                 // back to the flat, a tight end to sit in the hole at six.
@@ -850,6 +961,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 // throw). The back who fakes the run away from the roll
                 // takes his route later, from where the fake left him.
                 let out = (boot && r.is_back() && (sim.agents[i].pos.y - by).abs() < 0.5).then_some(side);
+                // A Hail Mary (engine gaps item 15): the backs stay in to
+                // block and everyone else goes to the end zone.
+                if s.call.hail && !matches!(route, Route::Block) {
+                    sim.agents[i].job =
+                        if r.is_back() { Job::PassBlock { target: None } } else { hail_route(&sim.agents[i], los, by) };
+                    continue;
+                }
                 sim.agents[i].job = route_job_to(&sim.agents[i], route, los, by, s.hurry, out);
                 let late = silent_late(&sim, s, i);
                 if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
@@ -897,7 +1015,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     set_at += 0.3 + 0.3 * sim.rng.next();
                 }
             }
-            let reads = c.reads.iter().filter_map(|r| find(*r)).collect::<Vec<_>>();
+            let reads = reads_in(c, &f).iter().filter_map(|r| find(*r)).collect::<Vec<_>>();
             pass = Some(Pass {
                 reads,
                 read: 0,
@@ -921,6 +1039,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 ball_h: 0.0,
                 give_up: false,
                 extend: None,
+                motion: false,
+                broken: false,
                 fake: None,
             });
             if c.drop == Drop::Screen {
@@ -953,6 +1073,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 sim.fake = Some(b);
             }
             assign_defense(&mut sim, s, off_n, &slot_of, &role_of, true);
+            if s.call.hail {
+                hail_defense(&mut sim, off_n);
+            }
             // Who the fake holds, and for how long: everyone who keys the
             // backfield plays the run he is shown until he reads the pass
             // (his own read, which the fake has already made later): the
@@ -1005,23 +1128,17 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 && ps.reads.len() > 1
                 && !matches!(c.drop, Drop::Screen | Drop::Bubble)
             {
-                // Each man is rated at his own spot: read at the receiver's
-                // spot, tight ends and backs never looked best and receivers
-                // drew 73% of NFL targets, real 59% (minor bug 137).
-                let rate = |sim: &Sim, r: usize| {
-                    use crate::spots::Spot;
-                    let spot = match sim.agents[r].label {
-                        "TE" => Spot::TE,
-                        "RB" => Spot::RB,
-                        "FB" => Spot::FB,
-                        _ => Spot::WR,
-                    };
-                    sim.player(r).spot_r[spot.index()]
-                };
-                let mut by: Vec<(usize, f64)> = ps.reads.iter().enumerate().map(|(k, &r)| (k, rate(&sim, r))).collect();
+                // Each man is read as a receiver against his own position's
+                // typical starter (scheme-fit item 25, `receiving_read`): his
+                // spot rating fed a back for his running and a tight end for
+                // his blocking. (Read at the receiver's spot, tight ends and
+                // backs never looked best and receivers drew 73% of NFL
+                // targets, real 59%: minor bug 137.)
+                let mut by: Vec<(usize, f64)> =
+                    ps.reads.iter().enumerate().map(|(k, &r)| (k, receiving_read(&sim, r))).collect();
                 by.sort_by(|a, b| b.1.total_cmp(&a.1));
                 let gap = by[0].1 - by[1].1;
-                if by[0].0 > 0 && sim.rng.chance(clamp(FEED_BASE + FEED_PER_POINT * gap, 0.0, FEED_MAX)) {
+                if by[0].0 > 0 && sim.rng.chance(feed_chance(gap)) {
                     let r = ps.reads.remove(by[0].0);
                     ps.reads.insert(0, r);
                     fed = true;
@@ -1186,6 +1303,19 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                         sim.agents[i].job = route_job(&sim.agents[i], route, los, by, false);
                     }
                 }
+                // Each lineman's feel for the limit while he blocks the run
+                // (EG5, minor bug 406): he stops `RPO_MARGIN` inside it,
+                // give or take `RPO_FEEL`, and a point of Football IQ over
+                // his level's typical starter keeps him `RPO_IQ` yards
+                // farther back (proposed, not confirmed).
+                for i in 0..off_n {
+                    if !is_line(sim.agents[i].label) {
+                        continue;
+                    }
+                    let fiq = sim.agents[i].a(Attr::FootballIq)
+                        - super::synthetic::typical_starter(sim.level, sim.player(i).position, Attr::FootballIq);
+                    sim.hold_slip[i] = sim.rng.normal(0.0, RPO_FEEL) - RPO_IQ * fiq;
+                }
             }
             // On a gap run the back follows the lead puller to the hole.
             lead_puller = (0..off_n).find(|&i| {
@@ -1194,6 +1324,58 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         }
         _ => {}
     }
+
+    // ------------------------------------------------------------- the snap
+    // Every snap can go wrong (engine gaps item 5): under center the
+    // exchange, the quarterback's hands most, the center's a little; in
+    // the shotgun the snap itself, the center's most; more with a wet
+    // ball. Each is read against the level's typical starter. A snap on
+    // the ground is a loose ball, a beat after it, the man charged with it
+    // the one at fault: the quarterback, or a center whose snap never got
+    // to him. (Sizes proposed, not confirmed.)
+    let gun = f.backfield != Backfield::UnderCenter;
+    let wet = (if s.cond.rain || s.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * s.cond.cold_unused);
+    let mut snap_loose: Option<(f64, bool)> = {
+        use crate::positions::Position as P;
+        let typ = |p: P, a: Attr| super::synthetic::typical_starter(sim.level, p, a);
+        let fq =
+            clamp(1.0 + SNAP_SLOPE * (typ(P::QB, Attr::BallHandling) - sim.agents[qb].a(Attr::BallHandling)), 0.4, 2.5);
+        let fc = clamp(
+            1.0 + SNAP_SLOPE * (typ(P::IOL, Attr::ShotgunSnap) - sim.agents[center].a(Attr::ShotgunSnap)),
+            0.4,
+            2.5,
+        );
+        let ((base, wq), wild) = if gun { (SNAP_SHOTGUN, SNAP_WILD.1) } else { (SNAP_UNDER_CENTER, SNAP_WILD.0) };
+        let (q, c) = (wq * fq, (1.0 - wq) * fc);
+        if center != qb && sim.rng.chance(base * (q + c) * wet) {
+            // The center's fault, and the ball never got to him: his.
+            let his = sim.rng.chance(c / (q + c)) && sim.rng.chance(wild);
+            let at = if gun { sim.rng.range(0.3, 0.4) } else { sim.rng.range(0.05, 0.15) };
+            Some((at, his))
+        } else {
+            None
+        }
+    };
+    // A quarterback who picks his own fumbled snap up behind the line goes
+    // on with his pass (`Sim::loose_won`).
+    if matches!(s.call.kind, PlayKind::Pass(_)) {
+        sim.resume = Some(qb);
+    }
+    // A bad shotgun snap on a run (high, low or wide) costs the mesh its
+    // timing, as it costs a passer the top of his drop (engine gaps item
+    // 5: only passes had it).
+    if gun && run_play {
+        let snap = sim.agents[center].a(Attr::ShotgunSnap);
+        if sim.rng.chance(clamp(0.004 - 0.0001 * (snap - 60.0), 0.001, 0.012)) {
+            let late = 0.3 + 0.3 * sim.rng.next();
+            for i in 0..off_n {
+                if let Job::Handoff { at, .. } = &mut sim.agents[i].job {
+                    *at += late;
+                }
+            }
+        }
+    }
+    let mut resumed = false;
 
     // ------------------------------------------------------------- the play
     let max_t = 14.0;
@@ -1210,8 +1392,69 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         sim.link_speeds();
         let t = sim.t;
         trail.record(&sim.agents);
+        // The snap on the ground (engine gaps item 5): under center at his
+        // feet as he comes away, in the shotgun off his hands or past him
+        // with the snap's speed.
+        if let Some((at, his)) = snap_loose
+            && t + 1e-9 >= at
+        {
+            snap_loose = None;
+            if matches!(sim.ball, Ball::Held(h) if h == qb) {
+                let q = sim.agents[qb].pos;
+                sim.fumble(qb, super::sim::FumbleHow::Snap);
+                // He finds the ball a beat late: under center at his feet,
+                // in the shotgun off his hands or past him.
+                sim.agents[qb].last_try = t;
+                if his {
+                    sim.notes.fumbled = Some(sim.agents[center].id);
+                }
+                let ang = sim.rng.range(-std::f64::consts::PI, std::f64::consts::PI);
+                let spin = v2(ang.cos(), ang.sin());
+                let (pos, vel) = if !gun {
+                    (q + spin.scale(0.3), spin.scale(sim.rng.range(0.5, 2.5)))
+                } else if his {
+                    // Over his head or skipped past him.
+                    (q + v2(-1.0, sim.rng.range(-0.8, 0.8)), v2(-sim.rng.range(4.0, 8.0), sim.rng.range(-1.5, 1.5)))
+                } else {
+                    (q + spin.scale(0.4), v2(-sim.rng.range(1.0, 3.0), 0.0) + spin.scale(sim.rng.range(0.5, 2.0)))
+                };
+                if let Some(l) = sim.loose.as_mut() {
+                    l.vel = vel;
+                }
+                sim.ball = Ball::Loose(pos);
+            }
+        }
+        // A loose ball (engine gaps item 4): it rolls and everyone goes for
+        // it, the play's own jobs on hold, until someone has it or it is
+        // dead. Whoever comes up with it runs with it, the pass over; a
+        // quarterback who picks up his own fumbled snap behind the line on a
+        // pass goes on with it.
+        if matches!(sim.ball, Ball::Loose(_)) {
+            sim.loose_tick();
+            if let Ball::Held(w) = sim.ball {
+                aim = None;
+                if sim.resume == Some(w) {
+                    // The play goes on: the loose ball no longer ends it.
+                    resumed = true;
+                    sim.loose = None;
+                } else {
+                    if let Some(ps) = pass.as_mut() {
+                        ps.broken = true;
+                    }
+                    option_live = false;
+                    handoff_done = true;
+                }
+            }
+            sim.record_frame();
+            if super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed) && ((sim.t * 10.0).round() as i64) % 5 == 0
+            {
+                sim.trace();
+            }
+            continue;
+        }
         let carrier = sim.carrier();
-        let qb_has = carrier == Some(qb) && pass.as_ref().is_some_and(|p| p.thrown.is_none() && !p.scramble);
+        let qb_has =
+            carrier == Some(qb) && pass.as_ref().is_some_and(|p| p.thrown.is_none() && !p.scramble && !p.broken);
         let in_air = matches!(sim.ball, Ball::Air { .. });
         sim.update_blocks(if qb_has { Some(qb) } else { None }, carrier);
 
@@ -1235,12 +1478,26 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             }
         }
 
+        // An RPO's line blocks inside its book's limit until the ball is
+        // handed off, and stays there once the quarterback pulls it until
+        // he throws (engine gaps lane EG5, minor bug 406): the rule every
+        // RPO line is taught. It used to run-block as on any run, climbing
+        // to the second level, and a third of RPO throws drew the flag
+        // (real NFL 2.8%, FTN and nflverse 2022-24).
+        let rpo_hold = matches!(s.call.kind, PlayKind::Rpo(..))
+            && (!handoff_done || pass.as_ref().is_some_and(|p| p.thrown.is_none()));
+        let edge = los + s.tac.downfield - RPO_MARGIN;
+        // Its blocks stop there too (`Sim::update_blocks`).
+        sim.hold_edge = if rpo_hold { Some(edge) } else { None };
         // Combination blocks: the man with a linebacker to climb to leaves
         // the double team once the down lineman is controlled, when his
         // linebacker comes downhill at it, or after a second at most
-        // (fix list S6.1; proposed, not confirmed).
+        // (fix list S6.1; proposed, not confirmed). On an RPO he waits.
         for i in 0..off_n {
             let Some(lb) = sim.agents[i].climb else { continue };
+            if rpo_hold && is_line(sim.agents[i].label) {
+                continue;
+            }
             let Some(k) = sim.agents[i].engaged else { continue };
             let e = &sim.eng[k];
             if e.over {
@@ -1414,6 +1671,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     ball_h: 0.0,
                                     give_up: false,
                                     extend: None,
+                                    motion: false,
+                                    broken: false,
                                     fake: None,
                                 });
                                 sim.agents[qb].job = Job::Passer;
@@ -1453,13 +1712,26 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             sim.ball = Ball::Held(i);
                             sim.progress = sim.agents[i].pos.x;
                             res.carrier = Some(sim.agents[i].id);
-                            // A rare bad exchange: the back's ball security and
-                            // the quarterback's ball handling.
-                            let hands = 0.65 * sim.agents[i].a(Attr::BallSecurity)
-                                + 0.35 * sim.agents[qb].a(Attr::BallHandling);
-                            if sim.rng.chance(0.0025 * (1.6 - hands / 100.0)) {
-                                sim.notes.fumbled = Some(sim.agents[i].id);
-                                sim.fumble(i);
+                            // A rare bad exchange (engine gaps item 7): the
+                            // back's ball security and the quarterback's ball
+                            // handling, each read against the level's typical
+                            // starter. Real, about one handoff in 2,000 in the
+                            // NFL (nflverse 2021-25: unforced fumbles are 11%
+                            // of designed runs' fumbles, many of them the
+                            // quarterback's own); it was one in 500. (Sizes
+                            // proposed, not confirmed.)
+                            use crate::positions::Position as P;
+                            let typ = |p: P, a: Attr| super::synthetic::typical_starter(sim.level, p, a);
+                            let fx = clamp(
+                                1.0 + EXCHANGE_SLOPE
+                                    * (0.65 * (typ(P::RB, Attr::BallSecurity) - sim.agents[i].a(Attr::BallSecurity))
+                                        + 0.35
+                                            * (typ(P::QB, Attr::BallHandling) - sim.agents[qb].a(Attr::BallHandling))),
+                                0.4,
+                                2.5,
+                            );
+                            if sim.rng.chance(EXCHANGE * fx) {
+                                sim.fumble(i, super::sim::FumbleHow::Exchange);
                             }
                         }
                     }
@@ -1477,8 +1749,19 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 Job::PitchMan => {
                     // He keeps his pitch relationship: about four yards
                     // outside the quarterback and a yard and a half behind.
-                    let q = sim.agents[qb].pos;
-                    let spot = v2(q.x - 1.5, q.y + 4.5 * s.call.dir);
+                    // On the last play's laterals (engine gaps item 16) the
+                    // men trail the ball for the pitch instead, three yards
+                    // behind it and to either side.
+                    let spot = match sim.ball {
+                        Ball::Held(c) if s.call.laterals && c != i => {
+                            let b = sim.agents[c].pos;
+                            v2(b.x - LAT_TRAIL * sim.goal, b.y + if i % 2 == 0 { LAT_SIDE } else { -LAT_SIDE })
+                        }
+                        _ => {
+                            let q = sim.agents[qb].pos;
+                            v2(q.x - 1.5, q.y + 4.5 * s.call.dir)
+                        }
+                    };
                     sim.go_to(i, spot, 1.0);
                 }
                 Job::PassBlock { target } => {
@@ -1486,12 +1769,21 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     match target.filter(|&d| sim.agents[d].up(t) && sim.agents[d].engaged.is_none()) {
                         Some(d) => {
                             // He sets between the rusher and the quarterback and
-                            // mirrors him (kick slide), matching his speed.
+                            // mirrors him (kick slide), matching his speed. He
+                            // lets the rusher come to him, never a step past
+                            // his own line (`PASS_SET`): he used to walk up to
+                            // meet a blitzer from depth, and a pass thrown
+                            // past the line found a lineman two yards
+                            // downfield on one dropback in seven (EG5, minor
+                            // bug 406).
                             let dp = sim.agents[d].pos;
                             let dv = sim.agents[d].vel;
                             let spot = dp + (q - dp).norm().scale(1.0) + dv.scale(0.15);
+                            let set = los - PASS_SET;
+                            let spot = v2(spot.x.min(set), spot.y);
                             let me = sim.agents[i].pos;
-                            sim.steer(i, dv.scale(0.8) + (spot - me).scale(3.0));
+                            let want = dv.scale(0.8) + (spot - me).scale(3.0);
+                            sim.steer(i, hold_at(want, me.x, set, sim.agents[i].brake()));
                             // (On the square, `sq_lt`: the same answer.)
                             if sq_lt(me.dist_sq(dp), 1.5) && sim.can_square(i, d, q) {
                                 sim.engage(i, d, true);
@@ -1584,6 +1876,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             let vm = sim.agents[i].vmax * lead;
                             let want =
                                 if gap.len() > 1.5 { gap.norm().scale(vm) } else { sim.agents[d].vel + gap.scale(3.0) };
+                            let want = if rpo_hold && is_line(sim.agents[i].label) {
+                                hold_at(want, me.x, edge + sim.hold_slip[i], sim.agents[i].brake())
+                            } else {
+                                want
+                            };
                             sim.steer(i, want);
                             // At the line the hands are already close: he fires
                             // out and gets his hands on a lineman at once.
@@ -1618,7 +1915,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                 let mut near = Nearest::default();
                                 for d in off_n..sim.agents.len() {
                                     let a = &sim.agents[d];
-                                    if a.up(t) && a.engaged.is_none() && a.pos.x > ballx - 1.0 {
+                                    let inside = !(rpo_hold && is_line(sim.agents[i].label)) || a.pos.x < edge + 1.5;
+                                    if a.up(t) && a.engaged.is_none() && a.pos.x > ballx - 1.0 && inside {
                                         let sq = a.pos.dist_sq(me);
                                         if sq_lt(sq, 6.0) {
                                             near.offer(d, sq);
@@ -1635,6 +1933,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                 }
                                 _ => {
                                     let ahead = v2(me.x + 1.0, me.y);
+                                    let ahead = if rpo_hold && is_line(sim.agents[i].label) {
+                                        v2(ahead.x.min(edge + sim.hold_slip[i]), ahead.y)
+                                    } else {
+                                        ahead
+                                    };
                                     sim.go_to(i, ahead, 0.5);
                                 }
                             }
@@ -1655,19 +1958,144 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         if let Some(ps) = pass.as_mut()
             && ps.thrown.is_none()
             && !ps.scramble
+            && !ps.broken
             && sim.carrier() == Some(qb)
             && !sim.dead
         {
             if let Some(th) = quarterback(&mut sim, ps, qb, s, center) {
-                // A lineman too far downfield when a pass crosses the line
-                // (an RPO pulled late): the flag, when the crew sees it.
-                if run_play && th.0.x > los {
+                // A lineman too far downfield when a pass crosses the line:
+                // the flag, when the crew sees it (engine gaps lane EG5, item
+                // 26, minor bug 406). Every level's rule lets a lineman who met
+                // a man at the line drive him back past the limit while he
+                // stays locked on him; one who released downfield, or climbed
+                // off his man to the second level, is past it. On every pass,
+                // not only an RPO's (bug 406: every lineman still driving a
+                // defensive lineman on an RPO throw was flagged).
+                if th.0.x > los {
+                    // Locked on a man he took on inside the limit: a block
+                    // begun there may carry him past it; a man he climbed to
+                    // downfield doesn't count.
+                    let locked = |k: usize| {
+                        sim.agents[k].engaged.is_some_and(|e| {
+                            let x = &sim.eng[e];
+                            !x.over && x.at - los <= s.tac.downfield
+                        })
+                    };
+                    // The man farthest past it is the one the crew sees.
                     let far = (0..off_n)
-                        .find(|&k| is_line(sim.agents[k].label) && sim.agents[k].pos.x - los > s.tac.downfield);
+                        .filter(|&k| {
+                            is_line(sim.agents[k].label) && sim.agents[k].pos.x - los > s.tac.downfield && !locked(k)
+                        })
+                        .max_by(|&a, &b| sim.agents[a].pos.x.total_cmp(&sim.agents[b].pos.x));
+                    if !run_play {
+                        for k in 0..off_n {
+                            if is_line(sim.agents[k].label) && sim.agents[k].pos.x - los > s.tac.downfield && locked(k)
+                            {
+                                ineligible_count(19);
+                            }
+                            if let Some(e) = sim.agents[k].engaged
+                                && sim.eng[e].pass
+                                && !sim.eng[e].over
+                                && sim.eng[e].w < -1.38
+                            {
+                                ineligible_count(20);
+                            }
+                        }
+                    }
+                    if TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+                        for k in 0..off_n {
+                            if is_line(sim.agents[k].label) {
+                                let a = &sim.agents[k];
+                                println!(
+                                    "IDF {} x {:.2} stop {:.2} job {:?} engaged {} rpo_hold {}",
+                                    a.label,
+                                    a.pos.x - los,
+                                    edge + sim.hold_slip[k] - los,
+                                    a.job,
+                                    a.engaged.is_some(),
+                                    rpo_hold
+                                );
+                            }
+                        }
+                    }
+                    if let Some(k) = far {
+                        // Debug counts (`INELIGIBLE`): his job, then on a
+                        // dropback the passer near the line and a late throw.
+                        let a = &sim.agents[k];
+                        let kind = match (&a.job, a.engaged) {
+                            (_, Some(_)) => 3,
+                            (Job::RunBlock { .. }, _) => 0,
+                            (Job::PassBlock { target: Some(_) }, _) => 1,
+                            (Job::PassBlock { target: None }, _) => 2,
+                            (Job::Escort, _) => 4,
+                            _ => 5,
+                        };
+                        ineligible_count(kind);
+                        // Finer split (debug): on dropbacks 10-14, on RPOs 15-17.
+                        let past = a.pos.x - los - s.tac.downfield;
+                        match (run_play, a.engaged) {
+                            (false, Some(e)) => {
+                                let x = &sim.eng[e];
+                                ineligible_count(if x.over {
+                                    12
+                                } else if x.pass {
+                                    10
+                                } else {
+                                    11
+                                });
+                                if x.pass && x.helper == Some(k) {
+                                    ineligible_count(13);
+                                }
+                                if x.pass && !x.over {
+                                    let at = x.at - los;
+                                    ineligible_count(if at > 2.0 { 22 } else { 21 });
+                                    let dd = x.defender;
+                                    if !matches!(sim.agents[dd].job, Job::Rush { .. }) {
+                                        ineligible_count(23);
+                                    }
+                                    if t - x.start < 0.3 {
+                                        ineligible_count(24);
+                                    }
+                                    if !sim.agents[dd].pos_is_line() {
+                                        ineligible_count(25);
+                                    }
+                                    if a.pos.x - los > 3.0 {
+                                        ineligible_count(26);
+                                    }
+                                    if sim.agents[qb].pos.x > los - 1.0 {
+                                        ineligible_count(27);
+                                    }
+                                }
+                            }
+                            (false, None) => ineligible_count(14),
+                            (true, Some(_)) => ineligible_count(15),
+                            (true, None) => ineligible_count(16),
+                        }
+                        if past > 1.0 {
+                            ineligible_count(if run_play { 17 } else { 18 });
+                        }
+                        if !run_play {
+                            ineligible_count(6);
+                            if sim.agents[qb].pos.x > los - 2.5 {
+                                ineligible_count(7);
+                            }
+                            if t > 3.5 {
+                                ineligible_count(8);
+                            }
+                            if ps.extend.is_some() {
+                                ineligible_count(9);
+                            }
+                        }
+                    }
+                    // The flag: the crew sees a man plainly past the limit
+                    // (`IDF_CLEAR`: a step past it is hard to judge from the
+                    // umpire's spot). A lineman's Football IQ shows in where
+                    // he stops (`RPO_IQ`), not in the crew's eyes.
                     if let Some(k) = far
-                        && sim
-                            .rng
-                            .chance(0.6 * clamp(1.0 - 0.015 * (sim.agents[k].a(Attr::FootballIq) - 60.0), 0.4, 1.4))
+                        && sim.rng.chance({
+                            let past = sim.agents[k].pos.x - los - s.tac.downfield;
+                            IDF_SEEN * clamp(past / IDF_CLEAR, 0.0, 1.0)
+                        })
                     {
                         let (id, at) = (sim.agents[k].id, sim.agents[k].pos.x);
                         sim.notes.fouls.push(Foul { kind: FoulKind::IneligibleDownfield, side: 0, player: id, at });
@@ -1705,8 +2133,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     // A pitch on the ground is a live ball.
                     let carry = sim.agents[pm].a(Attr::Catching);
                     if sim.rng.chance(0.012 * (1.6 - carry / 100.0)) {
-                        sim.notes.fumbled = Some(sim.agents[pm].id);
-                        sim.fumble(pm);
+                        sim.fumble(pm, super::sim::FumbleHow::Pitch);
                     }
                 }
                 Some(false) => option_live = false,
@@ -1737,7 +2164,20 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     a = Some(v2(gp.x - sim.goal * 1.0, gp.y - s.call.dir * 0.8));
                 }
             }
-            if s.hurry && sim.agents[c].side == 0 {
+            if let ClockRun::Down(line) = sim.clock_run
+                && sim.agents[c].side == 0
+                && sim.carrier_side == 0
+                && sim.agents[c].pos.x >= line + 1.0
+            {
+                // Past the line that wins the game: he goes down short of
+                // the goal line rather than score and give the ball back.
+                let me = sim.agents[c].pos;
+                sim.progress = sim.progress.max(me.x);
+                sim.dead = true;
+                sim.ball = Ball::Dead(me);
+            } else if s.call.laterals && sim.agents[c].side == 0 && lateral(&mut sim, c) {
+                // The ball went back to a teammate, or is on the ground.
+            } else if s.hurry && sim.agents[c].side == 0 {
                 hurry_run(&mut sim, c);
             } else {
                 sim.run_carrier(c, a);
@@ -1750,8 +2190,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             {
                 sim.notes.tend.cross = Some((sim.agents[c].pos.y - sim.mood.snap_y, t));
             }
-            // A quarterback slides rather than take a hit he doesn't need.
-            if pass.is_some() && c == qb && slide(&mut sim, c, s) {
+            // A quarterback slides rather than take a hit he doesn't need,
+            // but not on the last play's laterals, where going down ends
+            // the game: a lateral back to him after a catch kept the catch
+            // as a scramble, dead where he stood even as he pitched it
+            // (minor bug 423).
+            if pass.as_ref().is_some_and(|p| !p.broken) && c == qb && !s.call.laterals && slide(&mut sim, c, s) {
                 res.result = Result::Scramble;
             }
         }
@@ -1762,7 +2206,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         if let Ball::Air { to, arrive, target, release, from, .. } = sim.ball
             && t + 1e-9 >= arrive
         {
-            let tgt = target.unwrap_or(qb);
+            let mut tgt = target.unwrap_or(qb);
             let batted = pass.as_ref().and_then(|ps| ps.batted);
             let outcome = match batted {
                 // Batted at the line: knocked down, or now and then caught by
@@ -1776,6 +2220,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     } else {
                         Catch::Incomplete { drop: false, pbu: Some(sim.agents[d].id), sep }
                     }
+                }
+                None if s.call.hail => {
+                    let (c, who) = crowd_ball(&mut sim, tgt, to);
+                    tgt = who;
+                    c
                 }
                 None => {
                     let touch = sim.agents[qb].a(Attr::Touch);
@@ -1802,12 +2251,16 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 Catch::Complete(sep) => {
                     res.result = Result::Complete;
                     res.separation = sep;
+                    sim.caught = sim.t;
                     sim.ball = Ball::Held(tgt);
                     sim.agents[tgt].job = Job::Carrier;
                     res.carrier = Some(sim.agents[tgt].id);
                     for k in 0..off_n {
                         if k != tgt && sim.agents[k].engaged.is_none() {
-                            sim.agents[k].job = Job::Escort;
+                            // The last play's laterals: the backs and the
+                            // receivers trail the ball for the pitch.
+                            let trail = s.call.laterals && role_of[k].is_some_and(|r| !r.is_line() && r != ORole::QB);
+                            sim.agents[k].job = if trail { Job::PitchMan } else { Job::Escort };
                         }
                     }
                     for k in off_n..sim.agents.len() {
@@ -1839,6 +2292,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 Catch::Intercepted(d) => {
                     res.result = Result::Interception;
                     res.turnover = true;
+                    sim.caught = sim.t;
                     res.returner = Some(sim.agents[d].id);
                     sim.ball = Ball::Held(d);
                     sim.goal = -1.0;
@@ -1860,7 +2314,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         if let Some(c) = sim.carrier()
             && !sim.dead
         {
-            let qb_pocket = c == qb && pass.as_ref().is_some_and(|p| p.thrown.is_none() && !p.scramble);
+            let qb_pocket = c == qb && pass.as_ref().is_some_and(|p| p.thrown.is_none() && !p.scramble && !p.broken);
             if qb_pocket {
                 // A sack attempt: the rusher against the quarterback's escape.
                 sack_check(&mut sim, c, pass.as_mut().unwrap(), los);
@@ -1892,17 +2346,31 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         sim.dead = true;
     }
     sim.close_blocks();
+    // The play's work: time in blocks, and strains and plants with nobody
+    // touching him (engine gaps items 1 and 2).
+    sim.wear();
 
     // ---------------------------------------------------------- result
     let p = pass.as_ref();
     res.duration = sim.t;
     res.out_of_bounds = sim.out_of_bounds;
+    // A snap on the ground that the play didn't go on from (engine gaps
+    // item 5): a run by the quarterback, as the books keep an aborted
+    // snap.
+    let aborted = !resumed && sim.notes.fumble.is_some_and(|f| f.how == super::sim::FumbleHow::Snap);
     if let Some(ps) = p {
-        res.time_to_throw = ps.thrown.unwrap_or(sim.t);
+        // Unthrown, he had it until it came out (a strip sack's loose ball
+        // plays on after it) or the play ended.
+        res.time_to_throw = ps.thrown.unwrap_or(sim.loose.map_or(sim.t, |l| l.since));
         res.pressured = ps.pressured_at.is_some();
         res.moving = ps.moving && ps.thrown.is_some();
         res.hit = ps.hit;
-        if ps.thrown.is_none() && !ps.scramble && res.result != Result::Scramble {
+        // A strip sack is a sack whoever came up with the ball.
+        let sacked = !sim.notes.sackers.is_empty();
+        if aborted && ps.thrown.is_none() {
+            res.result = Result::Run;
+            res.passer = None;
+        } else if ps.thrown.is_none() && (sacked || !ps.scramble && !ps.broken) && res.result != Result::Scramble {
             res.result = Result::Sack;
             res.carrier = Some(sim.agents[qb].id);
         }
@@ -1915,24 +2383,80 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             res.passer = Some(sim.agents[qb].id);
         }
     }
+    if aborted {
+        res.carrier = Some(sim.agents[qb].id);
+    }
     let _ = (throw_start, thrown_from);
-    // A ball thrown away is meant for nobody: no target (not the passer).
+    // A ball thrown away is meant for nobody: no target (not the passer),
+    // and nobody in coverage on it.
     if res.throw_away {
         res.result = Result::Incomplete;
         res.target = None;
+        res.defender = None;
     }
     let goal_line = goal();
-    if res.turnover {
+    if let Some(end) = sim.loose_end() {
+        // A loose ball on the play (engine gaps item 4): who has it where,
+        // or the score. The ball back after the defense had it (a fumbled
+        // interception return) is a new series.
+        use super::sim::LooseEnd as E;
+        let picked = res.turnover;
+        let l = sim.loose.expect("a loose ball");
+        res.fumble_at = Some(l.at.x);
+        match end {
+            E::Ball { side, x } => {
+                res.spot = x;
+                res.turnover = side == 1;
+            }
+            E::Touchdown(0) => {
+                res.spot = goal_line;
+                res.touchdown = true;
+                res.turnover = false;
+            }
+            E::Touchdown(_) => {
+                res.spot = 0.0;
+                res.turnover = true;
+                res.defense_td = true;
+            }
+            E::Safety(0) => {
+                res.spot = 0.0;
+                res.safety = true;
+                res.turnover = false;
+            }
+            E::Touchback(0) => {
+                res.spot = s.rules.touchback;
+                res.turnover = false;
+            }
+            // The defense down with it in its own end zone: its ball at its
+            // own 20 (a safety against it outside the momentum rule is kept
+            // as this touchback; `GAPS.md`).
+            E::Safety(_) | E::Touchback(_) => {
+                res.spot = goal_line;
+                res.turnover = true;
+            }
+        }
+        if res.turnover && !picked {
+            res.returner = l.rec.map(|(w, _)| sim.agents[w].id);
+        }
+        res.new_series = picked && !res.turnover;
+        // How far the man who came up with it ran with it.
+        if let Some((w, at)) = l.rec {
+            let dir = if sim.agents[w].side == 0 { 1.0 } else { -1.0 };
+            let to = match end {
+                E::Ball { x, .. } => x,
+                E::Touchdown(0) => goal_line,
+                E::Touchdown(_) => 0.0,
+                _ => sim.progress,
+            };
+            if let Some(f) = sim.notes.fumble.as_mut() {
+                f.ran = ((to - at.x) * dir).max(0.0) as f32;
+            }
+        }
+    } else if res.turnover {
         // A return the other way.
         res.spot = sim.progress;
         if sim.progress <= 0.0 {
             res.defense_td = true;
-        }
-    } else if let Some((side, _)) = sim.notes.recovered {
-        res.spot = sim.progress;
-        if side == 1 {
-            res.turnover = true;
-            res.returner = sim.notes.recovered.map(|r| r.1);
         }
     } else {
         match res.result {
@@ -1948,13 +2472,18 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             }
         }
     }
+    // A lost fumble's yards are run to where the ball came out.
+    let gained_to = match res.fumble_at {
+        Some(x) if res.turnover && res.result != Result::Interception => x,
+        _ => res.spot,
+    };
     if res.result == Result::Complete {
-        res.yac = res.spot - catch_x;
+        res.yac = gained_to - catch_x;
     }
     if let Some(fc) = sim.notes.first_contact {
         res.before_contact = fc - los;
     } else if matches!(res.result, Result::Run | Result::Scramble | Result::Complete) {
-        res.before_contact = res.spot - los;
+        res.before_contact = gained_to - los;
     }
     res.spot_y = match sim.ball {
         Ball::Dead(p) => p.y,
@@ -1979,19 +2508,33 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 /// and behind each tackle, the gunners split wide, the up-back about five
 /// and a half yards behind the ball and the punter at his depth (about 15
 /// yards in the NFL, 14 in college, 12 at high school).
-fn punt_spot(f: &Formation, r: ORole, los: f64, by: f64, level: crate::Level) -> V2 {
-    let deep = match level {
-        crate::Level::NFL => 15.0,
-        crate::Level::HS => 12.0,
-        _ => 14.0,
-    };
+fn punt_spot(f: &Formation, r: ORole, los: f64, by: f64, level: crate::Level, thrown: bool) -> V2 {
+    let deep = super::kicking::punt_depth(level);
+    // A thrown fake (engine gaps item 21) goes to the punter where he
+    // stands, the up-back staying in to protect.
+    let (snap_to, back) = if thrown { (deep, 5.5) } else { (5.5, deep) };
     match r {
-        ORole::QB => v2(los - 5.5, by),
-        ORole::RB => v2(los - deep, by),
+        ORole::QB => v2(los - snap_to, by),
+        ORole::RB => v2(los - back, by),
         ORole::TE => v2(los - 1.3, by + 4.4),
         ORole::TE2 => v2(los - 1.3, by - 4.4),
         // A twelfth man (the CFL) is a second up-back.
         ORole::Slot | ORole::Slot2 | ORole::Slot3 | ORole::FB => v2(los - 4.0, by - 1.8),
+        _ => align(f, r, los, by),
+    }
+}
+
+/// The field goal unit's spots on a fake (engine gaps item 21): the holder
+/// seven yards back, the kicker two and a half behind him and to his side,
+/// seven on the line and a wing off each end.
+fn kick_spot(f: &Formation, r: ORole, los: f64, by: f64) -> V2 {
+    match r {
+        ORole::QB => v2(los - 7.0, by),
+        ORole::RB => v2(los - 9.5, by + 1.5),
+        ORole::TE => v2(los - 0.8, by + 4.2),
+        ORole::TE3 => v2(los - 0.8, by - 4.2),
+        ORole::TE2 => v2(los - 1.3, by + 5.4),
+        ORole::FB => v2(los - 1.3, by - 5.4),
         _ => align(f, r, los, by),
     }
 }
@@ -3268,6 +3811,12 @@ const PA_EYES_UC: f64 = 0.2;
 const BOOT_UP: f64 = 0.8;
 const BOOT_PACE: f64 = 0.48;
 const BOOT_AHEAD: f64 = 3.0;
+/// The scramble drill's pace, of his top speed, and how many of its
+/// three-yard steps ahead he aims (minor bug 409; proposed, not confirmed:
+/// 6.7 yd/s, 15 mph, for the NFL's typical starter, the pace every passer
+/// scrambled at before; 6.2 for a 5.2 forty and 7.1 for a 4.5).
+const EXTEND_PACE: f64 = 0.67;
+const EXTEND_AHEAD: f64 = 3.0;
 
 /// The plan keeping a usage promise (`roster::Keep`; proposed, not
 /// confirmed): the quarterback looks first to the man promised shots on 6
@@ -3297,6 +3846,27 @@ fn stunt_pickup(sim: &mut Sim, chem: f64) {
         sim.agents[bl].job = Job::PassBlock { target: Some(pen) };
     }
     sim.notes.stunt = Some(ok);
+}
+
+/// A step that stops at `edge` (an RPO's line at its limit, a pass set at
+/// its line; EG5). He slows along his own heading, no faster than his
+/// brakes (`brake`, yards a second each second, the share of it that works
+/// along the field on a slant) can stop him at it, and once there he
+/// settles. The step used to keep its heading and lose only its run along
+/// the field: a lineman moving on a slant had to turn to do that, which a
+/// lineman's feet do slowly, and he ran a yard or two past it on a fifth of
+/// RPO throws.
+fn hold_at(want: V2, x: f64, edge: f64, brake: f64) -> V2 {
+    if want.x <= 0.0 {
+        return want;
+    }
+    let room = edge - x;
+    if room <= 0.0 {
+        return V2::default();
+    }
+    let along = want.x / want.len();
+    let cap = (2.0 * brake * along.max(0.2) * room).sqrt();
+    if want.x > cap { want.scale(cap / want.x) } else { want }
 }
 
 fn is_line(label: &str) -> bool {
@@ -3836,6 +4406,20 @@ fn picks_up(sim: &Sim, i: usize, d: usize) -> bool {
     (key as f64 / 1000.0) < p
 }
 
+/// Hand-fighting in man coverage (EG5; proposed, not confirmed): a flag's
+/// chance a tick close to his man, the share that are his hands to the
+/// face, and of the rest past 5 yards the share that are a shove (illegal
+/// contact in the NFL, legal below it).
+const HAND_FIGHT: f64 = 0.0113;
+const DEF_HANDS: f64 = 0.11;
+const CHUCK: f64 = 0.4;
+
+/// The share of the blocks in the back a blocker is placed to throw that
+/// he throws (his Discipline and Blocking in Space move it), and the share
+/// of those the crew sees and flags (EG5; proposed, not confirmed).
+const IBB_THROW: f64 = 0.021;
+const IBB_SEEN: f64 = 0.5;
+
 pub(crate) fn escort(sim: &mut Sim, i: usize) {
     // Before the screen is caught, block for the back, not the quarterback.
     let (c, pre) = match (sim.screen, sim.ball) {
@@ -3876,20 +4460,35 @@ pub(crate) fn escort(sim: &mut Sim, i: usize) {
         }
     }
     let threat = near.get();
+    // A block in the back (engine gaps lane EG5): the man's back to him, the
+    // blocker inside the 45 degrees behind the way he runs. Blockers are
+    // taught not to throw it: he stays on his path to the ball and lets
+    // the man go, unless he loses his head, decided once a pair a snap by
+    // his Discipline and his Blocking in Space. One he throws is flagged
+    // when the crew sees it. (Every block from behind 0.5 yards along the
+    // man's run was thrown and 7.5% of them flagged: 0.29 accepted a team
+    // game on scrimmage plays, real 0.031. Proposed, not confirmed.)
+    let from_behind = |sim: &Sim, d: usize| {
+        let (to, v) = (sim.agents[d].pos - me, sim.agents[d].vel);
+        v.len() > 3.0 && to.dot(v.norm()) > 0.71 * to.len()
+    };
+    let throws_it = |sim: &Sim, d: usize| {
+        let p = clamp(
+            IBB_THROW
+                * (1.0
+                    - 0.06 * (sim.trait20(i, Attr::Discipline) - 10.0)
+                    - 0.008 * (sim.agents[i].a(Attr::BlockingInSpace) - 60.0)),
+            0.2 * IBB_THROW,
+            2.0 * IBB_THROW,
+        );
+        let key =
+            (sim.agents[i].id as u64 * 2654435761 + sim.agents[d].id as u64 * 40503 + (sim.los * 10.0) as u64) % 1000;
+        // A return's blocker throws it more often (bug 403, `Sim.ibb`).
+        (key as f64 / 1000.0) < p * sim.ibb
+    };
     match threat {
-        Some(d) if sim.closest(i, d) < 1.3 && sim.lands_block(i, d) => {
-            // Blocks from behind are illegal.
-            let from_behind =
-                (sim.agents[d].pos - me).dot(sim.agents[d].vel.norm()) > 0.5 && sim.agents[d].vel.len() > 3.0;
-            // Called on 7.5% of them (was 3%: illegal blocks ran 0.1 a team
-            // game, real about 0.28; proposed, not confirmed).
-            let restraint = clamp(
-                1.0 - 0.05 * (sim.trait20(i, Attr::Discipline) - 10.0)
-                    - 0.006 * (sim.agents[i].a(Attr::BlockingInSpace) - 60.0),
-                0.4,
-                1.6,
-            );
-            if from_behind && sim.rng.chance(0.075 * sim.crew.holding * restraint) {
+        Some(d) if sim.closest(i, d) < 1.3 && sim.lands_block(i, d) && (!from_behind(sim, d) || throws_it(sim, d)) => {
+            if from_behind(sim, d) && sim.rng.chance(IBB_SEEN * sim.crew.holding) {
                 let (id, side, at) = (sim.agents[i].id, side, me.x);
                 sim.notes.fouls.push(Foul { kind: FoulKind::IllegalBlock, side, player: id, at });
             }
@@ -3916,6 +4515,194 @@ pub(crate) fn escort(sim: &mut Sim, i: usize) {
             sim.go_to(i, ahead, 0.8);
         }
     }
+}
+
+/// The longest throw a passer has, in the air (engine gaps item 15): a
+/// level's typical starter throws 65 yards in the NFL, 60 in college and 52
+/// at high school, half a yard more or less a point of arm strength
+/// (proposed, not confirmed; real NFL Hail Marys from 50-60 yards out
+/// scored 3 times in 26, from 40-50 once in 26, nflverse 2021-2025, so a
+/// typical arm gets there).
+pub fn longest_throw(level: crate::Level, arm: f64) -> f64 {
+    let typ = super::synthetic::typical(level, crate::positions::Position::QB, Attr::ArmStrength);
+    let base = match level {
+        crate::Level::NFL => 65.0,
+        crate::Level::HS => 52.0,
+        _ => 60.0,
+    };
+    base + 0.5 * (arm - typ)
+}
+
+/// A Hail Mary's route (engine gaps item 15): straight up the field, then
+/// to his spot three yards deep in the end zone, the receivers a few yards
+/// apart across the middle by where they lined up, and he waits there for
+/// the ball.
+fn hail_route(a: &Agent, los: f64, by: f64) -> Job {
+    let lane = clamp(mid() + HAIL_SPREAD * (a.pos.y - by), mid() - 8.0, mid() + 8.0);
+    let pts = vec![v2(los + 6.0, a.pos.y), v2(goal() + 3.0, lane)];
+    Job::Route { pts, next: 0, settle: true, name: "Hail Mary", release_delay: 0.0 }
+}
+
+/// The defense against a Hail Mary (engine gaps item 15): it knows it is
+/// coming. Every man not rushing drops to the goal line and plays the ball
+/// from among the receivers: a line of them across the middle at the goal
+/// line and one deeper in the end zone, alternately, three yards apart.
+fn hail_defense(sim: &mut Sim, off_n: usize) {
+    let drop: Vec<usize> =
+        (off_n..sim.agents.len()).filter(|&i| !matches!(sim.agents[i].job, Job::Rush { .. })).collect();
+    let n = drop.len() as f64;
+    let mut by_y = drop.clone();
+    by_y.sort_by(|&a, &b| sim.agents[a].pos.y.total_cmp(&sim.agents[b].pos.y));
+    for (k, &i) in by_y.iter().enumerate() {
+        let y = mid() + 3.0 * (k as f64 - (n - 1.0) / 2.0);
+        let x = goal() + if k % 2 == 0 { 0.5 } else { 4.5 };
+        sim.agents[i].job = Job::Zone { spot: v2(x, y), deep: true, width: 3.0, matched: false };
+    }
+}
+
+/// The passer on a Hail Mary (engine gaps item 15): he holds it until his
+/// deepest man is within `HAIL_THROW_AT` of the goal line, the rush is on
+/// him or `HAIL_WAIT` has gone, then throws it up three yards into the end
+/// zone among his men, or as far as his arm takes it.
+fn hail_throw(
+    sim: &mut Sim,
+    ps: &mut Pass,
+    qb: usize,
+    s: &Snap,
+    pressure: f64,
+    soon: f64,
+) -> Option<(V2, usize, f64, f64, f64)> {
+    let q = sim.agents[qb].pos;
+    let rec: Vec<usize> = (0..sim.agents.len())
+        .filter(|&i| {
+            sim.agents[i].side == 0 && sim.agents[i].up(sim.t) && matches!(sim.agents[i].job, Job::Route { .. })
+        })
+        .collect();
+    let deep = rec.iter().map(|&i| sim.agents[i].pos.x).fold(f64::NEG_INFINITY, f64::max);
+    if rec.is_empty() || !(deep >= goal() - HAIL_THROW_AT || sim.t >= HAIL_WAIT || soon < 0.4) {
+        return None;
+    }
+    let cy = rec.iter().map(|&i| sim.agents[i].pos.y).sum::<f64>() / rec.len() as f64;
+    let spot = v2(goal() + 3.0, cy);
+    let arm = sim.agents[qb].a(Attr::ArmStrength);
+    let longest = longest_throw(sim.level, arm);
+    let p = if q.dist(spot) > longest { q + (spot - q).norm().scale(longest) } else { spot };
+    let r = rec.iter().copied().min_by(|&a, &b| sim.agents[a].pos.dist(p).total_cmp(&sim.agents[b].pos.dist(p)))?;
+    let speed = 16.5 + 0.13 * arm;
+    let dist = q.dist(p);
+    let flight = 0.28 + dist / (speed * (1.0 - 0.005 * (dist - 20.0).max(0.0)));
+    let out = throw(sim, ps, qb, r, p, flight, pressure, s);
+    // Everyone goes up for it: the other receivers run to where the ball
+    // comes down, as the men at the goal line break on it.
+    if let Ball::Air { to, .. } = sim.ball {
+        for i in rec {
+            if i != r {
+                sim.agents[i].job =
+                    Job::Route { pts: vec![to], next: 0, settle: true, name: "Hail Mary", release_delay: 0.0 };
+            }
+        }
+    }
+    Some(out)
+}
+
+/// A ball thrown up into a crowd (a Hail Mary, engine gaps item 15). Every
+/// man on his feet within `CROWD_REACH` of where it comes down goes up for
+/// it, and the best high point gets a hand on it first: his reach at the
+/// top of his jump, less `CROWD_YARD` inches for each yard he is away, with
+/// his timing (Jumping, the Highpointer link) and a little luck. A defender
+/// who gets there first picks it with his hands (`CROWD_PICK` for a
+/// typical starter's) or knocks it down; a receiver catches it among the
+/// defenders around him by his contested catch (`CROWD_CATCH`, over one
+/// and `CROWD_HELP` for each defender within a yard and a half). A ball nobody
+/// holds is tipped up for the next man now and then (`CROWD_TIP`), twice
+/// at most. Returns what happened and the man it went to (proposed, not
+/// confirmed: sized to real NFL Hail Marys, 2021-2025, 35+ air yards on a
+/// half's last snap from 30-70 yards out: 62 throws, 8.1% caught, 6.5%
+/// scored, 29% picked; the engine 6.4% and 29% at their mix of distances,
+/// `match_check nfl 2000` on seeds 1 and 2).
+fn crowd_ball(sim: &mut Sim, r: usize, to: V2) -> (Catch, usize) {
+    let mut men: Vec<(f64, usize)> = Vec::new();
+    for i in 0..sim.agents.len() {
+        if !sim.agents[i].up(sim.t) || sim.agents[i].pos.dist(to) > CROWD_REACH {
+            continue;
+        }
+        let timing = 0.1 * (sim.agents[i].a(Attr::Jumping) - 60.0) + sim.player(i).links.edge(&[Link::Highpointer]);
+        let score = high_reach(sim, i, true) + timing - CROWD_YARD * sim.agents[i].pos.dist(to) + 3.0 * gauss(sim.rng);
+        men.push((score, i));
+    }
+    men.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let sep = (0..sim.agents.len())
+        .filter(|&d| sim.agents[d].side == 1)
+        .map(|d| sim.agents[d].pos.dist(sim.agents[r].pos))
+        .fold(f64::INFINITY, f64::min);
+    // A ball that comes down short of the goal line is the defense's to
+    // play: its men wait there facing it, the receivers come back to it.
+    let short = if to.x < goal() { CROWD_SHORT } else { 1.0 };
+    for &(_, i) in men.iter().take(3) {
+        if sim.agents[i].side == 1 {
+            if sim.rng.chance(CROWD_PICK * ball_hands(sim, i) / 70.0) {
+                return (Catch::Intercepted(i), r);
+            }
+        } else {
+            let a = &sim.agents[i];
+            let near = (0..sim.agents.len())
+                .filter(|&d| sim.agents[d].side == 1 && sim.agents[d].up(sim.t) && sim.agents[d].pos.dist(a.pos) < 1.5)
+                .count() as f64;
+            let fight = 0.5 * a.a(Attr::ContestedCatch) + 0.25 * a.a(Attr::Strength) + 0.25 * a.a(Attr::Jumping);
+            if sim.rng.chance(clamp(CROWD_CATCH * short * fight / 70.0 / (1.0 + CROWD_HELP * near), 0.0, 0.9)) {
+                return (Catch::Complete(sep), i);
+            }
+        }
+        if !sim.rng.chance(CROWD_TIP) {
+            break;
+        }
+    }
+    let pbu = men.iter().find(|m| sim.agents[m.1].side == 1).map(|m| sim.agents[m.1].id);
+    (Catch::Incomplete { drop: false, pbu, sep }, r)
+}
+
+/// The last play's laterals (engine gaps item 16): a man with the ball and a
+/// tackler about to have him pitches it back to a teammate trailing the play
+/// within `LAT_RANGE`, who gathers it by his hands, less for a long toss;
+/// one he can't is on the ground and live (`Sim::fumble_going`, engine gaps
+/// item 4). True when he let it go.
+fn lateral(sim: &mut Sim, c: usize) -> bool {
+    let me = sim.agents[c].pos;
+    let near = (0..sim.agents.len())
+        .filter(|&d| sim.agents[d].side != 0 && sim.agents[d].up(sim.t) && sim.agents[d].engaged.is_none())
+        .map(|d| sim.agents[d].pos.dist(me))
+        .fold(f64::INFINITY, f64::min);
+    if near > LAT_THREAT {
+        return false;
+    }
+    let mate = (0..sim.agents.len())
+        .filter(|&j| {
+            let a = &sim.agents[j];
+            j != c
+                && a.side == 0
+                && a.up(sim.t)
+                && a.engaged.is_none()
+                && (a.pos.x - me.x) * sim.goal <= -0.5
+                && a.pos.dist(me) <= LAT_RANGE
+                && a.pos.dist(me) >= 2.0
+        })
+        .min_by(|&a, &b| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me)));
+    let Some(j) = mate else { return false };
+    let toss = sim.agents[j].pos.dist(me);
+    sim.notes.laterals += 1;
+    let hands = clamp(0.93 + 0.003 * (sim.agents[j].a(Attr::Catching) - 60.0) - 0.008 * (toss - 3.0), 0.6, 0.98);
+    sim.agents[c].job = Job::Escort;
+    if sim.rng.chance(hands) {
+        sim.ball = Ball::Held(j);
+        sim.agents[j].job = Job::Carrier;
+        if (sim.agents[j].pos.x - sim.progress) * sim.goal > 0.0 {
+            sim.progress = sim.agents[j].pos.x;
+        }
+    } else {
+        let v = sim.agents[j].vel;
+        sim.fumble_going(j, FumbleHow::Pitch, v);
+    }
+    true
 }
 
 /// Two-minute drill: get what you can, then get out of bounds.
@@ -3988,7 +4775,10 @@ pub const HIGH_ON_SLIDE: f64 = 0.6;
 /// was found. Few defenders are that close and fast as he goes down, so
 /// about 1 in 100 of the test league's slides draws a flag (`fire_check
 /// hits`, 400 games a level).
-const SLIDE_HIT: f64 = 0.3;
+const SLIDE_HIT: f64 = 0.255;
+/// A flagged hit on a defenseless receiver at the catch (0.05 before EG5;
+/// proposed, not confirmed).
+const CATCH_HIT_FOUL: f64 = 0.0425;
 /// Tendency points of flinch at which a short-armed ball over the middle
 /// gets the "heard footsteps" tag (coach fire, item 8).
 pub const FOOTSTEPS_TAG: f64 = 0.5;
@@ -4017,12 +4807,14 @@ fn late_on_slide(sim: &mut Sim, c: usize) {
         * ((closing - 4.0) / 3.0).min(1.0)
         * (1.35 - disc / 20.0).max(0.2)
         * wild
-        * sim.temper(d);
+        * sim.temper(d)
+        * super::fouls::hit_restraint(sim.fouls);
     if sim.rng.chance(p) {
         let force = sim.hit_force(d, c, 1.0);
         sim.note_hit(d, c, force);
         sim.hit_foul(d, me.x, HIGH_ON_SLIDE, true);
-        sim.injury_check(c, force, 1.0);
+        sim.injury_check(c, force, super::sim::PASSER_SHARE, Cause::Passer);
+        sim.injury_check(d, force, super::sim::TACKLER_SHARE, Cause::Tackling);
     }
 }
 
@@ -4205,13 +4997,93 @@ const GIVE_UP_IQ: f64 = 0.25;
 /// passer's scale about his level's typical starter (0.003 from 0 before).
 const THROW_AWAY_DECIDE: f64 = 0.004;
 
+/// Intentional grounding (EG5): the share of throwaways inside the pocket a
+/// typical starter gets nowhere near a receiver, 2% fewer a point of sense
+/// above him (proposed, not confirmed: with the crew's eye it flags 9.5% of
+/// throwaways from the pocket, FTN charting 2022-24 against nflverse's
+/// grounding calls, 0.080 a team game in all).
+const GROUND_POCKET: f64 = 0.105;
+/// How far a flick with a rusher on him carries outside the pocket, yards
+/// at a typical arm, a tenth of a yard more a point of Arm Strength
+/// (proposed, not confirmed: 35% of real grounding calls come from outside
+/// the pocket, a ball that never reached the line, 3.4% of the throwaways
+/// from there).
+const FLICK_CARRY: f64 = 29.0;
+/// The share of illegal throwaways the crew flags, times its pass judgment.
+const GROUND_SEEN: f64 = 0.9;
+
+/// Debug counts of linemen past the limit at a throw past the line (read
+/// by `match_check` with `AFM_GAPS`): by his job (a run block, a pass
+/// block on a man, one looking for work, on a block begun past the limit,
+/// an escort, anything else), then on dropbacks: all, the passer within
+/// 2.5 yards of the line, a throw after 3.5 s, in the scramble drill.
+/// The crew flags this share of the linemen plainly past the limit at a
+/// pass thrown past the line, and a man reads plainly past it a full
+/// `IDF_CLEAR` yards beyond it, the share rising from nothing at the
+/// limit (EG5, minor bug 406; proposed, not confirmed).
+const IDF_SEEN: f64 = 0.6;
+const IDF_CLEAR: f64 = 1.0;
+/// An RPO's linemen stop this far inside the limit, give or take their
+/// feel for it (the spread of the stop, a snap), and a point of Football IQ
+/// over the level's typical starter keeps a man this much farther back
+/// (EG5; proposed, not confirmed).
+const RPO_MARGIN: f64 = 0.3;
+const RPO_FEEL: f64 = 0.3;
+const RPO_IQ: f64 = 0.015;
+/// A pass blocker sets no farther forward than this behind the line (the
+/// center's stance), and lets the rusher come to him (EG5).
+const PASS_SET: f64 = 0.4;
+
+/// Debug counts of linemen past the limit at a pass thrown past the line
+/// (read by `match_check` with `AFM_GAPS`): the man farthest past by his
+/// job (0 run block, 1 pass block on a man, 2 looking for work, 3 on a
+/// block begun past it, 4 escort, 5 other); on dropbacks (6), with the
+/// passer within 2.5 yards of the line (7), after 3.5 s (8) or in the
+/// scramble drill (9); his block on a dropback (10 pass, 11 run-style, 12
+/// finished, 13 as a helper, 14 none) and on an RPO (15 a block, 16 none);
+/// over a yard past it (17 RPO, 18 dropback); every lineman past it on a
+/// block begun inside it (19); pass blocks driving their man back (20); a
+/// dropback pass block begun past it (21 within a yard, 22 farther; 23 on a
+/// man not rushing, 24 begun under 0.3 s before the throw, 25 on a man off
+/// the line, 26 the lineman 3+ yards past the line, 27 the passer near it).
+pub static INELIGIBLE: [std::sync::atomic::AtomicU64; 32] = [const { std::sync::atomic::AtomicU64::new(0) }; 32];
+
+fn ineligible_count(k: usize) {
+    INELIGIBLE[k].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Debug counts of throwaways (read by `match_check` with `AFM_GAPS`): in
+/// the pocket, outside it, outside with a rusher on him (a flick), a flick
+/// short of the line, flicks thrown over 20, 25, 30 and 35 yards, inside
+/// the pocket nowhere near a receiver, and grounding flagged.
+pub static AWAY: [std::sync::atomic::AtomicU64; 10] = [const { std::sync::atomic::AtomicU64::new(0) }; 10];
+
+fn away_count(k: usize) {
+    AWAY[k].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// A misread, in tens of points of his field read under his level's typical
 /// starter's: a defender reading his eyes jumps the throw this many seconds
 /// sooner than he allows for, and a man sitting in his lane takes this many
-/// yards more of the window than he sees (both the other way for a better
-/// reader, who sees it tighter than the typical man would).
+/// yards more of the window than he sees. A better reader sees both as they
+/// are (`READ_SHARP`), except the man underneath reading his eyes.
 const MISREAD_EYES: f64 = 0.3;
 const MISREAD_LANE: f64 = 1.0;
+
+/// A better reader than his level's typical starter (scheme-fit item 5) sees
+/// each defender watching him break on the ball as he really will
+/// (`ball_break`), all of it at `READ_SHARP` points of field read above the
+/// typical starter, and each lane as it is. He used to see every window tighter
+/// than it was, the misread turned around: on main b4c6206 Decisions +15 cut
+/// picks 0.04 to 0.26 points of throws by throwing 0.20 to 0.35 yards shorter,
+/// held the ball and scored no more (-0.33 to +0.29 a game). Now he keeps his
+/// depth, takes 0.20 to 0.54 points of dropbacks fewer sacks and scores 0.35 a
+/// game more on average (`fit_check`, the audit's seeds). The one man he still
+/// gives that respect is a defender underneath reading his eyes, between him
+/// and the spot within `LURK_NEAR` yards of the throw's line: the man who picks
+/// it (proposed, not confirmed).
+const READ_SHARP: f64 = 10.0;
+const LURK_NEAR: f64 = 5.0;
 
 /// Ball placement near a defender: yards farther from him, a 10 points of
 /// field read about his level's typical starter, fading out when the
@@ -4281,6 +5153,53 @@ fn field_read(qa: &Agent) -> f64 {
 fn typical_field_read(level: crate::player::Level) -> f64 {
     let ts = |a: Attr| super::synthetic::typical_starter(level, Position::QB, a);
     READ_DECIDE * ts(Attr::Decisions) + (1.0 - READ_DECIDE) * ts(Attr::PlayRecognition)
+}
+
+/// Seconds sooner a defender breaks on a throw for his job's coverage (Man
+/// or Zone) about his level's typical starter at his position
+/// (`BALL_COVER`).
+fn ball_cover(sim: &Sim, d: usize) -> f64 {
+    let a = &sim.agents[d];
+    let which = if matches!(a.job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
+    BALL_COVER * (a.a(which) - super::synthetic::typical_starter(sim.level, sim.player(d).position, which)) / 10.0
+}
+
+/// How soon a defender who sees a throw to `r` breaks on it, on average, as
+/// the throw works it out: 0.16 to 0.26 seconds and 0.004 a point of Play
+/// Recognition short of 100, less `ball_cover`, and later when the route
+/// turned him (`zone_turn`).
+fn ball_break(sim: &Sim, d: usize, r: usize) -> f64 {
+    (0.21 + 0.004 * (100.0 - sim.agents[d].a(Attr::PlayRecognition)) - ball_cover(sim, d) + zone_turn(sim, d, r))
+        .max(0.05)
+}
+
+/// Route running against zone (scheme-fit item 6): leverage and timing. A zone
+/// defender within `TURN_NEAR` yards of a receiver on his route was turned by
+/// it (his stem, the break and when it came), and a defender who sees the throw
+/// to him breaks on it `ZONE_TURN` seconds later a 10 points of the receiver's
+/// Route Running and route craft about his level's typical starter at his
+/// position (sooner for a poorer route runner). Against zone a route used to
+/// read only the room he sits down in and the speed he keeps through the cut:
+/// on main b4c6206 Route Running +15 drew 0.7 to 3.6 more targets a 100 routes
+/// against zone into tighter windows (his catch rate there -3.7 to -0.2 points,
+/// separation -0.14 to +0.07 yards). At 0.1 the slot and the tight end gain
+/// 0.06 to 0.27 yards of separation against zone and lose less of their catch
+/// rate there, and every receiver's yards a route against zone rise 0.19 to
+/// 0.52 (`fit_check`, the audit's seeds; proposed, not confirmed).
+const ZONE_TURN: f64 = 0.1;
+const TURN_NEAR: f64 = 6.0;
+
+/// The seconds `ZONE_TURN` adds to a zone defender's break on a throw to
+/// `r`.
+fn zone_turn(sim: &Sim, d: usize, r: usize) -> f64 {
+    if !matches!(sim.agents[d].job, Job::Zone { .. })
+        || !matches!(sim.agents[r].job, Job::Route { .. })
+        || sim.agents[d].pos.dist(sim.agents[r].pos) >= TURN_NEAR
+    {
+        return 0.0;
+    }
+    let ts = super::synthetic::typical_starter(sim.level, sim.player(r).position, Attr::RouteRunning);
+    ZONE_TURN * (sim.agents[r].a(Attr::RouteRunning) + route_craft(sim, d, r).0 - ts) / 10.0
 }
 
 /// A defender's reach to the ball at the catch point, yards an inch of
@@ -4358,6 +5277,7 @@ fn quarterback(
     let t = sim.t;
     let los = s.los;
     let me = sim.agents[qb].pos;
+    ps.motion = false;
     // Pressure he can see or feel.
     let mut pressure = 0.0f64;
     let mut nearest = f64::INFINITY;
@@ -4447,9 +5367,16 @@ fn quarterback(
         sim.go_to(qb, me + v2(-1.0, 0.0), 0.35);
     } else if let Some((side, _)) = ps.extend {
         // Out of the pocket: on the move to his side, a step upfield,
-        // eyes downfield, short of the sideline.
-        let to = me + v2(0.6, 3.0 * side);
-        sim.go_to(qb, v2(to.x, clamp(to.y, 5.0, width() - 5.0)), 0.9);
+        // eyes downfield, short of the sideline. He heads for a spot far
+        // enough ahead that easing in never sets his pace (the spot three
+        // yards away held every passer to 6.7 yd/s, so a quick one
+        // scrambled no faster than a slow one): he slows only as the
+        // sideline stops him, and goes upfield by the same share of what
+        // he gains across.
+        let across = 3.0 * side * EXTEND_AHEAD;
+        let y = clamp(me.y + across, 5.0, width() - 5.0);
+        let up = 0.6 * EXTEND_AHEAD * ((y - me.y) / across).max(0.0);
+        sim.go_to(qb, v2(me.x + up, y), EXTEND_PACE);
     } else if pressure > 0.2 {
         let step = threat.norm().scale(1.0 + 0.01 * feel) + v2(0.6, 0.0);
         sim.go_to(qb, me + step.scale(2.0), 0.6 + 0.004 * feel);
@@ -4505,6 +5432,9 @@ fn quarterback(
     let early = t < ps.set_at + READ_START && !hot_off_fake;
     if (early && ps.commit.is_none()) || ps.reads.is_empty() {
         return None;
+    }
+    if s.call.hail {
+        return hail_throw(sim, ps, qb, s, pressure, soon);
     }
     // Hot read: an unblocked blitzer gets the ball thrown early (by
     // `HOT_BY`, later by the fake's own time on play action).
@@ -4806,6 +5736,7 @@ fn quarterback(
     // the arm is moving the ball comes out (or the hit lands first).
     let hurry = pressure > 0.8 || nearest < 2.0 || urgent;
     let in_motion = ps.commit.is_some_and(|(_, at, _)| hurry || t + release + 1e-9 >= at);
+    ps.motion = in_motion;
     if blocked_throw && !in_motion {
         best = None;
         ps.commit = None;
@@ -4944,12 +5875,49 @@ fn quarterback(
             );
     if away {
         qb_why(7, s.dcall.coverage);
-        // Throw it away (outside the pocket it is legal past the line).
+        // Throw it away out of bounds past the line. Intentional grounding
+        // (EG5): outside the pocket it is legal once it reaches the line;
+        // inside it, only in the area of an eligible receiver. Under the
+        // rush inside the pocket he gets it near one of his receivers by his
+        // sense (decisions, football IQ, on the passer's scale about his
+        // level's typical starter), or with none of them up in a route he
+        // can't; outside it with a rusher on him it is a flick, which
+        // carries only so far. It used to be a flat 8% draw inside the
+        // pocket, and never outside it.
         let side = if me.y > mid() { 1.0 } else { -1.0 };
-        let to = v2(los + 3.0, if side > 0.0 { width() + 2.0 } else { -2.0 });
-        // A smart passer throws it near someone (decisions, football IQ).
-        let sense = 0.5 * sim.agents[qb].a(Attr::Decisions) + 0.5 * aw;
-        if !outside && sim.rng.chance(0.08 * clamp(1.0 - 0.02 * (sense - 60.0), 0.4, 1.8)) {
+        let mut to = v2(los + 3.0, if side > 0.0 { width() + 2.0 } else { -2.0 });
+        let flick = outside && flicked;
+        if flick {
+            let carry = FLICK_CARRY + 0.1 * (sim.agents[qb].a(Attr::ArmStrength) - 60.0);
+            let d = to - me;
+            for (k, far) in [20.0, 25.0, 30.0, 35.0].iter().enumerate() {
+                if d.len() > *far {
+                    away_count(4 + k);
+                }
+            }
+            if d.len() > carry {
+                to = me + d.norm().scale(carry);
+            }
+        }
+        let short = outside && to.x < los;
+        let lost = !outside && {
+            let sense = 0.5 * pro(sim.agents[qb].a(Attr::Decisions)) + 0.5 * pro(aw);
+            let typical = 0.5 * pro(ts(Attr::Decisions)) + 0.5 * pro(ts(Attr::FootballIq));
+            let any = ps.reads.iter().any(|&r| sim.agents[r].up(t));
+            !any || sim.rng.chance(GROUND_POCKET * clamp(1.0 - 0.02 * (sense - typical), 0.4, 1.8))
+        };
+        away_count(if outside { 1 } else { 0 });
+        if flick {
+            away_count(2);
+        }
+        if short {
+            away_count(3);
+        }
+        if lost {
+            away_count(8);
+        }
+        if (short || lost) && sim.rng.chance(clamp(GROUND_SEEN * sim.crew.pass_interference, 0.0, 1.0)) {
+            away_count(9);
             let (id, at) = (sim.agents[qb].id, me.x);
             sim.notes.fouls.push(Foul { kind: FoulKind::IntentionalGrounding, side: 0, player: id, at });
         }
@@ -4994,8 +5962,19 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         // A man defender already running with him needs no reaction time.
         let on_him = matches!(a.job, Job::Man { target, .. } if target == r);
         let watching = !on_him && sim.sees(d, q);
+        // Underneath, between him and the spot near the throw's line and
+        // reading his eyes: the man who picks it.
+        let lurking = |a: &Agent| {
+            let seg = p - q;
+            let k = (a.pos - q).dot(seg) / seg.dot(seg).max(1e-6);
+            (0.15..1.0).contains(&k) && (q + seg.scale(k)).dist(a.pos) < LURK_NEAR
+        };
         let (react, pace) = if on_him {
             (0.0, 1.0)
+        } else if watching && misread < 0.0 && !lurking(a) {
+            // A better reader sees his break as it is (`READ_SHARP`).
+            let sharp = (-10.0 * misread / READ_SHARP).min(1.0);
+            ((0.3 + (ball_break(sim, d, r) - 0.3) * sharp).max(0.0), 0.95)
         } else {
             ((0.3 + if watching { MISREAD_EYES * misread } else { 0.0 }).max(0.0), 0.95)
         };
@@ -5038,7 +6017,9 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         } else {
             lane
         };
-        w = w.min(lane + 0.6 + MISREAD_LANE * misread);
+        // A poor reader misses part of the man in his lane; a better one
+        // sees the lane as it is (`READ_SHARP`).
+        w = w.min(lane + 0.6 + MISREAD_LANE * misread.max(0.0));
     }
     // He knows his arm: a spot past his range is never open to him.
     if q.dist(p) > 25.0 + 0.45 * power {
@@ -5271,15 +6252,25 @@ fn throw(
     if moving {
         sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::ThrowOnMove);
     }
-    // Wind, a little more on the long ones: from 5 to 18 mph 2.1 points of
-    // completions and 7.3% of the yards an attempt, real 2.0 and 6.9% from
-    // 5-9 mph to 15+ (nflverse 2021-2025). Minor bug 144: 0.004 + 0.0004 a
-    // yard with the old bad-weather sheet's short throws cost 13% of the
-    // yards and raised completions (proposed, not confirmed).
-    let wind = s.cond.wind * (0.010 + 0.0001 * dist);
+    // Wind, a little more on the long ones (minor bug 144), growing with
+    // the square of its speed (engine gaps item 30): a passer allows for a
+    // breeze, not for a gale's gusts; in a gale he throws lower and harder,
+    // so the miss levels off past `WIND_GALE`. Real dry outdoor games
+    // (nflverse 2021-25) barely move to 10 mph and then fall: points a team
+    // game 22.9 at 0-4 mph, 22.7 at 5-9, 21.6 at 10-14, 19.9 at 15-19;
+    // yards an attempt 7.15 at 0-4, 6.50 at 15-19 and 6.69 at 20+ (18 games,
+    // 23 mph on average). At an even 0.010 a mph, 17 mph cost 1.7 points
+    // against 5 mph (real 2.8). Proposed, not confirmed.
+    let w2 = s.cond.wind * s.cond.wind;
+    let wind = WIND_MISS * w2 / (1.0 + w2 / (WIND_GALE * WIND_GALE)) * (1.0 + 0.01 * dist);
     sd *= 1.0 + wind;
+    // A wet ball slips off his hand, more the farther it has to fly (item
+    // 30): real rain games complete 5.9 points fewer throws of 20+ air
+    // yards and 2.8 fewer under 10 (nflverse 2021-25, 60 games). It was a
+    // flat 10%, and rain cost 1.7 points a team (real 3.4, 2.9 at the same
+    // wind). Proposed, not confirmed.
     if s.cond.rain || s.cond.snow {
-        sd *= 1.1;
+        sd *= 1.0 + WET_THROW * dist;
     }
     sd *= 1.0 + 0.08 * s.cond.cold_unused;
     let consistency = sim.player(qb).traits.consistency;
@@ -5294,7 +6285,9 @@ fn throw(
     // throw across the field is not a deep ball), and deep balls need the
     // arm too: a weak arm has to put more air under it. (Minor bug 135:
     // 0.022 a yard left 20+ throws complete 39%; 0.035 gives 37.4%.)
-    let judge = 1.0 + 0.035 * (down - 12.0).max(0.0);
+    // A Hail Mary is thrown up to a spot among his men, not to one man on
+    // the run, so its depth is no harder than its line (engine gaps item 15).
+    let judge = if s.call.hail { 1.0 } else { 1.0 + 0.035 * (down - 12.0).max(0.0) };
     let deep = judge * if dist > 25.0 { 1.1 * clamp(1.0 + 0.01 * (75.0 - power), 0.8, 1.4) } else { 1.0 };
     let e1 = sd * deep * gauss(sim.rng);
     let e2 = sd * gauss(sim.rng);
@@ -5357,18 +6350,16 @@ fn throw(
         let pr = sim.agents[d].a(Attr::PlayRecognition);
         let base = 0.16 + 0.004 * (100.0 - pr) + 0.1 * sim.rng.next();
         let sees = sim.sees(d, q);
-        let which = if matches!(sim.agents[d].job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
-        let cover = BALL_COVER
-            * (sim.agents[d].a(which) - super::synthetic::typical_starter(sim.level, sim.player(d).position, which))
-            / 10.0;
+        let cover = ball_cover(sim, d);
         // Coverage skill reads here too (minor bug 283): a better cover man
         // breaks on the ball sooner, `BALL_COVER` seconds a 10 points about
         // his level's typical starter at his position. A man defender with
         // his back turned feels the throw from his man's eyes and hands,
-        // `MAN_FEEL` before they go up.
+        // `MAN_FEEL` before they go up. A zone defender the target's route
+        // turned breaks later (`zone_turn`).
         let man_feel = if matches!(sim.agents[d].job, Job::Man { .. }) { MAN_FEEL } else { 0.0 };
         sim.agents[d].ball_react = if sees {
-            t + (base - cover).max(0.05)
+            t + (base - cover + zone_turn(sim, d, r)).max(0.05)
         } else {
             (arrive - 0.45 - man_feel + 0.004 * (100.0 - pr) - cover).max(t + (base - cover).max(0.05))
         };
@@ -5410,9 +6401,17 @@ fn throw(
         ps.hit = true;
         let id = sim.agents[d].id;
         sim.notes.hits.push(id);
+        // The hit on him as he throws, both men (engine gaps item 1).
+        let force = sim.hit_force(d, qb, 1.0);
+        sim.injury_check(qb, force, super::sim::PASSER_SHARE, Cause::Passer);
+        sim.injury_check(d, force, super::sim::TACKLER_SHARE, Cause::Tackling);
         let disc = sim.trait20(d, Attr::Discipline);
-        let base = if contact > 0.4 { 0.1 } else { 0.015 };
-        if sim.rng.chance(base * (1.5 - disc / 20.0) * sim.crew.personal) {
+        // The book's passer protection (EG5): the NFL flags more of the
+        // same hits (`fouls::roughing_share`). Real NFL 0.190 flagged a
+        // team game on scrimmage plays, FBS about 0.10 (it was 0.1 and
+        // 0.015 at every level; proposed, not confirmed).
+        let base = if contact > 0.4 { 0.082 } else { 0.0123 };
+        if sim.rng.chance(base * (1.5 - disc / 20.0) * sim.crew.personal * super::fouls::roughing_share(sim.fouls)) {
             sim.notes.fouls.push(Foul { kind: FoulKind::RoughingPasser, side: 1, player: id, at: q.x });
         }
     }
@@ -5471,12 +6470,47 @@ fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
 
 /// Feeding the best receiver (A9): the chance his first look goes to the
 /// best receiver in the progression when he isn't already first, by how
-/// much better he is (rating points). Real top receivers draw 25-30% of
-/// their team's targets; the engine gave the best one too few (Claude's
-/// pick, set by `match_check`).
+/// much better he is (points of `receiving_read`). Real top receivers draw
+/// 25-30% of their team's targets; the engine gave the best one too few
+/// (Claude's pick, set by `match_check`).
 const FEED_BASE: f64 = 0.1;
 const FEED_PER_POINT: f64 = 0.02;
 const FEED_MAX: f64 = 0.55;
+
+/// The chance the plan feeds a man who is `gap` points of
+/// `receiving_edge` better than the one it would otherwise look at first.
+pub(crate) fn feed_chance(gap: f64) -> f64 {
+    clamp(FEED_BASE + FEED_PER_POINT * gap, 0.0, FEED_MAX)
+}
+
+/// What the feed reads in a man as a receiver (scheme-fit item 25): his
+/// hands, his routes and getting open, each rating a point about his own
+/// position's typical starter at the level, so a back is fed for his hands
+/// and routes, not his running, and a tight end not for his blocking (his
+/// spot rating fed a back half again as often for any running rating +15,
+/// and a tight end's run blocking as much as his hands). The weights sum to
+/// one, so a point of edge counts as a point of his old spot rating did
+/// (proposed, not confirmed).
+const FEED_READ: [(Attr, f64); 6] = [
+    (Attr::Catching, 0.3),
+    (Attr::RouteRunning, 0.3),
+    (Attr::Release, 0.15),
+    (Attr::ContestedCatch, 0.1),
+    (Attr::BallTracking, 0.1),
+    (Attr::BodyControl, 0.05),
+];
+
+/// A man's edge as a receiver over his position's typical starter at the
+/// level, in rating points (`FEED_READ`).
+pub(crate) fn receiving_edge(level: crate::player::Level, p: &GamePlayer) -> f64 {
+    FEED_READ.iter().map(|&(a, w)| w * (p.a(a) - super::synthetic::typical_starter(level, p.position, a))).sum()
+}
+
+/// `receiving_edge` for the man on the field.
+fn receiving_read(sim: &Sim, r: usize) -> f64 {
+    receiving_edge(sim.level, sim.player(r))
+}
+
 /// The base chance he throws it away rather than force it to a covered man
 /// (minor bug 138).
 const GIVE_UP: f64 = 0.8;
@@ -5759,17 +6793,34 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let hit = sim.hit_force(d, qb, 1.0);
     sim.note_hit(d, qb, hit);
     let force = sim.agents[d].mass * sim.agents[d].vel.len();
+    // The strip (engine gaps item 6): the hit he didn't see coming (where
+    // the rusher was a beat before, outside his eyes on his read), its
+    // force, the rusher going for the ball (his strip habit) and the
+    // passer's own ball security against his level's typical starting
+    // back's; the ball held out in his throwing motion comes out more
+    // easily, and a wet one (`STRIP_SACK`). The old roll read his ball security raw and
+    // a blind side by hand, and every sacker within two yards was seen.
+    let eyes = ps.reads.get(ps.read).map_or(v2(sim.goal, 0.0), |&r| (sim.agents[r].pos - me).norm());
+    let saw = sim.saw_coming(qb, d, eyes);
     let carry = sim.agents[qb].a(Attr::BallSecurity);
-    // His blind side is behind his throwing shoulder: the left for a
-    // right-hander, the right for a lefty (proposed, not confirmed).
-    let left = (sim.agents[d].pos.y - me.y) * sim.goal > 0.0;
-    let blind = if sim.player(qb).left_handed { !left } else { left };
-    let p_fumble = (if seen { 0.06 } else { 0.16 }) * (1.3 - carry / 120.0) * if blind { 1.2 } else { 0.8 };
+    let typ_carry = super::synthetic::typical_starter(sim.level, Position::RB, Attr::BallSecurity);
+    let strip = (1.0 + 1.15 * sim.lean(d, Tend::Strip)).max(0.1);
+    let wet = (if sim.cond.rain || sim.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * sim.cond.cold_unused);
+    let p_fumble = STRIP_SACK
+        * if saw { 1.0 } else { STRIP_UNSEEN }
+        * (force / (STRIP_SACK_FORCE * super::sim::hit_scale(sim.level, true)))
+        * strip
+        * clamp(1.0 + STRIP_BS * (typ_carry - carry), 0.4, 2.0)
+        * if ps.motion { STRIP_MOTION } else { 1.0 }
+        * wet;
     sim.fight = vec![d];
     if sim.rng.chance(p_fumble) {
-        sim.notes.fumbled = Some(sim.agents[qb].id);
         sim.notes.forced_fumble = Some(sim.agents[d].id);
-        sim.fumble(qb);
+        let how = if ps.motion { super::sim::FumbleHow::Throw } else { super::sim::FumbleHow::Sack };
+        // The ball goes off with the pile.
+        let (rq, rd) = (&sim.agents[qb], &sim.agents[d]);
+        let pile = (rq.vel.scale(rq.mass) + rd.vel.scale(rd.mass)).scale(1.0 / (rq.mass + rd.mass));
+        sim.fumble_going(qb, how, pile);
     } else {
         sim.progress = me.x.min(los);
         // The man who brings him down has the tackle; a second sacker is in
@@ -5778,7 +6829,13 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         sim.dead = true;
         sim.ball = Ball::Dead(me);
     }
-    sim.injury_check(qb, force, if seen { 0.8 } else { 1.3 });
+    // The passer, the man who sacks him and the pile where he goes down
+    // (engine gaps item 1).
+    let passer = super::sim::PASSER_SHARE * if seen { 0.8 } else { 1.3 };
+    sim.injury_check(qb, force, passer, Cause::Passer);
+    sim.injury_check(d, hit, super::sim::TACKLER_SHARE, Cause::Tackling);
+    let mass = sim.agents[qb].mass + sim.agents[d].mass;
+    sim.pile_checks(qb, mass, force / mass);
 }
 
 // ------------------------------------------------------------- defense
@@ -5810,7 +6867,7 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
     }
     // Once the ball is caught or handed off and he has seen it, he chases.
     if let Some(c) = carrier {
-        let handed = c != qb || pass.as_ref().is_some_and(|p| p.scramble);
+        let handed = c != qb || pass.as_ref().is_some_and(|p| p.scramble || p.broken);
         let chase = handed && (knows || sim.agents[i].pos.dist(sim.agents[c].pos) < 4.0);
         // On a run, coverage players fit by their run-fit rules below.
         let fit = !pass_play && knows && matches!(job, Job::Man { .. } | Job::Zone { .. } | Job::Rush { .. });
@@ -6269,15 +7326,19 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
                 return;
             }
             sim.steer(i, want);
-            // Hand-fighting downfield can draw a flag (defensive holding,
-            // illegal contact, illegal hands: real NFL about 0.65 a team game
-            // together, Claude's reading of 2023; it ran 0.09).
+            // Hand-fighting downfield can draw a flag: a hold, his hands to
+            // the receiver's face (illegal use of hands), or past 5 yards a
+            // shove the NFL's contact rule flags (illegal contact; college
+            // and high school have no such rule, so there it is legal). Real
+            // NFL on scrimmage plays 0.748 flagged a team game together:
+            // holding 0.452, contact 0.175, hands 0.121 (nflverse 2021-25,
+            // EG5; it was 0.0105 against Claude's 2023 reading, 0.65).
             let rd = sim.agents[target].pos.dist(me);
             if rd < 0.9
                 && t > 0.8
                 && t < 2.6
                 && sim.rng.chance(
-                    0.0105
+                    HAND_FIGHT
                         * sim.crew.holding
                         * (0.886 + 0.7 * (10.0 - sim.trait20(i, Attr::Discipline)) / 14.0).max(0.1)
                         * hold_body(sim, i),
@@ -6285,8 +7346,17 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
             {
                 let (id, at) = (sim.agents[i].id, me.x);
                 let ok = pass.as_ref().is_some_and(|p| p.thrown.is_none());
-                if ok {
-                    sim.notes.fouls.push(Foul { kind: FoulKind::DefensiveHolding, side: 1, player: id, at });
+                let past5 = (sim.agents[target].pos.x - s.los) * sim.goal > 5.0;
+                let hands = clamp(1.0 - 0.02 * (sim.agents[i].a(Attr::HandUse) - 60.0), 0.5, 1.6);
+                let kind = if sim.rng.chance(DEF_HANDS * hands) {
+                    Some(FoulKind::IllegalUseOfHands)
+                } else if past5 && sim.rng.chance(CHUCK) {
+                    (s.rules.foul_book() == super::fouls::Fouls::Nfl).then_some(FoulKind::IllegalContact)
+                } else {
+                    Some(FoulKind::DefensiveHolding)
+                };
+                if ok && let Some(kind) = kind {
+                    sim.notes.fouls.push(Foul { kind, side: 1, player: id, at });
                 }
             }
         }
@@ -6529,6 +7599,41 @@ fn ball_hands(sim: &Sim, d: usize) -> f64 {
 /// The share of the level gap a defender's hands are read against (A10).
 const HANDS_LEVEL: f64 = 0.5;
 
+/// A receiver's skill on a contested ball within his level (scheme-fit
+/// item 6): his Contested Catch about his level's typical starter at his
+/// position, in rating points. His jump and his frame already count at the
+/// catch point (his reach against the defender's, `size_on_def`) and his
+/// strength in the fight after it, so they stay out of it.
+fn contest_edge(level: crate::player::Level, ra: &Agent, pos: Position) -> f64 {
+    ra.a(Attr::ContestedCatch) - super::synthetic::typical_starter(level, pos, Attr::ContestedCatch)
+}
+
+/// Contested balls at their real size (scheme-fit item 6): his skill on the
+/// ball (`contest_edge`, with Highpointer and Late hands) takes this much a
+/// point off the breakup's base. Wide receivers' catch rate on contested balls
+/// has a true spread of 8.9 points between them (FTN charting 2022-24, 176
+/// receiver seasons with 12 or more, the binomial noise taken out). On world
+/// seed 1's NFL clubs (main b4c6206, game seeds 1-4) the engine's was 5.3
+/// points, since the receiver's own skill never read in the breakup; at 0.02 it
+/// is 9.8 (the test rosters, narrower in Contested Catch, 6.3). Read with his
+/// Strength and Jumping as well, it took the world's clubs' breakups down 16%,
+/// because their receivers carry 24 points more Strength than the typical
+/// starter (proposed, not confirmed).
+const CONTEST_PBU: f64 = 0.02;
+
+/// A receiver's hands within his level (scheme-fit item 6): the miss on a
+/// catchable ball falls this much a point of Catching about his level's typical
+/// starter at his position. Receivers' drops a target have a true spread
+/// between men of 0.54 points among wide receivers, 1.01 among tight ends and
+/// 1.12 among backs (FTN charting 2022-24, men with 40 or more targets, the
+/// binomial noise taken out). On world seed 1's NFL clubs (main b4c6206, game
+/// seeds 1-4) the old 0.00095 a point from none gives 0.62, 0.57 and 0.59, of
+/// which Catching alone spreads 0.34, 0.43 and 0.56, and this gives 0.70, 0.62
+/// and 1.07, of which Catching alone spreads 0.55, 0.66 and 0.70 (a miss is a
+/// drop only when he is open, so the open man drops more); 0.0029 gave 1.49,
+/// 1.24 and 2.18 on one game seed (proposed, not confirmed).
+const CATCH_HANDS: f64 = 0.0016;
+
 /// The ball arrives (topic 1): who can get to it, and who catches it.
 #[allow(clippy::too_many_arguments)]
 fn catch_point(
@@ -6658,6 +7763,8 @@ fn catch_point(
     }
     // Contest at the catch point.
     let (mut va_all, mut hp_r_all) = (0.0, 0.0);
+    // Interference at the catch point, and by whom (`pi_contact`).
+    let mut hinder: Option<(FoulKind, usize)> = None;
     if let Some(d) = dbest {
         let da = sim.agents[d].clone();
         let reacted = sim.t >= da.ball_react;
@@ -6735,19 +7842,27 @@ fn catch_point(
             // His hands at the catch point: coverage gets him there, his
             // contested-catch skill and jump get the ball out (proposed, not
             // confirmed). 0.39 from 0.42 since the hit at the catch below
-            // takes its share, so the league's breakups hold.
+            // takes its share, so the league's breakups hold. The
+            // receiver's own skill on the ball takes `CONTEST_PBU` a point
+            // off (scheme-fit item 6), the timing at the top and late hands
+            // with it.
+            let late = sim.craft_at(r, crate::craft::Craft::LateHands);
+            let fight_edge = contest_edge(sim.level, &ra, sim.player(r).position) + hp_r + late;
             let p_pbu = clamp(
                 closeness
                     * (0.39
                         + cov_term
                         + 0.003 * (da.a(Attr::ContestedCatch) + hp_d - 60.0)
-                        + 0.003 * (da.a(Attr::Jumping) - 60.0))
+                        + 0.003 * (da.a(Attr::Jumping) - 60.0)
+                        - CONTEST_PBU * fight_edge)
                     * size_on_def,
                 0.0,
                 0.75,
             );
             if sim.rng.chance(p_pbu) {
-                pi_check(sim, d, r, to, air, true);
+                if let Some(k) = pi_contact(sim, d, r, to, air, true) {
+                    pi_flag(sim, k, d, r, to);
+                }
                 if sim.rng.chance(PBU_PICK) {
                     return Catch::Intercepted(d);
                 }
@@ -6758,20 +7873,24 @@ fn catch_point(
             if p_hit > 0.0 && sim.rng.chance(p_hit) {
                 let force = sim.hit_force(d, r, 1.0);
                 sim.note_hit(d, r, force);
+                // Both men (engine gaps item 1): the receiver is defenseless.
+                sim.injury_check(r, force, super::sim::CATCH_SHARE, Cause::Catch);
+                sim.injury_check(d, force, super::sim::CATCH_HITTER_SHARE, Cause::Catch);
                 // A hit on a defenseless receiver can draw a flag, read
                 // from his Discipline like the other personal fouls, and
                 // his temper (coach fire, item 4): targeting where the
                 // level's rule has it.
                 let disc = sim.trait20(d, Attr::Discipline);
                 let wild = (1.0 + 0.7 * sim.lean(d, Tend::BigHit)).max(0.2);
-                if sim.rng.chance(0.05 * (1.35 - disc / 20.0).max(0.2) * wild * sim.temper(d)) {
+                let held = super::fouls::hit_restraint(sim.fouls);
+                if sim.rng.chance(CATCH_HIT_FOUL * (1.35 - disc / 20.0).max(0.2) * wild * sim.temper(d) * held) {
                     sim.hit_foul(d, to.x, HIGH_AT_CATCH, true);
                 }
                 return Catch::Incomplete { drop: false, pbu: Some(da.id), sep };
             }
         }
         if dd < 1.4 {
-            pi_check(sim, d, r, to, air, false);
+            hinder = pi_contact(sim, d, r, to, air, false).map(|k| (k, d));
         }
     }
     // The catch itself.
@@ -6779,7 +7898,11 @@ fn catch_point(
     // him, his hands read the flaw lower.
     let body = if dr / radius > 0.6 || dd < 1.4 { sim.craft_at(r, crate::craft::Craft::BodyCatcher) } else { 0.0 };
     let c = ra.a(Attr::Catching) + body;
-    let mut p = 1.0 - (0.15 - 0.00095 * c).max(0.012);
+    // His hands within the level (scheme-fit item 6): `CATCH_HANDS` a point
+    // about his level's typical starter at his position, who keeps the old
+    // catch (0.00095 a point from none).
+    let c_ts = super::synthetic::typical_starter(sim.level, sim.player(r).position, Attr::Catching);
+    let mut p = 1.0 - (0.15 - 0.00095 * c_ts - CATCH_HANDS * (c - c_ts)).max(0.012);
     let reach = dr / radius;
     // Inside his frame it is routine; reaching away from his body or
     // diving costs more the farther it is. (Gentler than it was: 28% of NFL
@@ -6823,7 +7946,21 @@ fn catch_point(
     if speed > 24.0 && dr < 1.0 {
         p *= 1.0 - 0.015 * clamp(1.0 - 0.02 * (touch - 60.0), 0.4, 1.6);
     }
-    if sim.rng.chance(p) {
+    // Interference: the defender's hinders the catch and is flagged when
+    // it did (and now and then when he caught it anyway); the receiver's
+    // push-off helps it and is flagged either way.
+    match hinder {
+        Some((FoulKind::PassInterference, _)) => p *= 1.0 - PI_HINDER,
+        Some(_) => p += (1.0 - p) * OPI_HELP,
+        None => {}
+    }
+    let caught = sim.rng.chance(p);
+    if let Some((k, d)) = hinder
+        && (k == FoulKind::OffensivePassInterference || !caught || sim.rng.chance(PI_CAUGHT))
+    {
+        pi_flag(sim, k, d, r, to);
+    }
+    if caught {
         Catch::Complete(sep)
     } else {
         // He heard footsteps (coach fire, item 5): a ball over the middle
@@ -6900,9 +8037,16 @@ const HOLD_WEIGHT: f64 = 0.017;
 const PI_HEIGHT: f64 = 0.06;
 
 /// Pass interference: a beaten defender who plays the man, not the ball.
-fn pi_check(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool) {
-    if air < 4.0 {
-        return;
+/// Contact at the catch point that is interference, when the crew sees
+/// it: the defender's (a trail man with his back to the ball plays through
+/// the receiver's hands), or the receiver's push-off. `None` when it is
+/// clean. The caller flags it (`pi_flag`): a defender's is a foul when it
+/// hinders the catch (engine gaps lane EG5, item 27).
+fn pi_contact(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool) -> Option<FoulKind> {
+    // Only a pass thrown past the line can be interfered with (it was only
+    // one thrown 4 yards past it, EG5).
+    if air < 1.0 {
+        return None;
     }
     let (da, ra) = (&sim.agents[d], &sim.agents[r]);
     let trailing = (to - da.pos).dot(to - ra.pos) > 0.0 && da.pos.dist(to) > ra.pos.dist(to);
@@ -6923,14 +8067,38 @@ fn pi_check(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool)
         * (1.35 - disc / 20.0)
         * sim.crew.pass_interference
         * if broke_up { 1.2 } else { 0.7 }
-        * (0.6 + air / 40.0)
+        * (PI_DEPTH.0 + air / PI_DEPTH.1)
         * tall
         * pi_level(sim, d);
     if sim.rng.chance(p) {
-        let id = da.id;
-        sim.notes.fouls.push(Foul { kind: FoulKind::PassInterference, side: 1, player: id, at: to.x });
-    } else if sim.rng.chance(0.029 * (1.3 - sim.trait20(r, Attr::Discipline) / 20.0) * sim.crew.pass_interference) {
-        let id = ra.id;
-        sim.notes.fouls.push(Foul { kind: FoulKind::OffensivePassInterference, side: 0, player: id, at: to.x });
+        Some(FoulKind::PassInterference)
+    } else if sim.rng.chance(OPI_BASE * (1.3 - sim.trait20(r, Attr::Discipline) / 20.0) * sim.crew.pass_interference) {
+        Some(FoulKind::OffensivePassInterference)
+    } else {
+        None
     }
 }
+
+/// The flag for interference at the catch point (`pi_contact`): the
+/// defender's on `d`, the receiver's push-off on `r`, at the catch point.
+fn pi_flag(sim: &mut Sim, kind: FoulKind, d: usize, r: usize, to: V2) {
+    let (side, who) = if kind == FoulKind::PassInterference { (1, d) } else { (0, r) };
+    let id = sim.agents[who].id;
+    sim.notes.fouls.push(Foul { kind, side, player: id, at: to.x });
+}
+
+/// A defender's interference takes this share off the catch it hinders,
+/// and the crew flags this share of the ones caught anyway (the offense
+/// declines them; real NFL 2021-25: 9% of flags declined). A push-off
+/// gives the receiver this share of the catches he would have missed.
+/// EG5, proposed, not confirmed.
+const PI_HINDER: f64 = 0.6;
+const PI_CAUGHT: f64 = 0.12;
+const OPI_HELP: f64 = 0.3;
+/// How the contact's chance grows with the throw's depth, a + air / b (it
+/// was 0.6 + air / 40 from 4 yards: deep balls drew a third too few flags
+/// and short ones half too few, against real NFL 2021-25 by air yards,
+/// EG5), and the receiver's push-off a contested catch (0.029 before).
+/// Proposed, not confirmed.
+const PI_DEPTH: (f64, f64) = (0.35, 22.0);
+const OPI_BASE: f64 = 0.032;

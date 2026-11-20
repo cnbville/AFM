@@ -27,6 +27,7 @@ use afm_engine::world::folk::usage::{self, Usage};
 
 use super::card::{Spoken, Tagged};
 
+pub mod actions;
 pub mod calls;
 pub mod cards;
 pub mod ear;
@@ -61,6 +62,11 @@ pub struct EarCard {
     pub measures: Vec<Tagged>,
     /// His ask or counter on the table, in words.
     pub on_table: Vec<String>,
+    /// What this talk has settled so far (talk replies item 11).
+    pub settled: Vec<String>,
+    /// The game's actions that fit each player in the room today, with
+    /// their values (talk replies item 13, `actions::card_lines`).
+    pub actions: Vec<String>,
     pub so_far: Vec<Spoken>,
     /// Your line, quoted (`card::quoted`).
     pub line: String,
@@ -84,6 +90,10 @@ pub struct EarAct {
     /// The person it's about, by tag.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub about: Option<String>,
+    /// Who a request is put to, by tag, when it isn't the man across (ear
+    /// audit item 4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub of: Option<String>,
     /// A claim's kind (`claims::truth::CLAIM_KINDS`) and value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim: Option<String>,
@@ -96,9 +106,12 @@ pub struct EarAct {
     /// schema.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub what: String,
-    /// A date in your words (a deadline).
+    /// By when (a promise's date, a goal every year).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub when: String,
+    /// A deadline's date, YYYY-MM-DD.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub date: String,
     /// The words of the act, short.
     #[serde(default)]
     pub words: String,
@@ -399,6 +412,14 @@ pub struct VoiceCard {
     pub coach_told: Vec<String>,
     /// What he knows of your life from your profile.
     pub coach_life: Vec<String>,
+    /// How the line landed with him, in his terms (talk replies item 1).
+    pub landed: String,
+    /// His own way of talking (talk replies item 8, `persona::speech`).
+    pub habits: Vec<String>,
+    /// How his own lines so far began: no reusing one (item 8).
+    pub openers: Vec<String>,
+    /// What this talk has settled so far (item 11).
+    pub settled: Vec<String>,
     pub so_far: Vec<Spoken>,
     /// Your line, quoted.
     pub line: String,

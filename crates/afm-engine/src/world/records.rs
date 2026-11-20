@@ -948,6 +948,10 @@ pub(crate) fn close_season(w: &mut World) {
     norms(w, year, &recs);
     let start = w.stats.seasons.len();
     w.stats.year_index.push((year, start));
+    // Exactly this season's rows more, not double the room (memory diet
+    // item 7: the book holds about two million rows, and doubling left 3.49
+    // million of room for 1.81 million).
+    w.stats.seasons.reserve_exact(recs.len());
     for (k, r) in recs.into_iter().enumerate() {
         w.stats.by_player.entry(r.id).or_default().push((start + k) as u32);
         w.stats.seasons.push(r);
@@ -1478,7 +1482,8 @@ fn hall_of_fame(w: &mut World, year: i32) {
 /// top 1% of the division, +2 top 5%, +1.25 top 10%, +0.5 top quarter,
 /// -1 bottom tenth, +0.75 for the conference's best.
 pub(crate) fn unit_buzz(w: &mut World, year: i32, results: &[super::season::TeamResult]) {
-    for c in w.coaches.iter_mut() {
+    // A retired coach's buzz is read by nothing; his working part is gone.
+    for c in w.coaches.iter_mut().filter(|c| c.work.is_some()) {
         c.stat_buzz *= 0.5;
     }
     // EPA a play by division, offense and defense.

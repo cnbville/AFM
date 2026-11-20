@@ -17,6 +17,91 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.662", date: "20 Nov", title: "EG4: the end of halves and game management (engine gaps items 15-22, minor bug 407)",
+    notes: [
+      "Games now end the way real ones do: Hail Marys and lateral chains on the last play, smarter clocks before halftime, and teams that know how to protect a late lead.",
+      "On a half's last snap, teams kick, kneel, heave a Hail Mary into a crowd or try a chain of laterals, by the score, the spot and the passer's arm.",
+      "Defenses spend their timeouts before halftime to get the ball back, and offenses only hurry when they can reach their kicker.",
+      "A team ahead late keeps the ball in bounds, and a runner goes down short of the goal line when a first down wins the game.",
+      "Two-point tries come at the real rate, AI staffs fake a punt or a field goal now and then, and a foul as time runs out gives an untimed down where the rules say so.",
+      "Your own timeout in a live game now gives back the seconds since the whistle.",
+    ],
+  },
+  {
+    v: "0.2.661", date: "20 Nov", title: "Continue stops when a call rings, so you can answer it and 2 more",
+    notes: [
+      "The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often.",
+      "Long field goals are made at the real rate, and coaches try fewer of them, especially into a strong wind or on a freezing day.",
+      "Field goals, extra points and punts can be blocked by a real rush, and the loose ball is live: it can be scooped up and returned for a touchdown.",
+      "Kick and punt returns break into the open more often.",
+      "Flags on returns now count, with the yards, ejections and fines that come with them.",
+      "Talks now get things done. Say you're putting a player on a project or a focus and it happens after one confirm. Every talk shows what the other person seems to be after, and coaches and agents now haggle with you round by round.",
+    ],
+  },
+  {
+    v: "0.2.658", date: "20 Nov", title: "Engine gaps lane EG5: each level's rule book and the flags",
+    notes: [
+      "Flags now follow each level's own rule book, so college and high school games mark penalties the way their officials do, and NFL flags come at their real rate and size.",
+      "College defensive holding costs 10 yards, and high school pass interference and holding carry no automatic first down (Texas plays college rules).",
+      "Fouls near the goal line are marked half the distance, and a hold in your own end zone is a safety.",
+      "New calls: illegal contact, illegal hands, neutral zone infractions, twelve men on the field, kickoffs out of bounds or short, and free plays after a defender jumps.",
+      "Linemen no longer drift downfield on pass plays, so ineligible man downfield and blocks in the back are rare, as in real games.",
+      "Pass interference changes the catch, false starts climb on third and fourth down with the snap count, and offenses take a delay to back up a punt or try a hard count on fourth and short.",
+    ],
+  },
+  {
+    v: "0.2.657", date: "20 Nov", title: "Ground lane S6: the rival screen",
+    notes: [
+      "You can now see the rival staff's men on your ground, the race they run for your commits in dated signs, the claims they make about you and what you can do about it.",
+      "A new Rivals page lists the men working your areas, your commits in play and the claims out there.",
+      "A rival's page shows his style, his ground on the map, and his history with you.",
+      "The race for a kid reads as numbered, dated signs, each with where you heard it.",
+      "Answer a wavering commit with a call to the family, or a claim about his program (a risk if it isn't true).",
+    ],
+  },
+  {
+    v: "0.2.656", date: "19 Nov", title: "Talk replies that match the game (lane A, items 1-12)",
+    notes: [
+      "The people you talk to now answer what you actually said: they react to how your words landed, take your promises the way their trust in you says, name their price and hold you to your word.",
+      "Promises get a real reaction, and saying the opposite later breaks the promise and he calls you on it.",
+      "Coaches you interview name their number when you ask for a ballpark, and saying yes to their counter makes it your offer.",
+      "A high school coach you interview names his best players and wants them recruited as part of the hire.",
+      "Everyone has their own way of talking, remembers the whole conversation, and \"Heard as\" is shorter.",
+      "Ending a talk always closes it; an open decision moves to its screen with a note in your inbox.",
+    ],
+  },
+  {
+    v: "0.2.655", date: "19 Nov", title: "EG2: ball security (live fumbles by each level's rules, fumbled snaps, strip sacks, backs' fumbles at the real rate) and 3 more",
+    notes: [
+      "Talking to your team now feels like talking to a room full of people, not one captain. Each player takes what you say his own way, and the right man speaks up.",
+      "A line to the defense, the seniors or the backups lands on them, and the room shows who's with you and who's trading looks.",
+      "Captains and leaders pull their friends with them, and calling a man out in front of everyone stings him and his friends harder.",
+      "A promise to the team is a promise to every man in it.",
+      "Ask a full room if anyone has a problem and it goes quiet, but the man who held back may ask to see you the next day.",
+      "Meet each position room once a week with its coach.",
+    ],
+  },
+  {
+    v: "0.2.650", date: "19 Nov", title: "Fix minor engine bugs 409-412: the play action leftovers and 7 more",
+    notes: [
+      "Promising a player he'll be a captain now means something. Keep your word when the team votes, or pay for it.",
+      "\"You'll be a captain\" in a talk is now a real promise that shows on your promise list.",
+      "It's judged when your team names its captains at camp.",
+      "If the vote leaves him out, you name him anyway, and the locker room notices who he jumped.",
+      "Your player believes it more when he's already one of the room's leaders.",
+      "The game now needs about a gigabyte less memory in season, so clicks wait less on a Mac with 8 GB.",
+    ],
+  },
+  {
+    v: "0.2.638", date: "19 Nov", title: "A rotating defensive line and real weather",
+    notes: [
+      "Defensive tackles now rotate like a real NFL line, and rain and strong wind hurt the passing game as much as they really do.",
+      "Staffs rotate their tackles in waves. A star still plays most snaps, while a room of equals shares them.",
+      "Rain makes long throws much harder to complete than short ones.",
+      "A light breeze barely matters, but a 15-20 mph wind cuts passing the way it does in real games.",
+    ],
+  },
+  {
     v: "0.2.636", date: "18 Nov", title: "Coaches answer with real specifics in live talks",
     notes: [
       "The coaches you talk to now give real answers about their scheme and their recruiting. Ask a coordinator what he'll run, or a recruiter who he's working, and you get specifics.",

@@ -133,9 +133,15 @@ fn a_college_seat_hears_the_carousel_the_ncaa_and_the_honors_in_its_inbox() {
     for r in &carousel {
         letters.push(ok(&mut g, "letter", json!({ "id": r["id"] })));
     }
+    // The table's words with their links taken out: a coach of the world
+    // who happens to share the made-up name is linked by it.
+    let table = |l: &Value| -> String {
+        let cells = l["table"].as_array().into_iter().flatten().flat_map(|r| r.as_array().into_iter().flatten());
+        cells.filter_map(|c| c.as_str()).map(afm_game::lane_core::links::strip).collect::<Vec<_>>().join(" | ")
+    };
     let letter = letters
         .iter()
-        .find(|l| l["table"].to_string().contains("fires head coach Sam Lee"))
+        .find(|l| table(l).contains("fires head coach Sam Lee"))
         .unwrap_or_else(|| panic!("the firing is in a carousel table: {letters:?}"));
     assert!(letter["body"].to_string().contains("extension"), "{letter}");
     assert!(letter["body"].to_string().contains("assistant"), "{letter}");

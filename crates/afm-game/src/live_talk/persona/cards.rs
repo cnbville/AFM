@@ -8,7 +8,7 @@ use afm_engine::world::folk::persona::negotiate;
 use afm_engine::world::folk::persona::room::{Channel, Group, Place, Room, Seat};
 use afm_engine::world::folk::persona::talk::{self, Parts, channels, items, store, who};
 use afm_engine::world::folk::persona::wants::Boil;
-use afm_engine::world::folk::persona::{Them, office};
+use afm_engine::world::folk::persona::{Them, crowd, office};
 use afm_engine::world::folk::scene::{Scene, Who};
 use afm_engine::world::folk::{self as folk, Team, claims, ties};
 
@@ -134,9 +134,14 @@ pub(crate) fn coach(w: &World) -> String {
     }
 }
 
+/// The most lines of the talk a live talk's card carries: in practice the
+/// whole talk (talk replies item 11; before this the last six, and a man
+/// forgot what you'd agreed four lines back). Proposed, not confirmed.
+pub const TALK_LINES: usize = 60;
+
 /// The talk so far, from the scene: typed words where you typed them.
 pub(crate) fn so_far(s: &Scene) -> Vec<Spoken> {
-    let from = s.lines.len().saturating_sub(card::SO_FAR);
+    let from = s.lines.len().saturating_sub(TALK_LINES);
     s.lines[from..]
         .iter()
         .map(|l| Spoken {
@@ -261,7 +266,20 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
         c.items.push(Tagged { tag: tag.clone(), text: words });
         keys.items.push((tag, item));
     }
+    // Interviewing for your staff, his own players can come up (talk
+    // replies item 7: "his kids").
+    if let Them::Coach(co) = him
+        && afm_engine::world::folk::persona::coaching::interviewing(w, co)
+    {
+        for i in afm_engine::world::folk::persona::coaching::his_players(w, co) {
+            add(&mut c, &mut keys, Them::Player(w.people[i].player.id), "a player of his");
+        }
+    }
     c.on_table = on_table(w, s, him);
+    c.settled = settled(w, s);
+    // The game's actions that fit each player in the room today (talk
+    // replies item 13).
+    c.actions = super::actions::card_lines(w, &keys);
     (c, keys)
 }
 
@@ -271,14 +289,115 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
 /// as a dodge.
 fn on_table(w: &World, s: &Scene, him: Them) -> Vec<String> {
     let Some(o) = store::open(w, s.id) else { return Vec::new() };
-    o.asking().map(|k| talk::ask_words_of(w, him, k)).into_iter().collect()
+    let mut out: Vec<String> = o.asking().map(|k| talk::ask_words_of(w, him, k)).into_iter().collect();
+    // His counter, until you answer it (talk replies item 3): a yes to it
+    // is an answer that accepts.
+    if let Some(c) = o.counter.as_ref().filter(|c| !c.asks.is_empty()) {
+        out.push(format!("his counter: {}", c.asks.join("; ")));
+    }
+    out
+}
+
+/// What this talk has settled so far (talk replies item 11), for both
+/// cards.
+fn settled(w: &World, s: &Scene) -> Vec<String> {
+    store::open(w, s.id).map(|o| o.settled.clone()).unwrap_or_default()
+}
+
+/// How the coach's line landed with him, in his own terms (talk replies
+/// item 1: "you believe him on the starting job; it eases you"): the
+/// strongest hit each way on what it touched, then how it sat with him.
+/// Before this the voice never knew, and a line the game read as a miss
+/// got a warm thank-you.
+fn landed(w: &World, him: Them, t: &Turn, wants: &[afm_engine::world::folk::persona::wants::Want]) -> String {
+    use afm_engine::world::folk::persona::ear::{How, Item, Landing, Sized};
+    let size = |h: &Sized| h.trust + h.mood;
+    let his = |h: &&Sized| h.hit.on == him && h.hit.item != Item::Manner && size(h).abs() > 0.005;
+    let what = |item: &Item| -> String {
+        match item {
+            Item::Want(k) => talk::want_at(wants, *k)
+                .map(|x| items::want_words(x.kind).split(':').next().unwrap_or("").replace("his ", "your "))
+                .unwrap_or_default(),
+            Item::Pride => "your pride".into(),
+            Item::Family => "your family".into(),
+            Item::HisWord => "what you told him".into(),
+            Item::Room => "the team".into(),
+            Item::Promise(_) => format!("his promise ({})", items::short(w, him, item)),
+            _ => items::short(w, him, item).replace("his ", "your "),
+        }
+    };
+    let say = |h: &Sized| -> String {
+        let x = what(&h.hit.item);
+        let on = if x.is_empty() { String::new() } else { format!(" on {x}") };
+        let good = size(h) > 0.0;
+        match h.hit.how {
+            How::Reassured => format!("he reassures you{on}"),
+            How::Respected => format!("you feel respected{on}"),
+            How::Flattered => format!("it flatters you{on}"),
+            How::Staked if good => format!("you believe him{on}"),
+            How::Staked => format!("you don't quite buy it{on}"),
+            How::Stung => format!("it stings{on}"),
+            How::Insulted => format!("it insults you{on}"),
+            How::Doubted => format!("he doubts you{on}"),
+            How::Threatened => format!("it feels like a threat{on}"),
+        }
+    };
+    let mut parts: Vec<String> = Vec::new();
+    let hits: Vec<&Sized> = t.hits.iter().filter(his).collect();
+    if let Some(h) = hits.iter().filter(|h| size(h) > 0.0).max_by(|a, b| size(a).total_cmp(&size(b))) {
+        parts.push(say(h));
+    }
+    if let Some(h) = hits.iter().filter(|h| size(h) < 0.0).min_by(|a, b| size(a).total_cmp(&size(b))) {
+        parts.push(say(h));
+    }
+    if t.dodged {
+        parts.push("he didn't answer what you asked".into());
+    }
+    let sat = match t.landing {
+        Landing::Untouched => "",
+        Landing::Landed => "it eases you",
+        Landing::Little => "it helps a little",
+        Landing::Nothing => "it doesn't move you",
+        Landing::Cost => "it sits a little wrong with you",
+        Landing::Missed => "it doesn't sit well with you at all",
+        Landing::Spent => "you've heard his pitch for today",
+        Landing::Unbacked => "nothing he has backs that up, and you can tell",
+    };
+    if !sat.is_empty() {
+        parts.push(sat.into());
+    }
+    parts.join("; ")
+}
+
+/// The openings of his own lines so far in this talk (talk replies item
+/// 8): the voice starts no line the same way again. Proposed, not
+/// confirmed.
+pub const OPENERS: usize = 6;
+
+fn openers(s: &Scene) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for l in s.lines.iter().filter(|l| l.by > 1) {
+        let text = folk::plain(&l.text);
+        let head: String = text.split([',', '.', '!', '?', ';', ':', '\u{2014}']).next().unwrap_or("").to_string();
+        let words: Vec<&str> = head.split_whitespace().take(4).collect();
+        if words.is_empty() {
+            continue;
+        }
+        let o = words.join(" ");
+        if !out.contains(&o) {
+            out.push(o);
+        }
+    }
+    let from = out.len().saturating_sub(OPENERS);
+    out.split_off(from)
 }
 
 /// The voice's card from the game's turn.
 pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &str, keys: &EarKeys) -> VoiceCard {
-    let Some(him) = talk::across(room) else { return VoiceCard::default() };
+    let Some(him) = answering(room, t) else { return VoiceCard::default() };
     let who::Who { background, personality, mood, football, known_you, swears } = who::who(w, him, room);
     let (say, asks) = talk::say_of(t);
+    let wants_all = parts.wanting.wants(w, him);
     let care = match him {
         Them::Player(id) => folk::person(w, id).is_some_and(|i| {
             let sheet = claims::player(w, i);
@@ -296,15 +415,22 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         (h, _) if h >= 0.3 => "a little heated".into(),
         _ => "calm".into(),
     };
-    let speaker =
-        t.speaker.map(|(x, seat)| format!("{} ({}) answers this one for him", person(w, x), seat_words(seat)));
+    // In a room the man who answers is the card's own man (`answering`).
+    let speaker = t
+        .speaker
+        .filter(|_| !crowd::plays(room))
+        .map(|(x, seat)| format!("{} ({}) answers this one for him", person(w, x), seat_words(seat)));
     // What the talk is to him: who you are to him, what rides on it, what
     // he wants from it (Cain 2026-11-15: "give the AI targets").
     // In front of the team or a room he answers for them: his own wants stay
     // off the card (the talks audit, 2026-11-16: the team's spokesman asked
     // for a real role, his own want on the card beside the line that said
     // never).
-    let group = matches!(room.channel, Channel::Group(_));
+    // A man who speaks up for himself in a room (group talks, items 5 and
+    // 7) keeps his own wants and history; one who answers for the room
+    // doesn't.
+    let own = t.crowd.as_ref().is_some_and(|c| c.own);
+    let group = matches!(room.channel, Channel::Group(_)) && !own;
     let wants = if group { Vec::new() } else { parts.wanting.wants(w, him) };
     // The same for his history with you: in front of the room he answers
     // for the team, so the card carries the team's history with you, not
@@ -316,9 +442,18 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
             "You're answering in front of the room, for the group: what the room feels and will do, never your own role, snaps, money or contract"
                 .into(),
         );
+    } else if own {
+        stakes.push(
+            "You're speaking for yourself in front of the room: your teammates hear every word, so you say it the way you'd say it with them listening"
+                .into(),
+        );
     }
-    let mut room_words: Vec<String> =
-        room.present.iter().skip(1).map(|p| format!("{} ({})", person(w, p.who), seat_words(p.seat))).collect();
+    let mut room_words: Vec<String> = room
+        .present
+        .iter()
+        .filter(|p| p.who != him)
+        .map(|p| format!("{} ({})", person(w, p.who), seat_words(p.seat)))
+        .collect();
     room_words.extend(speaker);
     // His asks from earlier lines of this talk, never asked again; the one
     // his last line raised he may press once (the talks audit, 2026-11-16:
@@ -353,7 +488,7 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
     // agent takes the money): first on the list, where the voice can't
     // miss it. In the room list alone, the kid still answered for his
     // parents (the talks audit, 2026-11-16).
-    if let Some((x, seat)) = t.speaker.filter(|(x, _)| *x != him) {
+    if let Some((x, seat)) = t.speaker.filter(|(x, _)| *x != him && !crowd::plays(room)) {
         let who = person(w, x);
         released.insert(
             0,
@@ -406,7 +541,7 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         may_name: keys
             .people
             .iter()
-            .filter(|(_, x)| channels::name(w, *x) != "He")
+            .filter(|(_, x)| channels::name(w, *x) != "He" && crowd::Bloc::of(*x).is_none())
             .map(|(tag, x)| Tagged { tag: tag.clone(), text: person(w, *x) })
             .chain(Team::seat(w).map(|t| Tagged { tag: "team".into(), text: t.name(w) }))
             .collect(),
@@ -417,7 +552,11 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         holding_back: say.holding_back,
         lie: say.lie.unwrap_or_default(),
         asks,
-        asked_by: t.speaker.filter(|(x, _)| *x != him).map(|(x, _)| person(w, x)).unwrap_or_default(),
+        asked_by: t
+            .speaker
+            .filter(|(x, _)| *x != him && !crowd::plays(room))
+            .map(|(x, _)| person(w, x))
+            .unwrap_or_default(),
         asked_before,
         pressing,
         heat,
@@ -430,6 +569,10 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         told_coach: if group { Vec::new() } else { shared_words(w, him, false) },
         coach_told: if group { Vec::new() } else { shared_words(w, him, true) },
         coach_life: if group { Vec::new() } else { afm_engine::world::folk::persona::home::your_life(w) },
+        landed: if group { String::new() } else { landed(w, him, t, &wants_all) },
+        habits: afm_engine::world::folk::persona::speech::habits(w, him, &folk::scene::your_name(w)),
+        openers: openers(s),
+        settled: settled(w, s),
         so_far: so_far(s),
         line: quoted(line),
     }
@@ -500,6 +643,18 @@ impl EarCard {
         if !self.on_table.is_empty() {
             out.push_str(&format!("On the table: {}.\n", self.on_table.join("; ")));
         }
+        if !self.settled.is_empty() {
+            out.push_str("Settled so far in this talk:\n");
+            for x in &self.settled {
+                out.push_str(&format!("- {x}\n"));
+            }
+        }
+        if !self.actions.is_empty() {
+            out.push_str("Actions that fit each player today (tag: action (values)):\n");
+            for x in &self.actions {
+                out.push_str(&format!("- {x}\n"));
+            }
+        }
         out.push_str("</card>\n<talk_so_far>\n");
         for l in &self.so_far {
             out.push_str(&format!("{}: {}\n", l.who, quoted(&l.text)));
@@ -552,6 +707,19 @@ impl VoiceCard {
             put("Holding back", "you are holding something back: let it show, never say what");
         }
         put("Say this, not the truth", &self.lie);
+        put("How the coach's line landed with you (let your answer show it, never say it)", &self.landed);
+        if !self.habits.is_empty() {
+            out.push_str("Your way of talking (habits to play, never lines to copy):\n");
+            for h in &self.habits {
+                out.push_str(&format!("~ {h}\n"));
+            }
+        }
+        if !self.settled.is_empty() {
+            out.push_str("Settled so far in this talk (you remember all of it; here \"you\" is you):\n");
+            for x in &self.settled {
+                out.push_str(&format!("~ {x}\n"));
+            }
+        }
         if !self.heard.is_empty() {
             out.push_str("What the coach just did (react to it first, in your own words):\n");
             for h in &self.heard {
@@ -637,6 +805,10 @@ impl VoiceCard {
         // above, a coordinator still said "I'd still like a straight answer
         // on where I stand" on three lines running (the talks audit,
         // 2026-11-16).
+        if !self.openers.is_empty() {
+            let o: Vec<String> = self.openers.iter().map(|x| format!("\"{x}\"")).collect();
+            out.push_str(&format!("Your lines so far began: {}. Start this one some other way.\n", o.join(", ")));
+        }
         if !self.asked_before.is_empty() {
             out.push_str("This turn: what you already asked earlier in this talk stays let go. Don't ask it, hint at it or say you're still waiting on it; answer what the coach just said.\n");
         }
@@ -661,7 +833,7 @@ fn put_line(out: &mut String, k: &str, v: &str) {
 /// touched only when you already know them; otherwise only whether it
 /// landed.
 pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
-    let Some(him) = talk::across(room) else { return String::new() };
+    let Some(him) = answering(room, t) else { return String::new() };
     let mut parts: Vec<String> = Vec::new();
     if !t.told.is_empty() {
         parts.push(if t.told.len() == 1 { "a question".into() } else { format!("{} questions", t.told.len()) });
@@ -678,6 +850,11 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
     if !t.asked.is_empty() {
         parts.push("a request".into());
     }
+    // An ask put to someone else in the room, by his name (ear audit item
+    // 4): "a request to Gil Foster".
+    for (doer, _, _) in &t.asked_of {
+        parts.push(format!("a request to {}", folk::plain(&channels::name(w, *doer))));
+    }
     if t.confirm.iter().any(|c| matches!(c, Confirm::Decision(_))) {
         parts.push("a decision".into());
     }
@@ -688,6 +865,12 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
     }
     if t.dodged {
         parts.push("you didn't answer his question".into());
+    }
+    // A room is read by its groups, once (group talks, item 8): never "on
+    // the team" for each way it hit.
+    if crowd::plays(room) {
+        parts.push(crowd::read(w, room, &t.hits, t.speaker.map(|x| x.0)).heard);
+        return parts.join("; ");
     }
     // The dodge's own hit is said above, not as a doubt on his word.
     let dodge = |h: &afm_engine::world::folk::persona::ear::Sized| {
@@ -702,20 +885,23 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
     let manner = |h: &afm_engine::world::folk::persona::ear::Sized| {
         h.hit.item == afm_engine::world::folk::persona::ear::Item::Manner
     };
-    // Each hit by what it touched, once you know that; one on something
-    // he hasn't shown you (what he wants) by how it hit alone, so a line
-    // to someone whose hits are all on his wants still says how it went.
-    let mut bare: Vec<String> = Vec::new();
-    for h in t.hits.iter().filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005 && !dodge(h) && !manner(h)) {
+    // At most one hit each way, the strongest, by what it touched once you
+    // know that; a hit on something he hasn't shown you is left to how the
+    // line landed (talk replies item 10: "Heard as" ran to six parts, half
+    // of them "reassured" with nothing after it).
+    let size = |h: &&afm_engine::world::folk::persona::ear::Sized| h.trust + h.mood;
+    let hits: Vec<_> = t
+        .hits
+        .iter()
+        .filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005 && !dodge(h) && !manner(h))
+        .filter(|h| items::known(w, him, &h.hit.item) && !items::short(w, him, &h.hit.item).is_empty())
+        .collect();
+    let best = hits.iter().filter(|h| size(h) > 0.0).max_by(|a, b| size(a).total_cmp(&size(b)));
+    let worst = hits.iter().filter(|h| size(h) < 0.0).min_by(|a, b| size(a).total_cmp(&size(b)));
+    for h in best.into_iter().chain(worst) {
         let how = format!("{:?}", h.hit.how).to_lowercase();
-        let what = if items::known(w, him, &h.hit.item) { items::short(w, him, &h.hit.item) } else { String::new() };
-        if !what.is_empty() {
-            parts.push(format!("{how} on {what}"));
-        } else if !bare.contains(&how) {
-            bare.push(how);
-        }
+        parts.push(format!("{how} on {}", items::short(w, him, &h.hit.item)));
     }
-    parts.extend(bare);
     // How it went over, as the game read it (`Turn.landing`: a recruit's
     // line on your case, anyone else's on his own bars); nothing when the
     // line touched nothing of his ("Heard as a request.").
@@ -724,4 +910,10 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
         parts.push(landed);
     }
     parts.join("; ")
+}
+
+/// The man who answers a line: the man across, or in a room the man the
+/// game picked to answer it (group talks, item 5).
+pub fn answering(room: &Room, t: &Turn) -> Option<Them> {
+    if crowd::plays(room) { t.speaker.map(|x| x.0).or_else(|| talk::across(room)) } else { talk::across(room) }
 }

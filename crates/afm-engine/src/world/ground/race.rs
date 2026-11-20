@@ -99,6 +99,11 @@ pub struct Waver {
     pub rival: u32,
     pub date: Date,
     pub signs: Vec<String>,
+    /// Each sign's day and where it came from, in the order of `signs`
+    /// (`sheet`, `visit` or `offer`): the rival screen draws them dated and
+    /// numbered. Empty on a save from before the screen.
+    #[serde(default)]
+    pub when: Vec<(Date, String)>,
     /// Your call: the day and how it landed (0-1).
     pub fought: Option<(Date, f32)>,
     pub line: Option<String>,
@@ -477,14 +482,16 @@ pub(crate) fn watch(w: &mut World, d: Date) {
         if w.ground.race.wavers.iter().any(|x| x.id == id && x.date.days_to(d) < WAVER_GAP) {
             continue;
         }
-        let mut by: Vec<(usize, Vec<String>, u8)> = Vec::new();
-        let mut add = |p: usize, s: String, strong: u8| match by.iter_mut().find(|x| x.0 == p) {
-            Some(x) => {
-                x.1.push(s);
-                x.2 += strong;
-            }
-            None => by.push((p, vec![s], strong)),
-        };
+        type Signs = Vec<(String, Date, &'static str)>;
+        let mut by: Vec<(usize, Signs, u8)> = Vec::new();
+        let mut add =
+            |p: usize, s: String, day: Date, kind: &'static str, strong: u8| match by.iter_mut().find(|x| x.0 == p) {
+                Some(x) => {
+                    x.1.push((s, day, kind));
+                    x.2 += strong;
+                }
+                None => by.push((p, vec![(s, day, kind)], strong)),
+            };
         for v in sheet(w, q.hs, since, d) {
             let lv =
                 people::head_coach_of(w, q.hs).map_or(Level::Stranger, |c| standing::level(w, v.program as usize, c));
@@ -497,18 +504,32 @@ pub(crate) fn watch(w: &mut World, d: Date) {
                         last_name(&v.name),
                         super::week::beat::short(v.date)
                     ),
+                    v.date,
+                    "sheet",
                     1,
                 );
             }
         }
         for &(p, day, kind) in &q.cal.visits {
             if p != prog && day >= since && day <= d {
-                add(p, format!("{} {}", visit_words(kind, &w.programs[p].real_name), super::week::beat::short(day)), 2);
+                add(
+                    p,
+                    format!("{} {}", visit_words(kind, &w.programs[p].real_name), super::week::beat::short(day)),
+                    day,
+                    "visit",
+                    2,
+                );
             }
         }
         for &(p, day) in &q.cal.early_offers {
             if p != prog && day >= since && day <= d {
-                add(p, format!("{} offered him {}", w.programs[p].real_name, super::week::beat::short(day)), 1);
+                add(
+                    p,
+                    format!("{} offered him {}", w.programs[p].real_name, super::week::beat::short(day)),
+                    day,
+                    "offer",
+                    1,
+                );
             }
         }
         by.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
@@ -519,9 +540,11 @@ pub(crate) fn watch(w: &mut World, d: Date) {
         let name = q.name.clone();
         let school = w.programs[rival].real_name.clone();
         let mut body = vec![format!("{name} is wavering. {school} is working him:")];
+        let when: Vec<(Date, String)> = signs.iter().map(|s| (s.1, s.2.to_string())).collect();
+        let signs: Vec<String> = signs.into_iter().map(|s| s.0).collect();
         body.extend(signs.iter().map(|s| format!("- {s}")));
         body.push("One call to his family this week is your chance to hold him.".into());
-        w.ground.race.wavers.push(Waver { id, rival: rival as u32, date: d, signs, fought: None, line: None });
+        w.ground.race.wavers.push(Waver { id, rival: rival as u32, date: d, signs, when, fought: None, line: None });
         if let Some(who) = people::head_coach_of(w, w.people[i].hs) {
             standing::post_memo(w, who, d, format!("{name} is wavering"), body, 2);
         }
