@@ -230,6 +230,45 @@ pub enum PromiseKind {
     /// (college fall camp, the NFL's veterans report), kept by the vote or
     /// by you naming him beside it (`captain`, 2026-11-18).
     Captain,
+    /// Your word on his work (talk replies item 13): you said in a talk
+    /// you'd put him on a skill project (0), a body project (1), a focus (2)
+    /// or a move to a position (3 + the position's index), and didn't do
+    /// it there. Kept once it runs,
+    /// judged `WORK_DAYS` later (`work_kept`).
+    Work(u8),
+}
+
+/// The days your word on his work has to be kept (`PromiseKind::Work`).
+/// Proposed, not confirmed.
+pub const WORK_DAYS: i32 = 21;
+
+/// The kinds of work your word can be on (`PromiseKind::Work`), in words.
+pub fn work_words(code: u8) -> String {
+    match code {
+        0 => "a skill project".into(),
+        1 => "a body project".into(),
+        2 => "a focus in practice".into(),
+        k => crate::positions::Position::ALL
+            .get(k as usize - 3)
+            .map_or_else(|| "a move to a new position".into(), |p| format!("a move to {}", p.name())),
+    }
+}
+
+/// Whether the work you gave your word on is on his plan: a skill or body
+/// project running, points of emphasis you set, a position move planned
+/// or made.
+pub fn work_kept(w: &World, id: u32, code: u8) -> bool {
+    let Some(i) = super::person(w, id) else { return true };
+    let p = &w.people[i].player;
+    match code {
+        0 => p.prog.project().is_some(),
+        1 => p.prog.body_project().is_some(),
+        2 => !w.points_of(id).is_empty(),
+        k => {
+            let to = k as usize - 3;
+            p.position as usize == to || w.training.plan_of(id).moving.is_some_and(|m| m.0 as usize == to)
+        }
+    }
 }
 
 impl PromiseKind {
@@ -266,6 +305,7 @@ impl PromiseKind {
                 |p| format!("that you'd sign him help at {}", p.name()),
             ),
             PromiseKind::Captain => "that he'd be a captain".into(),
+            PromiseKind::Work(k) => work_words(k),
         }
     }
 }
@@ -486,6 +526,7 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
         // The day your room names its captains (`captain::named` judges it
         // then); a few days' grace for a room that never voted.
         PromiseKind::Captain => super::captain::next_naming(w).map_or(today.add(330), |d| d.add(super::captain::GRACE)),
+        PromiseKind::Work(_) => today.add(WORK_DAYS),
     };
     base.add(
         365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32,
@@ -735,6 +776,7 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                 PromiseKind::Captain => {
                     here && Team::seat(w).is_some_and(|t| super::takeover::captains_of(w, t).contains(&i))
                 }
+                PromiseKind::Work(k) => here && work_kept(w, id, k),
                 _ => true,
             }
         }
@@ -759,7 +801,8 @@ fn of_his_place(p: &Promise) -> Option<u32> {
             | PromiseKind::Touches
             | PromiseKind::Position(_)
             | PromiseKind::Usage
-            | PromiseKind::Captain,
+            | PromiseKind::Captain
+            | PromiseKind::Work(_),
         ) => Some(id),
         _ => None,
     }

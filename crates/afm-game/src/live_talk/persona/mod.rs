@@ -27,6 +27,7 @@ use afm_engine::world::folk::usage::{self, Usage};
 
 use super::card::{Spoken, Tagged};
 
+pub mod actions;
 pub mod calls;
 pub mod cards;
 pub mod ear;
@@ -63,6 +64,9 @@ pub struct EarCard {
     pub on_table: Vec<String>,
     /// What this talk has settled so far (talk replies item 11).
     pub settled: Vec<String>,
+    /// The game's actions that fit each player in the room today, with
+    /// their values (talk replies item 13, `actions::card_lines`).
+    pub actions: Vec<String>,
     pub so_far: Vec<Spoken>,
     /// Your line, quoted (`card::quoted`).
     pub line: String,
