@@ -890,7 +890,15 @@ pub fn game(b: &mut Book, row: i64, f: &Filters) -> Result<Value, String> {
                     who.name(int(r, "player")),
                     text(r, "kind"),
                     format!("{:.1}", num(r, "weeks")),
-                    if has(r, "plays_on") { "played on" } else { "left the game" },
+                    // Kept as 0 or 1 in the book, so read the number; a man
+                    // back in has the plays he sat (engine gaps item 3).
+                    if num(r, "plays_on") != 0.0 {
+                        "played on".to_string()
+                    } else if has(r, "back") {
+                        format!("back in after {} plays", int(r, "back"))
+                    } else {
+                        "left the game".to_string()
+                    },
                     int(r, "n")
                 ])
             })

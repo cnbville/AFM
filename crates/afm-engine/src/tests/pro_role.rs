@@ -259,10 +259,13 @@ fn your_clubs_games_keep_who_was_out_hurt() {
     let j = w.clubs[club].roster[1];
     let jid = w.people[j].player.id;
     w.people[j].pro.as_mut().unwrap().out_days = 10;
-    // One of yours who plays on hurt is not out.
+    // One of yours who plays on hurt is not out, and nor is one who went
+    // to the sideline and came back in.
     let k = w.clubs[club].roster[2];
     let kid = w.people[k].player.id;
-    for x in [i, k] {
+    let b = w.clubs[club].roster[3];
+    let bid = w.people[b].player.id;
+    for x in [i, k, b] {
         let c = w.people[x].pro.as_mut().unwrap();
         c.out_days = 0;
         c.out_weeks = 0;
@@ -274,9 +277,18 @@ fn your_clubs_games_keep_who_was_out_hurt() {
         kind: crate::game::sim::InjuryKind::AnkleSprain,
         weeks: 3.0,
         plays_on,
+        back: None,
+        cause: crate::game::sim::Cause::default(),
     };
+    let came_back = crate::game::sim::Injury { back: Some(4), ..inj(bid, false) };
     let other_id = w.people[w.clubs[opp].roster[0]].player.id;
-    let list = vec![(1usize, inj(id, false)), (1usize, inj(kid, true)), (0usize, inj(other_id, false))];
+    let list =
+        vec![(1usize, inj(id, false)), (1usize, inj(kid, true)), (1usize, came_back), (0usize, inj(other_id, false))];
+    // The game's own days are on the ones who finished it too (engine
+    // gaps item 3), as `record` leaves them before the game is kept.
+    for x in [k, b] {
+        w.people[x].pro.as_mut().unwrap().hurt_for(22);
+    }
     let today = w.today;
     let hurt_before = w.training.hurt.len();
     kept_game(&mut w, today, [opp, club], &[], Some(1));
@@ -285,6 +297,7 @@ fn your_clubs_games_keep_who_was_out_hurt() {
     assert!(g.hurt.contains(&id), "hurt in it");
     assert!(g.hurt.contains(&jid), "out at kickoff");
     assert!(!g.hurt.contains(&kid), "played on");
+    assert!(!g.hurt.contains(&bid), "came back in");
     assert!(!g.hurt.contains(&other_id), "theirs are not yours");
     assert_eq!(w.training.hurt.len(), hurt_before, "a pro's injuries stay off your trainers' list");
     // The game he missed hurt says nothing about your word.

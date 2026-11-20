@@ -635,9 +635,11 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
     }
     // Injuries by the team he plays for, not his side on the snap (B1: a
     // defender hurt on a snap read the offense's list and never carried),
-    // out day by day from the day after the game, as in college.
+    // out day by day from the day after the game, as in college. One he
+    // finished the game on, playing on or back in, heals its weeks too
+    // (engine gaps item 3).
     for &(team, ref inj) in &r.injuries {
-        if inj.plays_on || team > 1 {
+        if team > 1 {
             continue;
         }
         let Some(&(i, _)) = sides[team].who.get(&inj.id) else { continue };
@@ -807,7 +809,7 @@ pub(crate) fn record(
     );
     // By team, day by day (B1; see `record_preseason`).
     for &(team, ref inj) in &r.injuries {
-        if inj.plays_on || team > 1 {
+        if team > 1 {
             continue;
         }
         let Some(&(i, _)) = sides[team].who.get(&inj.id) else { continue };
@@ -871,10 +873,12 @@ pub(crate) fn field_start(pos: crate::positions::Position, l: &crate::game::stat
 
 /// Your club's men a kept game said nothing about (code oddity 29): out
 /// hurt at kickoff (his own days, `ProCareer::out_days`, whatever hurt
-/// him) or hurt in it without playing on. A pro's injuries are not on your
-/// trainers' list, so the game keeps them (`SeatGame::hurt`) for
-/// `seen::games`, which reads a game he missed hurt as nothing against
-/// your word.
+/// him) or hurt in it and done for the game. A man who played on hurt or
+/// came back in finished it, so his game counts, though `record` has
+/// already put this game's days on him (engine gaps item 3: the injury
+/// stays after the game). A pro's injuries are not on your trainers' list,
+/// so the game keeps them (`SeatGame::hurt`) for `seen::games`, which
+/// reads a game he missed hurt as nothing against your word.
 pub(crate) fn seat_hurt(
     w: &mut World,
     level: crate::calendar::Level,
@@ -886,13 +890,18 @@ pub(crate) fn seat_hurt(
     }
     let (Some((_, t)), Some(team)) = (w.seat_team(), crate::world::folk::Team::seat(w)) else { return };
     let side = if teams[0] == t { 0 } else { 1 };
+    let ours = || injuries.iter().filter(|x| x.0 == side).map(|x| &x.1);
+    let done = |x: &crate::game::sim::Injury| !x.plays_on && x.back.is_none();
+    // Hurt in it and finished it: his days are this game's, not kickoff's.
+    let finished: Vec<u32> = ours().filter(|x| !done(x)).map(|x| x.id).collect();
     let mut ids: Vec<u32> = team
         .roster(w)
         .into_iter()
         .filter(|&i| w.people[i].pro.as_ref().is_some_and(|c| c.out_days > 0 || c.out_weeks > 0))
         .map(|i| w.people[i].player.id)
+        .filter(|id| !finished.contains(id))
         .collect();
-    ids.extend(injuries.iter().filter(|x| x.0 == side && !x.1.plays_on).map(|x| x.1.id));
+    ids.extend(ours().filter(|x| done(x)).map(|x| x.id));
     ids.sort_unstable();
     ids.dedup();
     let today = w.today;

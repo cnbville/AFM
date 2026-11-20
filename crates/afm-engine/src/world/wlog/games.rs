@@ -217,15 +217,22 @@ fn penalties(s: &GameStats) -> Vec<Value> {
 }
 
 /// Every injury in the game: who, on which snap, the kind, the weeks he
-/// will miss and whether he played on.
+/// will miss, whether he played on, the plays he sat before he went back
+/// in (engine gaps item 3) and what did it (items 1 and 2).
 fn injuries(s: &GameStats, r: &GameResult) -> Vec<Value> {
+    // A man hurt twice (back in, then hurt again) has two rows, each on its
+    // own play.
+    let mut seen: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
     r.injuries
         .iter()
         .map(|(team, inj)| {
-            let at = s.plays.iter().find(|p| p.injuries.iter().any(|x| x.id == inj.id));
+            let nth = seen.entry(inj.id).or_default();
+            let at = s.plays.iter().filter(|p| p.injuries.iter().any(|x| x.id == inj.id)).nth(*nth);
+            *nth += 1;
             json!({
                 "team": team, "player": inj.id, "kind": format!("{:?}", inj.kind), "weeks": inj.weeks,
-                "plays_on": inj.plays_on, "n": at.map(|p| p.n), "q": at.map(|p| p.quarter),
+                "plays_on": inj.plays_on, "back": inj.back, "cause": inj.cause.name(),
+                "n": at.map(|p| p.n), "q": at.map(|p| p.quarter),
             })
         })
         .collect()

@@ -1875,6 +1875,9 @@ fn main() {
             h[4] / n
         );
     }
+    if std::env::var("AFM_RECDIAG").is_ok() {
+        rec_diag(&results, &teams);
+    }
     if std::env::var("AFM_GAPS").is_ok() {
         gaps_counts(&results, &pos_of, level);
         foul_counts(&results, level);
@@ -2381,6 +2384,7 @@ fn gaps_counts(
         );
     }
     println!("  all   {:.3} {:.3} {:.3}", tot[0] / tg, tot[1] / tg, tot[2] / tg);
+    injury_counts(results, pos_of);
     println!("field goals by distance (att a team game, make, blocked share):");
     for (k, e) in &fg {
         println!("  {k:<8} {:.3}  {:.3}  {:.4}", e[0] / tg, e[1] / e[0].max(1.0), e[2] / e[0].max(1.0));
@@ -3408,5 +3412,368 @@ fn run_diag(
     w.sort_by(|a, b| b.1.total_cmp(&a.1));
     for (k, v) in w.iter().take(12) {
         println!("  stuff: {k:<16} {:.3} of runs", v / n);
+    }
+}
+
+/// Engine gaps lane EG1's injury counts (`AFM_GAPS=1`): each position's
+/// share of the week-plus injuries against real (nflverse injury reports,
+/// episodes a player-season by the men a team plays at each position), what
+/// did it, the body parts against real, and the sideline (back in the same
+/// game, concussions and their checks). Per team game unless named.
+fn injury_counts(
+    results: &[afm_engine::game::GameResult],
+    pos_of: &std::collections::HashMap<u32, afm_engine::positions::Position>,
+) {
+    use afm_engine::game::sim::InjuryKind as K;
+    use afm_engine::positions::Position as P;
+    use std::collections::BTreeMap;
+    let tg = results.len() as f64 * 2.0;
+    let dev: Value =
+        serde_json::from_str(include_str!("../../../../data/real-world/development_injuries.json")).unwrap();
+    // Real: episodes a player-season times the men a team plays four games
+    // or more at each position (Claude's count of a typical NFL team).
+    let eps = &dev["injury_episodes_per_player_season"];
+    let men = [
+        ("QB", "QB", 1.6),
+        ("RB", "RB", 3.3),
+        ("WR", "WR", 5.5),
+        ("TE", "TE", 3.3),
+        ("OL", "OL", 8.0),
+        ("DT", "DL", 5.0),
+        ("EDGE", "EDGE", 4.0),
+        ("LB", "LB", 5.0),
+        ("CB", "CB", 5.2),
+        ("S", "S", 4.0),
+        ("K", "K", 1.0),
+        ("P", "P", 1.0),
+    ];
+    let real: Vec<(&str, f64)> = men.iter().map(|&(g, k, n)| (g, eps[k].as_f64().unwrap_or(0.0) * n)).collect();
+    let real_total: f64 = real.iter().map(|x| x.1).sum();
+    let group = |p: Option<&P>| match p {
+        Some(P::OT | P::IOL) => "OL",
+        Some(P::LS) => "K",
+        Some(p) => p.name(),
+        None => "?",
+    };
+    let mut by_group: BTreeMap<&str, f64> = BTreeMap::new();
+    let mut by_cause: BTreeMap<&str, [f64; 2]> = BTreeMap::new();
+    // Week-plus ones by position and what did it.
+    let mut grid: BTreeMap<(&str, &str), f64> = BTreeMap::new();
+    let mut by_part: BTreeMap<&str, f64> = BTreeMap::new();
+    // Sideline: [hurt, played on, went off and came back, out for the game],
+    // plays sat by those who came back, and the same for week-plus ones.
+    let mut side = [0.0f64; 4];
+    let mut side_wk = [0.0f64; 4];
+    let mut back_plays = Vec::new();
+    // Concussions: [all, played on (nobody caught it), back in, out].
+    let mut conc = [0.0f64; 4];
+    let mut checks = [0.0f64; 3];
+    let mut check_plays = Vec::new();
+    let mut nc = [0.0f64; 2];
+    let mut wk_total = 0.0f64;
+    for r in results {
+        for (_, i) in &r.injuries {
+            let wk = i.weeks >= 1.0;
+            let e = by_cause.entry(i.cause.name()).or_default();
+            e[0] += 1.0;
+            let k = if i.plays_on {
+                1
+            } else if i.back.is_some() {
+                2
+            } else {
+                3
+            };
+            side[0] += 1.0;
+            side[k] += 1.0;
+            if let Some(b) = i.back {
+                back_plays.push(b as f64);
+            }
+            if i.cause.non_contact() {
+                nc[0] += 1.0;
+            }
+            if i.kind == K::Concussion {
+                conc[0] += 1.0;
+                conc[k] += 1.0;
+            }
+            if wk {
+                e[1] += 1.0;
+                wk_total += 1.0;
+                side_wk[0] += 1.0;
+                side_wk[k] += 1.0;
+                *by_group.entry(group(pos_of.get(&i.id))).or_default() += 1.0;
+                *grid.entry((group(pos_of.get(&i.id)), i.cause.name())).or_default() += 1.0;
+                if i.cause.non_contact() {
+                    nc[1] += 1.0;
+                }
+                let part = match i.kind {
+                    K::Knee | K::Acl => "Knee",
+                    K::AnkleSprain | K::HighAnkleSprain => "Ankle",
+                    K::Hamstring => "Hamstring",
+                    K::Concussion => "Concussion",
+                    K::Shoulder => "Shoulder",
+                    K::Foot => "Foot",
+                    K::Groin => "Groin",
+                    K::Calf => "Calf",
+                    K::Back => "Back",
+                    K::Neck => "Neck",
+                    K::Hip => "Hip",
+                    K::Quad => "Quadricep",
+                    K::Achilles => "(Achilles)",
+                    _ => "(bruise, ribs, hand, bone)",
+                };
+                *by_part.entry(part).or_default() += 1.0;
+            }
+        }
+        for c in &r.checks {
+            checks[0] += 1.0;
+            if let Some(b) = c.2 {
+                checks[1] += 1.0;
+                check_plays.push(b as f64);
+            } else {
+                checks[2] += 1.0;
+            }
+        }
+    }
+    println!("injuries of a week or more by position (share; real share from nflverse episodes):");
+    for (g, rv) in &real {
+        let v = by_group.get(g).copied().unwrap_or(0.0);
+        println!("  {g:<5} {:.3} a team game  share {:.3}  real {:.3}", v / tg, v / wk_total.max(1.0), rv / real_total);
+    }
+    let causes: Vec<&str> = by_cause.keys().copied().collect();
+    println!("injuries of a week or more a team game by position and what did it:");
+    println!("  {:<5} {}", "", causes.iter().map(|c| format!("{c:>9}")).collect::<String>());
+    for (g, _) in &real {
+        let row: String =
+            causes.iter().map(|c| format!("{:>9.3}", grid.get(&(*g, *c)).copied().unwrap_or(0.0) / tg)).collect();
+        println!("  {g:<5} {row}");
+    }
+    println!("injuries by what did it (all / 1+ week a team game):");
+    for (c, e) in &by_cause {
+        println!("  {c:<9} {:.3} {:.3}", e[0] / tg, e[1] / tg);
+    }
+    println!(
+        "  nobody touching him: {:.3} of all, {:.3} of 1+ week (the mix's non-contact share: 0.246)",
+        nc[0] / side[0].max(1.0),
+        nc[1] / wk_total.max(1.0)
+    );
+    println!("injuries of a week or more by body part (share; real nflverse):");
+    let parts = &dev["injury_episodes_by_body_part"];
+    for (p, v) in &by_part {
+        let rv = parts[*p]["share"].as_f64();
+        println!(
+            "  {p:<26} {:.3}  real {}",
+            v / wk_total.max(1.0),
+            rv.map_or_else(|| "-".to_string(), |x| format!("{x:.3}"))
+        );
+    }
+    let mean = |v: &[f64]| if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 };
+    println!(
+        "the sideline: of all injuries {:.3} played on, {:.3} went off and came back (after {:.1} plays on average), {:.3} out for the game; 1+ week {:.3} / {:.3} / {:.3}",
+        side[1] / side[0].max(1.0),
+        side[2] / side[0].max(1.0),
+        mean(&back_plays),
+        side[3] / side[0].max(1.0),
+        side_wk[1] / side_wk[0].max(1.0),
+        side_wk[2] / side_wk[0].max(1.0),
+        side_wk[3] / side_wk[0].max(1.0)
+    );
+    println!(
+        "men back in the same game {:.3} a team game; concussions {:.3} a game ({:.3} nobody caught, {:.3} back in, {:.3} out); cleared concussion checks {:.3} a game ({:.3} back in after {:.1} plays, {:.3} sat)",
+        side[2] / tg,
+        conc[0] / (tg / 2.0),
+        conc[1] / conc[0].max(1.0),
+        conc[2] / conc[0].max(1.0),
+        conc[3] / conc[0].max(1.0),
+        checks[0] / (tg / 2.0),
+        checks[1] / checks[0].max(1.0),
+        mean(&check_plays),
+        checks[2] / checks[0].max(1.0)
+    );
+}
+
+/// A rate's spread between men with `min` or more tries, the binomial noise
+/// of each man's count taken out: (men, pooled rate, true sd). Each row is
+/// (hits, tries).
+fn true_sd(rows: &[(f64, f64)], min: f64) -> (usize, f64, f64) {
+    let r: Vec<&(f64, f64)> = rows.iter().filter(|x| x.1 >= min).collect();
+    let n = r.len();
+    if n < 3 {
+        return (n, 0.0, 0.0);
+    }
+    let pb = r.iter().map(|x| x.0).sum::<f64>() / r.iter().map(|x| x.1).sum::<f64>();
+    let p: Vec<f64> = r.iter().map(|x| x.0 / x.1).collect();
+    let m = p.iter().sum::<f64>() / n as f64;
+    let var = p.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1) as f64;
+    let noise = r.iter().map(|x| pb * (1.0 - pb) / x.1).sum::<f64>() / n as f64;
+    (n, pb, (var - noise).max(0.0).sqrt())
+}
+
+/// The slope of y on x and their correlation, over (x, y) rows.
+fn slope(rows: &[(f64, f64)]) -> (f64, f64) {
+    let n = rows.len().max(1) as f64;
+    let (mx, my) = (rows.iter().map(|r| r.0).sum::<f64>() / n, rows.iter().map(|r| r.1).sum::<f64>() / n);
+    let sxy: f64 = rows.iter().map(|r| (r.0 - mx) * (r.1 - my)).sum();
+    let sxx: f64 = rows.iter().map(|r| (r.0 - mx).powi(2)).sum();
+    let syy: f64 = rows.iter().map(|r| (r.1 - my).powi(2)).sum();
+    (sxy / sxx.max(1e-9), sxy / (sxx * syy).sqrt().max(1e-9))
+}
+
+/// AFM_RECDIAG=1: the spread between receivers (scheme-fit lane SF4, items
+/// 6 and 25). Every man with 40 or more targets (12 or more contested: under
+/// a yard of separation at the catch, picks left out), with the binomial
+/// noise of his counts taken out, beside the real NFL's receiver seasons
+/// (FTN charting 2022-24 joined to nflverse play by play and rosters, the
+/// same cuts), the slope of drops on Catching, and the forty's slopes of his
+/// aDOT and deep targets across men with 40 or more targets, so read it at
+/// the NFL.
+fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game::GameTeam]) {
+    use afm_engine::attributes::Attr;
+    use afm_engine::positions::Position as P;
+    let who: std::collections::HashMap<u32, (P, f64, f64, f64, f64)> = teams
+        .iter()
+        .flat_map(|t| {
+            t.players.iter().map(|p| {
+                (p.id, (p.position, p.height, p.attrs.get(Attr::Speed), p.forty(), p.attrs.get(Attr::Catching)))
+            })
+        })
+        .collect();
+    // Per man: [targets, catches, drops, contested, contested catches, and
+    // over the throws not picked (a pick keeps no separation) separation,
+    // its square and the throws; then air yards and targets 20+ yards
+    // downfield].
+    let mut by = std::collections::HashMap::<u32, [f64; 10]>::new();
+    for r in results {
+        for p in &r.stats.plays {
+            if p.nullified || p.kind != PlayType::Pass || p.throw_away {
+                continue;
+            }
+            let Some(t) = p.target else { continue };
+            let e = by.entry(t).or_default();
+            e[0] += 1.0;
+            e[1] += f64::from(u8::from(p.complete));
+            e[2] += f64::from(u8::from(p.drop));
+            if p.separation < 1.0 && !p.interception {
+                e[3] += 1.0;
+                e[4] += f64::from(u8::from(p.complete));
+            }
+            if !p.interception {
+                e[5] += p.separation;
+                e[6] += p.separation * p.separation;
+                e[7] += 1.0;
+            }
+            e[8] += p.air_yards;
+            e[9] += f64::from(u8::from(p.air_yards >= 20.0));
+        }
+    }
+    println!(
+        "\nReceivers (AFM_RECDIAG): men with 40+ targets (12+ contested), each man's binomial noise taken out; real: NFL receiver seasons, FTN charting 2022-24 with nflverse"
+    );
+    // Real: contested share, contested catch rate, drops a target, and the
+    // true sd of the catch rate, contested catch rate (too few real backs
+    // reach 12 contested) and drops a target; the height slopes (an inch)
+    // of the contested catch rate and share.
+    // The forty's slopes (a 0.1 s) of aDOT and of the share of targets 20+
+    // yards downfield (`data/real-world/ab_real.json`, nflverse 2018-25 with
+    // combine forties, 40+ targets; too few backs ran a forty for it).
+    let real = [
+        (P::WR, [0.170, 0.462, 0.0345, 0.0567, 0.0888, 0.0054], Some([0.0072, 0.0107]), Some([-0.79, -0.0285])),
+        (P::TE, [0.137, 0.511, 0.0369, 0.0330, 0.1135, 0.0101], Some([-0.0157, 0.0128]), Some([-0.31, f64::NAN])),
+        (P::RB, [0.054, 0.513, 0.0487, 0.0358, f64::NAN, 0.0112], None, None),
+    ];
+    for (pos, r, ht, fr) in real {
+        let men: Vec<(u32, [f64; 10])> =
+            by.iter().filter(|(id, _)| who.get(id).map(|w| w.0) == Some(pos)).map(|(&id, &v)| (id, v)).collect();
+        let sum = |k: usize| men.iter().map(|m| m.1[k]).sum::<f64>();
+        let rows = |a: usize, b: usize| men.iter().map(|m| (m.1[a], m.1[b])).collect::<Vec<_>>();
+        let (n, _, sd_cat) = true_sd(&rows(1, 0), 40.0);
+        let (_, _, sd_drop) = true_sd(&rows(2, 0), 40.0);
+        let (nc, _, sd_cont) = true_sd(&rows(4, 3), 12.0);
+        println!(
+            "  {pos:?}: {n} men; contested {:.1}% of targets (real {:.1}), caught {:.1}% (real {:.1}); dropped {:.2}% of targets (real {:.2})",
+            100.0 * sum(3) / sum(0).max(1.0),
+            100.0 * r[0],
+            100.0 * sum(4) / sum(3).max(1.0),
+            100.0 * r[1],
+            100.0 * sum(2) / sum(0).max(1.0),
+            100.0 * r[2]
+        );
+        println!(
+            "      true sd between men: catch rate {:.1} pts (real {:.1}), contested catch rate {:.1} ({nc} men, real {}), drops a target {:.2} (real {:.2})",
+            100.0 * sd_cat,
+            100.0 * r[3],
+            100.0 * sd_cont,
+            if r[4].is_nan() { "too few".to_string() } else { format!("{:.1}", 100.0 * r[4]) },
+            100.0 * sd_drop,
+            100.0 * r[5]
+        );
+        let ht_of = |id: u32| who.get(&id).map(|w| w.1).unwrap_or(0.0);
+        let cc: Vec<(f64, f64)> =
+            men.iter().filter(|m| m.1[3] >= 12.0).map(|m| (ht_of(m.0), m.1[4] / m.1[3])).collect();
+        let share: Vec<(f64, f64)> =
+            men.iter().filter(|m| m.1[0] >= 40.0).map(|m| (ht_of(m.0), m.1[3] / m.1[0])).collect();
+        let sep: Vec<(f64, f64)> = men
+            .iter()
+            .filter(|m| m.1[7] >= 40.0)
+            .map(|m| (who.get(&m.0).map(|w| w.2).unwrap_or(0.0), m.1[5] / m.1[7]))
+            .collect();
+        // Separation's spread between men: the variance of their means less
+        // the mean of each man's own variance over his throws.
+        let (sep_m, sep_noise) = {
+            let k = sep.len().max(2) as f64;
+            let m = sep.iter().map(|x| x.1).sum::<f64>() / k;
+            let var = sep.iter().map(|x| (x.1 - m).powi(2)).sum::<f64>() / (k - 1.0);
+            let noise = men
+                .iter()
+                .filter(|m| m.1[7] >= 40.0)
+                .map(|m| (m.1[6] / m.1[7] - (m.1[5] / m.1[7]).powi(2)) / m.1[7])
+                .sum::<f64>()
+                / k;
+            (m, (var - noise).max(0.0).sqrt())
+        };
+        let real_ht = |k: usize| ht.map(|h| format!(" (real {:+.2})", 100.0 * h[k])).unwrap_or_default();
+        println!(
+            "      an inch of height: contested catch rate {:+.2} pts{}, contested share {:+.2}{}",
+            100.0 * slope(&cc).0,
+            real_ht(0),
+            100.0 * slope(&share).0,
+            real_ht(1),
+        );
+        println!(
+            "      separation at the catch {sep_m:.2} yd, true sd {sep_noise:.2} (real WR 0.42, Next Gen Stats 2018-25), {:+.3} yd a 10 points of Speed (correlation {:+.2}, real about none)",
+            10.0 * slope(&sep).0,
+            slope(&sep).1
+        );
+        // Drops on Catching across men with 40 or more targets: the slope,
+        // the spread of Catching between them, and the drops' spread that
+        // Catching alone gives (slope × that spread), beside the true sd above.
+        let hands: Vec<(f64, f64)> = men
+            .iter()
+            .filter(|m| m.1[0] >= 40.0)
+            .map(|m| (who.get(&m.0).map(|w| w.4).unwrap_or(0.0), m.1[2] / m.1[0]))
+            .collect();
+        let sd_hands = {
+            let k = hands.len().max(2) as f64;
+            let m = hands.iter().map(|x| x.0).sum::<f64>() / k;
+            (hands.iter().map(|x| (x.0 - m).powi(2)).sum::<f64>() / (k - 1.0)).sqrt()
+        };
+        println!(
+            "      a 10 points of Catching: drops a target {:+.2} pts; Catching spreads {:.1} points between them, so it alone spreads drops {:.2}",
+            1000.0 * slope(&hands).0,
+            sd_hands,
+            100.0 * slope(&hands).0.abs() * sd_hands
+        );
+        if let Some(fr) = fr {
+            let forty_of = |id: u32| who.get(&id).map(|w| w.3).unwrap_or(0.0);
+            let fast: Vec<&(u32, [f64; 10])> = men.iter().filter(|m| m.1[0] >= 40.0).collect();
+            let adot: Vec<(f64, f64)> = fast.iter().map(|m| (forty_of(m.0), m.1[8] / m.1[0])).collect();
+            let deep: Vec<(f64, f64)> = fast.iter().map(|m| (forty_of(m.0), m.1[9] / m.1[0])).collect();
+            let real_deep = if fr[1].is_nan() { String::new() } else { format!(" (real {:+.2})", 100.0 * fr[1]) };
+            println!(
+                "      a 0.1 s slower forty: aDOT {:+.2} yd (real {:+.2}), targets 20+ yards {:+.2} pts{real_deep}",
+                0.1 * slope(&adot).0,
+                fr[0],
+                10.0 * slope(&deep).0,
+            );
+        }
     }
 }

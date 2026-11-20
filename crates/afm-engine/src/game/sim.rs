@@ -333,6 +333,21 @@ pub struct Agent {
     pub habits: f64,
     #[serde(default)]
     pub flinch: f64,
+    /// What his legs did this play with nobody touching him (engine gaps
+    /// item 2): seconds near his top speed, and the speed he took off and
+    /// turned (yards a second, read by how fast he was going) braking,
+    /// cutting and pushing off. Read at the play's end (`Sim::non_contact`).
+    #[serde(default)]
+    pub sprint: f64,
+    #[serde(default)]
+    pub plant: f64,
+    /// His time in blocks this play (engine gaps item 1): seconds, and
+    /// seconds times the weight on him (his own and the men on the other
+    /// side of the block, pounds). Read at the play's end (`Sim::wear`).
+    #[serde(default)]
+    pub grind: f64,
+    #[serde(default)]
+    pub grind_w: f64,
 }
 
 /// An offensive lineman, by his label.
@@ -414,6 +429,10 @@ impl Agent {
             power: 0.0,
             habits: 0.0,
             flinch: 0.0,
+            sprint: 0.0,
+            plant: 0.0,
+            grind: 0.0,
+            grind_w: 0.0,
         }
     }
 
@@ -497,6 +516,10 @@ impl Agent {
             power: self.power,
             habits: self.habits,
             flinch: self.flinch,
+            sprint: self.sprint,
+            plant: self.plant,
+            grind: self.grind,
+            grind_w: self.grind_w,
         }
     }
 
@@ -565,6 +588,16 @@ impl Agent {
         if s > a.top {
             a.top = s;
         }
+        // What his legs take with nobody touching him (engine gaps item 2):
+        // time near his top speed (a strain), and the speed he takes off
+        // braking and turns cutting, by how fast he is going, with the
+        // push-off at a third (a plant, a cut, a stop).
+        let from = SPRINT_FROM;
+        let fast = (s / a.vmax - from) / (1.0 - from);
+        if fast > 0.0 {
+            a.sprint += DT * fast.min(1.0);
+        }
+        a.plant += ((-par_c).max(0.0) + pl.min(side)) * t1.min(1.0) + PUSH_OFF * par_c.max(0.0);
     }
 
     #[inline]
@@ -723,8 +756,91 @@ pub struct Injury {
     pub kind: InjuryKind,
     /// Weeks he will miss.
     pub weeks: f64,
-    /// Whether he plays on hurt (his toughness, the stakes, his coach).
+    /// He stayed in and played on hurt, never leaving the field (his
+    /// toughness against how bad it is), or a concussion nobody caught.
     pub plays_on: bool,
+    /// He went to the sideline, was checked and came back in (engine gaps
+    /// item 3): the game's plays he was off for. None when he stayed in or
+    /// was out for the rest of the game.
+    #[serde(default)]
+    pub back: Option<u16>,
+    /// What did it (engine gaps items 1 and 2).
+    #[serde(default)]
+    pub cause: Cause,
+}
+
+/// What hurt him (engine gaps items 1 and 2): the collision, or the move
+/// with nobody touching him.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum Cause {
+    /// The ball carrier, taken down (or an arm tackle he broke).
+    #[default]
+    Tackled,
+    /// A man making the tackle (or the sack).
+    Tackling,
+    /// In a block, either man: the hit as they meet, or put on the ground.
+    Block,
+    /// Rolled up or fallen on where a play ends (the pile, a man going down
+    /// into the back of his legs).
+    Pile,
+    /// The hit at the catch point, either man.
+    Catch,
+    /// A passer hit as he throws or sacked, or the man hitting him late.
+    Passer,
+    /// Nobody touched him: a strain at full speed.
+    Sprint,
+    /// Nobody touched him: a plant, a cut or a stop.
+    Plant,
+}
+
+impl Cause {
+    /// No contact with another man.
+    pub fn non_contact(self) -> bool {
+        matches!(self, Cause::Sprint | Cause::Plant)
+    }
+
+    /// How this kind of collision leans the hits' mix (engine gaps item 1),
+    /// times on each kind's weight: a man rolled up or fallen on hurts his
+    /// knee or ankle, a lineman his hands, shoulders and back, the tackler
+    /// and the man hit at the catch their heads, necks and shoulders, the
+    /// passer his throwing shoulder and ribs. The lean moves only which
+    /// kind it is, never the chance of one. Proposed, not confirmed: real
+    /// studies give the mechanisms by body part only roughly (high school:
+    /// being tackled 24-35% of injuries, tackling 22%, blocking about 19%).
+    pub fn lean(self, k: InjuryKind) -> f64 {
+        use InjuryKind as K;
+        match (self, k) {
+            (Cause::Pile, K::Knee | K::Acl | K::HighAnkleSprain) => 2.5,
+            (Cause::Pile, K::AnkleSprain | K::Foot | K::Fracture) => 1.8,
+            (Cause::Pile, K::Concussion | K::Neck) => 0.2,
+            (Cause::Pile, K::Hand | K::Shoulder | K::Ribs) => 0.4,
+            (Cause::Block, K::Hand) => 2.5,
+            (Cause::Block, K::Shoulder | K::Back) => 1.5,
+            (Cause::Block, K::Concussion | K::Ribs) => 0.6,
+            (Cause::Tackling, K::Concussion | K::Shoulder) => 1.4,
+            (Cause::Tackling, K::Neck) => 2.0,
+            (Cause::Tackling, K::Knee | K::Acl | K::AnkleSprain | K::HighAnkleSprain) => 0.7,
+            (Cause::Catch, K::Concussion) => 2.0,
+            (Cause::Catch, K::Ribs | K::Shoulder) => 1.4,
+            (Cause::Catch, K::Knee | K::Acl | K::AnkleSprain | K::HighAnkleSprain) => 0.6,
+            (Cause::Passer, K::Shoulder | K::Ribs | K::Hand) => 1.6,
+            (Cause::Passer, K::Concussion) => 1.3,
+            _ => 1.0,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Cause::Tackled => "tackled",
+            Cause::Tackling => "tackling",
+            Cause::Block => "block",
+            Cause::Pile => "pile",
+            Cause::Catch => "catch",
+            Cause::Passer => "passer",
+            Cause::Sprint => "sprint",
+            Cause::Plant => "plant",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -749,6 +865,9 @@ pub enum InjuryKind {
     Neck,
     Hip,
     Quad,
+    /// A torn Achilles (engine gaps item 2): a push-off or a plant with
+    /// nobody near him, out most of a year.
+    Achilles,
 }
 
 /// The strength staff's guard on soft-tissue injuries (minor bug 303): 2%
@@ -773,15 +892,20 @@ pub fn guarded_mix<const N: usize>(mix: &[(InjuryKind, f64); N], guard: f64) -> 
     (out, (total + (guard - 1.0) * soft) / total)
 }
 
-/// The game injury mix (`Sim::injury_check`), set so the injuries that cost
-/// a week or more fall by body part as real game-status reports do
-/// (nflverse 2012-2025, `development_injuries.json`: knee 17.2%, ankle
-/// 14.3%, hamstring 12.9%, concussion 11.1%, shoulder 5.6%, foot 4.4%,
-/// groin 4.3%, calf 3.8%, back 2.6%, neck 2.3%, hip 2.0%, quad 1.9%, the
-/// rest here as bruises, ribs, hands and broken bones). Knees and ankles
-/// were 24.7% and 21.1% (minor bug 145); knee against ACL and ankle against
-/// high ankle keep their old split.
-pub const GAME_INJURIES: [(InjuryKind, f64); 18] = [
+/// The game injury mix over every game injury, contact and not, set so the
+/// injuries that cost a week or more fall by body part as real game-status
+/// reports do (nflverse 2012-2025, `development_injuries.json`: knee 17.2%,
+/// ankle 14.3%, hamstring 12.9%, concussion 11.1%, shoulder 5.6%, foot
+/// 4.4%, groin 4.3%, calf 3.8%, back 2.6%, neck 2.3%, hip 2.0%, quad 1.9%,
+/// the rest here as bruises, ribs, hands and broken bones). Knees and
+/// ankles were 24.7% and 21.1% (minor bug 145); knee against ACL and ankle
+/// against high ankle keep their old split. The torn Achilles (engine gaps
+/// item 2) took its own 0.8 from hands and broken bones: about 11 a season
+/// in NFL games, preseason to the Super Bowl (Teater et al. 2026: 77 in
+/// 2018-2024), about 1.5% of the week-plus ones. The engine draws it in
+/// two parts: hits from `CONTACT_INJURIES`, the rest with nobody touching
+/// him from `SPRINT_INJURIES` and `PLANT_INJURIES` (`non_contact_share`).
+pub const GAME_INJURIES: [(InjuryKind, f64); 19] = [
     (InjuryKind::Bruise, 23.2),
     (InjuryKind::AnkleSprain, 9.5),
     (InjuryKind::HighAnkleSprain, 3.6),
@@ -790,8 +914,8 @@ pub const GAME_INJURIES: [(InjuryKind, f64); 18] = [
     (InjuryKind::Shoulder, 4.6),
     (InjuryKind::Concussion, 10.7),
     (InjuryKind::Ribs, 5.0),
-    (InjuryKind::Hand, 6.1),
-    (InjuryKind::Fracture, 3.1),
+    (InjuryKind::Hand, 5.7),
+    (InjuryKind::Fracture, 2.7),
     (InjuryKind::Back, 2.8),
     (InjuryKind::Hamstring, 7.4),
     (InjuryKind::Foot, 3.1),
@@ -800,7 +924,207 @@ pub const GAME_INJURIES: [(InjuryKind, f64); 18] = [
     (InjuryKind::Neck, 1.8),
     (InjuryKind::Hip, 1.7),
     (InjuryKind::Quad, 1.5),
+    (InjuryKind::Achilles, 0.8),
 ];
+
+/// Each body part's share of game injuries that come with nobody touching
+/// him, and of those the share at full speed (the rest come on a plant, a
+/// cut or a stop) (engine gaps item 2). Real: about 70% of in-game ACL
+/// tears in the NFL (2014-19, 140 on video) came without contact to the
+/// knee, offensive linemen the exception; hamstrings, groins and calves are
+/// sprinting injuries; the Achilles goes on a push-off or a plant; NFL hip
+/// injuries 37.5% without contact (2000-17); NFL ankle and foot injuries
+/// 14% to 46% by the surface (2022-23). Proposed, not confirmed: the
+/// shares that no study gives (knee sprains, high ankles, feet, backs,
+/// shoulders, broken bones) and every split between a sprint and a plant.
+pub const fn non_contact_share(k: InjuryKind) -> (f64, f64) {
+    match k {
+        InjuryKind::Hamstring => (0.95, 0.9),
+        InjuryKind::Groin => (0.85, 0.4),
+        InjuryKind::Calf => (0.85, 0.6),
+        InjuryKind::Quad => (0.8, 0.7),
+        InjuryKind::Achilles => (0.95, 0.3),
+        InjuryKind::Acl => (0.7, 0.0),
+        InjuryKind::Knee => (0.25, 0.0),
+        InjuryKind::AnkleSprain => (0.3, 0.0),
+        InjuryKind::HighAnkleSprain => (0.2, 0.0),
+        InjuryKind::Foot => (0.45, 0.0),
+        InjuryKind::Hip => (0.4, 0.0),
+        InjuryKind::Back => (0.35, 0.0),
+        InjuryKind::Shoulder | InjuryKind::Fracture => (0.05, 0.0),
+        _ => (0.0, 0.0),
+    }
+}
+
+/// `GAME_INJURIES`' part of a kind: 0 the hits, 1 the sprints, 2 the plants.
+const fn game_part(part: u8) -> [(InjuryKind, f64); 19] {
+    let mut out = GAME_INJURIES;
+    let mut i = 0;
+    while i < out.len() {
+        let (nc, sprint) = non_contact_share(out[i].0);
+        out[i].1 *= match part {
+            0 => 1.0 - nc,
+            1 => nc * sprint,
+            _ => nc * (1.0 - sprint),
+        };
+        i += 1;
+    }
+    out
+}
+
+/// The hits' part of the game mix (engine gaps item 1), before each kind of
+/// hit leans it (`Cause::lean`).
+pub const CONTACT_INJURIES: [(InjuryKind, f64); 19] = game_part(0);
+/// Nobody touched him, at full speed (engine gaps item 2).
+pub const SPRINT_INJURIES: [(InjuryKind, f64); 19] = game_part(1);
+/// Nobody touched him, on a plant, a cut or a stop (engine gaps item 2).
+pub const PLANT_INJURIES: [(InjuryKind, f64); 19] = game_part(2);
+
+/// A collision's injury chance at a force of 1,700 and a share of 1
+/// (`Sim::injury_check`): the rate trial 9 finding 13 set for tackles alone.
+pub const HIT_RATE: f64 = 0.022;
+/// Each collision's part in the game's injuries (engine gaps item 1), on
+/// its force. Tackles alone carried every one before, so backs took 35% of
+/// the injuries and offensive linemen 0.2% (real about 8% and 18%,
+/// nflverse injury reports); every collision now shares the same total
+/// (about 1.1 week-plus injuries a team game in the NFL) with the injuries
+/// nobody touched him for (item 2). Proposed, not confirmed: every share,
+/// sized so each position's share of the week-plus ones comes near real.
+/// The man taken down (a man joining the tackle hits him on his own share
+/// of it, `hit_effects`), and each man making the tackle or the sack.
+pub const CARRIER_SHARE: f64 = 0.18;
+pub const TACKLER_SHARE: f64 = 0.26;
+/// Both men as a block starts (`Sim::engage`), and a man put on the ground
+/// by one.
+pub const BLOCK_SHARE: f64 = 0.026;
+pub const PANCAKE_SHARE: f64 = 0.26;
+/// Each man within `PILE_REACH` yards of a man going down at a tackle or a
+/// sack, either side (`Sim::pile_checks`).
+pub const PILE_SHARE: f64 = 0.26;
+pub const PILE_REACH: f64 = 1.5;
+/// The receiver hit as the ball arrives (a defenseless man) and the man
+/// hitting him; the passer hit as he throws or sacked.
+pub const CATCH_SHARE: f64 = 0.45;
+pub const CATCH_HITTER_SHARE: f64 = 0.26;
+pub const PASSER_SHARE: f64 = 0.45;
+/// An arm tackle the runner breaks: its force against a full hit's.
+pub const ARM_FORCE: f64 = 0.6;
+/// The injuries with nobody touching him (engine gaps item 2): the chance
+/// a second at full speed (from `SPRINT_FROM` of his top speed), and a
+/// yard a second of speed braked or turned at full speed (`Agent::plant`;
+/// a push-off counts `PUSH_OFF` of its gain), for a man of `NC_MOMENTUM`
+/// at his top speed. Sized so they come to about a quarter of game
+/// injuries, as the mix's non-contact shares make them
+/// (`non_contact_share`). Proposed, not confirmed.
+pub const SPRINT_RATE: f64 = 9e-4;
+pub const PLANT_RATE: f64 = 1.5e-5;
+pub const SPRINT_FROM: f64 = 0.8;
+pub const PUSH_OFF: f64 = 0.33;
+/// A block for as long as it lasts (engine gaps item 1, `Sim::wear`): the
+/// chance a second in it at `GRIND_WEIGHT` pounds on him (his own and the
+/// men across), on that weight to the 1.6 as a hit's force is. Proposed,
+/// not confirmed.
+pub const GRIND_RATE: f64 = 1.9e-4;
+pub const GRIND_WEIGHT: f64 = 600.0;
+/// The momentum (pounds times yards a second at his top speed) at which a
+/// strain or a plant has its base chance; to the 1.6 as a hit's force is,
+/// so big fast men load their legs more and slower levels less.
+/// Proposed, not confirmed.
+pub const NC_MOMENTUM: f64 = 2000.0;
+/// Each kind of collision's share of the hits' injuries in NFL games
+/// before its lean, which `lean_norm` reads the leans against. Measured
+/// on `match_check` (2,000 NFL games at these sizes).
+pub const CAUSE_SHARES: [(Cause, f64); 6] = [
+    (Cause::Tackled, 0.16),
+    (Cause::Tackling, 0.21),
+    (Cause::Block, 0.51),
+    (Cause::Pile, 0.095),
+    (Cause::Catch, 0.0005),
+    (Cause::Passer, 0.025),
+];
+
+/// The average collision's lean on a kind (`Cause::lean` weighted by
+/// `CAUSE_SHARES`): the leans move which collision hurts what, not the
+/// game's mix.
+pub fn lean_norm(k: InjuryKind) -> f64 {
+    static NORM: std::sync::OnceLock<[f64; 19]> = std::sync::OnceLock::new();
+    NORM.get_or_init(|| {
+        let sum: f64 = CAUSE_SHARES.iter().map(|x| x.1).sum();
+        let mut out = [1.0; 19];
+        for &(kind, _) in &GAME_INJURIES {
+            out[kind as usize] = CAUSE_SHARES.iter().map(|&(c, x)| x * c.lean(kind)).sum::<f64>() / sum;
+        }
+        out
+    })[k as usize]
+}
+
+/// One collision's hits' mix in sums, so a check builds the mix only when
+/// he is hurt: the leaned weights (`Cause::lean` over `lean_norm`) of the
+/// kinds the strength staff doesn't guard and of the ones it does, the
+/// concussion's, and the unleaned mix's total.
+#[derive(Clone, Copy)]
+struct LeanSums {
+    hard: f64,
+    soft: f64,
+    head: f64,
+    total: f64,
+}
+
+fn lean_sums(cause: Cause) -> LeanSums {
+    static SUMS: std::sync::OnceLock<[LeanSums; 8]> = std::sync::OnceLock::new();
+    SUMS.get_or_init(|| {
+        let causes = [
+            Cause::Tackled,
+            Cause::Tackling,
+            Cause::Block,
+            Cause::Pile,
+            Cause::Catch,
+            Cause::Passer,
+            Cause::Sprint,
+            Cause::Plant,
+        ];
+        causes.map(|c| {
+            let mut s = LeanSums { hard: 0.0, soft: 0.0, head: 0.0, total: 0.0 };
+            for &(k, w) in &CONTACT_INJURIES {
+                let x = w * c.lean(k) / lean_norm(k);
+                if k.soft_tissue() {
+                    s.soft += x;
+                } else {
+                    s.hard += x;
+                }
+                if k == InjuryKind::Concussion {
+                    s.head += x;
+                }
+                s.total += w;
+            }
+            s
+        })
+    })[cause as usize]
+}
+
+/// A mix's total and its soft-tissue part (`guarded_mix` in two numbers).
+fn mix_sums(mix: &[(InjuryKind, f64); 19]) -> (f64, f64) {
+    let total: f64 = mix.iter().map(|e| e.1).sum();
+    let soft: f64 = mix.iter().filter(|e| e.0.soft_tissue()).map(|e| e.1).sum();
+    (total, soft)
+}
+
+/// The sprint and plant mixes' sums, worked out once.
+fn strain_sums() -> [(f64, f64); 2] {
+    static SUMS: std::sync::OnceLock<[(f64, f64); 2]> = std::sync::OnceLock::new();
+    *SUMS.get_or_init(|| [mix_sums(&SPRINT_INJURIES), mix_sums(&PLANT_INJURIES)])
+}
+
+/// Tired legs strain more than tired men get hurt in a collision (up to
+/// 90% more at the 0.25 energy floor, against 60%), as strains come late
+/// in halves. Proposed, not confirmed.
+pub const NC_TIRED: f64 = 1.2;
+/// Artificial turf (engine gaps item 2): non-contact lower-body injuries
+/// 1.2 to 2.0 times as often as on grass and contact ones about even in
+/// the NFL's 2012-16 games (Mack et al. 2019), so the turf's lean moved
+/// from every injury (1.12) to the ones with nobody touching him, at the
+/// same total. Proposed, not confirmed: 1.45.
+pub const TURF_NON_CONTACT: f64 = 1.45;
 
 impl InjuryKind {
     /// Muscle strains and backs: what the weight room and the strength
@@ -832,6 +1156,7 @@ impl InjuryKind {
             InjuryKind::Neck => "neck injury",
             InjuryKind::Hip => "hip injury",
             InjuryKind::Quad => "quad strain",
+            InjuryKind::Achilles => "torn Achilles",
         }
     }
     /// The attributes it costs while he plays through it, as a share.
@@ -862,6 +1187,9 @@ impl InjuryKind {
             InjuryKind::Neck => &[(Attr::Tackling, 0.08), (Attr::Strength, 0.06), (Attr::RunBlocking, 0.06)],
             InjuryKind::Hip => &[(Attr::Agility, 0.08), (Attr::Speed, 0.05), (Attr::Acceleration, 0.05)],
             InjuryKind::Quad => &[(Attr::Speed, 0.06), (Attr::Acceleration, 0.08), (Attr::KickPower, 0.10)],
+            // Nobody plays on one (`Sim::can_play_on`); what a torn tendon
+            // would cost him, for completeness.
+            InjuryKind::Achilles => &[(Attr::Speed, 0.3), (Attr::Acceleration, 0.4), (Attr::Jumping, 0.4)],
             _ => &[(Attr::Speed, 0.03)],
         }
     }
@@ -937,6 +1265,10 @@ pub struct Notes {
     pub freelance: Vec<(u32, bool)>,
     pub fouls: Vec<Foul>,
     pub injuries: Vec<Injury>,
+    /// Men pulled for a concussion check who turn out clear (engine gaps
+    /// item 3): (side, player index, id).
+    #[serde(default)]
+    pub checks: Vec<(usize, usize, u32)>,
     pub top_speed: Vec<(u32, f64)>,
     pub why: Vec<String>,
     /// An RPO the quarterback pulled and threw; an option pitched.
@@ -1291,6 +1623,8 @@ pub struct Sim<'a> {
     pub mood: Mood,
     /// The level's targeting rule (coach fire, item 4).
     pub targeting: super::rules::Targeting,
+    /// The level's concussion rules this season (engine gaps item 3).
+    pub concussion: super::rules::Concussion,
     /// Whose foul rules the snap is played under (engine gaps lane EG5).
     pub fouls: super::fouls::Fouls,
     /// The play's loose ball (engine gaps item 4): set when the ball comes
@@ -2288,6 +2622,8 @@ impl<'a> Sim<'a> {
         });
         self.agents[b].engaged = Some(k);
         self.agents[d].engaged = Some(k);
+        // The two men meet (engine gaps item 1).
+        self.block_checks(b, d);
     }
 
     /// How the front's technique fits the play (S9), in block-win units:
@@ -2684,6 +3020,19 @@ impl<'a> Sim<'a> {
                 self.release(k);
                 continue;
             }
+            // The block's grind (engine gaps item 1): a tick in it for each
+            // man, with the weight on the other side of it (a double team
+            // puts both blockers on him).
+            let (mb, md) = (self.agents[b].mass, self.agents[d].mass);
+            let mh = e.helper.map_or(0.0, |h| self.agents[h].mass);
+            self.agents[b].grind += DT;
+            self.agents[b].grind_w += DT * (mb + md);
+            self.agents[d].grind += DT;
+            self.agents[d].grind_w += DT * (md + mb + mh);
+            if let Some(h) = e.helper {
+                self.agents[h].grind += DT;
+                self.agents[h].grind_w += DT * (mh + md);
+            }
             // Edge of the defender in rating points. It reads only ratings,
             // links and habits that hold all play, so it is worked out again
             // only when the blocker, the helper, the move or an edge
@@ -2940,6 +3289,10 @@ impl<'a> Sim<'a> {
                 );
                 if self.rng.chance(0.25 * finish * DT / 0.5) {
                     self.agents[d].down_until = t + 0.6 + 0.6 * self.rng.next();
+                    // Put on the ground (engine gaps item 1): the blocker's
+                    // drive and his fall.
+                    let force = 0.5 * (self.agents[b].mass * self.agents[b].vel_len() + self.agents[d].mass * 2.0);
+                    self.injury_check(d, force, PANCAKE_SHARE, Cause::Block);
                     self.release(k);
                     self.notes.blocks.push((self.agents[b].id, self.agents[d].id, false, true, t - e.start, false));
                     continue;
@@ -3755,6 +4108,12 @@ impl<'a> Sim<'a> {
             * clamp(1.0 + 0.008 * (r.a(Attr::Balance) + gift - 60.0), 0.75, 1.25)
             * clamp(1.0 - 0.025 * (self.trait20(i, Attr::Physicality) - 10.0), 0.8, 1.2);
         if arm_only && r.vel.len() > 3.0 && self.rng.chance(through.min(0.9)) {
+            // He runs through the arm: a lesser collision for both (engine
+            // gaps item 1).
+            let force = ARM_FORCE * self.hit_force(i, c, 1.0);
+            let carrier = (1.0 + 0.4 * self.lean(c, Tend::Contact)).max(0.2) * CARRIER_SHARE;
+            self.injury_check(c, force, carrier, Cause::Tackled);
+            self.injury_check(i, force, TACKLER_SHARE, Cause::Tackling);
             self.agents[c].vel = self.agents[c].vel.scale(0.6);
             return;
         }
@@ -3805,6 +4164,13 @@ impl<'a> Sim<'a> {
         let rain = (if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * self.cond.cold_unused);
         // Going for the strip (tendencies): the punch-out.
         let strip = (1.0 + 1.15 * self.lean(i, Tend::Strip)).max(0.1);
+        // Both men in the hit can be hurt (engine gaps item 1), before the
+        // ball can come out: a hit that forces a fumble hurts as often as
+        // one that doesn't. A runner who seeks contact takes more of it; a
+        // man joining the tackle hits him on his share of it.
+        let carrier = share * (1.0 + 0.4 * self.lean(c, Tend::Contact)).max(0.2) * CARRIER_SHARE;
+        self.injury_check(c, force, carrier, Cause::Tackled);
+        self.injury_check(i, force, TACKLER_SHARE, Cause::Tackling);
         let term = clamp(1.0 + FUMBLE_BS * (carry_typ - carry) + FUMBLE_HIT * (hit - hit_typ), 0.25, 2.5);
         let force_term = (force / (FUMBLE_FORCE * hit_scale(self.level, false))).powf(1.5);
         let tuck = if self.t - self.caught < FRESH_CATCH { FRESH_CATCH_FUMBLE } else { 1.0 };
@@ -3818,9 +4184,6 @@ impl<'a> Sim<'a> {
         // feels it on the next snaps.
         let ram = self.link(c, &[crate::links::Link::BatteringRam]);
         self.agents[i].work += 2.0 * ram * share;
-        // A runner who seeks contact takes more of it.
-        self.injury_check(c, force, (1.0 + 0.4 * self.lean(c, Tend::Contact)).max(0.2));
-        self.injury_check(i, force, 0.7);
     }
 
     /// How hard defender `i` hits man `c`: both men's momentum, a big
@@ -4041,6 +4404,8 @@ impl<'a> Sim<'a> {
         }
         let fall = mv.scale(0.3 / mass);
         let fall = if fall.len() > 1.5 { fall.norm().scale(1.5) } else { fall };
+        // The pile where he goes down (engine gaps item 1).
+        self.pile_checks(c, mass, mv.len() / mass);
         // Falling forward: going down with his weight going forward, the
         // ball lands ahead of his hips, by the fall and the reach of his
         // body, up to most of a yard more (the spot was his hips: backs
@@ -4483,41 +4848,160 @@ impl<'a> Sim<'a> {
         acos_lt(cos, half)
     }
 
-    /// Injury risk from a hit (topic 6): force, fatigue, his proneness and
-    /// the turf. Trial 9 finding 13: at 0.0042 a hit, injuries costing a
+    /// Injury risk from a collision (topic 6; engine gaps item 1): its
+    /// force, his proneness, fatigue and the strength staff's guard, and
+    /// `share`, the part this kind of collision plays (`TACKLER_SHARE` and
+    /// the rest). Trial 9 finding 13: at 0.0042 a hit, injuries costing a
     /// week or more came to 0.20 a team game in the NFL and 0.17 in FBS,
     /// against about 1.0 and 0.9 real (NFL game-status reports 2012-2025,
     /// about 0.42 episodes a regular's season; NCAA surveillance, 32.1 game
     /// injuries per 1,000 exposures, half past a week:
     /// `docs/research/development-and-injuries.md`); harder hits at the
-    /// higher level keep the NFL above college.
-    pub fn injury_check(&mut self, i: usize, force: f64, share: f64) {
-        let gp = self.player(i);
-        let gp_recovery = gp.traits.recovery;
-        let prone = 0.55 + gp.injury_proneness / 18.0;
-        let tough = gp.trait20(Attr::Toughness, self.level);
-        let turf = if self.cond.turf { 1.12 } else { 1.0 };
-        // His strength staff's guard on muscle strains and backs (minor bug 303).
-        let (mix, guarded) = guarded_mix(&GAME_INJURIES, gp.soft as f64);
+    /// higher level keep the NFL above college. A hit that doesn't hurt him
+    /// can still get him pulled for a concussion check (engine gaps item
+    /// 3): the level's `Concussion::checks` for each concussion it would
+    /// catch, on the same draw. A man already hurt on the play isn't
+    /// checked again.
+    pub fn injury_check(&mut self, i: usize, force: f64, share: f64, cause: Cause) {
+        let id = self.agents[i].id;
+        if self.notes.injuries.iter().any(|x| x.id == id) {
+            return;
+        }
+        let prone = 0.55 + self.player(i).injury_proneness / 18.0;
+        let (factor, head) = self.contact_factor(i, cause);
         // Tired muscles and slower reactions get hurt more (update 3, F8;
         // proposed, not confirmed: up to 60% more for a man at the 0.25
         // energy floor, about 15% after a long drive).
         let tired = 1.0 + 0.8 * self.agents[i].tired;
-        let p = self.injury_scale * 0.022 * share * (force / 1700.0).powf(1.6) * prone * turf * tired * guarded;
-        if !self.rng.chance(p) {
+        let p = self.injury_scale * HIT_RATE * share * (force / 1700.0).powf(1.6) * prone * tired * factor;
+        let u = self.rng.next();
+        if u < p {
+            let mix = self.contact_mix(i, cause);
+            self.hurt(i, &mix, cause);
             return;
         }
-        // The mix by body part (`GAME_INJURIES`).
-        let kind = self.rng.weighted(&mix);
+        let c = self.concussion;
+        if c.checks > 0.0 && u < p * (1.0 + c.checks * c.caught * head) {
+            let (side, p) = (self.agents[i].side, self.agents[i].p);
+            self.notes.checks.push((side, p, id));
+        }
+    }
+
+    /// He is hurt (engine gaps items 1 and 2): the kind from the mix, how
+    /// long he will be out (his hidden recovery; a concussion by the era's
+    /// protocol, `Concussion::length`) and what did it. Whether he plays on,
+    /// goes off and comes back or is out for the game is the sideline's
+    /// call after the play (`flow.rs`, `apply_injuries`).
+    fn hurt(&mut self, i: usize, mix: &[(InjuryKind, f64)], cause: Cause) {
+        let recovery = self.player(i).traits.recovery;
+        let kind = self.rng.weighted(mix);
         // Some bodies heal faster (hidden recovery; proposed, not confirmed).
-        let weeks = injury_weeks(kind, self.rng) * (1.3 - 0.03 * gp_recovery);
-        // Playing through it is a choice (topic 6): toughness against how bad it is.
-        let plays_on = kind != InjuryKind::Concussion
-            && kind != InjuryKind::Acl
-            && kind != InjuryKind::Fracture
-            && self.rng.chance(clamp(0.15 + 0.035 * tough - 0.12 * weeks, 0.0, 0.95));
+        let mut weeks = injury_weeks(kind, self.rng) * (1.3 - 0.03 * recovery);
+        if kind == InjuryKind::Concussion {
+            weeks *= self.concussion.length;
+        }
         let (side, p, id) = (self.agents[i].side, self.agents[i].p, self.agents[i].id);
-        self.notes.injuries.push(Injury { side, p, id, kind, weeks, plays_on });
+        self.notes.injuries.push(Injury { side, p, id, kind, weeks, plays_on: false, back: None, cause });
+    }
+
+    /// The factor this kind of collision puts on his chance (engine gaps
+    /// item 1), and a concussion's share of what it would do to him: his
+    /// strength staff's guard on strains and backs (minor bug 303), and the
+    /// collision's lean on each kind (`Cause::lean`) read against the
+    /// average collision's (`lean_norm`), so a pile is a danger to knees
+    /// more than heads and the game's mix by body part stays real.
+    fn contact_factor(&self, i: usize, cause: Cause) -> (f64, f64) {
+        let s = lean_sums(cause);
+        let leaned = s.hard + self.player(i).soft as f64 * s.soft;
+        (leaned / s.total, s.head / leaned)
+    }
+
+    /// The hits' mix for this man and this kind of collision, guarded and
+    /// leaned as in `contact_factor`: what a hit that hurts him did.
+    fn contact_mix(&self, i: usize, cause: Cause) -> [(InjuryKind, f64); 19] {
+        let guard = self.player(i).soft as f64;
+        CONTACT_INJURIES.map(|(k, w)| (k, w * if k.soft_tissue() { guard } else { 1.0 } * cause.lean(k) / lean_norm(k)))
+    }
+
+    /// The injuries a play's work makes rather than one hit, at its end
+    /// (engine gaps items 1 and 2). His time in blocks, by the weight on
+    /// him (`Agent::grind`): a lineman's knees, ankles, hands and shoulders
+    /// in the trench. And with nobody touching him, the time he spent near
+    /// his top speed and the speed he braked, cut and pushed off with
+    /// (`Agent::sprint`, `plant`), by his own momentum at top speed (a big
+    /// fast man's plant loads his knee more), the turf, and tired legs
+    /// (more than in a collision: strains come late in halves). Each with
+    /// his proneness and the strength staff's guard. One draw a man.
+    pub fn wear(&mut self) {
+        let turf = if self.cond.turf { TURF_NON_CONTACT } else { 1.0 };
+        let [(sprint_total, sprint_soft), (plant_total, plant_soft)] = strain_sums();
+        for i in 0..self.agents.len() {
+            let a = &self.agents[i];
+            let (sprint, plant, grind) = (a.sprint, a.plant, a.grind);
+            if sprint <= 0.0 && plant <= 0.0 && grind <= 0.0 {
+                continue;
+            }
+            let (id, tired, heft) = (a.id, a.tired, (a.mass * a.vmax0 / NC_MOMENTUM).powf(1.6));
+            if self.notes.injuries.iter().any(|x| x.id == id) {
+                continue;
+            }
+            let gp = self.player(i);
+            let prone = 0.55 + gp.injury_proneness / 18.0;
+            let soft = gp.soft as f64;
+            let pg = if grind > 0.0 {
+                let weight = self.agents[i].grind_w / grind;
+                let (factor, _) = self.contact_factor(i, Cause::Block);
+                self.injury_scale
+                    * GRIND_RATE
+                    * grind
+                    * (weight / GRIND_WEIGHT).powf(1.6)
+                    * prone
+                    * (1.0 + 0.8 * tired)
+                    * factor
+            } else {
+                0.0
+            };
+            // The strength staff's guard on the strains, as in `guarded_mix`.
+            let base = self.injury_scale * prone * (1.0 + NC_TIRED * tired) * turf * heft;
+            let ps = base * SPRINT_RATE * sprint * (sprint_total + (soft - 1.0) * sprint_soft) / sprint_total;
+            let pp = base * PLANT_RATE * plant * (plant_total + (soft - 1.0) * plant_soft) / plant_total;
+            let u = self.rng.next();
+            if u < pg {
+                let mix = self.contact_mix(i, Cause::Block);
+                self.hurt(i, &mix, Cause::Block);
+            } else if u < pg + ps {
+                let (mix, _) = guarded_mix(&SPRINT_INJURIES, soft);
+                self.hurt(i, &mix, Cause::Sprint);
+            } else if u < pg + ps + pp {
+                let (mix, _) = guarded_mix(&PLANT_INJURIES, soft);
+                self.hurt(i, &mix, Cause::Plant);
+            }
+        }
+    }
+
+    /// The pile where a play ends (engine gaps item 1): every man within
+    /// `PILE_REACH` of the man going down, either side, can be rolled up or
+    /// fallen on, by the weight going down with him (`mass` pounds at
+    /// `speed` yards a second). Not the man himself: the tackle or the sack
+    /// is his own check.
+    pub fn pile_checks(&mut self, c: usize, mass: f64, speed: f64) {
+        let at = self.agents[c].pos;
+        let force = 0.5 * mass * speed;
+        for j in 0..self.agents.len() {
+            if j != c && self.agents[j].pos.dist_sq(at) < PILE_REACH.powi(2) {
+                self.injury_check(j, force, PILE_SHARE, Cause::Pile);
+            }
+        }
+    }
+
+    /// Two men meeting in a block (engine gaps item 1): both men's momentum,
+    /// as in a tackle, at `BLOCK_SHARE`.
+    pub fn block_checks(&mut self, b: usize, d: usize) {
+        let (bl, de) = (&self.agents[b], &self.agents[d]);
+        let force = 0.5 * (bl.mass * bl.vel_len() + de.mass * de.vel_len());
+        let share = BLOCK_SHARE;
+        self.injury_check(b, force, share, Cause::Block);
+        self.injury_check(d, force, share, Cause::Block);
     }
 
     /// Debug tooling: print the play as it runs.
@@ -4638,6 +5122,10 @@ pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
         InjuryKind::Neck => (0.0, 10.0),
         InjuryKind::Hip => (0.0, 7.0),
         InjuryKind::Quad => (0.5, 6.0),
+        // A torn Achilles (engine gaps item 2): the NFL players who come
+        // back from one take most of a year, like a torn ACL (proposed, not
+        // confirmed: the ACL's range).
+        InjuryKind::Achilles => (36.0, 56.0),
     };
     let u = rng.next();
     let weeks = lo + (hi - lo) * u * u;
@@ -4655,7 +5143,7 @@ pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
 /// draw (its low bits), so no other draw moves.
 pub fn complication(kind: InjuryKind, u: f64) -> f64 {
     let chance = match kind {
-        InjuryKind::Acl => 0.06,
+        InjuryKind::Acl | InjuryKind::Achilles => 0.06,
         InjuryKind::Fracture | InjuryKind::Foot => 0.05,
         InjuryKind::HighAnkleSprain => 0.03,
         InjuryKind::Concussion => 0.02,
