@@ -4873,11 +4873,11 @@ impl<'a> Game<'a> {
         // edge over the man the depth chart puts there; a keyed draw, so the
         // game's own stream is untouched). By the depth chart alone the
         // second tight end took the flanker's place, which many concepts
-        // read first, so in 13 personnel he drew 46% of the tight ends'
-        // targets and the first 33% (real 29% and 47%); always putting the
-        // best one there gave the first 60%, and this gives the first 41%
-        // and the second 40% (the test league set firmly to 13, main
-        // a7c9bf6; proposed, not confirmed). A run keeps the depth chart's
+        // read first, so in 13 personnel he drew 47% of the tight ends'
+        // targets and the first 32% (real 29% and 47%); always putting the
+        // best one there gave the first 60%, and this gives the first 40%
+        // and the second 41% (the test league set firmly to 13, main
+        // b4c6206; proposed, not confirmed). A run keeps the depth chart's
         // places, and so does a throw that reads no tight end past the first.
         if let PlayKind::Pass(i) = call.kind
             && tes.len() > 1
