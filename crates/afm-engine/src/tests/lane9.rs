@@ -521,17 +521,27 @@ fn every_question_reads_ratings_his_snaps_show() {
     for pos in [QB, RB, WR, TE, OT, IOL, EDGE, DT, LB, CB, S] {
         let mut shows = [0usize; ATTRIBUTE_COUNT];
         let mut tapes = 0;
-        // Six men's tapes: with three, a receiver room whose first three
-        // starters drew no deep shot showed no ball tracking (step 4a's
-        // bodies reshuffled the test world's rosters).
+        // Six men's tapes, from six clubs. With three men, a receiver room
+        // whose first three starters drew no deep shot showed no ball
+        // tracking (step 4a's bodies reshuffled the test world's rosters).
+        // The first six men were still only two clubs' rooms, one offense
+        // each, and after lane SF7's reshuffle those two rooms' tight ends
+        // drew no contested ball in 83 targets, where the test world's
+        // tight end tapes contest 10% of theirs (185 of 1,823).
+        let mut clubs = Vec::new();
         for id in of_pos(&w, pos) {
             if tapes == 6 {
                 break;
+            }
+            let club = sc::place(&w, id).and_then(|i| w.people[i].pro.as_ref()).and_then(|c| c.team);
+            if clubs.contains(&club) {
+                continue;
             }
             let Ok(t) = tape::player_tape(&w, id) else { continue };
             if t.snaps.len() < 40 {
                 continue;
             }
+            clubs.push(club);
             tapes += 1;
             for s in &t.snaps {
                 for c in &s.cues {
