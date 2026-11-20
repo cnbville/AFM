@@ -103,14 +103,14 @@ fn he_answers_what_was_said_in_his_own_situation() {
     let (mut g, f, him) = game("goals-coherent", true);
     let f = f.unwrap();
     let id = talk(&mut g, him, "a check-in");
-    // "How's the family?" with nothing stored on his family: no news, not
-    // "I don't know".
+    // "How's the family?" with no trouble stored at home: his people, not
+    // "I don't know" (personal talk, 2026-11-17).
     f.push(EAR, Ok(ear(vec![act("question", "", "Life", "")], vec![], false)));
     f.push(VOICE, Ok(voice("They're good, Coach. Thanks for asking.", "")));
     let v = say(&mut g, id, "How is the family?");
     assert_eq!(v["state"], "done", "{v}");
     let card = last_voice(&f);
-    assert!(card.contains("Nothing new at home to tell"), "{card}");
+    assert!(card.contains("Your life away from football"), "{card}");
     assert!(!card.contains("He doesn't know"), "{card}");
     // An offer gets his answer, not his own concern in its place.
     let mut offer = act("offer", "", "", "");

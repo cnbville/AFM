@@ -512,7 +512,7 @@ pub fn kept(reading: &Reading, promises: &[PromiseRead], keys: &EarKeys) -> (Vec
                 k.what = snake(format!("{:?}", x.how));
                 k.when = x.by.clone();
             }
-            Act::Confide(_) | Act::End => {}
+            Act::Confide(_) | Act::End | Act::Opens(_) | Act::Greet => {}
         }
         out.push(k);
     }

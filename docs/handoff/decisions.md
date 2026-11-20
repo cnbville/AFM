@@ -470,6 +470,14 @@ Cain shared five odd talks and asked what feels off. Diagnosis and items: `docs/
 - **Built:** the same day (`world/recruiting.rs`, `PaidLine`; how it works and the seed 1 measure in `docs/reference/how-it-works/recruiting.md`, "Who does a school offer money at all?").
 - **Proposed, not confirmed:** how the staff reads the set (the men it expects back by `gone`, its signees, its plan's open places), a recruit's first role from his depth (starter, two deep, else a backup), a keep-him offer's holder ranked by his role, and the floor's sum.
 
+## 34. Personal talk (thread "Let talks get personal", 2026-11-17)
+
+Cain, 2026-11-17 23:15 UTC: "let's add a little bit of personal talk to convo's when i ask about families i keep getting 'They're good, but let's talk about football'. Multiple personal questions just get the same few lines, there needs to be more interpersonal guidelines." Spec: `docs/design/personal-talk.md`; Cain's "yes to all" at 23:25 UTC.
+- **Agreed:** all nine items: his people on the card; small details drawn, not stored; layers, not a secret (a Home topic beside Life); openness from his makeup and your bond; he answers and stays on it; you opening up counts; he remembers, both ways; a good personal talk feeds the bond; the same for coaches, staff, bosses and parents.
+- **First meetings (Cain, 2026-11-17 23:56 UTC, with a screenshot of a first meeting where the player opened on his pay and the coach's "nice to meet you" read as not answering him):** "also this ruins all personal feleing you get to players, there needs to be more personal conversations". Built with the nine items: the first sit-down opens on his own hello, your hello is never a dodge, and he stays on it.
+- **Not agreed:** the two gaps raised with it (the voice's colour notes touching family and feeding something; the major, girlfriends and breakups, and a second sport as real life parts). They are in `GAPS.md`.
+- **Proposed, not confirmed:** every size (openness, the depth bars, how many things an answer, the drawn shares, the hits, the hello's 0.3, the 14 days, the extra week).
+
 ## Superseded decisions
 
 | Old | Replaced by | When |

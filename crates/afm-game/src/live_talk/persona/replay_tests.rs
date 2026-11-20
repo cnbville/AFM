@@ -119,6 +119,14 @@ fn script(facet: &str) -> &'static str {
         "player" => {
             "How are you doing, really?|I know you want more snaps. Tell me what you think you need to work on.|You'll get your shot, but you have to earn it in practice.|Anything going on at home I should know about?|Good talk. My door's always open."
         }
+        "family" => {
+            "How's your family doing?|How's your mom?|Where are you from originally?|I grew up in a small town too. My dad worked at the mill.|Do you have any brothers or sisters?|What do you do on your off days?|Do you have any brothers or sisters?|Good talk, see you at practice."
+        }
+        // Cain's first meeting (2026-11-17): called in about money, the
+        // coach says hello first.
+        "meet" => {
+            "First time meeting, nice to meet you.|How are you settling in?|Where are you from?|Tell me about your family.|Alright. Let's talk about your NIL.|Good talk, see you at practice."
+        }
         "team" => {
             "Listen up. Last week wasn't good enough and you all know it.|We go back to basics this week: tackling, ball security, effort.|Any questions?|Alright, let's go to work."
         }
@@ -230,6 +238,17 @@ fn open(facet: &str) -> Option<(Game, u32)> {
         "player" => {
             let (mut g, _, him) = game("replay-player", true);
             let id = talk(&mut g, him, "role");
+            Some((g, id))
+        }
+        // Personal talk (2026-11-17): a check-in about his life.
+        "family" => {
+            let (mut g, _, him) = game("replay-family", true);
+            let id = talk(&mut g, him, "a check-in");
+            Some((g, id))
+        }
+        "meet" => {
+            let (mut g, _, him) = game("replay-meet", true);
+            let id = talk(&mut g, him, "money");
             Some((g, id))
         }
         "team" => {
@@ -511,10 +530,12 @@ fn open(facet: &str) -> Option<(Game, u32)> {
 }
 
 const FACETS: &[&str] = &[
+    "meet",
     "ad_goals",
     "ad",
     "booster",
     "player",
+    "family",
     "dt",
     "veteran",
     "senior",

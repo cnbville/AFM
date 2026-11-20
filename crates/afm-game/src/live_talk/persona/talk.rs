@@ -859,6 +859,10 @@ mod replay_tests;
 mod landing_tests;
 
 #[cfg(test)]
+#[path = "personal_tests.rs"]
+mod personal_tests;
+
+#[cfg(test)]
 #[path = "replies_tests.rs"]
 mod replies_tests;
 

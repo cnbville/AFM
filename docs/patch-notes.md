@@ -8,6 +8,23 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.664 (20 Nov, shipped): receivers who play like themselves (PR #591)
+**TLDR:** Your receivers' hands, routes and contested-ball skills now decide their games, and a smart quarterback finds the open man instead of just playing it safe.
+- Quarterbacks with good decision-making read the field as it is and throw to the right man, so they score more without giving up depth. (PR #591)
+- Sure-handed receivers drop fewer balls, sharp route runners get open against zone as well as man, and receivers who win contested balls come down with more of them. (PR #591)
+- Quarterbacks look first to the men who can really catch, not to whoever has the best overall at the spot, so a back's speed or a tight end's blocking no longer pulls throws his way. (PR #591)
+- In two- and three-tight-end sets your best receiving tight end lines up where the play looks first. (PR #591)
+- On a last-play lateral, a quarterback who gets the ball back keeps the play alive instead of sliding. (PR #591)
+- Look at: a sure-handed slot receiver against a zone defense, and your passer's interceptions and yards a throw over a few games. (PR #591)
+
+## 0.2.663 (20 Nov, shipped): memory diet lane M2: alumni players packed, leavers and retired coaches kept compact, idle tally rows packed (PR #596)
+**TLDR:** The game holds less in memory, about a seventh less in season on a small test world, so long careers stay lighter.
+- Old players, retired coaches and men who left football take less room. (PR #596)
+- Finished teams' and players' season numbers are packed once their season ends. (PR #596)
+- Nothing about results, pages or saves changes. (PR #596)
+- Look at: a long career late in the season. (PR #596)
+- Docs and tooling merged too, no game change: Full tests: thirteen shards so no job nears its 4-hour limit (PR #598).
+
 ## 0.2.662 (20 Nov, shipped): EG4: the end of halves and game management (engine gaps items 15-22, minor bug 407) (PR #597)
 **TLDR:** Games now end the way real ones do: Hail Marys and lateral chains on the last play, smarter clocks before halftime, and teams that know how to protect a late lead.
 - On a half's last snap, teams kick, kneel, heave a Hail Mary into a crowd or try a chain of laterals, by the score, the spot and the passer's arm. (PR #597)

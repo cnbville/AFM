@@ -52,6 +52,12 @@ pub enum ActKind {
     Amend,
     /// A commitment to someone you answer to: a goal (`folk::commit`).
     Commit,
+    /// You tell him something about your own life away from football
+    /// (personal talk, item 6).
+    Opens,
+    /// A hello, "nice to meet you", "how you doing", welcome: the small
+    /// talk people open with (personal talk, first meetings).
+    Greet,
     /// One of the game's own actions, said in the talk (talk replies item
     /// 13): a project, a focus, a depth chart spot, a move a screen makes.
     /// The game's side reads and runs it (`afm-game`, `persona::actions`);
@@ -153,6 +159,13 @@ pub enum Act {
     /// A commitment to someone you answer to: a goal he can hold you to
     /// (`folk::commit`).
     Commit(crate::world::folk::commit::Commitment),
+    /// You tell him something about your own life away from football:
+    /// where you grew up, your family, your own story (personal talk, item
+    /// 6), in a few words.
+    Opens(String),
+    /// A hello or a little small talk before anything else: never a dodge
+    /// of his question (personal talk, first meetings).
+    Greet,
 }
 
 /// How a line changes a promise you made him.
@@ -213,6 +226,8 @@ impl Act {
             Act::End => ActKind::End,
             Act::Future { .. } => ActKind::Future,
             Act::Amend(_) => ActKind::Amend,
+            Act::Opens(_) => ActKind::Opens,
+            Act::Greet => ActKind::Greet,
         }
     }
 }
@@ -234,6 +249,9 @@ pub enum Item {
     Family,
     /// Something he told you before.
     HisWord,
+    /// His life away from football, and what he has told you of it
+    /// (personal talk): a kind question, you remembering, you opening up.
+    Life,
     /// The team as a whole: a line to the room in a group talk (lane N5d),
     /// heard by each man as one of the room.
     Room,
@@ -498,6 +516,13 @@ pub struct Turn {
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
     /// How each man in the room took your manner (coach voice), sized.
     pub manner: Vec<(Them, super::manner::Took)>,
+    /// What he told you about his life for the first time this line
+    /// (personal talk, item 7): by kind, with its words.
+    pub shared: Vec<(u16, String)>,
+    /// Something personal landed this line (item 8).
+    pub personal: bool,
+    /// He went short on his troubles, asked too soon.
+    pub closed: bool,
     /// A line to a room (`crowd`): who answered and how, who answers after,
     /// who held back, who walked out.
     pub crowd: Option<super::crowd::Turned>,
