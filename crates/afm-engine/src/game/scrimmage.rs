@@ -1127,23 +1127,17 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 && ps.reads.len() > 1
                 && !matches!(c.drop, Drop::Screen | Drop::Bubble)
             {
-                // Each man is rated at his own spot: read at the receiver's
-                // spot, tight ends and backs never looked best and receivers
-                // drew 73% of NFL targets, real 59% (minor bug 137).
-                let rate = |sim: &Sim, r: usize| {
-                    use crate::spots::Spot;
-                    let spot = match sim.agents[r].label {
-                        "TE" => Spot::TE,
-                        "RB" => Spot::RB,
-                        "FB" => Spot::FB,
-                        _ => Spot::WR,
-                    };
-                    sim.player(r).spot_r[spot.index()]
-                };
-                let mut by: Vec<(usize, f64)> = ps.reads.iter().enumerate().map(|(k, &r)| (k, rate(&sim, r))).collect();
+                // Each man is read as a receiver against his own position's
+                // typical starter (scheme-fit item 25, `receiving_read`): his
+                // spot rating fed a back for his running and a tight end for
+                // his blocking. (Read at the receiver's spot, tight ends and
+                // backs never looked best and receivers drew 73% of NFL
+                // targets, real 59%: minor bug 137.)
+                let mut by: Vec<(usize, f64)> =
+                    ps.reads.iter().enumerate().map(|(k, &r)| (k, receiving_read(&sim, r))).collect();
                 by.sort_by(|a, b| b.1.total_cmp(&a.1));
                 let gap = by[0].1 - by[1].1;
-                if by[0].0 > 0 && sim.rng.chance(clamp(FEED_BASE + FEED_PER_POINT * gap, 0.0, FEED_MAX)) {
+                if by[0].0 > 0 && sim.rng.chance(feed_chance(gap)) {
                     let r = ps.reads.remove(by[0].0);
                     ps.reads.insert(0, r);
                     fed = true;
@@ -2195,8 +2189,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             {
                 sim.notes.tend.cross = Some((sim.agents[c].pos.y - sim.mood.snap_y, t));
             }
-            // A quarterback slides rather than take a hit he doesn't need.
-            if pass.as_ref().is_some_and(|p| !p.broken) && c == qb && slide(&mut sim, c, s) {
+            // A quarterback slides rather than take a hit he doesn't need,
+            // but not on the last play's laterals, where going down ends
+            // the game: a lateral back to him after a catch kept the catch
+            // as a scramble, dead where he stood even as he pitched it
+            // (minor bug 423).
+            if pass.as_ref().is_some_and(|p| !p.broken) && c == qb && !s.call.laterals && slide(&mut sim, c, s) {
                 res.result = Result::Scramble;
             }
         }
@@ -5062,10 +5060,25 @@ fn away_count(k: usize) {
 /// A misread, in tens of points of his field read under his level's typical
 /// starter's: a defender reading his eyes jumps the throw this many seconds
 /// sooner than he allows for, and a man sitting in his lane takes this many
-/// yards more of the window than he sees (both the other way for a better
-/// reader, who sees it tighter than the typical man would).
+/// yards more of the window than he sees. A better reader sees both as they
+/// are (`READ_SHARP`), except the man underneath reading his eyes.
 const MISREAD_EYES: f64 = 0.3;
 const MISREAD_LANE: f64 = 1.0;
+
+/// A better reader than his level's typical starter (scheme-fit item 5) sees
+/// each defender watching him break on the ball as he really will
+/// (`ball_break`), all of it at `READ_SHARP` points of field read above the
+/// typical starter, and each lane as it is. He used to see every window tighter
+/// than it was, the misread turned around: on main b4c6206 Decisions +15 cut
+/// picks 0.04 to 0.26 points of throws by throwing 0.20 to 0.35 yards shorter,
+/// held the ball and scored no more (-0.33 to +0.29 a game). Now he keeps his
+/// depth, takes 0.20 to 0.54 points of dropbacks fewer sacks and scores 0.35 a
+/// game more on average (`fit_check`, the audit's seeds). The one man he still
+/// gives that respect is a defender underneath reading his eyes, between him
+/// and the spot within `LURK_NEAR` yards of the throw's line: the man who picks
+/// it (proposed, not confirmed).
+const READ_SHARP: f64 = 10.0;
+const LURK_NEAR: f64 = 5.0;
 
 /// Ball placement near a defender: yards farther from him, a 10 points of
 /// field read about his level's typical starter, fading out when the
@@ -5135,6 +5148,53 @@ fn field_read(qa: &Agent) -> f64 {
 fn typical_field_read(level: crate::player::Level) -> f64 {
     let ts = |a: Attr| super::synthetic::typical_starter(level, Position::QB, a);
     READ_DECIDE * ts(Attr::Decisions) + (1.0 - READ_DECIDE) * ts(Attr::PlayRecognition)
+}
+
+/// Seconds sooner a defender breaks on a throw for his job's coverage (Man
+/// or Zone) about his level's typical starter at his position
+/// (`BALL_COVER`).
+fn ball_cover(sim: &Sim, d: usize) -> f64 {
+    let a = &sim.agents[d];
+    let which = if matches!(a.job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
+    BALL_COVER * (a.a(which) - super::synthetic::typical_starter(sim.level, sim.player(d).position, which)) / 10.0
+}
+
+/// How soon a defender who sees a throw to `r` breaks on it, on average, as
+/// the throw works it out: 0.16 to 0.26 seconds and 0.004 a point of Play
+/// Recognition short of 100, less `ball_cover`, and later when the route
+/// turned him (`zone_turn`).
+fn ball_break(sim: &Sim, d: usize, r: usize) -> f64 {
+    (0.21 + 0.004 * (100.0 - sim.agents[d].a(Attr::PlayRecognition)) - ball_cover(sim, d) + zone_turn(sim, d, r))
+        .max(0.05)
+}
+
+/// Route running against zone (scheme-fit item 6): leverage and timing. A zone
+/// defender within `TURN_NEAR` yards of a receiver on his route was turned by
+/// it (his stem, the break and when it came), and a defender who sees the throw
+/// to him breaks on it `ZONE_TURN` seconds later a 10 points of the receiver's
+/// Route Running and route craft about his level's typical starter at his
+/// position (sooner for a poorer route runner). Against zone a route used to
+/// read only the room he sits down in and the speed he keeps through the cut:
+/// on main b4c6206 Route Running +15 drew 0.7 to 3.6 more targets a 100 routes
+/// against zone into tighter windows (his catch rate there -3.7 to -0.2 points,
+/// separation -0.14 to +0.07 yards). At 0.1 the slot and the tight end gain
+/// 0.06 to 0.27 yards of separation against zone and lose less of their catch
+/// rate there, and every receiver's yards a route against zone rise 0.19 to
+/// 0.52 (`fit_check`, the audit's seeds; proposed, not confirmed).
+const ZONE_TURN: f64 = 0.1;
+const TURN_NEAR: f64 = 6.0;
+
+/// The seconds `ZONE_TURN` adds to a zone defender's break on a throw to
+/// `r`.
+fn zone_turn(sim: &Sim, d: usize, r: usize) -> f64 {
+    if !matches!(sim.agents[d].job, Job::Zone { .. })
+        || !matches!(sim.agents[r].job, Job::Route { .. })
+        || sim.agents[d].pos.dist(sim.agents[r].pos) >= TURN_NEAR
+    {
+        return 0.0;
+    }
+    let ts = super::synthetic::typical_starter(sim.level, sim.player(r).position, Attr::RouteRunning);
+    ZONE_TURN * (sim.agents[r].a(Attr::RouteRunning) + route_craft(sim, d, r).0 - ts) / 10.0
 }
 
 /// A defender's reach to the ball at the catch point, yards an inch of
@@ -5897,8 +5957,19 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         // A man defender already running with him needs no reaction time.
         let on_him = matches!(a.job, Job::Man { target, .. } if target == r);
         let watching = !on_him && sim.sees(d, q);
+        // Underneath, between him and the spot near the throw's line and
+        // reading his eyes: the man who picks it.
+        let lurking = |a: &Agent| {
+            let seg = p - q;
+            let k = (a.pos - q).dot(seg) / seg.dot(seg).max(1e-6);
+            (0.15..1.0).contains(&k) && (q + seg.scale(k)).dist(a.pos) < LURK_NEAR
+        };
         let (react, pace) = if on_him {
             (0.0, 1.0)
+        } else if watching && misread < 0.0 && !lurking(a) {
+            // A better reader sees his break as it is (`READ_SHARP`).
+            let sharp = (-10.0 * misread / READ_SHARP).min(1.0);
+            ((0.3 + (ball_break(sim, d, r) - 0.3) * sharp).max(0.0), 0.95)
         } else {
             ((0.3 + if watching { MISREAD_EYES * misread } else { 0.0 }).max(0.0), 0.95)
         };
@@ -5941,7 +6012,9 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         } else {
             lane
         };
-        w = w.min(lane + 0.6 + MISREAD_LANE * misread);
+        // A poor reader misses part of the man in his lane; a better one
+        // sees the lane as it is (`READ_SHARP`).
+        w = w.min(lane + 0.6 + MISREAD_LANE * misread.max(0.0));
     }
     // He knows his arm: a spot past his range is never open to him.
     if q.dist(p) > 25.0 + 0.45 * power {
@@ -6272,18 +6345,16 @@ fn throw(
         let pr = sim.agents[d].a(Attr::PlayRecognition);
         let base = 0.16 + 0.004 * (100.0 - pr) + 0.1 * sim.rng.next();
         let sees = sim.sees(d, q);
-        let which = if matches!(sim.agents[d].job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
-        let cover = BALL_COVER
-            * (sim.agents[d].a(which) - super::synthetic::typical_starter(sim.level, sim.player(d).position, which))
-            / 10.0;
+        let cover = ball_cover(sim, d);
         // Coverage skill reads here too (minor bug 283): a better cover man
         // breaks on the ball sooner, `BALL_COVER` seconds a 10 points about
         // his level's typical starter at his position. A man defender with
         // his back turned feels the throw from his man's eyes and hands,
-        // `MAN_FEEL` before they go up.
+        // `MAN_FEEL` before they go up. A zone defender the target's route
+        // turned breaks later (`zone_turn`).
         let man_feel = if matches!(sim.agents[d].job, Job::Man { .. }) { MAN_FEEL } else { 0.0 };
         sim.agents[d].ball_react = if sees {
-            t + (base - cover).max(0.05)
+            t + (base - cover + zone_turn(sim, d, r)).max(0.05)
         } else {
             (arrive - 0.45 - man_feel + 0.004 * (100.0 - pr) - cover).max(t + (base - cover).max(0.05))
         };
@@ -6390,12 +6461,47 @@ fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
 
 /// Feeding the best receiver (A9): the chance his first look goes to the
 /// best receiver in the progression when he isn't already first, by how
-/// much better he is (rating points). Real top receivers draw 25-30% of
-/// their team's targets; the engine gave the best one too few (Claude's
-/// pick, set by `match_check`).
+/// much better he is (points of `receiving_read`). Real top receivers draw
+/// 25-30% of their team's targets; the engine gave the best one too few
+/// (Claude's pick, set by `match_check`).
 const FEED_BASE: f64 = 0.1;
 const FEED_PER_POINT: f64 = 0.02;
 const FEED_MAX: f64 = 0.55;
+
+/// The chance the plan feeds a man who is `gap` points of
+/// `receiving_edge` better than the one it would otherwise look at first.
+pub(crate) fn feed_chance(gap: f64) -> f64 {
+    clamp(FEED_BASE + FEED_PER_POINT * gap, 0.0, FEED_MAX)
+}
+
+/// What the feed reads in a man as a receiver (scheme-fit item 25): his
+/// hands, his routes and getting open, each rating a point about his own
+/// position's typical starter at the level, so a back is fed for his hands
+/// and routes, not his running, and a tight end not for his blocking (his
+/// spot rating fed a back half again as often for any running rating +15,
+/// and a tight end's run blocking as much as his hands). The weights sum to
+/// one, so a point of edge counts as a point of his old spot rating did
+/// (proposed, not confirmed).
+const FEED_READ: [(Attr, f64); 6] = [
+    (Attr::Catching, 0.3),
+    (Attr::RouteRunning, 0.3),
+    (Attr::Release, 0.15),
+    (Attr::ContestedCatch, 0.1),
+    (Attr::BallTracking, 0.1),
+    (Attr::BodyControl, 0.05),
+];
+
+/// A man's edge as a receiver over his position's typical starter at the
+/// level, in rating points (`FEED_READ`).
+pub(crate) fn receiving_edge(level: crate::player::Level, p: &GamePlayer) -> f64 {
+    FEED_READ.iter().map(|&(a, w)| w * (p.a(a) - super::synthetic::typical_starter(level, p.position, a))).sum()
+}
+
+/// `receiving_edge` for the man on the field.
+fn receiving_read(sim: &Sim, r: usize) -> f64 {
+    receiving_edge(sim.level, sim.player(r))
+}
+
 /// The base chance he throws it away rather than force it to a covered man
 /// (minor bug 138).
 const GIVE_UP: f64 = 0.8;
@@ -7478,6 +7584,41 @@ fn ball_hands(sim: &Sim, d: usize) -> f64 {
 /// The share of the level gap a defender's hands are read against (A10).
 const HANDS_LEVEL: f64 = 0.5;
 
+/// A receiver's skill on a contested ball within his level (scheme-fit
+/// item 6): his Contested Catch about his level's typical starter at his
+/// position, in rating points. His jump and his frame already count at the
+/// catch point (his reach against the defender's, `size_on_def`) and his
+/// strength in the fight after it, so they stay out of it.
+fn contest_edge(level: crate::player::Level, ra: &Agent, pos: Position) -> f64 {
+    ra.a(Attr::ContestedCatch) - super::synthetic::typical_starter(level, pos, Attr::ContestedCatch)
+}
+
+/// Contested balls at their real size (scheme-fit item 6): his skill on the
+/// ball (`contest_edge`, with Highpointer and Late hands) takes this much a
+/// point off the breakup's base. Wide receivers' catch rate on contested balls
+/// has a true spread of 8.9 points between them (FTN charting 2022-24, 176
+/// receiver seasons with 12 or more, the binomial noise taken out). On world
+/// seed 1's NFL clubs (main b4c6206, game seeds 1-4) the engine's was 5.3
+/// points, since the receiver's own skill never read in the breakup; at 0.02 it
+/// is 9.8 (the test rosters, narrower in Contested Catch, 6.3). Read with his
+/// Strength and Jumping as well, it took the world's clubs' breakups down 16%,
+/// because their receivers carry 24 points more Strength than the typical
+/// starter (proposed, not confirmed).
+const CONTEST_PBU: f64 = 0.02;
+
+/// A receiver's hands within his level (scheme-fit item 6): the miss on a
+/// catchable ball falls this much a point of Catching about his level's typical
+/// starter at his position. Receivers' drops a target have a true spread
+/// between men of 0.54 points among wide receivers, 1.01 among tight ends and
+/// 1.12 among backs (FTN charting 2022-24, men with 40 or more targets, the
+/// binomial noise taken out). On world seed 1's NFL clubs (main b4c6206, game
+/// seeds 1-4) the old 0.00095 a point from none gives 0.62, 0.57 and 0.59, of
+/// which Catching alone spreads 0.34, 0.43 and 0.56, and this gives 0.70, 0.62
+/// and 1.07, of which Catching alone spreads 0.55, 0.66 and 0.70 (a miss is a
+/// drop only when he is open, so the open man drops more); 0.0029 gave 1.49,
+/// 1.24 and 2.18 on one game seed (proposed, not confirmed).
+const CATCH_HANDS: f64 = 0.0016;
+
 /// The ball arrives (topic 1): who can get to it, and who catches it.
 #[allow(clippy::too_many_arguments)]
 fn catch_point(
@@ -7686,13 +7827,19 @@ fn catch_point(
             // His hands at the catch point: coverage gets him there, his
             // contested-catch skill and jump get the ball out (proposed, not
             // confirmed). 0.39 from 0.42 since the hit at the catch below
-            // takes its share, so the league's breakups hold.
+            // takes its share, so the league's breakups hold. The
+            // receiver's own skill on the ball takes `CONTEST_PBU` a point
+            // off (scheme-fit item 6), the timing at the top and late hands
+            // with it.
+            let late = sim.craft_at(r, crate::craft::Craft::LateHands);
+            let fight_edge = contest_edge(sim.level, &ra, sim.player(r).position) + hp_r + late;
             let p_pbu = clamp(
                 closeness
                     * (0.39
                         + cov_term
                         + 0.003 * (da.a(Attr::ContestedCatch) + hp_d - 60.0)
-                        + 0.003 * (da.a(Attr::Jumping) - 60.0))
+                        + 0.003 * (da.a(Attr::Jumping) - 60.0)
+                        - CONTEST_PBU * fight_edge)
                     * size_on_def,
                 0.0,
                 0.75,
@@ -7733,7 +7880,11 @@ fn catch_point(
     // him, his hands read the flaw lower.
     let body = if dr / radius > 0.6 || dd < 1.4 { sim.craft_at(r, crate::craft::Craft::BodyCatcher) } else { 0.0 };
     let c = ra.a(Attr::Catching) + body;
-    let mut p = 1.0 - (0.15 - 0.00095 * c).max(0.012);
+    // His hands within the level (scheme-fit item 6): `CATCH_HANDS` a point
+    // about his level's typical starter at his position, who keeps the old
+    // catch (0.00095 a point from none).
+    let c_ts = super::synthetic::typical_starter(sim.level, sim.player(r).position, Attr::Catching);
+    let mut p = 1.0 - (0.15 - 0.00095 * c_ts - CATCH_HANDS * (c - c_ts)).max(0.012);
     let reach = dr / radius;
     // Inside his frame it is routine; reaching away from his body or
     // diving costs more the farther it is. (Gentler than it was: 28% of NFL

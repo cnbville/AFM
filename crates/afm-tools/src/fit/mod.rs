@@ -207,9 +207,11 @@ slots!(
     cov_td, cov_t20, cov_c20, int, pbu, bust, jmp, jmpok, ff, // where he lined up
     or0, or1, or2, or3, or4, or5, or6, or7, or8, or9, or10, or11, or12, or13, or14, or15, ds0, ds1, ds2, ds3, ds4, ds5,
     ds6, ds7, ds8, ds9, ds10, ds11, ds12, ds13, // targets against man and zone (item 6)
-    tgt_m, rec_m, sep_m, tgt_z, sep_z, // his long runs (item 9)
+    tgt_m, rec_m, sep_m, tgt_z, sep_z, // contested balls (under a yard, picks left out) and the red zone (item 6)
+    tgt_c, rec_c, tgt_rz, td_rz, // his long runs (item 9)
     c20,   // first tackles on runs, and those made from a block he never shed (item 7)
-    ftk, ftk_blk,
+    ftk, ftk_blk, // dropbacks with him on the field and his yards against zone (item 6)
+    on_db_z, ryd_z,
 );
 
 /// The watched men: one per job on the typical team.
@@ -1190,6 +1192,9 @@ fn one(cx: &Games, g: usize) -> Vec<f64> {
             if db {
                 m[pi(ri, P::on_db)] += 1.0;
                 m[pi(ri, P::on_db_epa)] += p.epa;
+                if off && !p.coverage_man {
+                    m[pi(ri, P::on_db_z)] += 1.0;
+                }
                 if p.kind == K::Sack {
                     m[pi(ri, P::on_sack)] += 1.0;
                 }
@@ -1650,6 +1655,18 @@ fn items(cx: &Games, p: &afm_engine::game::stats::PlayRecord, off: bool, m: &mut
             } else {
                 m[pi(ri, P::tgt_z)] += 1.0;
                 m[pi(ri, P::sep_z)] += p.separation;
+                if p.complete {
+                    m[pi(ri, P::ryd_z)] += p.yards;
+                }
+            }
+            // A pick has no separation on the record: picks are left out.
+            if p.separation < 1.0 && !p.interception {
+                m[pi(ri, P::tgt_c)] += 1.0;
+                m[pi(ri, P::rec_c)] += f64::from(p.complete);
+            }
+            if p.yardline_100 <= 20.0 {
+                m[pi(ri, P::tgt_rz)] += 1.0;
+                m[pi(ri, P::td_rz)] += f64::from(p.touchdown);
             }
         }
         if run

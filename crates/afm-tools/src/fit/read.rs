@@ -377,6 +377,13 @@ pub fn metrics_for(role: &str, s: f64) -> Vec<Metric> {
         mt("sep vs man", p("sep_m"), p("tgt_m"), 1.0, 2),
         mt("sep vs zone", p("sep_z"), p("tgt_z"), 1.0, 2),
         mt("tgt vs man%", p("tgt_m"), p("tgt_m") + p("tgt_z"), 100.0, 1),
+        mt("catch% vs man", p("rec_m"), p("tgt_m"), 100.0, 1),
+        mt("catch% vs zone", p("rec") - p("rec_m"), p("tgt_z"), 100.0, 1),
+        mt("tgt/route vs zone", p("tgt_z"), p("on_db_z"), 100.0, 1),
+        mt("yds/route vs zone", p("ryd_z"), p("on_db_z"), 1.0, 2),
+        mt("contested catch%", p("rec_c"), p("tgt_c"), 100.0, 1),
+        mt("contested tgt%", p("tgt_c"), p("tgt"), 100.0, 1),
+        mt("RZ TD/tgt%", p("td_rz"), p("tgt_rz"), 100.0, 1),
     ];
     let first = vec![
         mt("first tkl on runs/season", p("ftk"), g(), s, 1),
