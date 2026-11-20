@@ -93,6 +93,9 @@ pub struct Rules {
     /// The targeting rule of the level and season (coach fire).
     #[serde(default)]
     pub targeting: Targeting,
+    /// The concussion rules of the level and season (engine gaps item 3).
+    #[serde(default)]
+    pub concussion: Concussion,
     /// Whose foul rules the game is played under (engine gaps lane EG5,
     /// `fouls.rs`): `None` is the level's own; a high school in a state
     /// that plays college rules takes the NCAA's (`Rules::high_school`).
@@ -150,6 +153,80 @@ impl PeriodEnd {
             && (defense || self.either && kind != FoulKind::IntentionalGrounding)
             && !(self.no_unsporting && kind == FoulKind::UnsportsmanlikeConduct)
     }
+}
+
+/// The concussion rules of a level and season (engine gaps item 3). The
+/// NFL barred a same-day return for any player with concussion symptoms in
+/// December 2009, put athletic trainers in the booth as spotters in 2011
+/// and independent neurotrauma consultants on the sidelines in 2013. The
+/// NCAA required that a student diagnosed with a concussion not return the
+/// same day from 2010; the NFHS rule from 2010-11 removes a player showing
+/// signs, and by 2014 every state's law kept a player removed for a
+/// suspected concussion out for the day (Arizona and South Carolina let a
+/// cleared one back). Before those years the doctors could send him back
+/// in: in the NFL in 1996-2001 15.2% of concussed players went straight
+/// back and 34.3% rested and went back in the same game (Pellman et al.
+/// 2005).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Concussion {
+    /// A diagnosed concussion sits the rest of the day.
+    pub no_same_day: bool,
+    /// The share of concussions the sideline catches: spotters in the NFL
+    /// (0.92 from 2011), trainers in college (0.8), and some high schools
+    /// have nobody (0.6). Before the rules about 0.6 of that: reported NFL
+    /// concussions were 0.41 a game in 1996-2001 (Pellman et al. 2003)
+    /// against 0.45-0.74 in 2012-17. Proposed, not confirmed: 0.85 in the
+    /// NFL's 2009-10 and every size before the rules.
+    pub caught: f64,
+    /// Men pulled for a check on his signs who turn out clear, for each
+    /// concussion caught. The NFL ran 538 in-game concussion evaluations in
+    /// 2025 for 168 concussions in games, about 3.2 a concussion; 3.4 clear
+    /// for each one caught gives that from the spotters on, as a
+    /// concussion nobody caught or one from the trench draws no check.
+    /// Proposed, not confirmed: 1.0 in 2009-10, 1.5 in college and 0.75 in
+    /// high school (trainers at fewer games), none before the rules.
+    pub checks: f64,
+    /// A man pulled for signs sits the rest of the game even when he
+    /// checks out (high school, the state laws).
+    pub removal_sits: bool,
+    /// A concussion's time out against today's protocol: NFL players lost
+    /// a mean 1.9 days a concussion in 1996-2001 and 4.7 in 2002-07 (Casson
+    /// et al. 2010), against about nine days today. Proposed, not
+    /// confirmed: 0.2 before 2002 and 0.5 until the level's rule, at every
+    /// level.
+    pub length: f64,
+}
+
+impl Default for Concussion {
+    fn default() -> Concussion {
+        Concussion::for_year(Level::NFL, 0)
+    }
+}
+
+impl Concussion {
+    /// A level's concussion rules in a season; year 0 reads as today's.
+    pub fn for_year(level: Level, year: i32) -> Concussion {
+        let year = if year == 0 { 9999 } else { year };
+        let (rule_from, checks, caught) = match level {
+            Level::NFL if year >= 2011 => (2009, 3.4, 0.92),
+            Level::NFL => (2009, 1.0, 0.85),
+            Level::HS => (2010, 0.75, 0.6),
+            _ => (2010, 1.5, 0.8),
+        };
+        if year >= rule_from {
+            Concussion { no_same_day: true, caught, checks, removal_sits: level == Level::HS, length: 1.0 }
+        } else {
+            let caught = 0.6 * if level == Level::NFL { 0.92 } else { caught };
+            let length = if year < 2002 { 0.2 } else { 0.5 };
+            Concussion { no_same_day: false, caught, checks: 0.0, removal_sits: false, length }
+        }
+    }
+
+    /// Before the rules, the share of caught concussions that went back in
+    /// the same game, and of those the share that went straight back (the
+    /// NFL in 1996-2001: 15.2% straight back and 34.3% after a rest,
+    /// Pellman et al. 2005).
+    pub const BACK_BEFORE: (f64, f64) = (0.495, 0.31);
 }
 
 /// Who may advance a fumble and where one out of bounds is spotted (engine
@@ -230,6 +307,7 @@ impl Rules {
                 down_on_fall: false,
                 code: Default::default(),
                 targeting: Targeting::None,
+                concussion: Concussion::for_year(level, 0),
                 fouls: None,
                 year: 0,
                 fumbles: None,
@@ -261,6 +339,7 @@ impl Rules {
                     ..Default::default()
                 },
                 targeting: Targeting::Foul,
+                concussion: Concussion::for_year(level, 0),
                 fouls: None,
                 year: 0,
                 fumbles: None,
@@ -290,6 +369,7 @@ impl Rules {
                 down_on_fall: true,
                 code: Default::default(),
                 targeting: Targeting::Eject,
+                concussion: Concussion::for_year(level, 0),
                 fouls: None,
                 year: 0,
                 fumbles: None,
@@ -306,6 +386,7 @@ impl Rules {
         if year == 0 {
             return r;
         }
+        r.concussion = Concussion::for_year(level, year);
         r.year = year;
         match level {
             Level::NFL => {

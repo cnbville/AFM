@@ -49,8 +49,8 @@ pub struct SeatGame {
     /// either side that is your team now.
     #[serde(default)]
     pub mine: Option<u8>,
-    /// Your pro club's men out hurt at kickoff or hurt in it
-    /// (`pro::games::seat_hurt`): a pro's injuries are not on your
+    /// Your pro club's men out hurt at kickoff or hurt in it and done for
+    /// the game (`pro::games::seat_hurt`): a pro's injuries are not on your
     /// trainers' list. Empty at a school, whose list has them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hurt: Vec<u32>,

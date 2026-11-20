@@ -1153,7 +1153,13 @@ pub fn halftime(r: &GameResult, mine: usize, names: &Names, sides: &[String; 2])
                 i.kind.name(),
                 i.weeks,
                 if i.weeks.round_ties_even() == 1.0 { "" } else { "s" },
-                if i.plays_on { ", playing through it" } else { ", out for the game" }
+                if i.plays_on {
+                    ", playing through it"
+                } else if i.back.is_some() {
+                    ", back in after the trainers looked at him"
+                } else {
+                    ", out for the game"
+                }
             )
         })
         .collect();

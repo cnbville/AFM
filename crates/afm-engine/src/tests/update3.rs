@@ -7,7 +7,7 @@ use crate::game::designer::{Design, save};
 use crate::game::flow::quick_game;
 use crate::game::playbook::*;
 use crate::game::rules::{FirstDownStop, Overtime};
-use crate::game::sim::{Injury, InjuryKind};
+use crate::game::sim::{Cause, Injury, InjuryKind};
 use crate::game::synthetic::synthetic_team;
 use crate::game::{OffScheme, Rules, tables};
 use crate::player::Level;
@@ -90,18 +90,25 @@ fn designed_plays_go_on_film_and_into_the_calls() {
 }
 
 /// A college or high school game injury keeps the player out after the
-/// game, on your team and on others alike; one who played on is not out
-/// (A1).
+/// game, on your team and on others alike, whether he left for good,
+/// played on or came back in (A1; engine gaps item 3).
 #[test]
 fn game_injuries_carry_into_the_week() {
     let mut w = World::empty(WorldOptions { scale: 0.002, ..Default::default() });
     let day = Date::ymd(2026, 9, 12);
-    let hurt = |id: u32, side: usize, weeks: f64, plays_on: bool| {
-        (side, Injury { side, p: 0, id, kind: InjuryKind::AnkleSprain, weeks, plays_on })
+    let hurt = |id: u32, side: usize, weeks: f64, plays_on: bool, back: Option<u16>| {
+        let kind = InjuryKind::AnkleSprain;
+        (side, Injury { side, p: 0, id, kind, weeks, plays_on, back, cause: Cause::Tackled })
     };
-    let list = [hurt(7, 0, 2.0, false), hurt(8, 1, 1.0, false), hurt(9, 1, 3.0, true)];
+    let list = [
+        hurt(7, 0, 2.0, false, None),
+        hurt(8, 1, 1.0, false, None),
+        hurt(9, 1, 3.0, true, None),
+        hurt(10, 0, 0.5, false, Some(6)),
+    ];
     crate::training::seat::game_injuries(&mut w, day, &list, [0.0; 2], Some(0));
     assert!(w.training.hurt_out(7, day.add(10)) && !w.training.hurt_out(7, day.add(20)));
     assert!(w.training.hurt_out(8, day.add(5)) && w.training.other_hurt(8, day.add(5)).is_some());
-    assert!(!w.training.hurt_out(9, day.add(1)));
+    assert!(w.training.hurt_out(9, day.add(1)) && !w.training.hurt_out(9, day.add(30)));
+    assert!(w.training.hurt_out(10, day.add(2)) && !w.training.hurt_out(10, day.add(6)));
 }

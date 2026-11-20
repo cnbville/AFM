@@ -36,6 +36,7 @@ mod following;
 mod foundations;
 mod fresh_talks;
 mod front_office;
+mod game_injuries;
 mod game_stats;
 mod gameday_room;
 mod gameplan;

@@ -2387,6 +2387,7 @@ fn gaps_counts(
         );
     }
     println!("  all   {:.3} {:.3} {:.3}", tot[0] / tg, tot[1] / tg, tot[2] / tg);
+    injury_counts(results, pos_of);
     println!("field goals by distance (att a team game, make, blocked share):");
     for (k, e) in &fg {
         println!("  {k:<8} {:.3}  {:.3}  {:.4}", e[0] / tg, e[1] / e[0].max(1.0), e[2] / e[0].max(1.0));
@@ -3415,6 +3416,182 @@ fn run_diag(
     for (k, v) in w.iter().take(12) {
         println!("  stuff: {k:<16} {:.3} of runs", v / n);
     }
+}
+
+/// Engine gaps lane EG1's injury counts (`AFM_GAPS=1`): each position's
+/// share of the week-plus injuries against real (nflverse injury reports,
+/// episodes a player-season by the men a team plays at each position), what
+/// did it, the body parts against real, and the sideline (back in the same
+/// game, concussions and their checks). Per team game unless named.
+fn injury_counts(
+    results: &[afm_engine::game::GameResult],
+    pos_of: &std::collections::HashMap<u32, afm_engine::positions::Position>,
+) {
+    use afm_engine::game::sim::InjuryKind as K;
+    use afm_engine::positions::Position as P;
+    use std::collections::BTreeMap;
+    let tg = results.len() as f64 * 2.0;
+    let dev: Value =
+        serde_json::from_str(include_str!("../../../../data/real-world/development_injuries.json")).unwrap();
+    // Real: episodes a player-season times the men a team plays four games
+    // or more at each position (Claude's count of a typical NFL team).
+    let eps = &dev["injury_episodes_per_player_season"];
+    let men = [
+        ("QB", "QB", 1.6),
+        ("RB", "RB", 3.3),
+        ("WR", "WR", 5.5),
+        ("TE", "TE", 3.3),
+        ("OL", "OL", 8.0),
+        ("DT", "DL", 5.0),
+        ("EDGE", "EDGE", 4.0),
+        ("LB", "LB", 5.0),
+        ("CB", "CB", 5.2),
+        ("S", "S", 4.0),
+        ("K", "K", 1.0),
+        ("P", "P", 1.0),
+    ];
+    let real: Vec<(&str, f64)> = men.iter().map(|&(g, k, n)| (g, eps[k].as_f64().unwrap_or(0.0) * n)).collect();
+    let real_total: f64 = real.iter().map(|x| x.1).sum();
+    let group = |p: Option<&P>| match p {
+        Some(P::OT | P::IOL) => "OL",
+        Some(P::LS) => "K",
+        Some(p) => p.name(),
+        None => "?",
+    };
+    let mut by_group: BTreeMap<&str, f64> = BTreeMap::new();
+    let mut by_cause: BTreeMap<&str, [f64; 2]> = BTreeMap::new();
+    // Week-plus ones by position and what did it.
+    let mut grid: BTreeMap<(&str, &str), f64> = BTreeMap::new();
+    let mut by_part: BTreeMap<&str, f64> = BTreeMap::new();
+    // Sideline: [hurt, played on, went off and came back, out for the game],
+    // plays sat by those who came back, and the same for week-plus ones.
+    let mut side = [0.0f64; 4];
+    let mut side_wk = [0.0f64; 4];
+    let mut back_plays = Vec::new();
+    // Concussions: [all, played on (nobody caught it), back in, out].
+    let mut conc = [0.0f64; 4];
+    let mut checks = [0.0f64; 3];
+    let mut check_plays = Vec::new();
+    let mut nc = [0.0f64; 2];
+    let mut wk_total = 0.0f64;
+    for r in results {
+        for (_, i) in &r.injuries {
+            let wk = i.weeks >= 1.0;
+            let e = by_cause.entry(i.cause.name()).or_default();
+            e[0] += 1.0;
+            let k = if i.plays_on {
+                1
+            } else if i.back.is_some() {
+                2
+            } else {
+                3
+            };
+            side[0] += 1.0;
+            side[k] += 1.0;
+            if let Some(b) = i.back {
+                back_plays.push(b as f64);
+            }
+            if i.cause.non_contact() {
+                nc[0] += 1.0;
+            }
+            if i.kind == K::Concussion {
+                conc[0] += 1.0;
+                conc[k] += 1.0;
+            }
+            if wk {
+                e[1] += 1.0;
+                wk_total += 1.0;
+                side_wk[0] += 1.0;
+                side_wk[k] += 1.0;
+                *by_group.entry(group(pos_of.get(&i.id))).or_default() += 1.0;
+                *grid.entry((group(pos_of.get(&i.id)), i.cause.name())).or_default() += 1.0;
+                if i.cause.non_contact() {
+                    nc[1] += 1.0;
+                }
+                let part = match i.kind {
+                    K::Knee | K::Acl => "Knee",
+                    K::AnkleSprain | K::HighAnkleSprain => "Ankle",
+                    K::Hamstring => "Hamstring",
+                    K::Concussion => "Concussion",
+                    K::Shoulder => "Shoulder",
+                    K::Foot => "Foot",
+                    K::Groin => "Groin",
+                    K::Calf => "Calf",
+                    K::Back => "Back",
+                    K::Neck => "Neck",
+                    K::Hip => "Hip",
+                    K::Quad => "Quadricep",
+                    K::Achilles => "(Achilles)",
+                    _ => "(bruise, ribs, hand, bone)",
+                };
+                *by_part.entry(part).or_default() += 1.0;
+            }
+        }
+        for c in &r.checks {
+            checks[0] += 1.0;
+            if let Some(b) = c.2 {
+                checks[1] += 1.0;
+                check_plays.push(b as f64);
+            } else {
+                checks[2] += 1.0;
+            }
+        }
+    }
+    println!("injuries of a week or more by position (share; real share from nflverse episodes):");
+    for (g, rv) in &real {
+        let v = by_group.get(g).copied().unwrap_or(0.0);
+        println!("  {g:<5} {:.3} a team game  share {:.3}  real {:.3}", v / tg, v / wk_total.max(1.0), rv / real_total);
+    }
+    let causes: Vec<&str> = by_cause.keys().copied().collect();
+    println!("injuries of a week or more a team game by position and what did it:");
+    println!("  {:<5} {}", "", causes.iter().map(|c| format!("{c:>9}")).collect::<String>());
+    for (g, _) in &real {
+        let row: String =
+            causes.iter().map(|c| format!("{:>9.3}", grid.get(&(*g, *c)).copied().unwrap_or(0.0) / tg)).collect();
+        println!("  {g:<5} {row}");
+    }
+    println!("injuries by what did it (all / 1+ week a team game):");
+    for (c, e) in &by_cause {
+        println!("  {c:<9} {:.3} {:.3}", e[0] / tg, e[1] / tg);
+    }
+    println!(
+        "  nobody touching him: {:.3} of all, {:.3} of 1+ week (the mix's non-contact share: 0.246)",
+        nc[0] / side[0].max(1.0),
+        nc[1] / wk_total.max(1.0)
+    );
+    println!("injuries of a week or more by body part (share; real nflverse):");
+    let parts = &dev["injury_episodes_by_body_part"];
+    for (p, v) in &by_part {
+        let rv = parts[*p]["share"].as_f64();
+        println!(
+            "  {p:<26} {:.3}  real {}",
+            v / wk_total.max(1.0),
+            rv.map_or_else(|| "-".to_string(), |x| format!("{x:.3}"))
+        );
+    }
+    let mean = |v: &[f64]| if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 };
+    println!(
+        "the sideline: of all injuries {:.3} played on, {:.3} went off and came back (after {:.1} plays on average), {:.3} out for the game; 1+ week {:.3} / {:.3} / {:.3}",
+        side[1] / side[0].max(1.0),
+        side[2] / side[0].max(1.0),
+        mean(&back_plays),
+        side[3] / side[0].max(1.0),
+        side_wk[1] / side_wk[0].max(1.0),
+        side_wk[2] / side_wk[0].max(1.0),
+        side_wk[3] / side_wk[0].max(1.0)
+    );
+    println!(
+        "men back in the same game {:.3} a team game; concussions {:.3} a game ({:.3} nobody caught, {:.3} back in, {:.3} out); cleared concussion checks {:.3} a game ({:.3} back in after {:.1} plays, {:.3} sat)",
+        side[2] / tg,
+        conc[0] / (tg / 2.0),
+        conc[1] / conc[0].max(1.0),
+        conc[2] / conc[0].max(1.0),
+        conc[3] / conc[0].max(1.0),
+        checks[0] / (tg / 2.0),
+        checks[1] / checks[0].max(1.0),
+        mean(&check_plays),
+        checks[2] / checks[0].max(1.0)
+    );
 }
 
 /// A rate's spread between men with `min` or more tries, the binomial noise

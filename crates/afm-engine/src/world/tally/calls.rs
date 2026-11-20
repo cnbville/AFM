@@ -279,7 +279,10 @@ pub const GRID_TOGO: [f64; 6] = [1.0, 2.0, 3.0, 4.5, 8.0, 13.0];
 pub const GRID_YL: [f64; 6] = [90.0, 70.0, 55.0, 42.0, 27.0, 10.0];
 
 pub fn grid_row(togo: f64) -> usize {
-    match togo.max(0.0).ceil() {
+    // At the precision a row keeps (`Fourth::togo` is an f32): the game's
+    // yards to go are sums of fractional gains, so 5.000000000000001 is
+    // "4th and 5" and must read as such from the game and from its row.
+    match (togo as f32).max(0.0).ceil() as f64 {
         t if t <= 1.0 => 0,
         t if t <= 2.0 => 1,
         t if t <= 3.0 => 2,
@@ -664,5 +667,27 @@ pub fn model_level(level: Level, college: Option<PLevel>) -> PLevel {
         Level::Nfl => PLevel::NFL,
         Level::Hs => PLevel::HS,
         Level::College => college.unwrap_or(PLevel::FBS),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::grid_row;
+
+    /// The grid reads a 4th down's yards to go as its row keeps them (an f32):
+    /// the game's are sums of fractional gains, so a hair over 5 is still
+    /// "4th and 5" (main's red Full tests 2026-11-20: one NFL 4th down was
+    /// counted a cell later in the season's grid than in its row).
+    #[test]
+    fn the_grid_reads_yards_to_go_as_a_row_keeps_them() {
+        for whole in [1.0f64, 2.0, 3.0, 5.0, 10.0] {
+            let noisy = whole + whole * 4.0 * f64::EPSILON;
+            assert!(noisy > whole && noisy as f32 as f64 == whole);
+            assert_eq!(grid_row(noisy), grid_row(noisy as f32 as f64), "{noisy}");
+            assert_eq!(grid_row(noisy), grid_row(whole), "{noisy}");
+        }
+        // A real half yard past the line still moves a row.
+        assert_eq!(grid_row(5.5), 4);
+        assert_eq!(grid_row(5.0), 3);
     }
 }

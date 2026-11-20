@@ -8,6 +8,35 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.662 (20 Nov, shipped): EG4: the end of halves and game management (engine gaps items 15-22, minor bug 407) (PR #597)
+**TLDR:** Games now end the way real ones do: Hail Marys and lateral chains on the last play, smarter clocks before halftime, and teams that know how to protect a late lead.
+- On a half's last snap, teams kick, kneel, heave a Hail Mary into a crowd or try a chain of laterals, by the score, the spot and the passer's arm. (PR #597)
+- Defenses spend their timeouts before halftime to get the ball back, and offenses only hurry when they can reach their kicker. (PR #597)
+- A team ahead late keeps the ball in bounds, and a runner goes down short of the goal line when a first down wins the game. (PR #597)
+- Two-point tries come at the real rate, AI staffs fake a punt or a field goal now and then, and a foul as time runs out gives an untimed down where the rules say so. (PR #597)
+- Your own timeout in a live game now gives back the seconds since the whistle. (PR #597)
+- Look at: the last snap of a close game, and the last two minutes of the first half. (PR #597)
+
+## 0.2.661 (20 Nov, shipped): EG3, the kicking game (long field goals at the real rate, blocked kicks from a tracked rush and live, return breakaways, the range in the weather, fouls on returns) (PR #595), talk replies lane B: talks as a shortcut, what he's after, real haggling (PR #594), continue stops when a call rings, so you can answer it (PR #590)
+**TLDR:** 3 changes ship together. The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often. Talks now get things done. Say you're putting a player on a project or a focus and it happens after one confirm. Every talk shows what the other person seems to be after, and coaches and agents now haggle with you round by round. Plus 1 more below.
+- EG3, the kicking game (long field goals at the real rate, blocked kicks from a tracked rush and live, return breakaways, the range in the weather, fouls on returns) (PR #595): The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often.
+- Long field goals are made at the real rate, and coaches try fewer of them, especially into a strong wind or on a freezing day. (PR #595)
+- Field goals, extra points and punts can be blocked by a real rush, and the loose ball is live: it can be scooped up and returned for a touchdown. (PR #595)
+- Kick and punt returns break into the open more often. (PR #595)
+- Flags on returns now count, with the yards, ejections and fines that come with them. (PR #595)
+- Talk replies lane B: talks as a shortcut, what he's after, real haggling (PR #594): Talks now get things done. Say you're putting a player on a project or a focus and it happens after one confirm. Every talk shows what the other person seems to be after, and coaches and agents now haggle with you round by round.
+- Tell a player you're starting a project, setting his focus, moving him or redshirting him, and one confirm does it, just like the button. (PR #594)
+- If it can't be done today, he hears why. If you turn down the confirm, your word still counts as a promise. (PR #594)
+- A "What he's after" read sits beside every talk. It starts vague and gets sharper as he opens up. (PR #594)
+- Coaches you hire, agents and your own players open at their ask and come down a little each round, never past the least they'd take. (PR #594)
+- Continue stops when a call rings, so you can answer it (PR #590): Calls now ring when they come in. Continue stops right then so you can take the call yourself or hand it to your staff.
+- A call that comes in while the hours play stops the clock the moment it rings. (PR #590)
+- Its room opens at once, and the stop card says who is calling. (PR #590)
+- Your staff only takes a call if you hand it on, or while you're on holiday. (PR #590)
+- A call made for later in the day stops the clock at its own hour. (PR #590)
+- Look at: a cold, windy game's fourth downs near midfield, and the blocked kicks in the play-by-play. (PR #595) tell a receiver "I'm putting you on a release project this winter", then haggle a coordinator up from a low first offer. (PR #594) a recruit's family calling about a commitment at his spot, or an evening call from a recruit. (PR #590)
+- Docs and tooling merged too, no game change: CI: move three slow capital screen tests to Full tests (PR #593).
+
 ## 0.2.658 (20 Nov, shipped): engine gaps lane EG5: each level's rule book and the flags (PR #578)
 **TLDR:** Flags now follow each level's own rule book, so college and high school games mark penalties the way their officials do, and NFL flags come at their real rate and size.
 - College defensive holding costs 10 yards, and high school pass interference and holding carry no automatic first down (Texas plays college rules). (PR #578)

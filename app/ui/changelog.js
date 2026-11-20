@@ -17,6 +17,28 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.662", date: "20 Nov", title: "EG4: the end of halves and game management (engine gaps items 15-22, minor bug 407)",
+    notes: [
+      "Games now end the way real ones do: Hail Marys and lateral chains on the last play, smarter clocks before halftime, and teams that know how to protect a late lead.",
+      "On a half's last snap, teams kick, kneel, heave a Hail Mary into a crowd or try a chain of laterals, by the score, the spot and the passer's arm.",
+      "Defenses spend their timeouts before halftime to get the ball back, and offenses only hurry when they can reach their kicker.",
+      "A team ahead late keeps the ball in bounds, and a runner goes down short of the goal line when a first down wins the game.",
+      "Two-point tries come at the real rate, AI staffs fake a punt or a field goal now and then, and a foul as time runs out gives an untimed down where the rules say so.",
+      "Your own timeout in a live game now gives back the seconds since the whistle.",
+    ],
+  },
+  {
+    v: "0.2.661", date: "20 Nov", title: "Continue stops when a call rings, so you can answer it and 2 more",
+    notes: [
+      "The kicking game now plays like real football: long field goals are as hard as they really are, kicks get blocked and run back, and returners break long ones more often.",
+      "Long field goals are made at the real rate, and coaches try fewer of them, especially into a strong wind or on a freezing day.",
+      "Field goals, extra points and punts can be blocked by a real rush, and the loose ball is live: it can be scooped up and returned for a touchdown.",
+      "Kick and punt returns break into the open more often.",
+      "Flags on returns now count, with the yards, ejections and fines that come with them.",
+      "Talks now get things done. Say you're putting a player on a project or a focus and it happens after one confirm. Every talk shows what the other person seems to be after, and coaches and agents now haggle with you round by round.",
+    ],
+  },
+  {
     v: "0.2.658", date: "20 Nov", title: "Engine gaps lane EG5: each level's rule book and the flags",
     notes: [
       "Flags now follow each level's own rule book, so college and high school games mark penalties the way their officials do, and NFL flags come at their real rate and size.",
