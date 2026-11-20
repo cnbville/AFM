@@ -2142,6 +2142,110 @@ Still off:
 - The sideline's sizes (11.7% of injuries back in, after about 12 plays) have no real count on file to check against.
 - Playing on hurt or back in costs nothing past the game, the sideline reads only the injury and his toughness, and its play count runs through halftime (`GAPS.md`).
 
+## Where picks and breakups come from (scheme-fit lane SF5, items 15, 16 and 17, 2026-11-20)
+
+Design: `docs/design/scheme-fit.md`, items 15, 16 and 17, each by the floor: a deep defender can play the ball from depth (30+ yard throws picked 6.7% of the time, safeties 39% of the picks and about 43% behind man, the league's total held), a rusher in a block doesn't pick passes through the lane, and breakups by linebackers and defensive backs come to real (8.2 a 100 throws, picks left out). Built under Cain's proxy on 2026-11-20.
+
+How it was measured: a new read-out in `match_check` (`AFM_PICKS=1`, `pick_diag`) over every targeted throw: by air yards (share, picked, complete, broken up by the line and by the back seven) against the 2024 NFL play-by-play; picks by the interceptor's position (all, behind man coverage, on 30+ yard throws) against FTN charting; the line's picks made in a block; and breakups a 100 throws by position, picks left out. The test rosters at 2,000 games on seeds 1 and 2 at each level, main 60baecd and after, with `AFM_GAPS=1` for pass interference. `fit_check` on NFL seed 161 (2,400 games an arm) and FBS seed 151 (3,000), main and after, on 32 arms: the bases, the passer's Decisions, the corners' and the free safety's coverage, hands and jump, a 6'2" corner, and the X's Contested Catch, Catching and height.
+
+What was wrong on main (NFL test rosters, seeds 1 and 2):
+
+- **Rushers picked passes through the lane.** The lane check let any defender within 1.1 yards of a short ball's path touch it, and a rusher faces the passer, so he counted as a man with his eyes on the throw. The line made 14.3% and 18.1% of the picks (real 4%, plus 5% by 3-4 outside linebackers), 88% and 91% of them while in a block, and broke up 3.2 and 3.3 throws a 100 (real 2.0), on top of the batted balls at the line. At FBS the line made 17% to 19% of the picks, at high school 19% to 22%.
+- **A deep defender seldom played the ball.** Only a man facing the passer at the catch read as seeing the ball. A deep defender runs to the ball's spot facing where he runs, so the man nearest a 30+ yard ball on target had it in his eyes 15% of the time, and played it at 0.45 of the pick chance with less of his jump. 30+ yard throws were picked 4.46% and 4.64% of the time (real 6.72%), 20-29 yard throws 5.05% and 4.21% (real 6.06%). Safeties made 25.9% and 26.8% of the picks (real 39%), and 18.3% and 18.0% behind man (real 43%).
+- **Breakups nobody was credited with.** A ball the contest at the catch took from the receiver fell incomplete as nobody's. An off-target ball that came to a defender fell incomplete with no play for him. The second man at the ball never got a play when the first didn't end it. And a man got a hand to a ball only inside the reach he catches it in. The back seven broke up 4.89 and 4.20 throws a 100 (real 8.2).
+
+What changed (`game/scrimmage.rs`, `catch_point`; `game/sim.rs`, `Agent::saw_throw`; every size proposed, not confirmed):
+
+- **A rusher reads no lane** (item 16). A man still rushing the passer, one who hasn't read the screen and peeled off for the back, gets his hands to a pass only at the line, as the batter (`batter`), which is near real on its own.
+- **The ball in his eyes** (item 15; `ball_in_eyes`, `FIND_BALL`). A defender who saw the ball leave the passer's hand (`throw`, `Sim::sees`) and has had 1.2 s since he broke on it has found it over his shoulder as he runs to its spot. So he plays it as a man facing it: the full pick chance and his full jump. A man who only felt the throw from his receiver's eyes and hands plays the hands. On a short throw the 1.2 s seldom come, so there he plays the hands too.
+- **The second man at the ball** (item 15). After the nearest defender, the next nearest gets his own play: the man over the top of a long ball, or the second man of a bracket. Each has his own reach, pick and breakup.
+- **A fingertip for a breakup** (item 17; `BREAKUP_REACH`). A man with the ball in his eyes gets a hand to it 0.3 yards past the reach he catches it in. Picks and the hit at the catch still need his catch reach.
+- **The contest's share is his breakup** (item 17). What the contest at the catch takes off the catch is now the nearest defender's breakup (6% of them picked, as `PBU_PICK`). It is rolled ahead of the catch, so the catch rate is the same.
+- **An off-target ball that comes to him** (item 17). If it comes within his breakup reach and under his high reach, the nearest defender knocks it away with the breakup's chance (`breakup_hands`), with no receiver to fight him for it.
+- **The read-out** stays in `match_check` (`AFM_PICKS=1`) for the lanes after this one.
+
+Where picks come from, NFL test rosters (seeds 1 and 2, main > after; the band rates are of the targeted throws in each):
+
+| | main | after | real |
+|---|---|---|---|
+| picked, % of targeted throws | 2.47, 2.23 | 2.40, 2.17 | 2.3 |
+| behind the line | 0.92, 0.88 | 0.57, 0.57 | 0.80 |
+| 0-9 air yards | 1.91, 1.74 | 1.49, 1.29 | 1.22 |
+| 10-19 | 3.80, 3.39 | 4.20, 3.77 | 3.39 |
+| 20-29 | 5.05, 4.21 | 6.58, 5.89 | 6.06 |
+| 30+ | 4.46, 4.64 | 5.32, 5.62 | 6.72 |
+| the line's share of the picks | 14.3, 18.1 | 3.4, 4.6 | 4 (plus 5 by 3-4 outside linebackers) |
+| of the line's picks, made in a block | 88, 91 | 79, 85 | |
+| the safeties' share | 25.9, 26.8 | 30.5, 32.9 | 39 |
+| behind man | 18.3, 18.0 | 26.5, 27.7 | 43 |
+| on 30+ yard throws | 51.9, 56.0 | 54.7, 61.6 | 56-61 |
+| breakups a 100 throws, the back seven | 4.89, 4.20 | 7.33, 6.39 | 8.2 |
+| the line | 3.20, 3.30 | 1.72, 1.85 | 2.0 |
+
+Breakups by air yards after (the line and the back seven, a 100 throws in each; real 2024): behind the line 4.14 and 3.70 (7.38), 0-9 7.65 and 6.79 (8.21), 10-19 13.30 and 12.41 (13.60), 20-29 15.75 and 15.07 (15.91), 30+ 12.98 and 12.22 (18.84).
+
+FBS (seeds 1 and 2): picked 2.05% and 1.96% to 2.00% and 1.86% of targeted throws; the line's share 17.3% and 18.5% to 4.5% and 4.4%; the safeties' 25.4% and 29.6% to 33.9% and 35.9% (behind man 21.4% and 25.0% to 29.8% and 32.2%); 30+ yard throws picked 2.76% and 3.32% to 3.97% and 3.74%; breakups a 100 throws by the back seven 3.10 and 2.70 to 5.51 and 4.81, by the line 2.77 and 2.77 to 1.31 and 1.46. High school: picked 1.70% and 1.56% to 1.46% and 1.37%; the line's share 19.4% and 21.9% to 4.3% and 3.4%; the back seven's breakups 1.64 and 1.57 to 4.02 and 3.79, the line's 2.69 and 2.82 to 1.17 and 1.31.
+
+The league (2,000 games on seeds 1 and 2 at each level, the mean, main > after, the range of the change between the seeds):
+
+| | NFL | FBS | high school | real NFL |
+|---|---|---|---|---|
+| points a team game | 28.11 > 27.77 (-0.42 to -0.28) | 26.00 > 25.77 | 19.85 > 20.19 | 22.51 |
+| yards an attempt | 7.72 > 7.70 (-0.02 to -0.01) | 7.74 > 7.81 | 6.99 > 7.10 | 7.05 |
+| completion rate | 66.5 > 67.1 (+0.5 to +0.8) | 61.7 > 62.5 | 58.6 > 59.7 | 64.5 |
+| interceptions a team game | 0.817 > 0.787 (-0.030 to -0.029) | 0.649 > 0.617 | 0.356 > 0.310 | 0.756 |
+| pick sixes a team game | 0.037 > 0.036 | 0.025 > 0.022 | 0.011 > 0.006 | 0.050 |
+| broken up, % of attempts | 8.7 > 9.9 (+1.0 to +1.3) | 6.2 > 7.4 | 4.8 > 5.8 | |
+| third down conversion | 45.7 > 46.1 (+0.3 to +0.4) | 42.3 > 42.6 | 40.5 > 40.8 | 39.8 |
+| pass interference accepted a team game | 0.557 > 0.585 (+0.016 to +0.041) | 0.498 > 0.503 | 0.296 > 0.302 | 0.497 |
+| explosive pass rate | 8.8 > 8.6 | 9.2 > 9.2 | 7.5 > 7.6 | 8.8 |
+| red zone touchdowns, % of attempts | 28.6 > 28.3 | 29.0 > 29.1 | 27.4 > 28.0 | 19.0 |
+| sack rate | 3.2 > 3.3 | 4.1 > 4.1 | 5.8 > 5.6 | 6.8 |
+
+Why:
+
+- **Picks hold at the NFL** (2.35% to 2.29% of targeted throws over the two seeds, real 2.3%; 0.817 to 0.787 a team game, real 0.756). The line's picks fall from 0.35 and 0.40 points of the throws to 0.08 and 0.10, and the long balls and the second man give most of it back from the throws a defender can play: 20+ yard throws are picked about a quarter more often, throws short of 10 yards a quarter to a third less.
+- **Completions rise 0.5 to 0.8 points** (66.5% to 67.1% at the NFL, real 64.5%). The rushers' touches in the lane took about 2% of the throws, and the new breakups win back more than half of what that gives the offense. The rest is the short game's own: throws short of 10 yards are still completed 3 to 4 points above real (still off, below).
+- **FBS and high school picks fall** (FBS 0.649 to 0.617 a team game, real about 0.80; high school 0.356 to 0.310). The line made more of their picks than the NFL's (17% to 22%), and they throw fewer long balls. FBS was short of real before (still off, below).
+- **Pass interference rises 3% to 9%** (NFL 0.557 to 0.585 accepted a team game over main 60baecd, +3% to +7% by seed; 0.559 to 0.596 over c0beb23; real 0.497). Each breakup at the catch checks the contact for interference (`pi_contact`, at 1.2 times the rate), and the fingertip and the second man add breakups there. A target it is at real: the real rates by air yards on the engine's own targets give 0.62 a team game, and the lane draws 94% to 98% of that (main 90%), 16-20 yard throws above real (0.035 a target against 0.027) and 21 yards and more below. The total is above real because the test rosters throw more passes past the line (35 attempts a team game against 33.3, 14% of targets behind the line against 18%), so the breakup's share of interference stays (still off, below).
+- **Points fall 0.3 to 0.4 a team game at the NFL** and 0.2 at FBS, toward real, and rise 0.3 at high school, where picks fall most.
+
+`fit_check` (NFL seed 161, 2,400 games an arm, main 60baecd and after, the typical team's 12 contexts; "past the noise" is |z| of 1.96 or more, marked *):
+
+| item | measure | main | after | real |
+|---|---|---|---|---|
+| 15 | 30+ yard throws picked, against team 0 | 4.0 to 5.6 | 4.9 to 7.4 (11 of the 12 at 6.2 or more) | 6.7% |
+| 14 | the safeties' share of team 0's picks | 21.4 to 25.1 | 25.2 to 30.3 | 39% |
+| 14 | behind man | 9.5 to 19.0 | 14.5 to 25.3 | 43% |
+| 16 | the linemen's share | 13.2 to 16.8 | 2.9 to 4.6 | 4% (plus 5% by 3-4 outside linebackers) |
+| 16 | of theirs, made while in a block | 86.6 to 91.5 | 73.6 to 87.8 | |
+| 17 | breakups by linebackers and backs, a 100 targeted throws | 4.9 to 5.5 | 7.7 to 8.8 | 8.2 |
+
+What a man's ratings are worth (the change a season against the typical arm, main > after):
+
+- **A free safety's Zone Coverage +15** picks +0.81*, +0.57* and +0.85* > +1.21*, +0.87* and +1.01* more (Cover 2, man pressure, West Coast) and breaks up +1.73*, +1.75* and +2.20* > +3.53*, +2.54* and +3.27* more. His Jumping +15 picks +0.27* > +0.33*, his Catching +15 +0.25* > +0.23*. The typical free safety picks 1.48 > 1.93 a season and breaks up 2.7 > 5.1 (West Coast).
+- **A corner's Man Coverage +15** in man pressure picks +0.33* and +0.26 > +0.55* and +0.67* (the first and second corner) and takes 1.9* and 3.0* > 2.3* and 4.4* points off the catch rate on him. His Catching +15 picks +0.24* > +0.37*; his Jumping +15 +0.34* > +0.13. The typical corner picks 2.15 > 2.58 a season and breaks up 4.9 > 7.8 (West Coast).
+- **A passer's Decisions +15** changes his picks by -0.01, +0.03, -0.12 and +0.06 > -0.10, -0.07, +0.00 and -0.18* points of throws in the four schemes: with the rushers' picks in the lane gone, more of his picks come from where he throws.
+- **A receiver's Contested Catch +15** wins +7.6* and +7.7* > +11.5* and +10.7* points of his contested balls (Air Raid, West Coast): there are more breakups for his skill to beat. A 6'4" X wins them -0.5 > +0.3 points more often (neither past the noise), so height at the catch (item 6) stays open.
+
+At FBS (seed 151, 3,000 games an arm): 30+ yard throws picked 3.1% to 4.3% > 4.0% to 5.8%, the safeties' share of the picks 21.7% to 24.5% > 26.6% to 30.2% (behind man 10.7% to 19.8% > 15.7% to 22.4%), the line's 15.3% to 18.2% > 3.3% to 4.9%, and breakups by linebackers and backs 2.8 to 3.3 > 5.3 to 5.9 a 100 throws. A free safety's Zone Coverage +15 picks +0.40*, +0.30* and +0.51* > +0.52*, +0.44* and +0.61* more and breaks up +0.94*, +0.80* and +1.05* > +2.13*, +1.64* and +2.01* more; a passer's Decisions +15 changes his picks by -0.05 points of throws on average, as on main.
+
+Measured again over main c0beb23 (engine gaps lane EG1, injuries on every collision), the same seeds and games, with the same picture (main > the lane, seeds 1 and 2). At the NFL the league's picks 2.43% and 2.28% > 2.43% and 2.18% of targeted throws, 30+ yard throws picked 4.33% and 5.11% > 5.77% and 5.50%, the line's share of the picks 15.4% and 15.1% > 3.6% and 4.5%, the safeties' 25.2% and 27.5% > 31.6% and 32.7% (behind man 20.1% and 22.3% > 24.3% and 27.7%), the back seven's breakups 4.91 and 4.24 > 7.41 and 6.33 a 100 throws, completions 65.9% and 67.1% > 66.6% and 67.9%, pass interference 0.558 and 0.560 > 0.609 and 0.583 accepted a team game. At FBS interceptions 0.672 and 0.633 > 0.623 and 0.574 a team game, the line's share of them 17.4% and 17.3% > 3.6% and 4.1%, the back seven's breakups 3.03 and 2.62 > 5.56 and 4.79, pass interference 0.477 and 0.425 > 0.502 and 0.478. In high school interceptions 0.350 and 0.370 > 0.306 and 0.337, the line's share 20.3% and 23.3% > 3.7% and 3.3%, the back seven's breakups 1.62 and 1.54 > 3.94 and 3.81, pass interference 0.258 and 0.279 > 0.265 and 0.307. The games' time with the read-outs on moved -5% to +3% by level, inside the noise.
+
+Speed (`match_check`, 2,000 games at each level on seeds 1 and 2, main 60baecd and the lane in turn on an otherwise quiet machine, two rounds with the order swapped; the games' own time): the NFL -2.0% (16.52 s to 16.20 a run; pairs -5.7% to +1.2%), FBS -1.3% (17.12 to 16.90; -8.3% to +7.8%), high school -2.1% (11.70 to 11.45; -13.8% to +6.2%), inside a pair's noise.
+
+Tried and dropped (`match_check nfl 2000 1`, the lane's earlier builds):
+
+- **A defender driving to the ball's spot** to arrive with it at full speed, where he now eases in near it (`go_to`): picks 3.06% of targeted throws (main 2.47%) and 10-19 yard throws completed 49.7% (real 54.5%).
+- **Finding the ball in 0.8 s:** 10-19 yard throws picked 4.57% (real 3.39%), the league's picks 2.55%. In 1.5 s: 20-29 yard throws picked 5.13% (real 6.06%).
+- **A pick for a defender level with the receiver on a long ball** (in the air 1.2 s or more and 20 yards or more: a share of the chance from 0.15 yards closer to the ball than him down to 0.15 or 0.35 yards farther): the league's picks 2.34% to 2.48% and 2.60% (at 0.3 and 0.5 yards), the 10-19 yard throws' with them, and the safeties' share fell 1.5 points: it favors the corner level with his man, not the man from depth.
+- **A fingertip for every defender,** not only the one with the ball in his eyes: breakups by the back seven 7.65 a 100 on seed 1 at 0.3 yards, 7.1 and 8.0 at 0.5 and 0.8, with 10-19 yard throws completed 51.4%, 50.7% and 49.8% (real 54.5%).
+- **The breakup's base at 0.50** (from 0.39): the back seven 6.22 a 100, and it moves every breakup, not the missing ones.
+
+Also fixed: the fake field goal (lane EG4) seated its wall's guards and tackles by the depth chart, so a center you named by hand played right guard on it. It now seats them where your order names them, as on any snap (`fake_fg_play`, `pick_line`), the long snapper at center. The lane's new game stream drew one in the line-order test (`tests::line_order`). That test's share of snaps with the five named linemen on together now leaves out the snaps a named man is off hurt: since lane EG1 it swung with how many of them got hurt in its 24 games (on the lane's stream the NFL's five were on together on 76% of snaps with those snaps and 97% without, against the test's 80%), while the order's own check (a named man only ever at his spot) still reads every snap.
+
+Still off (`GAPS.md`, Engine): long balls are off target too often (58% of 30+ yard throws; their completions 20% to 23%, real 28.9%, and their breakups 12 to 13 a 100, real 18.8), so they are picked 5.3% to 5.8% (real 6.7%); the safeties' share of picks (31% to 33%, real 39%; behind man 27% to 28%, real 43%) needs the free safety at the ball, scheme-fit items 12-14 (lane SF6); throws behind the line are broken up half as often as real (3.6 to 4.1 a 100, real 7.4) and short throws completed 3 to 4 points above real; pass interference at the NFL above real from the throws past the line (at real a target); FBS picks short of real; picks still come from throws the passer saw open (on the lane's last measured build 18% to 20% of them came from throws seen open by 2 yards or more, main 25% and 29%).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).

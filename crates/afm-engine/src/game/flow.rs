@@ -4409,15 +4409,22 @@ impl<'a> Game<'a> {
         let h = side.holder(k, sn);
         let mut used = vec![k, sn, h];
         let mut off: Vec<(ORole, usize)> = vec![(ORole::QB, h), (ORole::RB, k), (ORole::C, sn)];
-        let roles = [ORole::LG, ORole::RG, ORole::LT, ORole::RT, ORole::TE, ORole::TE2, ORole::TE3, ORole::FB];
-        let wall: Vec<usize> = side
-            .pick(Position::IOL, 2, &mut used)
-            .into_iter()
-            .chain(side.pick(Position::OT, 2, &mut used))
-            .chain(side.pick(Position::TE, 3, &mut used))
-            .chain(side.pick(Position::RB, 1, &mut used))
-            .collect();
-        off.extend(wall.iter().zip(roles).map(|(&i, r)| (r, i)));
+        // The guards and tackles at the spots your order names them, as on
+        // any snap (`pick_line`, playtest bug 12): the long snapper plays
+        // center, so a man you named at center sits and a named guard keeps
+        // his side. By the depth chart alone the second interior man went to
+        // right guard, a center named by hand among them.
+        let lefty = side.team.players[h].left_handed;
+        for (pos, rs) in [(Position::IOL, [ORole::LG, ORole::RG]), (Position::OT, [ORole::LT, ORole::RT])] {
+            for (r, i) in rs.into_iter().zip(side.pick_line(pos, &rs, &mut used, None, lefty)) {
+                if let Some(i) = i {
+                    off.push((r, i));
+                }
+            }
+        }
+        let wall: Vec<usize> =
+            side.pick(Position::TE, 3, &mut used).into_iter().chain(side.pick(Position::RB, 1, &mut used)).collect();
+        off.extend(wall.iter().zip([ORole::TE, ORole::TE2, ORole::TE3, ORole::FB]).map(|(&i, r)| (r, i)));
         let opp = &self.sides[d];
         let mut used2 = Vec::new();
         let slots = [

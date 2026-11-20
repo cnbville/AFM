@@ -277,6 +277,11 @@ pub struct Agent {
     pub top: f64,
     /// He has read the screen and is going for the back.
     pub smell: bool,
+    /// He saw the ball leave the passer's hand (scheme-fit item 15): his
+    /// eyes were on the passer at the throw, so he can track its flight as
+    /// he runs to it, where a man watching his receiver has to find it late.
+    #[serde(default)]
+    pub saw_throw: bool,
     /// A rusher on a stunt waits until this time before he loops.
     pub hold_until: f64,
     /// His run fit (plays and tactics topic 1): 0 none, 1 force (contain
@@ -409,6 +414,7 @@ impl Agent {
             last_try: -9.0,
             top: 0.0,
             smell: false,
+            saw_throw: false,
             hold_until: 0.0,
             fit: 0,
             gap_y: 0.0,
@@ -496,6 +502,7 @@ impl Agent {
             last_try: self.last_try,
             top: self.top,
             smell: self.smell,
+            saw_throw: self.saw_throw,
             hold_until: self.hold_until,
             fit: self.fit,
             gap_y: self.gap_y,

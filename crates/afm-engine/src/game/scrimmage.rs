@@ -5141,6 +5141,23 @@ const BREAKUP_COVER: f64 = 0.012;
 /// broken-up ball less (`TIP_PICK` 0.13 before, `PBU_PICK` 0.06), with the
 /// league's picks held.
 const FRONT_PICK: f64 = 0.27;
+
+/// Seconds a defender who saw the ball thrown needs, once he breaks on it,
+/// to find it over his shoulder as he runs to it (scheme-fit item 15): turn
+/// his head and pick up its flight, so on a long ball he plays it as a man
+/// facing it does, and on a short one he plays the receiver's hands. Before,
+/// only a man facing the passer at the catch played the ball as one who sees
+/// it, so a deep defender running to the spot of a long ball seldom did and
+/// picked it at 0.45 of the chance. Sized on the league's picks by depth
+/// (0.8 put too many on 10-19 yard throws; proposed, not confirmed).
+const FIND_BALL: f64 = 1.2;
+
+/// Yards past his catch reach that a defender with the ball in his eyes can
+/// get a hand to it for a breakup (scheme-fit item 17): a fingertip at full
+/// stretch reaches further than two hands and a catch. Breakups by the
+/// back seven were 4.9 a 100 throws on the NFL test rosters (real 8.2;
+/// proposed, not confirmed).
+const BREAKUP_REACH: f64 = 0.3;
 const TIP_PICK: f64 = 0.065;
 const PBU_PICK: f64 = 0.06;
 
@@ -6350,6 +6367,7 @@ fn throw(
         let pr = sim.agents[d].a(Attr::PlayRecognition);
         let base = 0.16 + 0.004 * (100.0 - pr) + 0.1 * sim.rng.next();
         let sees = sim.sees(d, q);
+        sim.agents[d].saw_throw = sees;
         let cover = ball_cover(sim, d);
         // Coverage skill reads here too (minor bug 283): a better cover man
         // breaks on the ball sooner, `BALL_COVER` seconds a 10 points about
@@ -7634,6 +7652,60 @@ const CONTEST_PBU: f64 = 0.02;
 /// 1.24 and 2.18 on one game seed (proposed, not confirmed).
 const CATCH_HANDS: f64 = 0.0016;
 
+/// A defender's reach to the ball at the catch point, in yards: height, jump
+/// and arms (D1: the arms were left out, so a long corner played like a
+/// short-armed one). Within the level the slope is `D_REACH_HEIGHT` and
+/// `D_REACH_ARM` (minor bug 274); his level's typical man at his position
+/// reaches what he did (0.012 and 0.02 an inch from 6'0 and 31.5 inches). A
+/// route jumper who broke on the throw runs through the catch point at speed,
+/// square to the ball, and reaches 0.6 yards more.
+fn ball_reach(sim: &Sim, d: usize, broke: bool) -> f64 {
+    let (typ_h, _, typ_arm) = super::synthetic::typical_body(sim.level, sim.player(d).position);
+    1.05 + 0.012 * (typ_h - 72.0)
+        + 0.02 * (typ_arm - 31.5)
+        + D_REACH_HEIGHT * (sim.player(d).height - typ_h)
+        + 0.004 * (sim.agents[d].a(Attr::Jumping) - 50.0)
+        + D_REACH_ARM * (sim.player(d).arm - typ_arm)
+        + if broke { 0.6 } else { 0.0 }
+}
+
+/// His coverage skill at the catch point is his job's (Man or Zone),
+/// `BREAKUP_COVER` a point about his level's typical starter at his position
+/// (minor bug 283: it was the better of the two at 0.004 from 60), with no
+/// depth in his drop (individual practice) on a zone linebacker with the ball
+/// behind him.
+fn breakup_cover(sim: &mut Sim, d: usize, to: V2) -> f64 {
+    let da = &sim.agents[d];
+    let which = if matches!(da.job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
+    let cov = da.a(which);
+    let behind = (to.x - da.pos.x) * sim.goal > 1.0;
+    let zone_lb = which == Attr::ZoneCoverage && behind && da.label == "LB";
+    let s_cov = super::synthetic::typical_starter(sim.level, sim.player(d).position, which);
+    let nodepth = if zone_lb { sim.craft_at(d, crate::craft::Craft::NoDepth) } else { 0.0 };
+    0.004 * (s_cov - 60.0) + BREAKUP_COVER * (cov + nodepth - s_cov)
+}
+
+/// His hands on a ball he can reach, before the receiver's own fight for
+/// it: coverage gets him there, his contested-catch skill (with `hp`, the
+/// timing at the top, and a man who doesn't play the hands) and his jump get
+/// it out (proposed, not confirmed). 0.39 from 0.42 since the hit at the
+/// catch takes its share.
+fn breakup_hands(sim: &mut Sim, d: usize, to: V2, hp: f64) -> f64 {
+    let cov = breakup_cover(sim, d, to);
+    let hp = hp + sim.craft_at(d, crate::craft::Craft::NoHands);
+    let da = &sim.agents[d];
+    0.39 + cov + 0.003 * (da.a(Attr::ContestedCatch) + hp - 60.0) + 0.003 * (da.a(Attr::Jumping) - 60.0)
+}
+
+/// He has the ball in his eyes (scheme-fit item 15): facing it, or he saw
+/// it leave the passer's hand and has had `FIND_BALL` since he broke on it
+/// to find it over his shoulder as he runs to its spot. A man who felt the
+/// throw from his receiver's eyes and hands plays it through the hands.
+fn ball_in_eyes(sim: &Sim, d: usize, from: V2) -> bool {
+    let da = &sim.agents[d];
+    da.face.dot((from - da.pos).norm()) > 0.0 || (da.saw_throw && sim.t - da.ball_react >= FIND_BALL)
+}
+
 /// The ball arrives (topic 1): who can get to it, and who catches it.
 #[allow(clippy::too_many_arguments)]
 fn catch_point(
@@ -7655,7 +7727,15 @@ fn catch_point(
     let flight = (sim.t - release).max(0.1);
     for d in 0..sim.agents.len() {
         let a = &sim.agents[d];
-        if a.side != 1 || !a.up(sim.t) {
+        // A man still rushing the passer gets his hands to it only at the
+        // line, as the batter (`batter`; scheme-fit item 16): his eyes are
+        // on the passer because he is coming at him, not reading the
+        // throw, and he is in or through a block. Read here as well, rushers
+        // made 14% of the league's picks (real 4%, plus 5% by 3-4 outside
+        // linebackers), 88% of them in a block, and broke up 1.7 throws a
+        // 100 on top of the batted balls. One who read the screen and
+        // peeled off for the back plays it like anyone in coverage.
+        if a.side != 1 || !a.up(sim.t) || (matches!(a.job, Job::Rush { .. }) && !a.smell) {
             continue;
         }
         for step in 3..17 {
@@ -7714,9 +7794,10 @@ fn catch_point(
         + 0.0015 * (pro(ra.a(Attr::BodyControl)) - 60.0);
     // His high point (D1): a ball put over his reach sails past him.
     let rec_reach = high_reach(sim, r, true);
-    // Nearest defender to the ball.
+    // Nearest defender to the ball, and the next nearest.
     let mut dd = f64::INFINITY;
     let mut dbest = None;
+    let (mut dd2, mut d2nd) = (f64::INFINITY, None);
     for d in 0..sim.agents.len() {
         let a = &sim.agents[d];
         if a.side != 1 || !a.up(sim.t) {
@@ -7724,8 +7805,11 @@ fn catch_point(
         }
         let x = a.pos.dist(to);
         if x < dd {
+            (dd2, d2nd) = (dd, dbest);
             dd = x;
             dbest = Some(d);
+        } else if x < dd2 {
+            (dd2, d2nd) = (x, Some(d));
         }
     }
     let sep = dbest.map(|d| sim.agents[d].pos.dist(ra.pos)).unwrap_or(10.0);
@@ -7751,47 +7835,51 @@ fn catch_point(
     // and red zone passes went for touchdowns half again as often as real).
     let over_him = jump_ball && ball_h > rec_reach + 2.0;
     if to.y < -0.5 || to.y > width() + 0.5 || to.x > end_line() + 0.5 || dr > radius + reach || over_him {
-        // Off target. A defender in the way may still pick it.
+        // Off target. A defender in the way may still pick it, and one it
+        // comes to can knock it away (scheme-fit item 17): it used to fall
+        // incomplete with nobody credited, as a 30+ yard ball did 59% of
+        // the time.
         if let Some(d) = dbest {
             let da = &sim.agents[d];
             let rd = 1.0 + 0.01 * (da.a(Attr::Jumping) - 50.0);
             if dd < rd * 0.8 && sim.rng.chance(0.18 * ball_hands(sim, d) / 70.0) {
                 return Catch::Intercepted(d);
             }
+            let sees_ball = ball_in_eyes(sim, d, from);
+            let tip = ball_reach(sim, d, false) + if sees_ball { BREAKUP_REACH } else { 0.0 };
+            let over_def = ball_h > high_reach(sim, d, sees_ball) + 2.0;
+            if dd < tip && !over_def && sim.t >= sim.agents[d].ball_react {
+                let p_pbu = clamp((1.0 - dd / tip) * breakup_hands(sim, d, to, 0.0), 0.0, 0.75);
+                if sim.rng.chance(p_pbu) {
+                    return Catch::Incomplete { drop: false, pbu: Some(sim.agents[d].id), sep };
+                }
+            }
         }
         return Catch::Incomplete { drop: false, pbu: None, sep };
     }
-    // Contest at the catch point.
+    // Contest at the catch point: the nearest defender, then the next
+    // nearest, each with his own play on the ball (scheme-fit item 15): the
+    // man over the top of a long ball, or the second man of a bracket, who
+    // used to get none when the first didn't end it.
     let (mut va_all, mut hp_r_all) = (0.0, 0.0);
     // Interference at the catch point, and by whom (`pi_contact`).
     let mut hinder: Option<(FoulKind, usize)> = None;
-    if let Some(d) = dbest {
+    for (nth, (cand, dd)) in [(dbest, dd), (d2nd, dd2)].into_iter().enumerate() {
+        let Some(d) = cand else { continue };
         let da = sim.agents[d].clone();
         let reacted = sim.t >= da.ball_react;
         // A route jumper who broke on the throw runs through the catch
         // point at speed, square to the ball: more reach, and a real chance
         // to pick it (proposed, not confirmed).
         let broke = sim.notes.tend.jump == Some((da.id, true));
-        // His reach to the ball: height, jump and arms (D1: the arms were
-        // left out, so a long corner played like a short-armed one).
-        // Within the level the slope is D_REACH_HEIGHT and D_REACH_ARM
-        // (minor bug 274); his level's typical man at his position reaches
-        // what he did (0.012 and 0.02 an inch from 6'0 and 31.5 inches).
-        let (typ_h, _, typ_arm) = super::synthetic::typical_body(sim.level, sim.player(d).position);
-        let d_reach = 1.05
-            + 0.012 * (typ_h - 72.0)
-            + 0.02 * (typ_arm - 31.5)
-            + D_REACH_HEIGHT * (sim.player(d).height - typ_h)
-            + 0.004 * (da.a(Attr::Jumping) - 50.0)
-            + D_REACH_ARM * (sim.player(d).arm - typ_arm)
-            + if broke { 0.6 } else { 0.0 };
+        let d_reach = ball_reach(sim, d, broke);
         // Size at the catch point (D1): each man's highest reach is his
         // standing reach plus the jump he has left at his speed, against
         // how high the ball arrives. On a ball at the chest it hardly
         // matters; on a ball up high the longer man wins it more often,
         // and a ball over the defender's reach is one he can't play.
-        let sees_ball = da.face.dot((from - da.pos).norm()) > 0.0;
-        let def_reach = high_reach(sim, d, sees_ball || broke);
+        let sees_ball = ball_in_eyes(sim, d, from) || broke;
+        let def_reach = high_reach(sim, d, sees_ball);
         let up_high = clamp((ball_h - 72.0) / 30.0, 0.0, 1.0);
         let va = clamp((rec_reach - def_reach) / 10.0, -1.5, 1.5) * up_high;
         let over_def = ball_h > def_reach + 2.0;
@@ -7800,36 +7888,27 @@ fn catch_point(
         let hp_d = sim.player(d).links.edge(&[Link::Highpointer]) * up_high;
         let hp_r = sim.player(r).links.edge(&[Link::Highpointer]) * up_high;
         let size_on_def = (-0.5 * va).exp() * if over_def { 0.3 } else { 1.0 };
-        va_all = va;
-        hp_r_all = hp_r;
-        if dd < d_reach && reacted {
-            // His coverage skill at the catch point is his job's (Man or
-            // Zone), `BREAKUP_COVER` a point about his level's typical
-            // starter at his position (minor bug 283: it was the better of
-            // the two at 0.004 from 60).
-            let which = if matches!(da.job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
-            let s_cov = super::synthetic::typical_starter(sim.level, sim.player(d).position, which);
-            // No depth in his drop (individual practice): a zone
-            // linebacker with the ball behind him.
-            let behind = (to.x - da.pos.x) * sim.goal > 1.0;
-            let nodepth = if which == Attr::ZoneCoverage && behind && da.label == "LB" {
-                sim.craft_at(d, crate::craft::Craft::NoDepth)
-            } else {
-                0.0
-            };
-            let cov_term = 0.004 * (s_cov - 60.0) + BREAKUP_COVER * (da.a(which) + nodepth - s_cov);
-            // Doesn't play the hands at the catch point.
-            let hp_d = hp_d + sim.craft_at(d, crate::craft::Craft::NoHands);
-            let closeness = 1.0 - dd / d_reach;
+        if nth == 0 {
+            va_all = va;
+            hp_r_all = hp_r;
+        }
+        // A breakup needs only a hand on the ball, so a man with the ball in
+        // his eyes gets one `BREAKUP_REACH` past the reach he catches it in
+        // (scheme-fit item 17).
+        let tip = d_reach + if sees_ball { BREAKUP_REACH } else { 0.0 };
+        if dd < tip && reacted {
+            // His hands on the ball (`breakup_hands`).
+            let hands = breakup_hands(sim, d, to, hp_d);
+            let closeness = (1.0 - dd / d_reach).max(0.0);
             // He's in front of it: an interception chance.
-            if dd < dr - 0.15 {
+            if closeness > 0.0 && dd < dr - 0.15 {
                 // Playing the ball: a facing defender has a real chance; one
                 // trailing with his back turned mostly plays through the hands.
                 let p_int = clamp(
                     FRONT_PICK
                         * closeness
                         * (0.45 + ball_hands(sim, d) / 110.0)
-                        * if sees_ball || broke { 1.0 } else { 0.45 }
+                        * if sees_ball { 1.0 } else { 0.45 }
                         * if broke { 3.5 } else { 1.0 }
                         * size_on_def,
                     0.0,
@@ -7839,26 +7918,12 @@ fn catch_point(
                     return Catch::Intercepted(d);
                 }
             }
-            // His hands at the catch point: coverage gets him there, his
-            // contested-catch skill and jump get the ball out (proposed, not
-            // confirmed). 0.39 from 0.42 since the hit at the catch below
-            // takes its share, so the league's breakups hold. The
-            // receiver's own skill on the ball takes `CONTEST_PBU` a point
-            // off (scheme-fit item 6), the timing at the top and late hands
-            // with it.
+            // The receiver's own skill on the ball takes `CONTEST_PBU` a
+            // point off his hands (scheme-fit item 6), the timing at the top
+            // and late hands with it.
             let late = sim.craft_at(r, crate::craft::Craft::LateHands);
             let fight_edge = contest_edge(sim.level, &ra, sim.player(r).position) + hp_r + late;
-            let p_pbu = clamp(
-                closeness
-                    * (0.39
-                        + cov_term
-                        + 0.003 * (da.a(Attr::ContestedCatch) + hp_d - 60.0)
-                        + 0.003 * (da.a(Attr::Jumping) - 60.0)
-                        - CONTEST_PBU * fight_edge)
-                    * size_on_def,
-                0.0,
-                0.75,
-            );
+            let p_pbu = clamp((1.0 - dd / tip) * (hands - CONTEST_PBU * fight_edge) * size_on_def, 0.0, 0.75);
             if sim.rng.chance(p_pbu) {
                 if let Some(k) = pi_contact(sim, d, r, to, air, true) {
                     pi_flag(sim, k, d, r, to);
@@ -7869,7 +7934,7 @@ fn catch_point(
                 return Catch::Incomplete { drop: false, pbu: Some(da.id), sep };
             }
             // His hit as the ball arrives (S-C): it can knock it loose.
-            let p_hit = hit_at_catch(sim, d, r, to, from, closeness);
+            let p_hit = if closeness > 0.0 { hit_at_catch(sim, d, r, to, from, closeness) } else { 0.0 };
             if p_hit > 0.0 && sim.rng.chance(p_hit) {
                 let force = sim.hit_force(d, r, 1.0);
                 sim.note_hit(d, r, force);
@@ -7889,7 +7954,7 @@ fn catch_point(
                 return Catch::Incomplete { drop: false, pbu: Some(da.id), sep };
             }
         }
-        if dd < 1.4 {
+        if nth == 0 && dd < 1.4 {
             hinder = pi_contact(sim, d, r, to, air, false).map(|k| (k, d));
         }
     }
@@ -7918,7 +7983,9 @@ fn catch_point(
         p *= 1.0 - 0.6 * adjust * clamp((reach - 0.9) / 1.6, 0.0, 1.0);
     }
     // Catching in a crowd is its own skill: contested catches, with the
-    // strength and jump to win the ball.
+    // strength and jump to win the ball. What the defender in the window
+    // takes is his (scheme-fit item 17, `take` below).
+    let mut take = 0.0;
     if dd < 1.4 {
         // The size edge at the top (D1) counts like eighteen points of the
         // fight per ten inches of reach, on a ball up high.
@@ -7928,7 +7995,9 @@ fn catch_point(
             + 0.25 * ra.a(Attr::Strength)
             + 0.25 * ra.a(Attr::Jumping)
             + 18.0 * va_all;
-        p *= 1.0 - 0.32 * (1.0 - dd / 1.4) * (1.25 - fight / 100.0);
+        let contest = 0.32 * (1.0 - dd / 1.4) * (1.25 - fight / 100.0);
+        take = contest.max(0.0);
+        p *= 1.0 - contest.min(0.0);
         // Over the middle with a hitter arriving, one who avoids contact
         // short-arms it (tendencies: contact willingness).
         let middle = (to.y - mid()).abs() < 9.0;
@@ -7954,7 +8023,13 @@ fn catch_point(
         Some(_) => p += (1.0 - p) * OPI_HELP,
         None => {}
     }
-    let caught = sim.rng.chance(p);
+    // The defender in the window gets his hand in first (scheme-fit item
+    // 17): the share of the catch the contest takes is his breakup, where
+    // it used to be a miss nobody was credited with, so linebackers and
+    // backs broke up 4.9 throws a 100 against a real 8.2. Rolled ahead of
+    // the catch, it is the same catch as one roll on both.
+    let broken = take > 0.0 && sim.rng.chance(take);
+    let caught = !broken && sim.rng.chance(p);
     if let Some((k, d)) = hinder
         && (k == FoulKind::OffensivePassInterference || !caught || sim.rng.chance(PI_CAUGHT))
     {
@@ -7967,6 +8042,12 @@ fn catch_point(
         // with a man on him, a big hit still on his mind.
         if dd < 1.4 && (to.y - mid()).abs() < 9.0 && sim.agents[r].flinch >= FOOTSTEPS_TAG {
             sim.notes.fire.footsteps = Some(ra.id);
+        }
+        if broken && let Some(d) = dbest {
+            if sim.rng.chance(PBU_PICK) {
+                return Catch::Intercepted(d);
+            }
+            return Catch::Incomplete { drop: false, pbu: Some(sim.agents[d].id), sep };
         }
         // A ball off his hands can pop up to a defender close by.
         if let Some(d) = dbest

@@ -14,15 +14,18 @@ use crate::positions::Position;
 
 const LINE: [ORole; 5] = [ORole::LT, ORole::LG, ORole::C, ORole::RG, ORole::RT];
 
+/// A scrimmage snap `side` ran on offense with every man's spot booked.
+fn is_snap(r: &PlayRecord, side: usize) -> bool {
+    r.offense == side
+        && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+        && !r.on_field[0].is_empty()
+        && r.roles[0].len() == r.on_field[0].len()
+        && r.roles[1].len() == r.on_field[1].len()
+}
+
 /// The scrimmage snaps `side` ran on offense with every man's spot booked.
 fn snaps(stats: &GameStats, side: usize) -> impl Iterator<Item = &PlayRecord> {
-    stats.plays.iter().filter(move |r| {
-        r.offense == side
-            && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
-            && !r.on_field[0].is_empty()
-            && r.roles[0].len() == r.on_field[0].len()
-            && r.roles[1].len() == r.on_field[1].len()
-    })
+    stats.plays.iter().filter(move |r| is_snap(r, side))
 }
 
 /// The man at a spot on the offense, and on the defense.
@@ -65,15 +68,32 @@ fn a_line_set_by_hand_plays_where_it_is_put() {
             // a lot from game to game.
             for g in 0..6u64 {
                 let res = quick_game(&mine, &teams[t + 4], level, 77_000 + t as u64 + 100 * g);
-                for r in snaps(&res.stats, 0) {
-                    all += 1;
-                    // Wherever a named man lines up on the line, it is his spot,
-                    // whoever else is hurt or resting.
-                    for (role, id) in want {
-                        let on = LINE.into_iter().find(|&x| at(r, x) == Some(id));
-                        assert!(on.is_none_or(|x| x == role), "{level:?} team {t}: {id} named {role:?} at {on:?}");
+                // The named men off hurt, from the play each left on until he
+                // is on the field again: the order can't keep a hurt man on.
+                let mut hurt: Vec<u32> = Vec::new();
+                for r in &res.stats.plays {
+                    hurt.retain(|id| !r.on_field.iter().any(|f| f.contains(id)));
+                    if is_snap(r, 0) {
+                        // Wherever a named man lines up on the line, it is his
+                        // spot, whoever else is hurt or resting.
+                        for (role, id) in want {
+                            let on = LINE.into_iter().find(|&x| at(r, x) == Some(id));
+                            assert!(
+                                on.is_none_or(|x| x == role),
+                                "{level:?} team {t}: {id} named {role:?} at {on:?} on {}",
+                                r.call
+                            );
+                        }
+                        if !want.iter().any(|(_, id)| hurt.contains(id)) {
+                            all += 1;
+                            held += want.iter().all(|&(role, id)| at(r, role) == Some(id)) as usize;
+                        }
                     }
-                    held += want.iter().all(|&(role, id)| at(r, role) == Some(id)) as usize;
+                    for j in &r.injuries {
+                        if !j.plays_on && want.iter().any(|&(_, id)| id == j.id) && !hurt.contains(&j.id) {
+                            hurt.push(j.id);
+                        }
+                    }
                 }
                 // The other side, whose staff names nobody, lines up as its
                 // staff seats it.
@@ -86,7 +106,12 @@ fn a_line_set_by_hand_plays_where_it_is_put() {
         // on together less often, but never anywhere else. College lines
         // spell tired men late in each half: the five are on together on
         // about 73% of snaps over these 24 games (80% before flaws and
-        // tools; real lines rotate less, minor bug 387).
+        // tools; real lines rotate less, minor bug 387). The snaps a named
+        // man is off hurt are left out: since injuries on every collision
+        // (engine gaps lane EG1) the share counted with them swings with how
+        // many of the five get hurt in these games (over lane SF5's games,
+        // the NFL 76% with them and 97% without, FBS 69% and 80%, high
+        // school 62% and 65%).
         let most = match level {
             Level::HS => 0.5,
             Level::NFL => 0.8,
