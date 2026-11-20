@@ -1049,6 +1049,25 @@ fn item_list() -> Vec<Item> {
             2,
             "8.2",
         ),
+        item("19", "dropbacks against team 0 with a bust in its coverage", t("d_bdb"), t("d_db"), 100.0, 2, "–"),
+        item(
+            "19",
+            "EPA a dropback against team 0, with such a bust",
+            t("d_bdb_epa"),
+            t("d_bdb"),
+            1.0,
+            3,
+            "– (a man running free)",
+        ),
+        item(
+            "19",
+            "EPA a dropback against team 0, the others",
+            t("d_db_epa") - t("d_bdb_epa"),
+            t("d_db") - t("d_bdb"),
+            1.0,
+            3,
+            "–",
+        ),
     ]
 }
 

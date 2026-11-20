@@ -193,6 +193,9 @@ slots!(
     d_int_s_man,
     d_int_dl_blk,
     d_pbu_tgt,
+    // Dropbacks with a bust in team 0's coverage and their EPA (item 19).
+    d_bdb,
+    d_bdb_epa,
 );
 
 // Each watched man's slots: the audit's first, then the items' own.
@@ -731,6 +734,10 @@ pub fn arms(level: Level) -> Vec<Arm> {
     body(&mut v, "CB1", Wc, Part::Height, 70.0, "height70");
     one(&mut v, "CB1", Q, &[A::ZoneCoverage, A::ManCoverage, A::PlayRecognition]);
     one(&mut v, "CB1", Mp, &[A::ManCoverage, A::Press, A::Speed, A::Anticipation]);
+    // Man Coverage both ways (scheme-fit item 18: it should pay at the top
+    // as it does below).
+    bundle(&mut v, "CB1", Wc, "ManCoverage-15", &[(A::ManCoverage, -15.0)]);
+    bundle(&mut v, "CB1", Mp, "ManCoverage-15", &[(A::ManCoverage, -15.0)]);
     one(&mut v, "CB2", Wc, &[A::ManCoverage, A::ZoneCoverage]);
     one(&mut v, "CB2", Mp, &[A::ManCoverage, A::Press]);
     one(
@@ -1676,6 +1683,12 @@ fn items(cx: &Games, p: &afm_engine::game::stats::PlayRecord, off: bool, m: &mut
             m[pi(ri, P::c20)] += 1.0;
         }
     } else {
+        // A dropback against team 0 with one of its linebackers or backs
+        // busting (item 19: a blown coverage should leave a man free).
+        if db && p.busts.iter().any(|&b| matches!(pos(Some(b)), Some(Position::LB | Position::CB | Position::S))) {
+            add(m, T::d_bdb, 1.0);
+            add(m, T::d_bdb_epa, p.epa);
+        }
         if targeted {
             add(m, T::d_tgt, 1.0);
             if matches!(pos(p.pbu), Some(Position::S | Position::CB | Position::LB)) {

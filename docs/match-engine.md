@@ -2323,6 +2323,80 @@ Tried and dropped (`match_check nfl 2000 1`, the lane's earlier builds):
 
 Still off (`GAPS.md`, Engine): the safeties' share of picks (the short throws' picks and the typical deep man's break), a deep man's Football IQ moving nothing (item 12) and Ball Tracking at the catch point (a defender runs to where the ball comes down as if he knew it, whatever his tracking).
 
+## Coverage jobs (scheme-fit lane SF7, items 18, 19 and 20, 2026-11-20)
+
+Design: `docs/design/scheme-fit.md`, items 18-20. Man Coverage keeps paying at the top, by the floor and by Cain's rule never to cap freaks (item 18). A blown coverage leaves a man free (item 19). The strong safety's depth and fits are the coordinator's call, and his skills decide how well he plays them, by Cain's rule that the coach picks the job and the engine reflects the player (item 20).
+
+How it was measured: `fit_check` on the audit's seeds, main ffa2cfd and after: the first and second corners' Man Coverage in man pressure and West Coast (+15 and -15 for the first), the strong safety's Man Coverage +15 in both and his Tackling +15 (West Coast), and the Mike's Football IQ -15 (West Coast), at the NFL (seed 161, 2,400 games an arm) and FBS (seed 151, 3,000), with the tool's new item 19 rows (dropbacks with a bust in team 0's coverage, the EPA of those and of the rest); `match_check` at the NFL and FBS on seeds 1 and 2 and at high school on seeds 1 and 2 (2,000 games, `AFM_GAPS=1`); `ab_check s_weight nfl` (a safety's weight, the box read).
+
+What was wrong on main:
+
+- **Man Coverage stopped paying at the top.** A man defender trailed his man's break by a lag that fell 0.03 s a point of Man Coverage and stopped at 0, which a corner reached 3 to 5 points above his level's typical starter against a typical starting receiver. In man pressure the first corner's Man Coverage +15 saved 0.021 EPA a dropback at the NFL where -15 cost 0.037.
+- **A bust in a zone cost nothing.** A busted zone defender played his own area 5 yards shallower and 40% narrower, so a dropback with a bust in West Coast's zones went for no more than the rest (NFL 0.075 EPA against 0.090, FBS 0.105 against 0.142). A busted man defender played a hook zone, so his man was free there (man pressure: NFL 0.139 against 0.069, FBS 0.146 against 0.111). A Mike with Football IQ -15 busted 2.2 more times a season at the NFL and 8.0 more at FBS, and his defense allowed no more points.
+- **A safety's ratings set his depth and fit.** The rotated-down safety's depth and both safeties' run fits read his hitter read (weight, Tackling, Strength and Play Recognition against Speed, Zone and Man Coverage), so a better cover man stood deeper and fit later: his Man Coverage +15 cost 0.82 run stops a season at the NFL in man pressure and 0.41 and 0.54 at FBS.
+
+What changed (`game/scrimmage.rs`; every size proposed, not confirmed):
+
+- **No floor on the trail** (item 18; `man_job`, `cover_inner`, `route_ahead`). Below a lag of 0 a man defender reads his man's break before it comes, as the trail's mirror: he plays where the route has his man -lag s ahead along its points at his speed now, less the route's heading there times -lag, so on a straight stem he runs even with his man and at a break he turns onto the break's line -lag s early. The lag's top (0.75 s) stays.
+- **A bust leaves his man or his area free** (item 19; `assign_defense`). A coverage man who busts takes the job of the nearest coverage man who didn't: the same man, with his own matchup's lag (`man_job`), or the same zone, so two play one and his man or area is nobody's. With nobody to copy he plays a short zone where he stands. Busts are drawn as before.
+- **A safety's depth and fit are his job's** (item 20; `ss_depth`, the read loop, `synthetic::typical_hitter`). The rotated-down safety stands 8.1 + 0.9 × j yards deep whoever plays it, and each safety fits the run with his slot's lean (the level's typical free or strong safety's hitter read). The hitter read is his staff's read of him, and only the call reads it (the shell lean).
+
+What the ratings are worth (`fit_check`, the change against the typical arm, main > after; * past the noise, |z| of 1.96 or more):
+
+| arm | measure | NFL main | NFL after | FBS main | FBS after |
+|---|---|---|---|---|---|
+| CB1 Man Coverage +15, man pressure | EPA a dropback allowed | -0.021* | -0.030* | -0.015* | -0.021* |
+| | points allowed a game | -0.40 | -0.59* | -0.47 | -0.29 |
+| | catch rate on him, points | -3.2* | -5.7* | -3.3* | -6.1* |
+| | yards a target on him | -0.47* | -1.03* | -0.61* | -0.91* |
+| CB1 Man Coverage -15, man pressure | EPA a dropback allowed | +0.037* | +0.029* | +0.013 | +0.033* |
+| | points allowed a game | +0.55 | +0.77* | +0.06 | +0.74* |
+| CB2 Man Coverage +15, man pressure | EPA a dropback allowed | -0.009 | -0.028* | -0.024* | -0.028* |
+| | points allowed a game | -0.20 | -0.68* | -0.69* | -0.71* |
+| CB1 Man Coverage +15, West Coast | EPA a dropback allowed | -0.001 | -0.007 | -0.012* | -0.018* |
+| | catch rate on him, points | -0.7 | -1.8* | -1.3 | -1.6* |
+| SS Man Coverage +15 (man pressure, West Coast) | run stops a season | -0.82*, -0.11 | -0.41, -0.10 | -0.41, -0.54 | -0.24, +0.16 |
+| | first tackles on runs a season | -1.49, -0.41 | -0.56, +0.49 | -0.48, -1.66* | -0.45, -0.08 |
+| SS Tackling +15, West Coast | run stops a season | +2.07* | +1.98* | +2.19* | +2.11* |
+| | first tackles on runs a season | +4.22* | +4.19* | +3.12* | +3.08* |
+| Mike Football IQ -15, West Coast | busts a season | +2.24* | +2.71* | +7.96* | +8.36* |
+| | points allowed a game | +0.24 | -0.25 | +0.10 | -0.25 |
+
+Dropbacks with a bust in the typical team's coverage (West Coast, man pressure): at the NFL 3.5% and 3.5% > 3.3% and 3.4% of dropbacks, going for 0.075 and 0.139 > 0.193 and 0.128 EPA, the rest 0.090 and 0.069 > 0.088 and 0.067; at FBS 7.3% and 7.4% (both), 0.105 and 0.146 > 0.198 and 0.161, the rest 0.142 and 0.111 > 0.139 and 0.096.
+
+The league (2,000 games a seed, main > after):
+
+| | NFL seed 1 | NFL seed 2 | FBS seed 1 | FBS seed 2 | high school seed 1 | high school seed 2 | real NFL |
+|---|---|---|---|---|---|---|---|
+| points a team game | 28.32 > 27.63 | 28.97 > 28.71 | 26.48 > 26.29 | 26.48 > 26.51 | 21.07 > 20.85 | 20.02 > 20.13 | 22.51 |
+| completion rate | 66.7 > 66.3 | 67.9 > 67.8 | 62.3 > 62.3 | 63.0 > 62.8 | 59.4 > 59.3 | 60.2 > 60.3 | 64.5 |
+| yards an attempt | 7.70 > 7.61 | 7.99 > 8.00 | 7.78 > 7.81 | 8.07 > 8.03 | 7.12 > 7.19 | 7.27 > 7.36 | 7.05 |
+| interceptions a team game | 0.838 > 0.836 | 0.741 > 0.738 | 0.626 > 0.669 | 0.583 > 0.590 | 0.317 > 0.321 | 0.343 > 0.325 | 0.756 |
+| third down conversion | 45.8 > 45.8 | 47.3 > 46.9 | 43.2 > 43.2 | 43.4 > 43.4 | 41.0 > 41.3 | 41.3 > 41.5 | 39.8 |
+| yards a carry | 4.41 > 4.43 | 4.28 > 4.24 | 4.78 > 4.79 | 4.68 > 4.66 | 5.63 > 5.62 | 5.25 > 5.26 | 4.50 |
+| defensive holding a team game | 0.284 > 0.279 | 0.179 > 0.188 | 0.317 > 0.318 | 0.221 > 0.213 | 0.203 > 0.215 | 0.197 > 0.202 | 0.322 |
+| EPA a target against Cover 1 | 0.266 > 0.236 | 0.322 > 0.285 | 0.285 > 0.275 | 0.310 > 0.286 | 0.196 > 0.228 | 0.271 > 0.273 | 0.179 |
+| against Cover 0 | 0.583 > 0.537 | 0.609 > 0.564 | 0.606 > 0.550 | 0.628 > 0.544 | 0.490 > 0.529 | 0.572 > 0.559 | 0.171 |
+
+Why:
+
+- **Man Coverage pays at the top** (item 18). Past the old floor a better man defender reads his man's break early, so the first corner's Man Coverage +15 in man pressure takes 5.7 to 6.1 points off the catch rate on him (main 3.2 and 3.3) and 0.030 EPA a dropback off his defense at the NFL (main 0.021), about what -15 costs (0.029). The second corner's +15 gains as much. Behind West Coast's zones he plays man less, so it moves less. A typical corner sits above the floor and plays as he did.
+- **A bust costs the dropback** (item 19). In a zone the busted man doubles a mate's area and leaves his own, so a dropback with a bust in West Coast's zones goes for 0.06 to 0.10 more EPA than the rest (on main 0.015 to 0.037 less). In man it costs about what it did (0.06 at both levels, main 0.07 and 0.04), since on main he left his man for a hook zone. The Mike's extra busts still don't show in points: 2.7 more a season at the NFL and 8.4 at FBS, at about 0.08 EPA each on a dropback, are under a point a season, inside the noise, and the passer finds the free man only when his reads come to him (still off).
+- **A safety's coverage no longer costs his run fits** (item 20). He stands and fits where his job says, so his Man Coverage +15 moves his run stops and first tackles inside the noise at both levels, and his Tackling +15 pays what it did. His weight now places him only through the call (below: the box slope falls short of real).
+- **The league holds.** Points fall up to 0.7 a team game at the NFL and move within 0.2 at FBS and high school, every total inside its test band. Man coverage allows less at the NFL and FBS, toward real (a target against Cover 1 0.01 to 0.04 less EPA, against Cover 0 0.05 to 0.08 less): the test rosters' better corners now read their men's breaks. Defensive holding stays at main's. At high school the coverages move up to 0.05 EPA a dropback either way, the other way on the other seed.
+
+A safety's weight (`ab_check s_weight nfl`: every safety at 193 against 221 lb, the same ratings, up to 16,000 games an arm; each slope a 10 lb, main > after, real from nflverse in `scripts/ab_real.py` and the play by play in the project folder's `afm/ab-tests/proposal-4-safeties.md`): his weight now places him only through the call's shell lean, so men in the box on runs move +0.024 > +0.005 (real +0.08) and the yards a carry allowed -0.080 > -0.035 (real -0.11). His run tackles after 10+ yards come into the real band (-0.043 > -0.011 of his run tackles, real -0.024), his run tackles at 3 yards or less fall out of it (+0.0009 > +0.0003 a defense snap, real +0.0018), and his run tackles a snap now go the wrong way (+0.0002 > -0.0006, real +0.0029), as his tackles a snap did on main (-0.0005 > -0.0014, real +0.0032). The pass rows hold (catch rate allowed +0.0096 > +0.0090, in the real band). Real staffs walk a heavy safety down into the box; by Cain's rule that is now the call's to do, and the call has no job that puts its rotated-down safety inside the box count (still off).
+
+The coaches' call table (`call_values 2000` on main and after): the lane moves its run cells 0.04 yards a cell (the mean of |change|; at most 0.29) and its straight pass cells 0.12 (at most 9.0), nearly all against man: Cover 0 -0.33 yards a snap on average, Cover 1 +0.48 with four rushers and +0.18 with the linebacker blitz, every other look within 0.04. The rows the table takes from a new run (the three play-action concepts, the fakes' changes and the run rows, `tools/call_values/compose.py`) move 0.21 yards a cell with the lane, less than main's own new run moves them off the committed table (1.49), so the committed table stands, as at lanes SF4 and SF6; the straight pass rows wait for minor bug 405.
+
+Speed (`match_check`, 2,000 games at each level on seeds 1 and 2, main ffa2cfd and the lane in turn on an otherwise quiet machine, two rounds with the order swapped; the tool's own time): the NFL -0.4% (18.82 s to 18.75 a run; pairs -4.9% to +7.9%), FBS -1.9% (19.77 to 19.40; -4.9% to +1.0%), high school -0.9% (13.35 to 13.22; -5.2% to +3.0%), inside a pair's noise.
+
+Tried and dropped (the lane's first build, the same seeds):
+
+- **Running for the point ahead.** A man defender below 0 ran for where the route had his man -lag s ahead, so on a straight stem the best corners ran in front of their men: defensive holding fell by about a quarter (NFL 0.284 to 0.209 and 0.179 to 0.153, FBS 0.317 to 0.254 and 0.221 to 0.184, high school 0.203 to 0.161), and at FBS the first corner's Man Coverage +15 in man pressure saved 1.38 points a game, about three times what -15 cost.
+
+Still off (`GAPS.md`, Engine): the passer finds a bust's free man only on his normal reads, so busts still barely move points; a heavy safety is no longer walked into the box, since the call has no job for it; the defense's holds against zone and on runs (from lane EG5) are not built, and the hand fight is still sized on seed 1.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).
