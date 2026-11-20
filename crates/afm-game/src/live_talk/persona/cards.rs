@@ -277,6 +277,9 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     }
     c.on_table = on_table(w, s, him);
     c.settled = settled(w, s);
+    // The game's actions that fit each player in the room today (talk
+    // replies item 13).
+    c.actions = super::actions::card_lines(w, &keys);
     (c, keys)
 }
 
@@ -624,6 +627,12 @@ impl EarCard {
         if !self.settled.is_empty() {
             out.push_str("Settled so far in this talk:\n");
             for x in &self.settled {
+                out.push_str(&format!("- {x}\n"));
+            }
+        }
+        if !self.actions.is_empty() {
+            out.push_str("Actions that fit each player today (tag: action (values)):\n");
+            for x in &self.actions {
                 out.push_str(&format!("- {x}\n"));
             }
         }

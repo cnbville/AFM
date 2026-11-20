@@ -12,11 +12,13 @@
 //! replaces what is there.
 
 use afm_engine::world::World;
-use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::crowd;
 use afm_engine::world::folk::persona::gameday::group;
+use afm_engine::world::folk::persona::negotiate::Played;
 use afm_engine::world::folk::persona::room::{Channel, Group};
 use afm_engine::world::folk::persona::talk::{across, stakes};
+use afm_engine::world::folk::persona::wants::Kind;
+use afm_engine::world::folk::persona::{Them, after, makeup};
 use afm_engine::world::folk::{self as folk, claims, talk_points as tp, ties};
 use serde_json::{Value, json};
 
@@ -57,8 +59,29 @@ pub fn flag(g: &Game, v: &mut Value) {
             t["left"] = json!(left);
         }
     }
-    if let Some(Them::Player(pid)) = across(&room) {
-        let ideas = ideas(w, pid);
+    // What he's after, from your read of him and what he has told you
+    // (talk replies item 14), and Ideas for every kind of person.
+    if let Some(him) = across(&room) {
+        let played = Played::new(w, s);
+        let wants = super::talk::parts_for(s, &played).wanting.wants(w, him);
+        let read = after::read(w, s.id, him, &wants);
+        if !read.lines.is_empty() {
+            let mut left = t.get("left").and_then(Value::as_array).cloned().unwrap_or_default();
+            let at = left.len().min(1);
+            let mut paras = vec![format!("{}, from what you've seen of him and what he's told you.", read.sure)];
+            paras.extend(read.lines.iter().map(|l| cap(l)));
+            left.insert(at, json!({ "k": "text", "label": "What he's after", "paras": paras }));
+            t["left"] = json!(left);
+        }
+        let ideas = match him {
+            Them::Player(pid) => {
+                let mut v = want_idea(&read).into_iter().collect::<Vec<_>>();
+                v.extend(ideas(w, pid));
+                v.truncate(MAX_IDEAS);
+                v
+            }
+            _ => ideas_for(w, s, him, &read),
+        };
         if !ideas.is_empty() && t.get("ideas").is_none() {
             t["ideas"] = json!(ideas);
         }
@@ -151,6 +174,57 @@ pub fn ideas(w: &World, pid: u32) -> Vec<String> {
         }
     }
     out.push("How are things at home?".into());
+    out.truncate(MAX_IDEAS);
+    out
+}
+
+/// An idea from the top of your read of what he's after: a way into it,
+/// never his number.
+fn want_idea(read: &after::After) -> Option<String> {
+    let first = read.lines.first()?;
+    if first.starts_with("You've given him") {
+        return None;
+    }
+    Some(if read.sure == "An early read" {
+        "What matters most to you in all this?".into()
+    } else {
+        format!("Talk to me about {}. What would that look like for you?", first)
+    })
+}
+
+/// Ideas for anyone who isn't a player of yours (talk replies item 14):
+/// your word to him, his counter on the table, the top of your read of
+/// what he's after, and what someone in his seat is worth asking.
+pub fn ideas_for(w: &World, s: &afm_engine::world::folk::scene::Scene, him: Them, read: &after::After) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    if let Some(to) = him.promise_to() {
+        for p in w.folk.promises.iter().filter(|p| p.to == to && p.kept.is_none()).take(1) {
+            out.push(format!("About my word to you: {}. I haven't forgotten it.", folk::plain(&p.kind.words())));
+        }
+    }
+    if afm_engine::world::folk::persona::talk::store::open(w, s.id).is_some_and(|o| o.counter.is_some()) {
+        out.push("Meet me partway on that number and we have a deal.".into());
+    }
+    out.extend(want_idea(read));
+    let seat: &[&str] = match makeup::kind(w, him) {
+        Kind::Staff => &["How is your room coming along?", "Who in your room is ready for more?"],
+        Kind::HsCoach => {
+            &["Who are the kids in your program I should know about?", "What do your kids need from a staff like mine?"]
+        }
+        Kind::Family => &["What do you want for him here?", "What worries you about this for him?"],
+        Kind::Agent => &["Where does your client need to be?", "What matters to him besides the money?"],
+        Kind::Boss => &["What do you need from me this year?", "Where do you see the program in two years?"],
+        Kind::Booster => {
+            &["What would you like to see your support build?", "What would make you proud of this program?"]
+        }
+        Kind::Gm => &["What are you looking to do this year?", "Which of your men would you move?"],
+        Kind::Recruit | Kind::Transfer => {
+            &["What are you looking for in a school?", "Who are you leaning toward, and why?"]
+        }
+        Kind::OtherCoach => &["What would you need to take this job?", "How would you run your room here?"],
+        _ => &[],
+    };
+    out.extend(seat.iter().map(|x| x.to_string()));
     out.truncate(MAX_IDEAS);
     out
 }

@@ -46,7 +46,7 @@ Lane A starts after PR #575 (the ear audit) merges, and is measured by replaying
 14. **Hints at what he wants.** A "What he's after" read in the left panel for every person, from your staff's read of him and what he has told you, vague at first and sharper as he opens up; Ideas for every kind of person, not only your players. A staff that reads him badly can be wrong; never his exact number. Example: Merez at the start "After: something for his players, a bigger name"; once he mentions camps "After: clinic and camp invites for his kids".
 15. **Real haggling.** He opens at his ask and gives part of the gap each round, less each time, down to his walk-away number, at a pace set by his greed, patience and how much he wants it. He trades across terms (years or a buyout for salary, a title for money), can make the first number, can ask for time or walk away once his patience is spent. Coaches, agents and your own players on the same rules. Example: Donte asks 3.1; you offer 2.3, he says 2.9; you say 2.6, he says 2.8 over 4 years; you say 2.7 over 3 with his California buyout covered, and he takes it.
 
-Lane B starts after lane A merges (it builds on items 3, 4 and 11).
+Lane B starts after lane A merges (it builds on items 3, 4 and 11). Built 2026-11-19 (thread "Build talk replies lane B"): how it works in `docs/reference/how-it-works/live-talks.md`, "Talks as a shortcut (lane B)". Sizes not in this spec are proposed, not confirmed.
 
 ## Already built elsewhere (not re-proposed)
 

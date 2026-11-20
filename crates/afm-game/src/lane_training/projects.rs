@@ -22,7 +22,7 @@ use crate::views::{TeamRef, eye_for, mine, person_index, roster_people};
 /// The most project years the read looks ahead.
 const LOOK_YEARS: u32 = 4;
 
-fn room_label(r: Room) -> &'static str {
+pub(crate) fn room_label(r: Room) -> &'static str {
     match r {
         Room::Qb => "QB",
         Room::Rb => "RB",
@@ -45,7 +45,7 @@ fn kind_key(k: BodyKind) -> &'static str {
     }
 }
 
-fn kind_of(s: &str) -> Option<BodyKind> {
+pub(crate) fn kind_of(s: &str) -> Option<BodyKind> {
     match s {
         "strength" => Some(BodyKind::Strength),
         "speed" => Some(BodyKind::Speed),
@@ -53,7 +53,7 @@ fn kind_of(s: &str) -> Option<BodyKind> {
     }
 }
 
-fn kind_label(k: BodyKind) -> &'static str {
+pub(crate) fn kind_label(k: BodyKind) -> &'static str {
     match k {
         BodyKind::Strength => "Strength project",
         BodyKind::Speed => "Speed project",
@@ -352,9 +352,11 @@ fn yours(w: &World, id: u32) -> Result<(usize, TeamRef), String> {
     Ok((i, t))
 }
 
-/// Starts his skill project on a skill (`progression::start_project`,
-/// yours), inside his room's slots.
-pub(super) fn start_skill(w: &mut World, id: u32, key: &str) -> Result<String, String> {
+/// Whether his skill project on a skill can start, by the screen's own
+/// rule (shared with a talk, talk replies item 13): Err says why not; Ok
+/// holds the man whose project it would replace when his room's slots are
+/// all taken (the one with the fewest weeks in).
+pub(crate) fn skill_check(w: &World, id: u32, key: &str) -> Result<Option<u32>, String> {
     let (i, t) = yours(w, id)?;
     let a = Attr::ALL.iter().copied().find(|a| a.key() == key).ok_or("No such skill.")?;
     let p = &w.people[i].player;
@@ -370,10 +372,28 @@ pub(super) fn start_skill(w: &mut World, id: u32, key: &str) -> Result<String, S
         return Err("Past his fourth pro season a project opens nothing.".into());
     }
     let rs = rooms(w, t);
-    let used = rs.skill.iter().find(|r| r.0 == room).map_or(0, |r| r.1.len());
-    if used >= room.slots() {
+    let on: &[usize] = rs.skill.iter().find(|r| r.0 == room).map_or(&[], |r| &r.1);
+    if on.len() >= room.slots() {
+        let today = w.today;
+        let least = on.iter().copied().min_by(|&x, &y| {
+            pg::project_weeks(&w.people[x].player, today).total_cmp(&pg::project_weeks(&w.people[y].player, today))
+        });
+        return least.map(|k| Some(w.people[k].player.id)).ok_or_else(|| "His room has no project slots.".into());
+    }
+    Ok(None)
+}
+
+/// Starts his skill project on a skill (`progression::start_project`,
+/// yours), inside his room's slots.
+pub(super) fn start_skill(w: &mut World, id: u32, key: &str) -> Result<String, String> {
+    if skill_check(w, id, key)?.is_some() {
+        let (i, _) = yours(w, id)?;
+        let room = Room::of(w.people[i].player.position).ok_or("His room has no project slots.")?;
         return Err(format!("The {} room has no free slot: end a project there first.", room_label(room)));
     }
+    let (i, t) = yours(w, id)?;
+    let a = Attr::ALL.iter().copied().find(|a| a.key() == key).ok_or("No such skill.")?;
+    let staff = staff_of(t);
     let today = w.today;
     let p = &mut w.people[i].player;
     settle(p, staff);
@@ -403,11 +423,12 @@ pub(super) fn end_skill(w: &mut World, id: u32) -> Result<String, String> {
     Ok(format!("{} project ended. What it built stays.", a.label()))
 }
 
-/// Starts his body project (`progression::start_body`, yours), one a room
-/// at a time on your strength staff.
-pub(super) fn start_body(w: &mut World, id: u32, kind: &str) -> Result<String, String> {
+/// Whether his body project can start, by the screen's own rule (shared
+/// with a talk): Err says why not; Ok holds the man whose body project it
+/// would replace when your strength staff's slot for his room is in use.
+pub(crate) fn body_check(w: &World, id: u32, kind: &str) -> Result<Option<u32>, String> {
     let (i, t) = yours(w, id)?;
-    let kind = kind_of(kind).ok_or("No such body project.")?;
+    kind_of(kind).ok_or("No such body project.")?;
     let p = &w.people[i].player;
     let room = Room::of(p.position).ok_or("Specialists have no body projects.")?;
     let staff = staff_of(t);
@@ -418,13 +439,27 @@ pub(super) fn start_body(w: &mut World, id: u32, kind: &str) -> Result<String, S
         return Err(format!("Past {} his body has done its building.", pg::BODY_UNTIL));
     }
     let rs = rooms(w, t);
-    let used = rs.body.iter().find(|r| r.0 == room).map_or(0, |r| r.1.len());
-    if used >= pg::BODY_SLOTS {
+    let on: &[usize] = rs.body.iter().find(|r| r.0 == room).map_or(&[], |r| &r.1);
+    if on.len() >= pg::BODY_SLOTS {
+        return Ok(on.first().map(|&k| w.people[k].player.id));
+    }
+    Ok(None)
+}
+
+/// Starts his body project (`progression::start_body`, yours), one a room
+/// at a time on your strength staff.
+pub(super) fn start_body(w: &mut World, id: u32, kind: &str) -> Result<String, String> {
+    if body_check(w, id, kind)?.is_some() {
+        let (i, _) = yours(w, id)?;
+        let room = Room::of(w.people[i].player.position).ok_or("Specialists have no body projects.")?;
         return Err(format!(
             "Your strength staff's slot for the {} room is in use: end that one first.",
             room_label(room)
         ));
     }
+    let (i, t) = yours(w, id)?;
+    let kind = kind_of(kind).ok_or("No such body project.")?;
+    let staff = staff_of(t);
     let p = &mut w.people[i].player;
     settle(p, staff);
     if !pg::start_body(p, kind, true) {
