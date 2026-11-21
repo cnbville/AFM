@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.673 (21 Nov, shipped): third and short (PR #605)
+**TLDR:** Third and short is a real fight now: linebackers attack the line to stop the back short of the sticks, so a run on third and 1 converts about as often as it does in the NFL.
+- On third and fourth down with a yard or two to go, linebackers fill short of the line to gain instead of meeting the back past it. (PR #605)
+- Backs convert those runs about two times in three, like real NFL backs, down from three in four. (PR #605)
+- Going for it on fourth and short is a little harder, close to the real rate. (PR #605)
+- Every other down plays as before. (PR #605)
+- Look at: your short-yardage runs on third and fourth down, and how often your defense gets the stop. (PR #605)
+
 ## 0.2.672 (21 Nov, shipped): SF8: Blitzing decides the blitz, a quick 3-technique's wins become pressure (PR #604)
 **TLDR:** Pass rushers now win the way real ones do: a quick defensive tackle who beats his man gets to the quarterback, and a linebacker with a nose for the blitz times the snap and gets home. Try a pass-rushing tackle or a blitzing linebacker and watch the sacks come.
 - A tackle or edge who wins with quickness now gets round his blocker and into the backfield instead of coming off in front of him. (PR #604)

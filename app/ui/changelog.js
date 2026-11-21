@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.673", date: "21 Nov", title: "Third and short",
+    notes: [
+      "Third and short is a real fight now: linebackers attack the line to stop the back short of the sticks, so a run on third and 1 converts about as often as it does in the NFL.",
+      "On third and fourth down with a yard or two to go, linebackers fill short of the line to gain instead of meeting the back past it.",
+      "Backs convert those runs about two times in three, like real NFL backs, down from three in four.",
+      "Going for it on fourth and short is a little harder, close to the real rate.",
+      "Every other down plays as before.",
+    ],
+  },
+  {
     v: "0.2.672", date: "21 Nov", title: "SF8: Blitzing decides the blitz, a quick 3-technique's wins become pressure",
     notes: [
       "Pass rushers now win the way real ones do: a quick defensive tackle who beats his man gets to the quarterback, and a linebacker with a nose for the blitz times the snap and gets home. Try a pass-rushing tackle or a blitzing linebacker and watch the sacks come.",
