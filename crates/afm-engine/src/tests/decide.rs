@@ -65,8 +65,8 @@ fn the_model_reads_known_fourth_downs_and_tries() {
         // try is a near tie in points: real NFL 2021-25 extra points 95.1%
         // and two-point tries 47.5% (`data/real-world/nfl_history.json`);
         // the public models kick by a hair, and this one reads the engine's
-        // own rates (the NFL's 95.2% and 49.1% in the 2026-11-21 fit, lane
-        // SF10), where the two calls tie.
+        // own rates (the NFL's 95.2% and 49.1% in lane SF10's 2026-11-21
+        // fit, where the two calls tie; 95.8% and 44.2% in lane SF9b's).
         let mut r = PlayRecord::new(1, 4, 90.0, 0, PlayType::TwoPoint);
         r.down = 1;
         r.togo = 3.0;

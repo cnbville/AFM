@@ -2699,6 +2699,46 @@ fn snap_jitter(los: f64, k: usize) -> f64 {
 /// a carry either way; proposed, not confirmed).
 const FORCE_WIDE: f64 = 4.0;
 
+/// The deep backs' run fits by their job in the coverage (lane SF9b,
+/// scheme-fit item 9), each as (the runner's depth past the line when he
+/// attacks, the depth he fits at until then, the share of his top speed he
+/// comes down at): the single-high post safety is the last line
+/// (`FIT_LAST`), a safety on the far side of the run plays the cutback from
+/// depth (`FIT_AWAY`, the run a yard or more past the ball the other way),
+/// and the rest fill the alley (`FIT_ALLEY`). His Downhill tendency moves
+/// his share `FIT_DOWNHILL` a step of it (a step is 9.5 of the tendency).
+/// Every deep back fitted at 9.75 and attacked at 4.75, coming down at 0.6
+/// of his speed and waiting at his fit, so he met the runner squared up:
+/// safeties ended 49% of NFL backs' runs of 5-9 yards (real 23.3%) and 74%
+/// of 10-19 (46.8%), and 11% of the runs that reached 10 went on to 20 (real
+/// 21.8%, nflverse 2024). Sizes measured with `sim.rs`'s `SHUFFLE`,
+/// `SQUARE_UP` and `CARRY_PACE` on the NFL test league (proposed, not
+/// confirmed).
+const FIT_LAST: (f64, f64, f64) = (7.0, 13.0, 0.3);
+const FIT_AWAY: (f64, f64, f64) = (6.5, 12.0, 0.4);
+const FIT_ALLEY: (f64, f64, f64) = (4.75, 9.75, 0.85);
+const FIT_DOWNHILL: f64 = 0.1;
+/// A back rolled down into the box comes to his fit at this share.
+const BOX_SHARE: f64 = 0.6;
+
+/// A deep back's run fit (`FIT_LAST`, `FIT_AWAY`, `FIT_ALLEY`): his job in
+/// the call and where the runner is, `cp`, against him at `me`.
+fn deep_fit(sim: &Sim, i: usize, s: &Snap, cp: V2, me: V2, post: bool) -> (f64, f64, f64) {
+    use super::playbook::Coverage as Cv;
+    let single = matches!(s.dcall.coverage, Cv::Cover1 | Cv::Cover3 | Cv::Cover1Robber | Cv::Cover3Match);
+    let safety = matches!(sim.agents[i].label, "FS" | "SS");
+    let away = (cp.y - s.ball_y) * (me.y - s.ball_y) < 0.0 && (cp.y - s.ball_y).abs() > 1.0;
+    let (wait, fill, share) = if post && single && safety {
+        FIT_LAST
+    } else if away && safety {
+        FIT_AWAY
+    } else {
+        FIT_ALLEY
+    };
+    let downhill = if safety { sim.lean(i, Tend::Downhill) } else { 0.0 };
+    (wait, fill, share + FIT_DOWNHILL * downhill)
+}
+
 /// The rotated-down strong safety's depth is the call's (scheme-fit item
 /// 20): 8.1 yards, where the level's typical strong safety stood (just
 /// outside the box count), and 0.9 either way snap to snap, whoever plays
@@ -7370,7 +7410,11 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                     }
                     let boxed = sim.agents[i].force
                         || (!post && back && (me.y - s.ball_y).abs() < 7.5 && (me.x - s.los) * sim.goal < 7.0);
-                    let (wait, fill) = if boxed { (1.5, 4.5) } else { (4.75, 9.75) };
+                    // The rest fit by their job in the coverage (lane SF9b,
+                    // `deep_fit`): every deep back fitted at 9.75 and
+                    // attacked at 4.75, coming down at 0.6 of his speed.
+                    let (wait, fill, share) =
+                        if boxed { (1.5, 4.5, BOX_SHARE) } else { deep_fit(sim, i, s, cp, me, post) };
                     // His job's fit (S-B, scheme-fit item 20): 0.25 and 0.2
                     // yards a point of the read of the men the level's
                     // staffs list at his slot, whoever plays it.
@@ -7392,8 +7436,14 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                         let x = if (me.x - depth) * sim.goal > 0.0 { depth } else { me.x };
                         sim.go_to(i, v2(x, me.y + (cp.y - me.y) * 0.2), 0.6);
                     } else {
-                        let floor = if through { None } else { Some(s.los + sim.goal * (fill - 0.02 * (pr - 50.0))) };
-                        sim.pursue_cap(i, c, if through { 1.0 } else { 0.6 }, floor);
+                        // A man nearer the line than his fit holds his
+                        // depth (lane SF9b): the rotated-down safety, 7.2 to
+                        // 9 yards deep (`ss_depth`), backed up to 9.75 on
+                        // every run read.
+                        let fx = s.los + sim.goal * (fill - 0.02 * (pr - 50.0));
+                        let fx = if (me.x - fx) * sim.goal < 0.0 { me.x } else { fx };
+                        let floor = if through { None } else { Some(fx) };
+                        sim.pursue_cap(i, c, if through { 1.0 } else { share }, floor);
                     }
                 } else if sim.agents[i].label == "LB"
                     && (s.los - cp.x) * sim.goal > 0.0
