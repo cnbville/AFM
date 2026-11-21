@@ -357,11 +357,8 @@ pub fn run(level: Level, games: usize, seed: u32, out: &Path) -> Result<(), Stri
         if old.trim() != schema {
             return Err(format!("{} holds another run ({old}): use a new folder", out.display()));
         }
-        std::fs::read(&path)
-            .map_err(|e| e.to_string())?
-            .chunks_exact(4)
-            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-            .collect()
+        let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+        bytes.as_chunks::<4>().0.iter().map(|c| f32::from_le_bytes(*c)).collect()
     } else {
         let (base, _) = league(level, seed);
         let b = base_team(&base[0], level);
