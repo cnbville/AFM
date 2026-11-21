@@ -8,6 +8,21 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.669 (20 Nov, shipped): SF5: where picks and breakups come from (scheme-fit items 15-17) (PR #600), ballhawk safeties (PR #601)
+**TLDR:** 2 changes ship together. Interceptions and pass breakups now come from the right places. Defensive linemen stop picking off passes through the line, deep safeties can play a long ball, and defenders get credit for the passes they knock away. A free safety's instincts now show on the field. A safety who reads the quarterback breaks on throws before the ball is out and comes away with more interceptions, and a quarterback who looks him off opens the field.
+- SF5: where picks and breakups come from (scheme-fit items 15-17) (PR #600): Interceptions and pass breakups now come from the right places. Defensive linemen stop picking off passes through the line, deep safeties can play a long ball, and defenders get credit for the passes they knock away.
+- Linemen still rushing the passer no longer pick off or tip throws in flight; they still bat balls down at the line. (PR #600)
+- A defender who saw the throw can find the ball over his shoulder on a long pass and catch it. (PR #600)
+- A second defender at the ball, like a safety coming over the top, gets his own play on it. (PR #600)
+- Defenders get a hand on more balls, and the breakups on contested and off-target throws are credited to them. (PR #600)
+- On a fake field goal, your guards and tackles line up where your depth chart puts them. (PR #600)
+- Ballhawk safeties (PR #601): A free safety's instincts now show on the field. A safety who reads the quarterback breaks on throws before the ball is out and comes away with more interceptions, and a quarterback who looks him off opens the field.
+- Safeties with great anticipation jump throws sooner and make more interceptions and pass breakups. (PR #601)
+- Safeties who track the ball well find it over their shoulder sooner on deep throws. (PR #601)
+- A quarterback's eye manipulation now moves the deep safety away from the throw, so a passer who looks him off scores more. (PR #601)
+- Safeties with sharp reads bite less on a look-off. (PR #601)
+- Look at: your corners' and safeties' interceptions and passes defended over a season. (PR #600) your free safety's interceptions and breakups over a season, and how often a passer with great eye manipulation finds the open man downfield. (PR #601)
+
 ## 0.2.667 (20 Nov, shipped): let talks get personal: his life away from football, and first meetings that start with a hello (PR #560)
 **TLDR:** Players now talk about their lives when you ask: their family, where they're from, what they do on a day off. A first meeting starts with a real hello instead of jumping straight to business.
 - Ask about his family and he tells you about his people by name, and stays on it. (PR #560)
