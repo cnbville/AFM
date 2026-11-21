@@ -7,31 +7,19 @@
 //! room (`readers::own_roster`: the position coach sees him every week, as
 //! do you), else the staff's file, and he says which. He places the man
 //! among your men at his spot by the staff's reads, says where he could get
-//! to (the file's ceiling tier and how sure), and leans: keep a starter or a
-//! man in the two-deep, keep one behind whose ceiling read reaches the last
-//! man of the two-deep, else he wouldn't fight to keep him. Words only: no
-//! rating, potential or depth chart reaches the voice. The lean's rule is
-//! Claude's, proposed, not confirmed.
+//! to (the file's ceiling tier and how sure), and makes his call: the
+//! staff's roster call (`folk::roster_call`, staff urgency 2026-11-21),
+//! against the level's marks, where he'll be when he's out of time, the
+//! clock and the portal at his spot, with the coach's own bar. Words only:
+//! no rating, potential or depth chart reaches the voice.
 
 use super::Them;
 use super::office::asks::on_your_staff;
 use crate::positions::Position;
+use crate::world::folk::roster_call;
 use crate::world::scouting::file::{self, Link, Speak};
 use crate::world::scouting::{own, readers};
 use crate::world::{Stage, World};
-
-/// What he thinks you should do with the man.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Lean {
-    /// One of your starters at the spot.
-    Starter,
-    /// In your two-deep.
-    TwoDeep,
-    /// Behind, but his ceiling read reaches the two-deep.
-    Develop,
-    /// Behind, and he doesn't see him catching up.
-    LetGo,
-}
 
 /// A coach's read on one of your players, or another man he was asked
 /// about.
@@ -46,7 +34,8 @@ pub struct Read {
     /// The ceiling in the staff's words, and how sure.
     pub tier: &'static str,
     pub sure: &'static str,
-    pub lean: Option<Lean>,
+    /// His call on the man (staff urgency), for a man on your roster.
+    pub call: Option<roster_call::Call>,
 }
 
 fn speak(stage: Stage) -> Speak {
@@ -77,7 +66,7 @@ pub fn read(w: &World, him: Them, id: u32) -> Option<Read> {
         spot: pos,
         tier: file::tier_words(speak(w.people[i].stage), ceiling),
         sure: file::sure_words(f.ceiling.1),
-        lean: None,
+        call: None,
     };
     // Everyone on your roster at his spot, the hurt men too.
     let roster = crate::world::folk::Team::seat(w).map(|t| t.roster(w)).unwrap_or_default();
@@ -87,24 +76,11 @@ pub fn read(w: &World, him: Them, id: u32) -> Option<Read> {
     let men: Vec<u32> =
         roster.iter().filter(|&&k| w.people[k].player.position == pos).map(|&k| w.people[k].player.id).collect();
     // The others at his spot as the staff reads them, best first.
-    let mut others: Vec<f64> =
+    let others: Vec<f64> =
         men.iter().filter(|&&x| x != id).filter_map(|&x| readers::read(w, staff, x).map(|r| r.2.now.0)).collect();
-    others.sort_by(|a, b| b.total_cmp(a));
     let place = 1 + others.iter().filter(|&&x| x > now).count();
     read.place = Some((place, others.len() + 1));
-    let starters = crate::game::roster::starters(pos).max(1);
-    let two = 2 * starters;
-    // The last man of the two-deep without him.
-    let edge = others.get(two - 1).copied();
-    read.lean = Some(if place <= starters {
-        Lean::Starter
-    } else if place <= two {
-        Lean::TwoDeep
-    } else if edge.is_none_or(|e| ceiling >= e) {
-        Lean::Develop
-    } else {
-        Lean::LetGo
-    });
+    read.call = roster_call::seat_call(w, i, c);
     Some(read)
 }
 
@@ -146,17 +122,10 @@ pub fn words(w: &World, him: Them, id: u32) -> Vec<String> {
         _ => "His ceiling as a pro",
     };
     v.push(format!("{at}: {} ({} of that).", r.tier, r.sure));
-    v.push(
-        match r.lean {
-            Some(Lean::Starter) => "He's one of our starters. He'd keep him.",
-            Some(Lean::TwoDeep) => "He's in our two-deep. He'd keep him.",
-            Some(Lean::Develop) => {
-                "He's behind right now, but he thinks he can get there. He'd keep him and develop him."
-            }
-            Some(Lean::LetGo) => "He's behind and he doesn't see him catching up. He wouldn't fight to keep him.",
-            None => "He isn't one of ours, so that's his read and no more.",
-        }
-        .into(),
-    );
+    v.push(match &r.call {
+        Some(call) => roster_call::words(w, call),
+        None if r.place.is_some() => "He has no call on him yet: he's out of time here either way.".into(),
+        None => "He isn't one of ours, so that's his read and no more.".into(),
+    });
     v
 }

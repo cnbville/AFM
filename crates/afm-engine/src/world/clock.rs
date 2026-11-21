@@ -480,6 +480,9 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
         recruiting::portal_camp(w);
         w.coach_follows.clear();
         recruiting::camp_walk_ons(w);
+        // An AI program over its limit trims to it (staff urgency).
+        timed("camp trim", || super::folk::roster_call::camp_trim(w));
+        w.folk.over.clear();
         timed("college start", || college::start(w));
         college::lean_checkpoint(w, college::LeanCheck::FallCamp);
     }

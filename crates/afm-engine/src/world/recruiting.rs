@@ -7882,6 +7882,9 @@ enum Why {
     ProgramDropped,
     /// His coach cut him (minor bug 60): he moves at the next window.
     Cut,
+    /// His coaches told him before the window he isn't in their plans
+    /// (staff urgency, `folk::roster_call`).
+    Told,
 }
 
 impl Why {
@@ -7897,6 +7900,7 @@ impl Why {
             Why::Graduate => "graduate transfer",
             Why::ProgramDropped => "program dropped",
             Why::Cut => "cut",
+            Why::Told => "not in the plans",
         }
     }
     fn phrase(self) -> &'static str {
@@ -7911,6 +7915,7 @@ impl Why {
             Why::Graduate => "as a graduate transfer",
             Why::ProgramDropped => "after his school dropped football",
             Why::Cut => "after he was cut",
+            Why::Told => "after his coaches told him he isn't in their plans",
         }
     }
     fn from_reason(r: &str) -> Why {
@@ -7924,6 +7929,7 @@ impl Why {
             "graduate transfer" => Why::Graduate,
             "program dropped" => Why::ProgramDropped,
             "cut" => Why::Cut,
+            "not in the plans" => Why::Told,
             _ => Why::PlayingTime,
         }
     }
@@ -8046,7 +8052,7 @@ pub(crate) fn intent_reason(w: &World, id: u32) -> Option<&'static str> {
         Why::MoveUp => "up",
         Why::Money => "money",
         Why::Graduate => "grad",
-        Why::Dismissed | Why::Cut | Why::ProgramDropped => "other",
+        Why::Dismissed | Why::Cut | Why::ProgramDropped | Why::Told => "other",
     })
 }
 
@@ -8173,7 +8179,7 @@ fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Dat
     // sends him away owes him nothing back.
     p.cal.nil_buyout = 0.0;
     if let Some(d) = p.cal.nil_deal.filter(|d| d.contract()) {
-        if !matches!(why, Why::Dismissed | Why::Cut | Why::ProgramDropped) {
+        if !matches!(why, Why::Dismissed | Why::Cut | Why::ProgramDropped | Why::Told) {
             p.cal.nil_buyout = d.buyout();
         }
         p.cal.nil_deal = None;
@@ -8490,6 +8496,27 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     // Each player reads his whole situation on the window's day (playtest
     // bug 15): his place next fall, your word, trust, mood, his money.
     super::stay_read::read_all(w, label);
+    // The men each staff is moving on from are told before the winter
+    // window (staff urgency): most enter it, in place of the program's
+    // lean draws, so its expected entrants stay the same (spec 5).
+    let told: std::collections::HashSet<usize> =
+        if which == PortalWindow::Winter { super::folk::roster_call::told_for_window(w) } else { Default::default() };
+    let flow: Vec<f64> = if told.is_empty() {
+        vec![1.0; w.programs.len()]
+    } else {
+        let wr: &World = w;
+        super::folk::roster_call::flow_factors(wr, &told, era, &|i| {
+            let p = &wr.people[i];
+            let Some(c) = p.college else { return false };
+            let div = wr.programs[c].division;
+            p.cal.portal.is_none()
+                && p.cut_here().is_none()
+                && div != Division::JUCO
+                && p.cal.declare_plan != Some(true)
+                && wr.programs[c].plays(label + 1)
+                && !super::college::no_season_left(p, div, label)
+        })
+    };
     let mut entrants: Vec<(usize, Why)> = Vec::new();
     // The lean each lean-driven entrant must still be above on his day
     // (`Intent`): his draw over the window's rate.
@@ -8666,6 +8693,13 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         // the players who stayed through it: the share the change adds, over
         // those who stayed, on a fresh draw of its own (the winter window's
         // draw already said he stayed; a career's own seed changes it too).
+        if told.contains(&i) {
+            if super::folk::roster_call::told_goes(seed, p.player.id) {
+                entrants.push((i, Why::Told));
+            }
+            continue;
+        }
+        let k = flow[c];
         let (go, bar) = match late {
             Some(open) => {
                 let stayed = (lean_on(p, open) * era).min(1.0);
@@ -8677,7 +8711,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
                     (u < (now - stayed) / (1.0 - stayed), (u * (1.0 - stayed) + stayed) / era)
                 }
             }
-            None => (u < p.cal.lean * era, u / era),
+            None => (u < k * p.cal.lean * era, u / (k.max(1e-6) * era)),
         };
         if go {
             let changed = p.cal.lean_events.iter().any(|e| e.1 == super::college::COACH_GONE);
@@ -8736,6 +8770,13 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     }
     if which == PortalWindow::Graduate {
         w.log.graduate_transfers += entrants.len() as u32;
+    }
+    // The market the staffs' calls read (staff urgency): the window's
+    // entrants at each level's marks.
+    if matches!(which, PortalWindow::Winter | PortalWindow::Spring) {
+        let marks = super::folk::roster_call::LevelMarks::of(w);
+        let idx: Vec<usize> = entrants.iter().map(|e| e.0).collect();
+        super::folk::roster_call::record_supply(w, label, &marks, &idx);
     }
     if entrants.is_empty() {
         return;
@@ -8920,7 +8961,11 @@ fn market_rooms(w: &World, leaving: &std::collections::HashSet<usize>) -> Market
             }
         }
         for pos in Position::ALL {
-            open[j][pos.index()] = crate::league::depth_slots(pos).starters.saturating_sub(returning[pos.index()]);
+            let slots = crate::league::depth_slots(pos).starters;
+            // A staff that wants a man over the starter it has (staff
+            // urgency) has the spot on its board too.
+            let over = super::folk::roster_call::over_at(w, j, pos.index());
+            open[j][pos.index()] = (slots.saturating_sub(returning[pos.index()]) + over).min(slots);
             depth[j][pos.index()].sort_by(|a, b| b.total_cmp(a));
         }
     }
@@ -9779,7 +9824,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
             // one turned away then for want of room is asked back (a second
             // draw doubled the returns, 7% of entrants to 16% on seed 74).
             let back = (!entry.looking || force)
-                && !matches!(why, Why::Dismissed | Why::Cut)
+                && !matches!(why, Why::Dismissed | Why::Cut | Why::Told)
                 && counted[c] < super::ncaa::roster_limits(&w.programs[c], season).0
                 && key_uniform(seed ^ 0xBAC, w.people[i].player.id as u64)
                     < if perf >= median(from) - 2.0 { 0.4 } else { 0.15 };
@@ -9818,6 +9863,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
             w.people[i].note(format!("His first choice, {first}, fell through while he waited."));
         }
         record(w, Some(j), fell, false);
+        super::folk::roster_call::landed(w, i, j, label);
         w.coach_follows.retain(|f| f.0 != id);
         w.log.portal_landed += 1;
         if today > crate::calendar::YearDates::new(label).signing_day {

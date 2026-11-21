@@ -949,6 +949,7 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
         Kind::TeamMeeting => team_meeting_open(w, s, team),
         Kind::HireReaction => hire_reaction(w, s, team),
         Kind::Holdover => holdover_open(w, s, team),
+        Kind::StaffReport if s.a & super::roster_call::ROSTER != 0 => super::roster_call::open(w, s, team),
         Kind::StaffReport => staff_report(w, s, team),
         Kind::Leaders => leaders(w, s, team),
         Kind::Trainer => trainer(w, s, team),
@@ -987,6 +988,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::Recruiting => recruiting_answer(w, s, team, code),
         Kind::Gm => gm_answer(w, s, team, code),
         Kind::SigneeRelease => signee_answer(w, s, team, code),
+        Kind::StaffReport if s.a & super::roster_call::ROSTER != 0 => super::roster_call::answer(w, s, team, code),
         Kind::Leaders | Kind::Academic | Kind::Trainer | Kind::StaffReport => report_answer(w, s, team, code),
         _ => {
             // Reports: reading them is the whole meeting.
@@ -2103,6 +2105,16 @@ fn staff_report(w: &mut World, s: &mut Scene, team: Team) {
         }
     }
     s.docs.push(doc);
+    // Each coordinator's and position coach's calls on his men (staff
+    // urgency: "the first meetings").
+    let calls = super::roster_call::seat_calls(w);
+    let on = calls.iter().filter(|c| c.mv == super::roster_call::Move::MoveOn).count();
+    if on > 0 {
+        s.narrate(format!(
+            "Each coach has his list. They'd move on from {on} before the next window; the calls are beside the film."
+        ));
+    }
+    s.docs.push(super::roster_call::list_doc(w, team, &calls));
     if holes.is_empty() {
         s.narrate(
             "No position empties out when the seniors leave. The depth is the old staff's best work.".to_string(),
