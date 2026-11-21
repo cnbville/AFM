@@ -2,16 +2,17 @@
 //! run: it plays and reads back, a stopped run picks up where it was, an
 //! arm changes only its own man, the same arm plays the same games every
 //! time, a drawn man plays inside his band, every claim behind the repeat
-//! table names a real arm and measure, and the tool's copy of the world's
-//! fit weights matches `systems::fits`.
+//! table names a real arm and measure, and the world's fit (lane SF11,
+//! `systems::fits`) reads the shape of a man's game job by job.
 //! Sizes are the tool's job (`cargo run --release --bin fit_check`), not
 //! this test's.
 
 use afm_engine::attributes::Attr;
-use afm_engine::player::{Level, ProspectOptions, generate_prospect};
-use afm_engine::positions::{POSITION_COUNT, Position, overall_for};
+use afm_engine::player::{Level, Player, ProspectOptions, generate_prospect};
+use afm_engine::positions::{Position, overall_for};
 use afm_engine::rng::Rng;
-use afm_engine::world::systems::{SystemNorms, fits};
+use afm_engine::spots::{SPOT_COUNT, Spot};
+use afm_engine::world::systems::{JobNorm, SystemNorms, fit_job, fits, job_weights};
 use afm_tools::ab::Part;
 use afm_tools::fit::{self, ROLES, Setup, read};
 
@@ -155,8 +156,8 @@ fn every_claim_names_an_arm_and_a_measure() {
 }
 
 #[test]
-fn the_fit_weights_match_the_world() {
-    let zero: SystemNorms = [[0.0; 11]; POSITION_COUNT];
+fn the_fit_reads_the_shape_of_his_game() {
+    let norms: SystemNorms = [JobNorm::default(); SPOT_COUNT];
     let mut rng = Rng::new(9u32);
     for (i, &pos) in Position::ALL.iter().enumerate() {
         for j in 0..20u32 {
@@ -166,34 +167,57 @@ fn the_fit_weights_match_the_world() {
                     id: Some(1_000 * i as u32 + j),
                     position: Some(pos),
                     age: Some(21),
-                    talent_z: Some(0.5 + 0.1 * j as f64),
+                    talent_z: Some(-0.5 + 0.1 * j as f64),
                 },
             );
-            let world = fits(&p, pos, &zero);
-            let score = |slot: usize| {
-                let mix: f64 = read::fit_weights(pos, slot).iter().map(|&(a, w)| p.attributes.get(a) * w).sum::<f64>();
-                let heavy = ((p.body.weight - 250.0) / 1.2).clamp(20.0, 99.0);
-                mix + if pos == Position::DT && slot == 6 { read::HEAVY_WEIGHT * heavy } else { 0.0 }
-            };
-            let mut ours = [0.0; 11];
+            let f = fits(&p, pos, &norms);
+            // Fit is against the average system of its kind (unless one is
+            // held at the scale's end).
             for r in [0..5, 5..7, 7..11] {
-                if r.clone().all(|s| read::fit_weights(pos, s).is_empty()) {
+                if r.clone().any(|s| f[s].abs() >= 1.5 - 1e-9) {
                     continue;
                 }
-                let s: Vec<f64> = r.clone().map(score).collect();
-                let mean = s.iter().sum::<f64>() / s.len() as f64;
-                for (k, slot) in r.enumerate() {
-                    ours[slot] = ((s[k] - mean) / 10.0).clamp(-1.5, 1.5);
+                let mean = r.clone().map(|s| f[s]).sum::<f64>() / r.len() as f64;
+                assert!(mean.abs() < 1e-9, "{pos:?} {r:?}: the kind's fits average {mean}");
+            }
+            // A man better by as much on every rating fits each system the
+            // same: fit is the shape of his game, not his level.
+            let mut q = p.clone();
+            for a in Attr::ALL {
+                q.attributes.add(a, 3.0);
+            }
+            let job = |x: &Player| fit_job(&x.attributes, x.body.weight, x.body.height, pos);
+            if job(&p) == job(&q) {
+                let g = fits(&q, pos, &norms);
+                for s in 0..11 {
+                    assert!((f[s] - g[s]).abs() < 1e-4, "{pos:?} slot {s}: {} against {}", f[s], g[s]);
                 }
             }
-            for slot in 0..11 {
-                assert!(
-                    (ours[slot] - world[slot]).abs() < 1e-9,
-                    "{pos:?} slot {slot}: {} against {}",
-                    ours[slot],
-                    world[slot]
-                );
-            }
+        }
+    }
+    // Job by job (scheme-fit item 24): the free and strong safety, the
+    // three linebackers and the outside and slot corner each read their own
+    // weights.
+    for (a, b) in [
+        (Spot::FS, Spot::SS),
+        (Spot::MLB, Spot::OLB),
+        (Spot::MLB, Spot::SAM),
+        (Spot::OLB, Spot::SAM),
+        (Spot::CB, Spot::NB),
+    ] {
+        assert!((5..11).any(|s| job_weights(a, s) != job_weights(b, s)), "{a:?} and {b:?} read the same weights");
+    }
+    // Every job the systems ask about is weighed in each kind it plays in.
+    for job in Spot::ALL {
+        let pos = job.position();
+        let ranges: &[(usize, usize)] = match pos {
+            Position::K | Position::P | Position::LS => &[],
+            Position::CB | Position::S => &[(7, 11)],
+            Position::DT | Position::EDGE | Position::LB => &[(5, 7), (7, 11)],
+            _ => &[(0, 5)],
+        };
+        for &(a, b) in ranges {
+            assert!((a..b).any(|s| !job_weights(job, s).is_empty()), "{job:?} has no weights in slots {a}-{b}");
         }
     }
 }

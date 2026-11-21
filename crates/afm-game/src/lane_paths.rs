@@ -95,7 +95,7 @@ fn fit(w: &World, k: usize, pos: Position, inst: &Installed) -> Option<f64> {
     systems::read_fit(
         w,
         pos,
-        sc::file::listed(&p.player).1,
+        sc::file::listed(&p.player),
         |a| f.attrs[a.index()].seen.then_some(f.attrs[a.index()].centre),
         inst,
     )
@@ -248,7 +248,7 @@ fn class_fit(w: &World) -> Value {
                     systems::read_fit(
                         w,
                         p.position,
-                        sc::file::listed(p).1,
+                        sc::file::listed(p),
                         |a| f.attrs[a.index()].seen.then_some(f.attrs[a.index()].centre),
                         &inst,
                     )

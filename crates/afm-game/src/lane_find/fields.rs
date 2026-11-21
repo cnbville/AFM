@@ -1075,8 +1075,8 @@ pub fn stat_line(ctx: &Ctx, i: usize) -> Option<String> {
 /// the system his position plays in: "4-3"): the attributes in their file
 /// against what your front, coverage or offense asks of his position. Not
 /// seen until the file has every attribute it needs. Proposed, not
-/// confirmed: a good fit from 0.15 on `fit_to`'s scale (about a third of a
-/// spread), a poor one from -0.15.
+/// confirmed: a good fit from 0.15 on `fit_to`'s scale (since lane SF11,
+/// worth 1.5 rating points at his job), a poor one from -0.15.
 pub fn scheme_fit(ctx: &Ctx, i: usize) -> Option<(usize, &'static str)> {
     use afm_engine::world::systems;
     let Seat::Nfl(t) = ctx.seat else { return None };
@@ -1085,7 +1085,7 @@ pub fn scheme_fit(ctx: &Ctx, i: usize) -> Option<(usize, &'static str)> {
     let p = ctx.p(i);
     let r = ctx.read(i)?;
     let pos = p.player.position;
-    let f = systems::read_fit(w, pos, file::listed(&p.player).1, |a| r.attr(a.index()).map(|x| x.0), inst)?;
+    let f = systems::read_fit(w, pos, file::listed(&p.player), |a| r.attr(a.index()).map(|x| x.0), inst)?;
     let k = if f >= 0.15 {
         2
     } else if f <= -0.15 {
