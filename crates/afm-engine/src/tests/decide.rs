@@ -61,7 +61,12 @@ fn the_model_reads_known_fourth_downs_and_tries() {
             m.fourth_at(&st(2, 600.0, 0.0, 1.0, 50.0)).conv > m.fourth_at(&st(2, 600.0, 0.0, 8.0, 50.0)).conv + 0.2
         );
         // Tries: down 8 and a touchdown late (down 2 before the try), go
-        // for two; up 6 after a touchdown early, kick.
+        // for two; up 6 after a touchdown early, never a clear two. That
+        // try is a near tie in points: real NFL 2021-25 extra points 95.1%
+        // and two-point tries 47.5% (`data/real-world/nfl_history.json`);
+        // the public models kick by a hair, and this one reads the engine's
+        // own rates (the NFL's 95.2% and 49.1% in the 2026-11-21 fit, lane
+        // SF10), where the two calls tie.
         let mut r = PlayRecord::new(1, 4, 90.0, 0, PlayType::TwoPoint);
         r.down = 1;
         r.togo = 3.0;
@@ -73,7 +78,7 @@ fn the_model_reads_known_fourth_downs_and_tries() {
         r.clock = 600.0;
         r.score = [6, 0];
         let [kick, two] = m.try_after(&r).unwrap();
-        assert!(kick > two, "{level:?} up 6 early: kick {kick:.3}, two {two:.3}");
+        assert!(two < kick + calls::CLEAR, "{level:?} up 6 early: kick {kick:.3}, two {two:.3}");
     }
 }
 

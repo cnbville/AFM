@@ -1041,6 +1041,13 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         shots: 0.0,
         lean: Default::default(),
         players: inp.players,
+        // Your coordinator drafts for your own men (lane SF10).
+        fit: {
+            let margin = if inp.level == crate::player::Level::HS { 4.0 } else { 99.0 };
+            let depth = crate::game::roster::depth_chart(team, margin);
+            let men = crate::game::roster_fit::depth_men(team, &depth);
+            crate::game::roster_fit::OffFit::of(&team.players, &men, inp.level)
+        },
     };
     let staff = team.staff;
     let two_from = inp.two_from;

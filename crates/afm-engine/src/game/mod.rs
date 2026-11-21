@@ -22,6 +22,7 @@ pub mod playbook;
 pub mod pose;
 pub mod replay;
 pub mod roster;
+pub mod roster_fit;
 pub mod rules;
 pub mod scrimmage;
 pub mod sheet;

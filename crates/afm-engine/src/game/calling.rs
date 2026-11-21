@@ -562,6 +562,11 @@ pub struct OffCtx {
     /// the concept is picked among the ones that set can run (lane SF2).
     #[serde(default = "eleven")]
     pub players: u8,
+    /// What each call gains from the offense's own men (lane SF10,
+    /// `roster_fit`): nothing for the typical team, and nothing where no
+    /// roster is read (a draft of your call sheet before the week).
+    #[serde(skip)]
+    pub fit: super::roster_fit::OffFit,
 }
 
 fn eleven() -> u8 {
@@ -804,7 +809,8 @@ pub fn call_offense_memo(
     // RPOs and sneaks left out: 12 personnel on 34% of runs, 37% of play
     // action and 24% of straight dropbacks; 13 on 5.5%, 5.8% and 2.9%
     // (nflverse with FTN charting).
-    let personnel = weigh(rng, Groups::of(scheme, short, hurry, drop, tell, ctx, want).all());
+    let personnel =
+        weigh(rng, Groups::of(scheme, short, hurry, drop, tell, ctx, want, pass, trust(c.creativity)).all());
     let gun = rng.chance(gun_chance(scheme, ctx, drop, tell, hurry));
     // As `backfield_chance` reads it back. A two-back package goes under
     // center on a run or a fake; on a straight drop it lines up in the gun
@@ -915,7 +921,7 @@ pub fn call_offense_memo(
 
 /// A short-yardage call: third or fourth and two or less, or the ball
 /// inside the three.
-fn short_call(sit: &Situation) -> bool {
+pub(crate) fn short_call(sit: &Situation) -> bool {
     sit.togo <= 2.0 && sit.down >= 3 || sit.yardline_100 <= 3.0
 }
 
@@ -1012,7 +1018,8 @@ pub fn sheet_fake_chance(
     // How likely the line's look and concept are from a drop (`drop`) or a
     // fake.
     let like = |drop: bool| {
-        let group = share(Groups::of(scheme, short, hurry, drop, tell, ctx, want).all(), f.personnel);
+        let cr = trust(staff.offense.creativity);
+        let group = share(Groups::of(scheme, short, hurry, drop, tell, ctx, want, true, cr).all(), f.personnel);
         let back =
             backfield_chance(scheme, f.personnel, hurry, drop, gun_chance(scheme, ctx, drop, tell, hurry), f.backfield);
         let empty = if drop { 1.0 / (1.0 - p_fake).max(0.1) } else { 1.0 };
@@ -1136,8 +1143,36 @@ impl Groups {
     /// same: a predictable caller matches his groups to his calls, a
     /// creative one shows the same looks for both. The fit is the fielded
     /// group's, so a lean to 13 with two healthy tight ends fits like 12.
+    ///
+    /// Then each group leans to what his own men win in it (lane SF10, item
+    /// 23: `roster_fit`), the call's runs or passes (a fake is a pass), by
+    /// the caller's creativity (`cr`): tight ends who block add to 12, 13
+    /// and 22 on runs, a third receiver who gets open to 11 and 10 on
+    /// throws.
     #[allow(clippy::too_many_arguments)]
     fn of(
+        scheme: OffScheme,
+        short: bool,
+        hurry: bool,
+        drop: bool,
+        tell: f64,
+        ctx: &OffCtx,
+        want: Option<(Personnel, f64)>,
+        pass: bool,
+        cr: f64,
+    ) -> Groups {
+        let mut g = Groups::of_table(scheme, short, hurry, drop, tell, ctx, want);
+        if cr > 0.0 && ctx.fit != super::roster_fit::OffFit::default() {
+            for x in &mut g.items[..g.n] {
+                x.1 *= (cr * ctx.fit.group_of(x.0, pass)).exp();
+            }
+        }
+        g
+    }
+
+    /// The call's groups before the roster's lean.
+    #[allow(clippy::too_many_arguments)]
+    fn of_table(
         scheme: OffScheme,
         short: bool,
         hurry: bool,
@@ -1496,10 +1531,16 @@ fn run_weights(staff: &Staff, mem: &Memory, f: &Formation, ctx: &OffCtx, short: 
     }
     // What the numbers say works against the fronts this defense shows
     // (topic 2), and what has worked today (topic 3.2), at his skill.
+    // And what each run gains from his own men (lane SF10, items 10 and
+    // 23: `roster_fit`), in the same yards, by his creativity: linemen and
+    // tight ends who drive their men add most to the runs that lean on
+    // them, a fast back to the toss and duo, a quarterback who can run to
+    // his own runs.
     let fronts = &mem.fronts_seen;
     let ft: f64 = fronts.iter().sum::<f64>() + 1.0;
     let tr = trust(c.reading);
     let ad = c.adaptation / 20.0;
+    let cr = trust(c.creativity);
     let table = run_values();
     for x in w.iter_mut() {
         let k = x.0 as usize;
@@ -1507,7 +1548,8 @@ fn run_weights(staff: &Staff, mem: &Memory, f: &Formation, ctx: &OffCtx, short: 
         let ev: f64 = (0..6).map(|f| (fronts[f] + 1.0 / 6.0) / ft * v[f]).sum();
         let [sum, n] = mem.run_res[k];
         let today = if n >= 3.0 { sum / n } else { 0.0 };
-        x.1 *= (tr * 1.5 * ev + ad * 0.8 * today).exp();
+        let own = ctx.fit.run.get(k).copied().unwrap_or(0.0) as f64;
+        x.1 *= (tr * 1.5 * ev + ad * 0.8 * today + cr * 1.5 * own).exp();
     }
     w
 }
@@ -1714,6 +1756,7 @@ fn concept_weights(
     let ev = expected_values(mem, sharp, fake);
     let mean = ev.iter().sum::<f64>() / ev.len() as f64;
     let tr = trust(c.reading);
+    let cr = trust(c.creativity);
     let sit_skill = clamp((c.situational - 4.0) / 14.0, 0.0, 1.0);
     // Third and fourth down read the routes as the group lines up and the
     // rule book fields it (`sticks_depth`).
@@ -1813,8 +1856,15 @@ fn concept_weights(
                 w *= 2.2;
             }
             // What beats what (topic 2): the caller leans toward the
-            // concepts that gain the most against the looks he expects.
-            w *= (tr * (ev[like] - mean)).exp();
+            // concepts that gain the most against the looks he expects, and
+            // (lane SF10, item 10) toward the ones his own men win, by his
+            // creativity: the arm and the deep ball on the shots, the quick
+            // game behind a shaky line, the concepts whose reads his best
+            // route runners win (`roster_fit`).
+            // A play-action concept's own row is its faked play.
+            let faked = fake && takes_fake(&PASS_CONCEPTS[like]);
+            let mine = if faked { ctx.fit.fake[like] } else { ctx.fit.pass[like] } as f64;
+            w *= (tr * (ev[like] - mean) + cr * mine).exp();
             // Third and fourth down (topic 6.2): a caller who knows the
             // situation calls routes that reach the sticks.
             if sticks {
@@ -1868,7 +1918,7 @@ const CALL_VALUES_CSV: &str = include_str!("../../data/call_values.csv");
 /// Column of a coverage and pressure in the table: Cover 0 with the
 /// double-A blitz, then each other coverage with four rushers and with a
 /// linebacker blitz.
-fn col(cov: Coverage, blitz: bool) -> usize {
+pub(crate) fn col(cov: Coverage, blitz: bool) -> usize {
     match cov {
         Coverage::Cover0 => 0,
         c => {
@@ -2139,6 +2189,10 @@ pub struct DefCtx {
     /// field (L1, C1), in blitz-rate points.
     #[serde(default)]
     pub heavy: f64,
+    /// What each look gives up with the defense's own men (lane SF10,
+    /// `roster_fit`): nothing for the typical team.
+    #[serde(skip)]
+    pub fit: super::roster_fit::DefFit,
 }
 
 /// The defensive call.
@@ -2186,6 +2240,13 @@ pub fn call_defense_memo(
             Some((_, k)) => staff.nickel * (1.0 - 0.12 * k),
             None => staff.nickel,
         };
+        // His own men (lane SF10, item 23): the nickel back against the
+        // third linebacker, as each group plays three receivers' runs and
+        // throws (real 2024 NFL: 11 personnel throws 65%), by the
+        // coordinator's creativity (`roster_fit`).
+        let f = &ctx.fit.dpers;
+        let given = |k: usize| RUN_SHARE_11 * f[k][0] as f64 + (1.0 - RUN_SHARE_11) * f[k][1] as f64;
+        let p = lean_odds(p, trust(c.creativity) * (given(0) - given(1)));
         if rng.chance(p) { DefPersonnel::Nickel } else { DefPersonnel::Base }
     } else {
         // A nickel base front (4-2-5, 3-3-5) keeps its fifth back on the
@@ -2223,8 +2284,15 @@ pub fn call_defense_memo(
         let given = coverage_values(mem, read);
         let mean = given.iter().sum::<f64>() / COVERAGE_COUNT as f64;
         let tr = trust(c.reading);
+        // And what each coverage gives up with his own men (lane SF10, item
+        // 23: `roster_fit`), by his creativity: a room of man corners gives
+        // up less in man, a free safety who reads the field less in the
+        // looks that lean on him (quarters, and Cover 1 with a blitz), so
+        // he calls them more; without them, more zone.
+        let cr = trust(c.creativity);
         let w = base.map(|(cov, w)| {
-            let mut w = w * (-tr * (given[cov as usize] - mean)).exp();
+            let own = ctx.fit.look[col(cov, false)] as f64;
+            let mut w = w * (-tr * (given[cov as usize] - mean) - cr * own).exp();
             if cov.high() == 2 {
                 w *= if long {
                     1.5
@@ -2366,9 +2434,19 @@ pub fn call_defense_memo(
         blitz += k * (want - super::guide::habit_pressure(c.aggressiveness));
     }
     let zone = !coverage.is_man() && coverage != Coverage::Cover0;
+    // His own men (lane SF10, item 23): what a linebacker blitz takes away
+    // in this coverage with his blitzers, rushers and cover men against
+    // what four rushers do (`roster_fit`), by his creativity.
+    let p_blitz = clamp(blitz, 0.05, 0.7);
+    let p_blitz = if coverage == Coverage::Cover0 {
+        p_blitz
+    } else {
+        let gain = ctx.fit.look[col(coverage, false)] - ctx.fit.look[col(coverage, true)];
+        clamp(lean_odds(p_blitz, trust(c.creativity) * gain as f64), 0.05, 0.7)
+    };
     let pressure = if coverage == Coverage::Cover0 {
         Pressure::DoubleA
-    } else if rng.chance(clamp(blitz, 0.05, 0.7)) {
+    } else if rng.chance(p_blitz) {
         weigh(
             rng,
             &[
@@ -2415,6 +2493,20 @@ pub fn call_defense_memo(
         && rng.chance(0.25 + 0.02 * c.reading);
     DefCall { personnel, coverage, pressure, disguise, front, stunt, spy }
 }
+
+/// A chance moved on its odds by `x` (the lean the weights use: a choice
+/// worth `x` more weighs e^x as much).
+fn lean_odds(p: f64, x: f64) -> f64 {
+    if x == 0.0 || p <= 0.0 || p >= 1.0 {
+        return p;
+    }
+    let o = p / (1.0 - p) * x.exp();
+    o / (1.0 + o)
+}
+
+/// Real 2024 NFL: 11 personnel runs 35% of its snaps (the scheme-fit
+/// audit's table, `afm/scheme-fit/full-pass.md`).
+const RUN_SHARE_11: f64 = 0.35;
 
 /// The front (topic 1): a 4-3 staff plays over, under and wide-nine looks,
 /// a 3-4 staff odd and tite fronts; both bear up against heavy personnel

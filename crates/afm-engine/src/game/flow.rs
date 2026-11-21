@@ -14,6 +14,7 @@ use super::live::{
 };
 use super::playbook::*;
 use super::roster::*;
+use super::roster_fit;
 use super::rules::{FirstDownStop, Overtime, Rules};
 use super::scrimmage::{self, DSlot, KeepSnap, Snap, SnapResult};
 use super::sim::{ClockRun, Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, LooseEnd, Mood, Notes};
@@ -467,6 +468,12 @@ struct Side<'a> {
     /// The call sheets this game: your week's, else what this staff drafts
     /// at kickoff (`world::plans::kickoff_card`).
     card: super::sheet::Card,
+    /// The roster's lean (lane SF10) for the men it last read, on offense
+    /// and on defense: who they were and what each call gains or gives up
+    /// with them. A game's players never change, so the same men give the
+    /// same fit, and it is worked out again only when the men change.
+    off_memo: std::cell::Cell<Option<(roster_fit::Men, roster_fit::OffFit)>>,
+    def_memo: std::cell::Cell<Option<(roster_fit::Men, roster_fit::DefFit)>>,
     /// Script calls used this game, offense then defense (G11): a script
     /// call counts once it is run.
     scripted: [usize; 2],
@@ -644,6 +651,8 @@ impl<'a> Side<'a> {
             checks: team.prep.checks,
             ifs: team.prep.ifs.clone(),
             card: super::sheet::Card::of(&team.prep),
+            off_memo: std::cell::Cell::new(None),
+            def_memo: std::cell::Cell::new(None),
             scripted: [0, 0],
             turn: team
                 .players
@@ -1150,6 +1159,90 @@ impl<'a> Side<'a> {
         }
     }
 
+    /// He can play this snap for the roster's read: dressed, not benched,
+    /// not at his snap limit.
+    fn can_go(&self, i: usize) -> bool {
+        !self.out[i] && !self.benched[i] && !self.spent(i)
+    }
+
+    /// The offense's men as its play caller reads them (lane SF10,
+    /// `roster_fit`): each position's first men by the depth chart who can
+    /// go, the back the staff puts on for this down (`back`), and the
+    /// fullback it would seat (a back or tight end past the first, the one
+    /// who plays it best, as `pick_fb`).
+    fn off_men(&self, back: Option<usize>) -> roster_fit::Men {
+        use roster_fit::Slot as S;
+        let mut m: roster_fit::Men = [None; roster_fit::SLOTS];
+        let fill = |pos: Position, slots: &[S], m: &mut roster_fit::Men| {
+            let mut it = self.depth.list(pos).iter().copied().filter(|&i| self.can_go(i));
+            for &s in slots {
+                m[s as usize] = it.next();
+            }
+        };
+        fill(Position::QB, &[S::Qb], &mut m);
+        fill(Position::WR, &[S::Wr1, S::Wr2, S::Wr3], &mut m);
+        fill(Position::TE, &[S::Te1, S::Te2, S::Te3], &mut m);
+        fill(Position::OT, &[S::Ot1, S::Ot2], &mut m);
+        fill(Position::IOL, &[S::Iol1, S::Iol2, S::Iol3], &mut m);
+        let rb = back.or_else(|| self.depth.list(Position::RB).iter().copied().find(|&i| self.can_go(i)));
+        m[S::Rb as usize] = rb;
+        let taken = [rb, m[S::Te1 as usize]];
+        m[S::Fb as usize] = self
+            .depth
+            .list(Position::RB)
+            .iter()
+            .chain(self.depth.list(Position::TE))
+            .copied()
+            .filter(|&i| {
+                self.can_go(i)
+                    && !taken.contains(&Some(i))
+                    && matches!(self.team.players[i].position, Position::RB | Position::TE)
+            })
+            .max_by(|&a, &b| self.at_spot(a, Spot::FB).total_cmp(&self.at_spot(b, Spot::FB)));
+        m
+    }
+
+    /// The defense's men as its coordinator reads them (lane SF10): the
+    /// line by the depth chart, the linebackers, corners and safeties by
+    /// the job each is named to (L1, C1), the depth chart filling a job
+    /// nobody who can go is named to.
+    fn def_men(&self) -> roster_fit::Men {
+        use roster_fit::Slot as S;
+        let mut m: roster_fit::Men = [None; roster_fit::SLOTS];
+        for (pos, slots) in [(Position::EDGE, &[S::Edge1, S::Edge2][..]), (Position::DT, &[S::Dt1, S::Dt2][..])] {
+            let mut it = self.depth.list(pos).iter().copied().filter(|&i| self.can_go(i));
+            for &s in slots {
+                m[s as usize] = it.next();
+            }
+        }
+        let jobs: [(Position, &[(S, Spot)]); 3] = [
+            (Position::LB, &[(S::Sam, Spot::SAM), (S::Mike, Spot::MLB), (S::Will, Spot::OLB)]),
+            (Position::CB, &[(S::Cb1, Spot::CB), (S::Cb2, Spot::CB), (S::Nb, Spot::NB)]),
+            (Position::S, &[(S::Fs, Spot::FS), (S::Ss, Spot::SS)]),
+        ];
+        for (pos, list) in jobs {
+            let mut used: Vec<usize> = Vec::new();
+            for &(slot, sp) in list {
+                let named = (0..self.team.players.len())
+                    .find(|&i| self.job[i] == Some(sp) && self.can_go(i) && !used.contains(&i));
+                if let Some(i) = named {
+                    m[slot as usize] = Some(i);
+                    used.push(i);
+                }
+            }
+            for &(slot, _) in list {
+                if m[slot as usize].is_none() {
+                    let next = self.depth.list(pos).iter().copied().find(|&i| self.can_go(i) && !used.contains(&i));
+                    if let Some(i) = next {
+                        m[slot as usize] = Some(i);
+                        used.push(i);
+                    }
+                }
+            }
+        }
+        m
+    }
+
     fn cover_pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
         let list: Vec<usize> = self
             .depth
@@ -1438,6 +1531,9 @@ struct Game<'a> {
     /// A point that stops for you: the game plays on until your staff's
     /// choice is known, then stops.
     probe: Option<Ask>,
+    /// The staffs put their situational backs on (scheme-fit item 11): off
+    /// in a bare game for the tools, whose snaps read one back.
+    subs: bool,
     /// Your answer for this snap.
     snap_input: Option<Input>,
     /// The model's numbers for this snap's 4th down, for its play record.
@@ -1683,6 +1779,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         ctl: if ctl.team < 2 { Some(ctl) } else { None },
         paused: false,
         probe: None,
+        subs: true,
         snap_input: None,
         fourth_note: None,
         mark: (false, false, false, String::new()),
@@ -4862,7 +4959,18 @@ impl<'a> Game<'a> {
         }
         line(Position::IOL, &[ORole::LG, ORole::C, ORole::RG], &mut used, &mut off, gl);
         let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back() && *r != ORole::FB).collect();
-        add(o.pick_pref(Position::RB, backs.len(), &mut used, gl), &backs, &mut off);
+        // The staff's back for this down (item 11), when no package of
+        // yours names the backs.
+        let rbs = match self.situational_back(self.poss, &self.situation()) {
+            Some(b) if gl.is_none() && !backs.is_empty() && !used.contains(&b) => {
+                used.push(b);
+                let mut v = vec![b];
+                v.extend(o.pick(Position::RB, backs.len() - 1, &mut used));
+                v
+            }
+            _ => o.pick_pref(Position::RB, backs.len(), &mut used, gl),
+        };
+        add(rbs, &backs, &mut off);
         let wrs: Vec<ORole> = roles
             .iter()
             .copied()
@@ -5413,6 +5521,7 @@ impl<'a> Game<'a> {
             shots: self.sides[o].shots_lean(),
             lean: self.sides[o].lean(),
             players: self.rules().code.players,
+            fit: self.off_fit(&sit),
         };
         let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
         // Your four-minute plan (update 2, G4): run it out, or keep
@@ -5511,7 +5620,7 @@ impl<'a> Game<'a> {
         let qb_watch = qb.map_or(0.0, |i| qb_spy(&self.sides[o].team.players[i]));
         let hitter = self.sides[1 - o].safety_hitter(self.rules().level);
         let heavy = self.sides[1 - o].blitz_lean(self.rules().level);
-        let mut dctx = calling::DefCtx { qb_run: qb_watch, hitter, heavy, ..Default::default() };
+        let mut dctx = calling::DefCtx { qb_run: qb_watch, hitter, heavy, fit: self.def_fit(), ..Default::default() };
         // Our call words in their hands (update 2, G5): someone who left
         // with them reads the call like a tell.
         let leak = self.sides[o].team.prep.leak[0];
@@ -5589,7 +5698,7 @@ impl<'a> Game<'a> {
             self.legal_defense(dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four)));
         self.sides[d].frozen = self.no_huddle;
         // Who sits by the week's plan this snap (G14, G15).
-        let passing = (self.down >= 3 && self.togo >= 4.0) || (self.down == 2 && self.togo >= 8.0) || sit.hurry();
+        let passing = passing_down(&sit);
         for k in 0..2 {
             self.sides[k].passing = passing;
             self.sides[k].series = self.stats.team[1 - k].drives as u16;
@@ -7616,8 +7725,72 @@ impl<'a> Game<'a> {
             shots: self.sides[o].shots_lean(),
             lean: self.sides[o].lean(),
             players: self.rules().code.players,
+            fit: self.off_fit(&self.situation()),
         };
         (ctx, qb_threat)
+    }
+
+    /// What each call gains from the offense's men on this snap (lane SF10,
+    /// `roster_fit`), with the back its staff puts on for the down.
+    fn off_fit(&self, sit: &Situation) -> roster_fit::OffFit {
+        let o = self.poss;
+        let side = &self.sides[o];
+        let men = side.off_men(self.situational_back(o, sit));
+        if let Some((m, f)) = side.off_memo.get()
+            && m == men
+        {
+            return f;
+        }
+        let f = roster_fit::OffFit::of(&side.team.players, &men, self.rules().level);
+        side.off_memo.set(Some((men, f)));
+        f
+    }
+
+    /// What each look gives up with the defense's men on this snap.
+    fn def_fit(&self) -> roster_fit::DefFit {
+        let side = &self.sides[1 - self.poss];
+        let men = side.def_men();
+        if let Some((m, f)) = side.def_memo.get()
+            && m == men
+        {
+            return f;
+        }
+        let f = roster_fit::DefFit::of(&side.team.players, &men, self.rules().level);
+        side.def_memo.set(Some((men, f)));
+        f
+    }
+
+    /// The back an AI staff puts on for this down (scheme-fit item 11): on
+    /// short yardage the back with whom the snap converts most often, on a
+    /// passing down the one with whom those convert (`roster_fit::
+    /// back_value`, as the engine pays them: on third and short a heavier
+    /// back who drives his legs; on third and long the engine pays no
+    /// back's hands or protection in conversions yet, so none comes on),
+    /// among the backs fresh enough to go in, when he converts more often
+    /// by `roster_fit::SIT_EDGE`. None when nobody beats the back the
+    /// depth chart plays by that much, on other downs, and for your own
+    /// team, which plays your depth chart and packages.
+    fn situational_back(&self, o: usize, sit: &Situation) -> Option<usize> {
+        if !self.subs || self.user_is(o) {
+            return None;
+        }
+        let short = calling::short_call(sit);
+        if !short && !passing_down(sit) {
+            return None;
+        }
+        let side = &self.sides[o];
+        let level = self.rules().level;
+        let th = if side.frozen { 0.0 } else { side.threshold(Position::RB) };
+        let list = side.depth.list(Position::RB);
+        let first = list.iter().copied().find(|&i| side.can_go(i))?;
+        let value = |i: usize| roster_fit::back_value(&side.team.players[i], level, short);
+        let best = list
+            .iter()
+            .copied()
+            .filter(|&i| side.can_go(i) && !side.held(i) && side.energy[i] >= th)
+            .map(|i| (i, value(i)))
+            .max_by(|a, b| a.1.total_cmp(&b.1))?;
+        (best.0 != first && best.1 > value(first) + roster_fit::SIT_EDGE).then_some(best.0)
     }
 
     /// The play caller's other calls from this box, in his order of
@@ -7661,6 +7834,7 @@ impl<'a> Game<'a> {
             tip: 0.0,
             hitter: self.sides[d].safety_hitter(level),
             heavy: self.sides[d].blitz_lean(level),
+            fit: self.def_fit(),
         };
         let base = (self.s.seed as u32) ^ self.n.wrapping_mul(0x7FEB_352D) ^ 0x0DEF_0BEE;
         let mut seen: Vec<(DefCall, usize)> = vec![(*staff_call, 1)];
@@ -8367,6 +8541,7 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         ctl: None,
         paused: false,
         probe: None,
+        subs: false,
         snap_input: None,
         fourth_note: None,
         mark: (false, false, false, String::new()),
@@ -8426,6 +8601,28 @@ pub fn trace_snap_opt(
     let r = g.run_scrimmage_call(call, Some(dcall));
     super::sim::TRACE.store(false, std::sync::atomic::Ordering::Relaxed);
     r
+}
+
+/// One snap of `call` against `dcall` on a down and distance, for the
+/// tools that measure what a call gains with a team's men
+/// (`call_values roster`): `trace_snap_opt` from any down.
+#[allow(clippy::too_many_arguments)]
+pub fn trace_snap_at(
+    off: &GameTeam,
+    def: &GameTeam,
+    level: Level,
+    call: OffCall,
+    dcall: DefCall,
+    los: f64,
+    down: u8,
+    togo: f64,
+    seed: u64,
+) -> PlayRecord {
+    let setup = GameSetup::new(off, def, level, seed);
+    let mut g = bare_game(&setup, off, def, los, seed);
+    g.down = down;
+    g.togo = togo;
+    g.run_scrimmage_call(call, Some(dcall))
 }
 
 /// One kickoff by `off` to `def` with the level's rules, for the trace
@@ -8686,6 +8883,12 @@ pub fn fg_make_in(p: &GamePlayer, dist: f64, cond: &Conditions, along: f64) -> f
     let p_line = 1.0 - 2.0 * (1.0 - phi(z));
     let p_range = phi((reach - dist) / 3.0);
     p_line * p_range
+}
+
+/// A passing down (G14, item 11): third or fourth and 4 or more, second
+/// and 8 or more, or the hurry-up.
+fn passing_down(sit: &Situation) -> bool {
+    (sit.down >= 3 && sit.togo >= 4.0) || (sit.down == 2 && sit.togo >= 8.0) || sit.hurry()
 }
 
 /// How much a quarterback threatens to run, 0-1 (topic 5.4): a spy and the
