@@ -14,6 +14,9 @@
 //! of the field. Least squares on the engine's plays at each level.
 //! Proposed, not confirmed: the features.
 
+// Fitted tables: a refit can land a value near a named constant.
+#![allow(clippy::approx_constant)]
+
 use crate::player::Level;
 
 /// The levels in `XRUSH` and `XYAC` order (as `XCOMP`'s).
