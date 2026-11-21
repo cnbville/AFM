@@ -2397,6 +2397,84 @@ Tried and dropped (the lane's first build, the same seeds):
 
 Still off (`GAPS.md`, Engine): the passer finds a bust's free man only on his normal reads, so busts still barely move points; a heavy safety is no longer walked into the box, since the call has no job for it; the defense's holds against zone and on runs (from lane EG5) are not built, and the hand fight is still sized on seed 1.
 
+## Blitzing and the quick 3-technique (scheme-fit lane SF8, items 21 and 22, 2026-11-20)
+
+Design: `docs/design/scheme-fit.md`, items 21 and 22. Blitzing decides how fast a blitzer gets home and whether he beats the back's pickup: real off-ball linebackers get 0.140 pressures a blitz with a true spread of 0.051 (PFR 2018-24), so a good blitzer gets about a third more (item 21). A quick 3-technique's wins become pressure (item 22).
+
+How it was measured: `fit_check` on the audit's seeds, main 78f55db and after: Blitzing +15 for the Mike, Will, Sam, strong safety and nickel in West Coast and man pressure, and Power Rush and Finesse Rush +15 for the first edge and the first tackle (West Coast), at the NFL (seed 161, 2,400 games an arm) and FBS (seed 151, 3,000), with the tool's new item 21 and 22 rows (a man's blitzes and his own pressures on them, from the play record's new `rushed` bits, and the share of a rusher's won reps that became his pressure); `match_check` at the NFL, FBS and high school on seeds 1 and 2 (2,000 games, `AFM_GAPS=1`); and a scratch read-out on the NFL test league (300 and 1,000 games, not committed): each move's wins and stalled reps and what became of them, the yards to the passer at the shed, and each blitz by slot and by who picked him up.
+
+What was wrong on main:
+
+- **Blitzing didn't decide the blitz.** It was read for who goes (`lb_blitzer`) and for the back's pickup (`picks_up`) only. Once sent, a blitzer rushed on his own Finesse Rush and Power Rush and left at the snap like every other. The Mike's Blitzing +15 sent him 2.3 and 8.8 more times a season at the NFL (West Coast, man pressure) and moved his pressures a blitz by -0.007 and -0.000; the Will's and the Sam's moved within 0.004 at both levels.
+- **A won finesse rep came off in front of the blocker.** Every pass rep stood where the two men met, so a speed or finesse win was shed with the blocker still between the rusher and the passer, and came off at the bull rush's pace. On the NFL test league (300 games) a tackle's finesse win came off 5.6 yards from the passer (a bull rush win 4.5), and 16% of them became pressure (bull rush wins 48%); an edge's finesse and speed wins 14% and 18% (his bull rush wins 23%).
+- **A stalled speed or finesse rep gave half the ground.** The pocket's drive was scaled whole by the move (1.4 on a bull rush, 0.7 otherwise), so a rep nobody was winning pushed the pocket at 0.18 yards a second on a speed or finesse move and 0.35 on a bull rush: a tackle's stalled bull rush became pressure on 3.2% of his reps, his stalled finesse move on 0.9%. Given Finesse Rush +15, a tackle went to the move more, won 3.8 more reps a hundred and got 4.0 fewer pressures a season at the NFL (2.3 and 2.7 at FBS).
+
+What changed (`game/sim.rs` and `game/scrimmage.rs`; every size proposed, not confirmed):
+
+- **A blitzer's moves read his Blitzing** (item 21; `blitzer`, `rush_moves`). A man rushing from off the line (a linebacker, corner, nickel or safety by the spot he lines up in) reads his Finesse Rush and Power Rush in every move as his level's typical man's at his position plus his Blitzing over the typical man's, against a lineman or a back alike, and his snap read in the get-off is the typical man's Anticipation plus the same. The typical man rushes as before, and the back's pickup still reads it (`picks_up`).
+- **He times the snap** (item 21; `blitz_timing`, `BLITZ_JUMP` 0.1 s). A blitzer above the typical man is already moving at the snap, 0.1 s of his sprint for each 10 points over, toward his lane at the line; one below leaves as late, creeping until then (`hold_until`).
+- **A speed or finesse win works round the blocker** (item 22; `around`, `HIP_TURN` 1.5, `HIP_EASE` 0.25 s). The rusher stands 0.9 yards from his blocker, square in front while the rep is even or lost, and works round his shoulder toward his own side as he wins it: at the blocker's hip two thirds of the way to the shed, past it toward the blocker's back at the shed. A bull rush stays in front, driving through the man, and a rusher fooled by a fake or doubled stays where they meet. A speed or finesse win comes off toward the passer at the speed win's pace (0.6 × 0.4 × his top speed, a bull rush 0.3).
+- **The set gives ground whatever the move** (item 22; `POCKET_GIVE` 0.35 yd/s). An engaged pass block gives 0.35 yards a second toward the passer on any move, and what the rusher wins on top of it, up to 0.65 at the shed, is driven at 1.4 on a bull rush and 0.7 otherwise. The bull rush's drive is the same as before.
+- **Who rushed** (`PlayRecord::rushed`). Each dropback keeps a bit for each defender who rushed, so a blitz counts whether or not he was blocked; it changes nothing in the play.
+
+What the ratings are worth (`fit_check`, the change against the typical arm, main > after; * past the noise, |z| of 1.96 or more; two numbers are West Coast and man pressure):
+
+| arm | measure | NFL main | NFL after | FBS main | FBS after |
+|---|---|---|---|---|---|
+| DT1 Finesse Rush +15 | pressures a season | -4.0* | +3.5* | -2.7* | +0.5 |
+| | sacks a season | -0.65* | +2.18* | -0.43* | +0.84* |
+| | rush wins a 100 reps | +3.8* | +3.2* | +2.3* | +2.1* |
+| DT1 Power Rush +15 | pressures a season | +13.7* | +10.9* | +10.1* | +9.1* |
+| | sacks a season | +2.68* | +1.77* | +2.15* | +1.81* |
+| EDGE1 Finesse Rush +15 | pressures a season | +2.4* | +6.3* | +3.0* | +5.2* |
+| | sacks a season | +0.68* | +1.70* | +0.72* | +1.31* |
+| EDGE1 Power Rush +15 | pressures a season | +1.0* | +0.5 | +1.3* | +0.7* |
+| | sacks a season | +0.45* | -0.10 | +0.26* | +0.23* |
+| Mike Blitzing +15 | pressures a blitz | -0.007, -0.000 | +0.040*, +0.067* | +0.000, -0.001 | +0.044*, +0.042* |
+| | pressures a season | -0.1, +0.9* | +2.4*, +9.2* | +0.1, +0.3* | +1.7*, +3.8* |
+| | sacks a season | -0.18, +0.47* | +0.85*, +3.52* | +0.03, +0.09 | +0.43*, +1.08* |
+| Will Blitzing +15 | pressures a blitz | +0.001, -0.002 | +0.023*, +0.027* | -0.003*, +0.001 | +0.024*, +0.034* |
+| Sam Blitzing +15 | pressures a blitz | -0.003, +0.001 | +0.051*, +0.055* | +0.004, +0.002 | +0.036*, +0.031* |
+| SS Blitzing +15 | pressures a blitz | -0.001, -0.002 | +0.006, +0.004 | +0.001, +0.001 | +0.005, +0.013* |
+| Nickel Blitzing +15 | pressures a blitz | +0.002, +0.000 | +0.011*, +0.012* | +0.003*, +0.002* | +0.013*, +0.014* |
+
+No arm moves points allowed past the noise at either level (the largest -0.31 and +0.25 a game); the first tackle's Power Rush +15 at FBS saved 0.57 points a game on main (past it) and 0.26 after.
+
+The typical team (main > after; two numbers are West Coast and man pressure): its first tackle's pressures a season NFL 14.6 > 17.4 and FBS 12.7 > 13.5, its first edge's 7.8 > 10.2 and 6.6 > 8.1 (West Coast); a rush win that became the rusher's own pressure, tackles NFL 38.9 and 42.3% > 50.4 and 53.2%, FBS 44.0 and 47.6% > 50.8 and 53.0%, edges NFL 14.5 and 16.5% > 26.7 and 31.2%, FBS 20.3 and 23.2% > 30.6 and 34.1%; the Mike's pressures a blitz NFL 0.086 and 0.096 > 0.097 and 0.109, FBS 0.057 and 0.067 > 0.063 and 0.077, the linebackers' together NFL 0.052 and 0.059 > 0.058 and 0.068, FBS 0.048 and 0.054 > 0.054 and 0.066 (real 0.140); the team's pressure rate NFL 15.9 and 21.5% > 19.6 and 25.6% (real 22.2%), its sack rate 3.1 and 5.0% > 4.5 and 6.7% (real 6.8%).
+
+The league (2,000 games a seed, main > after):
+
+| | NFL seed 1 | NFL seed 2 | FBS seed 1 | FBS seed 2 | high school seed 1 | high school seed 2 | real NFL |
+|---|---|---|---|---|---|---|---|
+| points a team game | 27.63 > 26.95 | 28.71 > 28.05 | 26.29 > 25.62 | 26.51 > 25.81 | 20.85 > 20.61 | 20.13 > 19.82 | 22.51 |
+| sacks a team game | 1.28 > 1.59 | 1.15 > 1.57 | 1.51 > 1.90 | 1.37 > 1.81 | 1.46 > 1.84 | 1.30 > 1.74 | 2.41 (FBS 2.00) |
+| pressure rate | 17.6 > 20.3 | 17.3 > 20.2 | 21.3 > 24.2 | 21.2 > 24.2 | 26.1 > 30.1 | 24.4 > 28.4 | 22.2 |
+| sacks a pressure | 0.194 > 0.211 | 0.176 > 0.208 | 0.195 > 0.221 | 0.182 > 0.214 | 0.233 > 0.256 | 0.207 > 0.240 | 0.283 |
+| time to throw, s | 2.47 > 2.44 | 2.40 > 2.38 | 2.50 > 2.48 | 2.47 > 2.45 | 2.60 > 2.57 | 2.55 > 2.53 | 2.71 |
+| completion rate | 66.3 > 66.5 | 67.8 > 67.9 | 62.3 > 62.1 | 62.8 > 63.0 | 59.3 > 59.2 | 60.3 > 60.8 | 64.5 |
+| yards an attempt | 7.61 > 7.59 | 8.00 > 7.99 | 7.81 > 7.75 | 8.03 > 8.12 | 7.19 > 7.16 | 7.36 > 7.42 | 7.05 |
+| interceptions a team game | 0.836 > 0.811 | 0.738 > 0.747 | 0.669 > 0.619 | 0.590 > 0.560 | 0.321 > 0.294 | 0.325 > 0.298 | 0.756 (FBS 0.804) |
+| third down conversion | 45.8 > 45.2 | 46.9 > 46.1 | 43.2 > 42.1 | 43.4 > 42.5 | 41.3 > 40.2 | 41.5 > 40.9 | 39.8 |
+
+Why:
+
+- **Blitzing decides the blitz** (item 21). A Mike 15 points over the typical man (about two standard deviations of the test league's starting linebackers, 6.8 points) gets 41% and 61% more pressures a blitz at the NFL and 70% and 55% at FBS: 19% to 28% more a standard deviation of Blitzing alone at the NFL, inside real's 36% a standard deviation of everything that makes a blitzer (0.051 of 0.140). His start alone gives +0.021 a blitz and his moves alone +0.019 (the Mike in man pressure at the NFL), and the two together +0.067, more than apart. The Sam gains about as much a blitz at the NFL (+0.051 and +0.055) and the Will about half (+0.023 and +0.027), from lower bases; at FBS all three gain 0.024 to 0.044. A nickel's or a safety's +15 moves little (+0.004 to +0.014): three in four of their rushes are never blocked and still get home only 1.7% of the time on the NFL test league, which Blitzing doesn't reach (below). The typical man's moves and start are as before; the typical team's linebackers' own pressures a blitz rise 0.006 to 0.012 with item 22's changes, which reach every blocked rusher (a lineman picks up 77% of linebackers' blitzes on the NFL test league, 1,000 games).
+- **A quick 3-technique's wins become pressure** (item 22). A tackle's finesse win now comes off at his blocker's hip or past it, 4.8 yards from the passer (main 5.6), and 52% of them become pressure (main 16%; a bull rush win 46%, main 48%); his stalled finesse move becomes pressure on 1.4% of reps (main 0.9%; his stalled bull rush 3.0%, main 3.2%; NFL test league, 300 games). So the first tackle's Finesse Rush +15 adds 3.5 pressures and 2.2 sacks a season at the NFL (main -4.0 and -0.65) and 0.84 sacks at FBS (main -0.43). His Power Rush +15 still adds more pressures (10.9 and 9.1), since the bull rush wins more reps (4.2 more a hundred against 3.2 at the NFL), and he now gets his pressures from the wins themselves, not from a better mix of moves (his share of wins that became pressure moves +0.3 and +1.5 points, main +10.9 and +5.6). An edge's speed and finesse wins become pressure 34% of the time (main 18% and 14%; his bull rush wins 23%), so his Finesse Rush +15 adds 6.3 and 5.2 pressures a season (main 2.4 and 3.0) and his Power Rush +15 less than on main (0.5 and 0.7, main 1.0 and 1.3): going to the bull rush no longer gets him wins that convert better.
+- **The league's rush comes closer to real.** Pressure rises 2.7 to 4.0 points of dropbacks at every level and sacks 0.31 to 0.44 a team game: NFL sacks 1.59 and 1.57 (main 1.28 and 1.15, real 2.41), FBS 1.90 and 1.81 (real 2.00), NFL pressure 20.3% and 20.2% (real 22.2%), sacks a pressure 0.21 (real 0.283). Points fall 0.66 to 0.70 a team game at the NFL and FBS and 0.24 and 0.30 at high school, every total inside its test band. The passer throws 0.02 s sooner, third down falls 0.6 to 1.1 points toward real at the NFL and FBS, and picks fall 0.03 to 0.05 a team game at FBS and high school (FBS seed 1 2.02% of attempts to 1.94%; further below real at FBS, not looked into).
+
+The coaches' call table (`call_values 2000` on main and after): the lane leaves its run cells as they were (the pass rush doesn't reach a run) and moves its straight pass cells 0.48 yards a cell (the mean of |change|; at most 11.7): against four rushers 0.02 to 0.31 yards a snap less, against Cover 0's double A gap blitz 0.41 less, against the linebacker blitz from 0.16 less to 0.24 more by coverage. The rows the table takes from a new run (the three play-action concepts, the fakes' changes and the run rows, `tools/call_values/compose.py`) move 0.35 yards a cell with the lane, less than main's own new run moves them off the committed table (0.84), so the committed table stands, as at lanes SF4, SF6 and SF7; the straight pass rows wait for minor bug 405.
+
+Speed (`match_check`, 2,000 games at each level on seed 1, main 78f55db and the lane in turn on an otherwise quiet machine, two rounds with the order swapped; the tool's own time): the NFL -4.8% (17.70 s to 16.85 a run; pairs -9.6% and +0.6%, main's first run slow), FBS +0.3% (18.15 to 18.20; +1.1% and -0.6%), high school +0.8% (11.90 to 12.00; +0.8% both), inside a pair's noise.
+
+Tried and dropped (the same seeds):
+
+- **The rusher at the hip at the shed** (`HIP_TURN` 1): 39% of a tackle's finesse wins became pressure (bull rush wins 47%), and his Finesse Rush +15 still cost 1.4 pressures a season at the NFL.
+- **Further round** (`HIP_TURN` 2 and 3): 44% of his finesse wins became pressure, but 43% to 47% of those were sacks (of the whole league's pressures about 21% are sacks, real 28%).
+- **A faster exit off a finesse win** (1.0 and 1.5 × the speed win's pace) and a quicker turn (`HIP_EASE` 0.1 s): no more of his wins became pressure, as the passer let it go sooner.
+- **The set's give at main's 0.25 on every move**: the bull rush gave 0.1 yards a second less ground, and the typical tackle's pressures fell to 12.5 and 12.8 a season at the NFL (main 14.6).
+
+Still off (`GAPS.md`, Engine): linebackers' blitzes get home half as often as real (the typical team's 0.058 and 0.068 pressures a blitz, real 0.140), with a lineman on 77% of them; the Will's blitz gets home a quarter as often as the Mike's; a defensive back's rush almost never gets home when nobody blocks him; edges get fewer pressures than tackles; at FBS the first tackle's Finesse Rush +15 adds sacks but no pressures past the noise; NFL sacks are still a third short of real, now mostly the passer's quick clock (67% and 72% of throws inside 2.5 s, real 50%), lane EG7's. The Data section counts a blitz only when he was blocked or got pressure (`GAPS.md`, Logic).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).

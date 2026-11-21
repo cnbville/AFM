@@ -376,6 +376,11 @@ pub struct SnapResult {
     /// fumble's yards run to it (engine gaps item 4).
     #[serde(default)]
     pub fumble_at: Option<f64>,
+    /// The men who rushed the passer on a dropback, as the defense's player
+    /// indices (scheme-fit lane SF8: the Data section counts blitzes from
+    /// it). Empty on runs and kicks.
+    #[serde(default)]
+    pub rushed: Vec<usize>,
 }
 
 struct Pass {
@@ -681,6 +686,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         work: Vec::new(),
         new_series: false,
         fumble_at: None,
+        rushed: Vec::new(),
     };
     res.box_count =
         sim.agents.iter().filter(|a| a.side == 1 && a.pos.x < los + 7.0 && (a.pos.y - by).abs() < 7.5).count() as u8;
@@ -1132,6 +1138,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let fake_block =
                 pass.as_ref().and_then(|ps| ps.fake.as_ref()).filter(|fk| fk.route == Route::Block).map(|fk| fk.man);
             chart_rush(&mut sim, off_n, &slot_of, by, fake_block);
+            res.rushed = (off_n..sim.agents.len())
+                .filter(|&i| matches!(sim.agents[i].job, Job::Rush { .. }))
+                .map(|i| sim.agents[i].p)
+                .collect();
+            blitz_timing(&mut sim, off_n, los);
             // The matchup plan (topic 5.4): the quarterback looks first at
             // the receiver on the corner the staff wants to attack, when that
             // man is in the progression.
@@ -3371,6 +3382,34 @@ fn assign_defense(
                     *lag += 0.3;
                 }
             }
+        }
+    }
+}
+
+/// Seconds of his sprint a blitzer is ahead at the snap for each 10 points
+/// of Blitzing over his level's typical man at his position, or late below
+/// him (scheme-fit item 21). Proposed, not confirmed.
+const BLITZ_JUMP: f64 = 0.1;
+
+/// Timing the snap (scheme-fit item 21): a blitzer who times the cadence
+/// is already moving at the snap, `BLITZ_JUMP` seconds of his sprint a ten
+/// points of Blitzing over his level's typical man at his position, and one
+/// below him leaves as late, creeping up until then (`hold_until`). The
+/// typical man starts at the snap, as every blitzer did.
+fn blitz_timing(sim: &mut Sim, off_n: usize, los: f64) {
+    for i in off_n..sim.agents.len() {
+        if !matches!(sim.agents[i].job, Job::Rush { .. }) || !super::sim::blitzer(sim.agents[i].label) {
+            continue;
+        }
+        let typ = super::synthetic::typical(sim.level, sim.player(i).position, Attr::Blitzing);
+        let jump = BLITZ_JUMP * (sim.agents[i].a(Attr::Blitzing) - typ) / 10.0;
+        let a = &mut sim.agents[i];
+        let Job::Rush { lane, .. } = a.job else { continue };
+        if jump > 0.0 {
+            let v0 = a.vmax * (1.0 - (-jump / a.tau.max(0.05)).exp());
+            a.vel = (v2(los, lane) - a.pos).norm().scale(v0);
+        } else if jump < 0.0 {
+            a.hold_until = -jump;
         }
     }
 }
