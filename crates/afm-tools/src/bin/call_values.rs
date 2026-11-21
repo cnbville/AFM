@@ -847,6 +847,9 @@ const KEEP: f64 = 2.5;
 /// DerSimonian-Laird); a weight is kept only as far as it stands past
 /// `KEEP` of its noise (a soft threshold), so a pair the engine doesn't
 /// reward reads nothing.
+// `j` is the pair in every member cell's fit and in `out[k]`, with `k`
+// running over the kind's cells, so no one slice's iterator stands in for it.
+#[allow(clippy::needless_range_loop)]
 fn shrink(cells: &[Cell], fits: &[(Vec<f64>, Vec<f64>)]) -> Vec<Vec<f64>> {
     let pairs = fits[0].0.len();
     let mut out = vec![vec![0.0; pairs]; cells.len()];
