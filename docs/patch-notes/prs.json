@@ -2669,5 +2669,20 @@
   "players": true,
   "title": "SF10: the roster shapes the call",
   "tldr": "AI play callers now build their calls around their own players, so a defense with lockdown corners plays more man and a team with a big arm takes more shots."
+ },
+ "608": {
+  "auto": false,
+  "bullets": [
+   "Runs of 20 yards or more come as often as in real football, with fewer runaway 60-yard sprints.",
+   "A fast back beats the pursuit angle; a slow one gets caught from the side.",
+   "Safeties play the run by their coverage job: the deep middle man stays home as the last line, and the alley player comes up to fill.",
+   "Ball carriers run at their true speed, so linebackers no longer run backs down from behind.",
+   "Yards after the catch stay right where real receivers get them."
+  ],
+  "h": "37051f9210d9",
+  "look": "a fast back's long runs, and who makes the tackle on them in the play-by-play.",
+  "players": true,
+  "title": "Scheme fit lane SF9b: the open-field tackle for runs, the catch and returns",
+  "tldr": "Long runs now break like real ones: a back who gets to the second level can go the distance, and a fast back's speed finally shows on the big runs."
  }
 }

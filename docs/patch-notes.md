@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.675 (21 Nov, shipped): scheme fit lane SF9b: the open-field tackle for runs, the catch and returns (PR #608)
+**TLDR:** Long runs now break like real ones: a back who gets to the second level can go the distance, and a fast back's speed finally shows on the big runs.
+- Runs of 20 yards or more come as often as in real football, with fewer runaway 60-yard sprints. (PR #608)
+- A fast back beats the pursuit angle; a slow one gets caught from the side. (PR #608)
+- Safeties play the run by their coverage job: the deep middle man stays home as the last line, and the alley player comes up to fill. (PR #608)
+- Ball carriers run at their true speed, so linebackers no longer run backs down from behind. (PR #608)
+- Yards after the catch stay right where real receivers get them. (PR #608)
+- Look at: a fast back's long runs, and who makes the tackle on them in the play-by-play. (PR #608)
+
 ## 0.2.674 (21 Nov, shipped): SF10: the roster shapes the call (PR #607)
 **TLDR:** AI play callers now build their calls around their own players, so a defense with lockdown corners plays more man and a team with a big arm takes more shots.
 - Every run, throw, personnel group, coverage and blitz leans toward what the caller's own men do best, and a sharper coordinator leans harder. (PR #607)

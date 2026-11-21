@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.675", date: "21 Nov", title: "Scheme fit lane SF9b: the open-field tackle for runs, the catch and returns",
+    notes: [
+      "Long runs now break like real ones: a back who gets to the second level can go the distance, and a fast back's speed finally shows on the big runs.",
+      "Runs of 20 yards or more come as often as in real football, with fewer runaway 60-yard sprints.",
+      "A fast back beats the pursuit angle; a slow one gets caught from the side.",
+      "Safeties play the run by their coverage job: the deep middle man stays home as the last line, and the alley player comes up to fill.",
+      "Ball carriers run at their true speed, so linebackers no longer run backs down from behind.",
+      "Yards after the catch stay right where real receivers get them.",
+    ],
+  },
+  {
     v: "0.2.674", date: "21 Nov", title: "SF10: the roster shapes the call",
     notes: [
       "AI play callers now build their calls around their own players, so a defense with lockdown corners plays more man and a team with a big arm takes more shots.",
