@@ -62,7 +62,7 @@ There is no high school play-by-play dataset yet, so the HS column has no real f
 - **Kickoffs**: NFL returns average 18 against 26.5. College and high school returns average about 10, because the synthetic kickers there are weak and their kicks land short. The real kickoff data predates the NFL's 2025 rule.
 - **High school plays** (83 a team) are far above real high school games (12-minute quarters).
 - **FBS completion** is about 7 points under the real figure (it was 4 before the physics fixes made the quarterback count; high school fell from 47% to 45% the same way). The lower levels' receivers and coverage are as far behind as their quarterbacks, so the fix is likely in the catch and coverage, not the throw.
-- **Explosive runs are rare** at the NFL level (3.6% of carries gain 10+, real 11.6%): with the line deciding runs, a won block seals a defender for good but the back's breakaways through the second level got rarer.
+- **Explosive runs are rare** at the NFL level: backs' designed runs gain 10+ on 8.8% of carries (real 10.4% in 2024) and 20+ on 1.0% (2.3%), on 4,000 games over lane SF9 (2026-11-21; 3.6% of carries gained 10+ when this list was written). The cause and what was tried are in "Short yardage and long runs" below.
 - **Returns fell** with the physics fixes: NFL punt returns average 7.3 (9.5 real, 8.7 before), kickoffs 16.7 (18.2 before). Starters no longer return kicks, so the returners are backups (a Claude pick, proposed, not confirmed; returns are on Raichel's open list).
 - **Passing yards run high** at the NFL level (8.2 a throw against 7.05, 11.6% explosive against 8.8%): coordinators who know what beats what pick good passes, and the coverage doesn't yet take everything back.
 
@@ -2474,6 +2474,68 @@ Tried and dropped (the same seeds):
 - **The set's give at main's 0.25 on every move**: the bull rush gave 0.1 yards a second less ground, and the typical tackle's pressures fell to 12.5 and 12.8 a season at the NFL (main 14.6).
 
 Still off (`GAPS.md`, Engine): linebackers' blitzes get home half as often as real (the typical team's 0.058 and 0.068 pressures a blitz, real 0.140), with a lineman on 77% of them; the Will's blitz gets home a quarter as often as the Mike's; a defensive back's rush almost never gets home when nobody blocks him; edges get fewer pressures than tackles; at FBS the first tackle's Finesse Rush +15 adds sacks but no pressures past the noise; NFL sacks are still a third short of real, now mostly the passer's quick clock (67% and 72% of throws inside 2.5 s, real 50%), lane EG7's. The Data section counts a blitz only when he was blocked or got pressure (`GAPS.md`, Logic).
+
+## Short yardage and long runs (scheme-fit lane SF9, items 8 and 9, 2026-11-21)
+
+Design: `docs/design/scheme-fit.md`, items 8 and 9. On third and fourth down with 2 or less to go, real NFL backs convert 66.9% of their designed runs and quarterbacks 82.7% (nflverse 2024; quarterbacks 78.9% over 2022-24, the spec's 79%) (item 8). Backs' designed runs of 20+ yards are 2.2 to 2.4% of real carries and runs of 10+ 10.6%, and a burner's speed should then be worth what it really is (item 9). Item 8 is built. Item 9 is traced and stopped: its fix is the open-field tackle, which reaches the catch and the returns too, past the lane's spec (below).
+
+How it was measured: `match_check` with `AFM_RUNDIAG=1` and the lane's new SF9 read-out (backs' designed runs: the share gaining k yards or more, wide of the tackles and inside, who ends them by length, missed tackles, short yardage by distance, box and field, and quarterbacks' short yardage, each beside nflverse 2024, with FTN's 2024 charting for sneaks), 4,000 games at the NFL and FBS on seed 11, main 3a04dae and after, and every variant below on the same NFL games; `match_check` at the NFL, FBS and high school on seeds 1 and 2 (2,000 games, `AFM_GAPS=1`); `fit_check`'s typical arms in all 12 contexts on the audit's seeds, main and after.
+
+What was wrong on main:
+
+- **A linebacker filled past the sticks** (item 8). He fills to 2.6 yards past the line on a run and holds at 2.1 once he is nearly on the runner (minor bug 164, bug 305), whatever the distance. On third and 1 he met the back past the line to gain, so his stop there was a first down. NFL backs converted 74.7% of their designed runs on third and fourth down and 2 or less (real 66.9%): to go 1 78.1% (69.1%), to go 2 65.5% (60.8%), against a 6-, 7- and 8-man box 75.9%, 75.8% and 76.5% (68.2%, 69.4% and 62.0%). Linebackers ended 20.0% of those runs, 2.95 yards past the line (real 24.5% at 2.17), and on third and 1 9.6% of the backs' runs gained nothing (real 21.0%). FBS backs converted 76.5%.
+- **Long runs half of real** (item 9). Backs' designed runs of 10+ are 8.85% of carries (real 10.4% in 2024) and of 20+ 1.02% (2.26%), while runs of 5 to 9 yards are 32.3% (24.5%): the middle is fat and the tail thin. Of the runs that reach 10, 11.5% go on to 20 (real 21.8%). Safeties end 49.2% of the 5-9 yard runs (real 23.3%) and 73.6% of the 10-19 (46.8%). Inside the tackles backs gain 3.92 a carry (real 4.26), 6.8% go 10+ (9.6%) and 0.81% 20+ (1.93%); wide of them 5.25 (4.72), 13.3% (13.5%) and 1.47% (3.69%).
+
+What changed (`game/scrimmage.rs`, `lb_fill`; the size proposed, not confirmed):
+
+- **A linebacker plays the sticks** (item 8; `lb_fill`, `LB_FILL` 2.6, `LB_HOLD` 2.1, `LB_STICKS` 0.25). On third and fourth down his fill, his hold and the depth of his flow over the top stop a quarter yard short of the line to gain when that is nearer: on third and 1 he fills to 0.75 yards past the line, on third and 2 to 1.75. Every other down is as before.
+
+Short yardage, 4,000 games on seed 11 (main > after; real nflverse 2024):
+
+| | NFL | FBS | real NFL |
+|---|---|---|---|
+| backs, 3rd and 4th and 2 or less | 74.7% > 66.9% | 76.5% > 70.9% | 66.9% |
+| to go 1 | 78.1% > 69.9% | 81.9% > 75.0% | 69.1% |
+| to go 2 | 65.5% > 58.7% | 65.0% > 62.2% | 60.8% |
+| 6-, 7- and 8-man box | 75.9, 75.8, 76.5% > 69.7, 68.0, 68.2% | | 68.2, 69.4, 62.0% |
+| linebackers' stops, share and yards | 20.0% at 2.95 > 29.3% at 1.85 | | 24.5% at 2.17 |
+| to go 1, no gain | 9.6% > 15.6% | | 21.0% |
+| quarterbacks | 85.1% > 84.7% | 84.1% > 83.0% | 82.7% (2022-24 78.9%) |
+| sneaks | 88.8% > 88.2% | 89.1% > 88.7% | 85.2% (FTN) |
+| fourth down conversion, all plays | 53.3% > 52.0% | 51.1% > 50.9% | 53.7% |
+| third down conversion | 44.6% > 43.7% | 41.7% > 41.0% | 39.8% (FBS 40.3%) |
+
+The league (2,000 games a seed, main > after):
+
+| | NFL seed 1 | NFL seed 2 | FBS seed 1 | FBS seed 2 | high school seed 1 | high school seed 2 | real NFL |
+|---|---|---|---|---|---|---|---|
+| points a team game | 26.95 > 26.77 | 28.05 > 28.04 | 25.62 > 25.51 | 25.81 > 25.72 | 20.61 > 20.42 | 19.82 > 19.53 | 22.51 (FBS 26.97) |
+| yards a carry | 4.40 > 4.36 | 4.25 > 4.24 | 4.80 > 4.78 | 4.66 > 4.63 | 5.60 > 5.60 | 5.23 > 5.25 | 4.50 (FBS 5.12) |
+| third down conversion | 45.2 > 44.4 | 46.1 > 45.4 | 42.1 > 41.6 | 42.5 > 41.5 | 40.2 > 39.7 | 40.9 > 40.3 | 39.8 |
+| fourth down conversion | 54.7 > 52.4 | 55.0 > 53.5 | 51.9 > 50.6 | 52.2 > 50.9 | 49.3 > 47.7 | 50.8 > 49.5 | 53.7 |
+| fourth down tries a team game | 1.52 > 1.54 | 1.49 > 1.52 | 1.88 > 1.92 | 1.87 > 1.93 | 1.45 > 1.44 | 1.46 > 1.52 | 1.46 |
+
+Why:
+
+- **Backs convert at the real rate** (item 8). A linebacker who meets the back short of the sticks makes a stop, so linebackers end 29.3% of short-yardage runs at 1.85 yards (real 24.5% at 2.17) and the line's share falls toward real (tackles 20.7% to 15.3%, real 16.8%). Each distance and box comes to its real rate, the 8-man box still 6 points high. The no-gain share on third and 1 rises from 9.6% to 15.6% (real 21.0%), and runs of 6+ on it fall from 28.0% to 24.3% (16.7%): the back still breaks past the sticks more often than real, item 9's open field.
+- **The quarterback's sneak barely moves.** His sneak is over the line before a linebacker's fill reaches it: 88.2% (real 85.2%). Linebackers lined up at 3 yards on these downs (4.5 to 4.8 today) stopped sneaks at the real rate (84.9%), but backs then converted 75.8% (main 74.7%), so it was dropped; why a linebacker nearer the line stops fewer backs was not looked into (`GAPS.md`). Quarterbacks' other short-yardage runs are 6% of theirs (real 27%) and convert 33% (real 74-76%): designed quarterback runs, lane SF10.
+- **The league moves a little toward real.** Third down falls 0.5 to 1.0 points at every level (NFL 44.4% and 45.4%, real 39.8%), fourth down 1.3 to 2.3 points (NFL 52.4% and 53.5%, real 53.7%), and points 0.0 to 0.3 a team game; every total stays inside its test band. Long runs don't move (backs' 10+ 8.81%, 20+ 1.03% on seed 11).
+
+Item 9, traced and stopped. Each variant on the same 4,000 NFL games (seed 11; main 10+ 8.85%, 20+ 1.02%, 20+ of 10+ 11.5%, safeties end 16.5% of the 20+ runs, yards after the catch 5.24, points 26.27; real 10.4%, 2.26%, 21.8%, 39.8%, 5.20 and 22.51):
+
+- **Why.** Two things hold the back inside 10 yards. Every deep back fits the run at 9.75 yards and attacks once the runner is 4.75 past the line (`defend`, the deep back's fit), whatever the coverage or where the run goes, so both safeties come down to the same depth on every run. And once a tackler is squared up 0.4 to 5 yards in front of the carrier, he shuffles to the carrier's line at 4 times the gap a second, up to his top speed (`game/sim.rs`, `pursue_cap`, the breakdown), so the carrier can't get round him: deep safeties' head-on tackles miss 6.7% of the time (33,029 on 191,770 runs), and safeties miss 4% of their tries on 5-9 yard runs.
+- **The fit moved, the wall moved with it.** The deep fit at 12 yards: 10+ 15.4%, 20+ 1.07% (the runs reach 10 and stop there). Attacking at 7: 11.9% and 1.29%. A one-high safety as the last man and two-high safeties split by the run's side: 12.3% and 1.07%. The rotated-down safety his own fit (2.5 and 6.5 yards): 8.72% and 1.30%, at 4.26 yards a carry (main 4.44, real 4.50). The box count out to 9.5 yards: 9.04% and 1.33% at 4.28. The deep back coming down at full speed before the runner is through (0.6 of it today): 10.2% and 2.66%, but 42% of the 20+ runs went 40+ (real 25%) at 4.88 a carry and 130 rushing yards a team game (real 118).
+- **A later read did nothing.** The tackler reading the carrier's cut 0.15 to 0.35 s late, or his spot 0.25 s late: 20+ 1.01% to 1.05%; the late read in the chase too, 1.30%. Head-on tackles missed more (their angle term -0.3 to +0.3): 1.25%.
+- **Only the open field opens it.** A squared-up tackler shuffling at 55% of his top speed: 10+ 9.99%, 20+ 1.88%, 20+ of 10+ 18.8%. At 1.5 times the gap a second: 10.1%, 2.17% and 21.6%. But the same tackle meets receivers after the catch: yards after the catch rose to 5.75 and 5.73 a catch (real 5.20), pass yards 237 to 248 and 247 a team game, rushing yards to 127 and 131 (real 118), points to 28.62 and 29.04, and safeties ended 10% of the 20+ runs (real 40%).
+- **What it needs** (proposed, not confirmed; Cain's call). The open-field tackle as one piece for runs, the catch and returns (the return breakaways are short too, `GAPS.md`): a squared-up tackler gives ground to the carrier's cut by his own and the carrier's ratings rather than a near-perfect shuffle, sized so the backs' tail, yards after the catch and returns land on real together, with the deep safeties' fit read by the coverage and the wide run's stuffs and sideline (below). The burner arms (`fit_check`'s `RB1-pg-fast` and the rest) were not run, since the tail did not move.
+
+Also seen on the way (`GAPS.md`): wide runs are 32% of the backs' runs (real end-gap runs 20%) and are stuffed for no gain or a loss 11.6% of the time (real 23.2%), linebackers making 2.4% of those stuffs (27.7%); wide runs of 1-4 yards end out of bounds 0.1% of the time (real 12.8%) and of 5-9 3.7% (19.4%).
+
+The coaches' call table (`call_values.csv`) is kept: its snaps are first and 10 (`flow::bare_game`), where nothing changed. The analysts' tables wait for SF10 with the other refits (`docs/design/scheme-fit.md`, every game lane).
+
+Speed (`match_check`, 2,000 games on seeds 1 and 2 at each level, main and the lane in turn on an otherwise quiet machine, the order swapped between seeds; the tool's own time): the NFL +3.9% (pairs +4.1% and +3.7%), FBS -5.3% (-5.6% and -5.0%), high school -2.9% (+1.8% and -7.4%), inside a pair's noise. The change is one comparison a tick for each linebacker.
+
+Still off (`GAPS.md`, Engine): long runs half of real (item 9, above); quarterbacks' sneaks 3 points high and the linebacker's alignment trade-off; short-yardage runs of 6+ still 7.6 points high on third and 1; wide runs short of real stuffs and the sideline.
 
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
