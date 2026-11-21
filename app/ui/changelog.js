@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.670", date: "21 Nov", title: "Capital lane CS6: the Your seat screen",
+    notes: [
+      "High school and NFL coaches get their own Capital page: bond night with the town's poll and your work in town, and the owner's report card with your leverage.",
+      "Watch a stadium bond's poll move with your season, the crowds and the tax bill, and do a Rotary talk or a phone bank night to help it along.",
+      "Ask the school board for a stadium bond once a year.",
+      "See your booster club's builds and what it has set aside for the next room.",
+      "As an NFL coach, read the players' report card room by room and how likely the owner is to say yes to each room.",
+    ],
+  },
+  {
     v: "0.2.669", date: "20 Nov", title: "Ballhawk safeties and 1 more",
     notes: [
       "Interceptions and pass breakups now come from the right places. Defensive linemen stop picking off passes through the line, deep safeties can play a long ball, and defenders get credit for the passes they knock away.",
