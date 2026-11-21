@@ -2120,7 +2120,7 @@ pub fn club_fit(w: &World, t: usize, i: usize, f: &crate::world::scouting::file:
     crate::world::systems::read_fit(
         w,
         p.cal.pro_position.unwrap_or(p.player.position),
-        crate::world::scouting::file::listed(&p.player).1,
+        crate::world::scouting::file::listed(&p.player),
         |a| f.attrs[a.index()].seen.then_some(f.attrs[a.index()].centre),
         inst,
     )

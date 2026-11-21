@@ -348,7 +348,8 @@ struct WorldRow<'a> {
     nfl_champion: Option<&'a (i32, usize)>,
     college_spread: f64,
     draft_bars: Option<(f64, f64)>,
-    system_norms: &'a crate::world::systems::SystemNorms,
+    /// Each job's (`Spot` order) typical college score in each system.
+    system_norms: Vec<[f64; 11]>,
     novelty: Vec<Vec<f64>>,
     trends: Vec<&'a crate::world::trends::Trend>,
     level_scales: &'a [crate::level_rating::ScaleHistory],
@@ -541,7 +542,7 @@ pub(super) fn year_end(w: &World) {
             nfl_champion: w.nfl_champions.iter().rev().find(|c| c.0 == season),
             college_spread: w.college_spread,
             draft_bars: w.draft_bars,
-            system_norms: &w.system_norms,
+            system_norms: w.system_norms.iter().map(|n| n.score).collect(),
             novelty: w.novelty.iter().map(|r| r.to_vec()).collect(),
             trends: w.trends.iter().filter(|t| t.year >= season - 1).collect(),
             level_scales: &w.level_scales,

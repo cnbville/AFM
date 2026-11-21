@@ -9,6 +9,8 @@
 //!   fit_check run <fbs|nfl|hs|fcs> [games] [seed] [out] [arms]
 //!   fit_check read <run folder>
 //!   fit_check repeat <label=folder> <label=folder> ...
+//!   fit_check values <fbs|nfl|hs|fcs> [games] [seed] [out]
+//!   fit_check world [scale] [history_years] [seed]
 //!
 //! `run` plays the arms into a folder (default `fit-out/<level>-<seed>`; an
 //! arm already there is kept, so a stopped run picks up where it was).
@@ -24,6 +26,14 @@
 //! `read` writes the report's tables into `<run folder>/report/`. `repeat`
 //! prints the repeat table (the headline claims in every run) and each later
 //! run against the first on points, arm by arm.
+//!
+//! `values` (lane SF11) prices every watched rating in every system, job by
+//! job, for the world's fit scores (`afm_tools::fit::values`): defaults
+//! 100,000 games on seed 151 at FBS (161 at the NFL) into
+//! `fit-out/values-<level>-<seed>`; copy its `fit_values.csv` to
+//! `crates/afm-engine/data/`. `world` (lane SF11) builds a small world on
+//! the stand-in games (defaults scale 0.25, 6 years, seed 301) and prints how
+//! its FBS programs install and recruit by fit (`afm_tools::fit::world`).
 //!
 //! AFM_AB_WORLD: a world file whose 32 NFL clubs replace the synthetic league
 //! (NFL only, like `ab_check`); team 0 is still set to the typical team.
@@ -51,7 +61,8 @@ fn words(s: Option<&String>) -> Vec<String> {
 fn usage() -> ! {
     eprintln!(
         "usage:\n  fit_check list [fbs|nfl|hs|fcs] [arms]\n  fit_check run <fbs|nfl|hs|fcs> [games] [seed] [out] [arms]\n  \
-         fit_check read <run folder>\n  fit_check repeat <label=folder> <label=folder> ..."
+         fit_check read <run folder>\n  fit_check repeat <label=folder> <label=folder> ...\n  \
+         fit_check values <fbs|nfl|hs|fcs> [games] [seed] [out]\n  fit_check world [scale] [history_years] [seed]"
     );
     std::process::exit(2)
 }
@@ -102,6 +113,24 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+        }
+        Some("values") => {
+            let Some(level) = args.get(2).and_then(|s| level_of(s)) else { usage() };
+            let nfl = level == Level::NFL;
+            let games: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100_000);
+            let seed: u32 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(if nfl { 161 } else { 151 });
+            let out: PathBuf =
+                args.get(5).map(PathBuf::from).unwrap_or_else(|| format!("fit-out/values-{}-{seed}", args[2]).into());
+            if let Err(e) = fit::values::run(level, games, seed, &out) {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+        Some("world") => {
+            let scale: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(0.25);
+            let years: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(6);
+            let seed: u32 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(301);
+            fit::world::run(scale, years, seed);
         }
         Some("repeat") => {
             let mut runs = Vec::new();
