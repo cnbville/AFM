@@ -1859,6 +1859,7 @@ fn main() {
     if std::env::var("AFM_RUNDIAG").is_ok() {
         let pairs: Vec<(usize, usize)> = (0..games).map(pair).collect();
         run_diag(&results, &pos_of, &pairs, &teams);
+        sf9_diag(&results, &pos_of);
         // Who starts the tackle on designed runs, by his block at the hit
         // (scheme-fit item 7, `sim::FIRST_TACKLE_BLOCK`).
         let h: Vec<f64> = afm_engine::game::sim::FIRST_TACKLE_BLOCK
@@ -2993,6 +2994,271 @@ fn foul_counts(results: &[afm_engine::game::GameResult], level: Level) {
         gambits[2] / tg,
         gambits[3] / tg
     );
+}
+
+/// AFM_RUNDIAG=1, scheme-fit lane SF9: the backs' designed runs by how far
+/// they go and who ends them (item 9), and short yardage (item 8), each
+/// beside real 2024 (nflverse play-by-play and participation, regular
+/// season, designed runs without a flag, the first listed tackler; engine
+/// yards rounded to the nearest yard, as spots are).
+fn sf9_diag(
+    results: &[afm_engine::game::GameResult],
+    pos_of: &std::collections::HashMap<u32, afm_engine::positions::Position>,
+) {
+    use afm_engine::positions::Position as P;
+    let mut backs: Vec<&afm_engine::game::stats::PlayRecord> = Vec::new();
+    let mut qbs: Vec<&afm_engine::game::stats::PlayRecord> = Vec::new();
+    for r in results {
+        for p in r.stats.plays.iter() {
+            if p.nullified
+                || p.kind != PlayType::Run
+                || p.scramble
+                || p.call.contains("kneel")
+                || !p.penalties.is_empty()
+            {
+                continue;
+            }
+            match p.carrier.and_then(|c| pos_of.get(&c)) {
+                Some(P::RB) => backs.push(p),
+                Some(P::QB) => qbs.push(p),
+                _ => {}
+            }
+        }
+    }
+    let n = backs.len().max(1) as f64;
+    let gained = |p: &afm_engine::game::stats::PlayRecord| p.yards.round();
+    let ks = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 40.0];
+    let real = [0.820, 0.703, 0.579, 0.458, 0.349, 0.269, 0.165, 0.104, 0.076, 0.044, 0.0226, 0.0144, 0.0096, 0.0056];
+    let cells: Vec<String> = ks
+        .iter()
+        .zip(real)
+        .map(|(&k, r)| format!("{k}:{:.4}({r})", backs.iter().filter(|p| gained(p) >= k).count() as f64 / n))
+        .collect();
+    println!("  SF9 backs' designed runs {:.0}, gaining k or more (real 2024): {}", n, cells.join(" "));
+    let ge = |k: f64| backs.iter().filter(|p| gained(p) >= k).count() as f64;
+    println!(
+        "  SF9 20+ of 10+ {:.3} (real 0.218), 40+ of 20+ {:.3} (real 0.246)",
+        ge(20.0) / ge(10.0).max(1.0),
+        ge(40.0) / ge(20.0).max(1.0)
+    );
+    // Wide of the tackles (crossed more than 4 yards from the ball, as the
+    // run rows above) and inside, against nflverse 2024's end gap and the
+    // others (guard, tackle, middle).
+    for (wide, name, real) in
+        [(true, "wide", "ypc 4.72 10+ 0.135 20+ 0.0369"), (false, "inside", "ypc 4.26 10+ 0.096 20+ 0.0193")]
+    {
+        let out = |p: &afm_engine::game::stats::PlayRecord| match p.tend.cross {
+            Some((dy, _)) => dy.abs() > 4.0,
+            None => matches!(afm_engine::world::tally::expect::run_gap(&p.call), 0 | 4),
+        };
+        let v: Vec<_> = backs.iter().filter(|p| out(p) == wide).collect();
+        let m = v.len().max(1) as f64;
+        println!(
+            "  SF9 {name}: {} runs, ypc {:.2} 10+ {:.3} 20+ {:.4} | real {real}",
+            v.len(),
+            v.iter().map(|p| p.yards).sum::<f64>() / m,
+            v.iter().filter(|p| gained(p) >= 10.0).count() as f64 / m,
+            v.iter().filter(|p| gained(p) >= 20.0).count() as f64 / m
+        );
+        let cells: Vec<String> = [1.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0, 30.0]
+            .iter()
+            .map(|&k| format!("{k}:{:.3}", v.iter().filter(|p| gained(p) >= k).count() as f64 / m))
+            .collect();
+        println!("  SF9 {name} gaining k or more: {}", cells.join(" "));
+    }
+    // Who ends them: the first tackler's group, out of bounds with nobody on
+    // him, a touchdown (real 2024 by run length below).
+    let group = |p: &afm_engine::game::stats::PlayRecord| -> &'static str {
+        if p.touchdown {
+            return "td";
+        }
+        match p.tacklers.first().and_then(|t| pos_of.get(t)) {
+            Some(P::DT) => "DT",
+            Some(P::EDGE) => "EDGE",
+            Some(P::LB) => "LB",
+            Some(P::CB) => "CB",
+            Some(P::S) => "S",
+            Some(_) => "other",
+            None if p.out_of_bounds => "oob",
+            None => "none",
+        }
+    };
+    let bins: [(f64, f64, &str, &str); 5] = [
+        (-99.0, 1.0, "0-", "DT .223 EDGE .339 LB .233 CB .093 S .104 td .002"),
+        (1.0, 5.0, "1-4", "DT .231 EDGE .286 LB .239 CB .082 S .117 td .041"),
+        (5.0, 10.0, "5-9", "DT .134 EDGE .199 LB .262 CB .151 S .233 td .021"),
+        (10.0, 20.0, "10-19", "DT .034 EDGE .080 LB .158 CB .224 S .468 td .036"),
+        (20.0, 999.0, "20+", "DT .000 EDGE .057 LB .072 CB .242 S .398 td .223"),
+    ];
+    for (lo, hi, name, real) in bins {
+        let v: Vec<_> = backs.iter().filter(|p| (lo..hi).contains(&gained(p))).collect();
+        let m = v.len().max(1) as f64;
+        let mut c = std::collections::BTreeMap::<&str, f64>::new();
+        for p in &v {
+            *c.entry(group(p)).or_default() += 1.0;
+        }
+        let oob = v.iter().filter(|p| p.out_of_bounds).count() as f64 / m;
+        let cells: Vec<String> = ["DT", "EDGE", "LB", "CB", "S", "oob", "td", "none"]
+            .iter()
+            .map(|k| format!("{k} {:.3}", c.get(k).copied().unwrap_or(0.0) / m))
+            .collect();
+        println!(
+            "  SF9 {name:>5} {:.4} of runs, out of bounds {oob:.3}, ended by {} | real {real}",
+            v.len() as f64 / n,
+            cells.join(" ")
+        );
+    }
+    println!("  SF9 real 10-19 out of bounds 0.124, 20+ 0.288");
+    // Missed tackles by the missing man's group, a run, and as a share of
+    // his group's tries (its misses over its misses and first tackles).
+    for (lo, hi, name) in [(-99.0, 5.0, "0-4"), (5.0, 10.0, "5-9"), (10.0, 999.0, "10+"), (-99.0, 999.0, "all")] {
+        let v: Vec<_> = backs.iter().filter(|p| (lo..hi).contains(&gained(p))).collect();
+        let m = v.len().max(1) as f64;
+        let mut miss = std::collections::BTreeMap::<&str, f64>::new();
+        let mut tk = std::collections::BTreeMap::<&str, f64>::new();
+        for p in &v {
+            for (d, _) in &p.missed_tackles {
+                let g = match pos_of.get(d) {
+                    Some(P::DT) => "DT",
+                    Some(P::EDGE) => "EDGE",
+                    Some(P::LB) => "LB",
+                    Some(P::CB) => "CB",
+                    Some(P::S) => "S",
+                    _ => "other",
+                };
+                *miss.entry(g).or_default() += 1.0;
+            }
+            *tk.entry(group(p)).or_default() += 1.0;
+        }
+        let cells: Vec<String> = ["DT", "EDGE", "LB", "CB", "S"]
+            .iter()
+            .map(|k| {
+                let a = miss.get(k).copied().unwrap_or(0.0);
+                let b = tk.get(k).copied().unwrap_or(0.0);
+                format!("{k} {:.3}/{:.2}", a / m, a / (a + b).max(1.0))
+            })
+            .collect();
+        println!("  SF9 missed tackles on {name:>4} runs, a run / of the group's tries: {}", cells.join(" "));
+    }
+    // Short yardage: third and fourth down, two or less to go, the distance
+    // rounded to the yard as real spots are (the audit's `fit_check` rows
+    // read 2.0 or less).
+    let conv = |v: &[&&afm_engine::game::stats::PlayRecord]| {
+        v.iter().filter(|p| p.first_down || p.touchdown).count() as f64 / v.len().max(1) as f64
+    };
+    let sy: Vec<_> = backs.iter().filter(|p| p.down >= 3 && p.togo < 2.5).collect();
+    println!("  SF9 short yardage, backs: {} runs, converted {:.3} (real 0.669)", sy.len(), conv(&sy));
+    for (tg, real_c, real_h) in [
+        (1.0, 0.691, "-1-:.101 0:.210 1:.122 2:.180 3:.112 4-5:.108 6+:.167"),
+        (2.0, 0.608, "-1-:.078 0:.093 1:.222 2:.077 3:.124 4-5:.175 6+:.232"),
+    ] {
+        let v: Vec<_> = sy.iter().copied().filter(|p| p.togo.round().max(1.0) == tg).collect();
+        let m = v.len().max(1) as f64;
+        let h = |lo: f64, hi: f64| v.iter().filter(|p| (lo..hi).contains(&gained(p))).count() as f64 / m;
+        println!(
+            "  SF9   to go {tg}: {} runs, converted {:.3} (real {real_c}) | gain -1-:{:.3} 0:{:.3} 1:{:.3} 2:{:.3} 3:{:.3} 4-5:{:.3} 6+:{:.3} | real {real_h}",
+            v.len(),
+            conv(&v),
+            h(-99.0, 0.0),
+            h(0.0, 1.0),
+            h(1.0, 2.0),
+            h(2.0, 3.0),
+            h(3.0, 4.0),
+            h(4.0, 6.0),
+            h(6.0, 999.0)
+        );
+    }
+    let cells: Vec<String> =
+        [(0u8, 5u8, ".043/.719"), (6, 6, ".369/.682"), (7, 7, ".375/.694"), (8, 8, ".144/.620"), (9, 99, ".069/.537")]
+            .iter()
+            .map(|&(lo, hi, real)| {
+                let v: Vec<_> = sy.iter().copied().filter(|p| (lo..=hi).contains(&p.box_count)).collect();
+                format!(
+                    "{}:{:.3}/{:.3}({real})",
+                    if hi == 99 { 9 } else { hi },
+                    v.len() as f64 / sy.len().max(1) as f64,
+                    conv(&v)
+                )
+            })
+            .collect();
+    println!("  SF9   by the box, share/converted: {}", cells.join(" "));
+    let cells: Vec<String> = [
+        (50.0, 100.0, "own half", 0.683),
+        (20.0, 50.0, "their 50-20", 0.690),
+        (4.0, 20.0, "their 20-4", 0.611),
+        (0.0, 4.0, "inside 3", 0.644),
+    ]
+    .iter()
+    .map(|&(lo, hi, name, real)| {
+        let v: Vec<_> = sy.iter().copied().filter(|p| (lo..hi).contains(&p.yardline_100)).collect();
+        format!("{name} {:.3}/{}({real})", conv(&v), v.len())
+    })
+    .collect();
+    println!("  SF9   by the field, converted/runs: {}", cells.join(" "));
+    // Who ends them, short yardage against every other run (real 2024).
+    for (name, short, real) in [
+        ("short", true, "CB .116@5.32 DT .168@2.10 EDGE .224@1.79 LB .245@2.17 S .181@6.08 td .064"),
+        ("other", false, "CB .116@6.51 DT .186@2.48 EDGE .254@2.78 LB .233@3.77 S .178@7.29 td .031"),
+    ] {
+        let v: Vec<_> = backs.iter().filter(|p| (p.down >= 3 && p.togo < 2.5) == short).collect();
+        let m = v.len().max(1) as f64;
+        let cells: Vec<String> = ["CB", "DT", "EDGE", "LB", "S", "oob", "td"]
+            .iter()
+            .map(|k| {
+                let w: Vec<f64> = v.iter().filter(|p| group(p) == *k).map(|p| gained(p)).collect();
+                format!("{k} {:.3}@{:.2}", w.len() as f64 / m, w.iter().sum::<f64>() / w.len().max(1) as f64)
+            })
+            .collect();
+        println!("  SF9   ended by, {name}: {} | real {real}", cells.join(" "));
+    }
+    let ybc = |v: &[&&afm_engine::game::stats::PlayRecord]| {
+        v.iter().map(|p| p.before_contact).sum::<f64>() / v.len().max(1) as f64
+    };
+    let all: Vec<_> = backs.iter().collect();
+    println!("  SF9   yards before contact: short yardage {:.2}, all runs {:.2}", ybc(&sy), ybc(&all));
+    let qsy: Vec<_> = qbs.iter().filter(|p| p.down >= 3 && p.togo < 2.5).collect();
+    let sneaks: Vec<_> = qsy.iter().copied().filter(|p| p.call.contains("sneak")).collect();
+    let other: Vec<_> = qsy.iter().copied().filter(|p| !p.call.contains("sneak")).collect();
+    println!(
+        "  SF9 short yardage, quarterbacks: {} runs, converted {:.3} (real 0.827); sneaks {} at {:.3} (real 0.852), other {} at {:.3} (real 0.757)",
+        qsy.len(),
+        conv(&qsy),
+        sneaks.len(),
+        conv(&sneaks),
+        other.len(),
+        conv(&other)
+    );
+    // Wide runs (as above) by length: share, out of bounds and who ends
+    // them, against nflverse 2024's end-gap runs.
+    let wide_of = |p: &afm_engine::game::stats::PlayRecord| match p.tend.cross {
+        Some((dy, _)) => dy.abs() > 4.0,
+        None => matches!(afm_engine::world::tally::expect::run_gap(&p.call), 0 | 4),
+    };
+    let wide: Vec<_> = backs.iter().filter(|p| wide_of(p)).collect();
+    let wn = wide.len().max(1) as f64;
+    for (lo, hi, name, real) in [
+        (-99.0, 1.0, "0-", "share .232 oob .073 DT .143 EDGE .308 LB .277 CB .161 S .112"),
+        (1.0, 5.0, "1-4", "share .380 oob .128 DT .120 EDGE .246 LB .272 CB .175 S .145"),
+        (5.0, 10.0, "5-9", "share .254 oob .194 DT .073 EDGE .162 LB .249 CB .220 S .270"),
+        (10.0, 999.0, "10+", "share .135 oob .355 DT .031 EDGE .057 LB .138 CB .230 S .459"),
+    ] {
+        let v: Vec<_> = wide.iter().filter(|p| (lo..hi).contains(&gained(p))).collect();
+        let m = v.len().max(1) as f64;
+        let mut c = std::collections::BTreeMap::<&str, f64>::new();
+        for p in &v {
+            *c.entry(group(p)).or_default() += 1.0;
+        }
+        let cells: Vec<String> = ["DT", "EDGE", "LB", "CB", "S"]
+            .iter()
+            .map(|g| format!("{g} {:.3}", c.get(g).copied().unwrap_or(0.0) / m))
+            .collect();
+        println!(
+            "  SF9 wide {name:>4}: share {:.3} oob {:.3} {} | real {real}",
+            v.len() as f64 / wn,
+            v.iter().filter(|p| p.out_of_bounds).count() as f64 / m,
+            cells.join(" ")
+        );
+    }
 }
 
 /// AFM_RUNDIAG=1: where backs' designed runs are stopped and by whom

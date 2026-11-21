@@ -7416,14 +7416,16 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                     // A run more than 3 yards wide of him and going away: he
                     // flows over the top at full speed to where it turns up,
                     // holding his depth, so his speed is his range (L2,
-                    // bug 306).
+                    // bug 306). On third and fourth down short he fills and
+                    // flows short of the sticks (`lb_fill`).
+                    let (fill, hold) = lb_fill(s);
                     let cv = sim.agents[c].vel;
                     let wide = (cp.y - me.y).abs() > 3.0;
                     if wide && cv.y * (cp.y - me.y).signum() > 1.5 {
-                        sim.pursue_cap(i, c, 1.0, Some(s.los + sim.goal * 2.0));
+                        sim.pursue_cap(i, c, 1.0, Some(s.los + sim.goal * hold.min(2.0)));
                         return;
                     }
-                    let mut aim = v2(s.los + sim.goal * 2.6, me.y + clamp(cp.y - me.y, -2.5, 2.5));
+                    let mut aim = v2(s.los + sim.goal * fill, me.y + clamp(cp.y - me.y, -2.5, 2.5));
                     // A misfit: he flows a gap too far, or the false way on
                     // misdirection, and the runner cuts back behind him.
                     if sim.agents[i].misfit && t < sim.agents[i].read_at + 0.8 {
@@ -7436,7 +7438,7 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                     // he takes his angle but holds 2.1 yards past the line
                     // and lets the runner come (he chased him into the
                     // backfield; minor bug 164; 1.5 before bug 305).
-                    sim.pursue_cap(i, c, 1.0, Some(s.los + sim.goal * 2.1));
+                    sim.pursue_cap(i, c, 1.0, Some(s.los + sim.goal * lb_fill(s).1));
                 } else {
                     sim.pursue(i, c);
                 }
@@ -7481,6 +7483,32 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
         _ => {}
     }
 }
+
+/// How far past the line a linebacker fills to on a run, and how far past
+/// it he holds once he is nearly on the runner (yards). He fills to 2.6,
+/// where the runner meets him after the line has moved, and holds at 2.1
+/// (minor bug 164, bug 305). On third and fourth down he plays the sticks:
+/// he fills and holds a quarter yard short of the line to gain when that is
+/// nearer, so the tackle he makes there is a stop (lane SF9, scheme-fit
+/// item 8). Filling to 2.6 on third and 1, he met the back past the line to
+/// gain: NFL backs made 74.7% of their designed runs on third and fourth
+/// down and 2 or less (real 66.9%, nflverse 2024). Short of the sticks they
+/// make 66.9% (to go 1: 69.9%, real 69.1%; to go 2: 58.7%, real 60.8%;
+/// proposed, not confirmed). Quarterbacks' sneaks barely move (88.8% to
+/// 88.2%, real 85.2%).
+fn lb_fill(s: &Snap) -> (f64, f64) {
+    if s.down < 3 {
+        return (LB_FILL, LB_HOLD);
+    }
+    let sticks = (s.togo - LB_STICKS).max(0.0);
+    (LB_FILL.min(sticks), LB_HOLD.min(sticks))
+}
+/// A linebacker's fill and hold past the line (minor bug 164, bug 305).
+const LB_FILL: f64 = 2.6;
+const LB_HOLD: f64 = 2.1;
+/// How far short of the line to gain he plays on third and fourth down
+/// (lane SF9; proposed, not confirmed).
+const LB_STICKS: f64 = 0.25;
 
 /// A per-play draw for one player that needs no random stream: the same
 /// player on the same snap gets the same number, so a decision made on
