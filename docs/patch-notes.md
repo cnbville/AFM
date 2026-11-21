@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.672 (21 Nov, shipped): SF8: Blitzing decides the blitz, a quick 3-technique's wins become pressure (PR #604)
+**TLDR:** Pass rushers now win the way real ones do: a quick defensive tackle who beats his man gets to the quarterback, and a linebacker with a nose for the blitz times the snap and gets home. Try a pass-rushing tackle or a blitzing linebacker and watch the sacks come.
+- A tackle or edge who wins with quickness now gets round his blocker and into the backfield instead of coming off in front of him. (PR #604)
+- Blitzing now decides how fast a blitzing linebacker gets home: good blitzers time the snap and beat their blocker more often. (PR #604)
+- Blockers being worked over give up ground whatever move the rusher uses, so the pocket closes on every kind of rusher. (PR #604)
+- More sacks and pressure at every level, closer to real football. (PR #604)
+- Look at: your best blitzing linebacker's pressures and your quick tackle's sacks after a few games. (PR #604)
+
 ## 0.2.671 (21 Nov, shipped): SF7: coverage jobs (scheme-fit items 18, 19 and 20) (PR #603)
 **TLDR:** Lockdown corners now play like lockdown corners, and a blown coverage really leaves a receiver open. A strong safety who can cover no longer gets worse against the run.
 - The best man-to-man corners read their receiver's break before it comes, so they keep getting better at the very top. (PR #603)

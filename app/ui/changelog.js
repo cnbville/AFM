@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.672", date: "21 Nov", title: "SF8: Blitzing decides the blitz, a quick 3-technique's wins become pressure",
+    notes: [
+      "Pass rushers now win the way real ones do: a quick defensive tackle who beats his man gets to the quarterback, and a linebacker with a nose for the blitz times the snap and gets home. Try a pass-rushing tackle or a blitzing linebacker and watch the sacks come.",
+      "A tackle or edge who wins with quickness now gets round his blocker and into the backfield instead of coming off in front of him.",
+      "Blitzing now decides how fast a blitzing linebacker gets home: good blitzers time the snap and beat their blocker more often.",
+      "Blockers being worked over give up ground whatever move the rusher uses, so the pocket closes on every kind of rusher.",
+      "More sacks and pressure at every level, closer to real football.",
+    ],
+  },
+  {
     v: "0.2.671", date: "21 Nov", title: "SF7: coverage jobs (scheme-fit items 18, 19 and 20)",
     notes: [
       "Lockdown corners now play like lockdown corners, and a blown coverage really leaves a receiver open. A strong safety who can cover no longer gets worse against the run.",
