@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 
 use afm_engine::attributes::Attr;
 use afm_engine::positions::Position;
-use afm_engine::world::systems::{FRONTS, OFFENSES, SHELLS};
+use afm_engine::spots::Spot;
+use afm_engine::world::systems::{self, FRONTS, OFFENSES, SHELLS};
 use serde_json::Value;
 
 use super::{Ctx, ROLES, bands};
@@ -1349,94 +1350,44 @@ fn unread(run: &Run) -> String {
 
 // ------------------------------------------------------------------ fit weights
 
-/// The world's fit weights (`world/systems.rs`, `score_by`): what each
-/// system asks of a position, slot by slot (0-4 the offenses in `OFFENSES`
-/// order, 5-6 the fronts, 7-10 the shells). The tool keeps its own copy;
-/// `tests/fit_check.rs` checks it against the engine's `fits`. The two-gap
-/// nose's body weight term is left out here (`score_by`'s `heavy`).
-pub fn fit_weights(pos: Position, slot: usize) -> Vec<(Attr, f64)> {
-    use Attr::*;
-    use Position as P;
-    let v: &[(Attr, f64)] = match (pos, slot) {
-        (P::QB, 0) => {
-            &[(ShortAccuracy, 0.3), (Decisions, 0.2), (Anticipation, 0.2), (QuickRelease, 0.15), (Footwork, 0.15)]
-        }
-        (P::QB, 1) => &[
-            (ShortAccuracy, 0.2),
-            (MediumAccuracy, 0.2),
-            (DeepAccuracy, 0.15),
-            (ArmStrength, 0.15),
-            (QuickRelease, 0.15),
-            (Decisions, 0.15),
-        ],
-        (P::QB, 2) => &[(ThrowOnMove, 0.3), (BallHandling, 0.25), (MediumAccuracy, 0.2), (Speed, 0.15), (Agility, 0.1)],
-        (P::QB, 3) => {
-            &[(ArmStrength, 0.3), (DeepAccuracy, 0.2), (PocketPresence, 0.2), (BallHandling, 0.15), (Footwork, 0.15)]
-        }
-        (P::QB, 4) => &[
-            (Speed, 0.3),
-            (Decisions, 0.2),
-            (BallHandling, 0.15),
-            (Elusiveness, 0.15),
-            (ShortAccuracy, 0.1),
-            (Agility, 0.1),
-        ],
-        (P::RB, 0) => &[(Catching, 0.35), (BallCarrierVision, 0.25), (RouteRunning, 0.2), (Agility, 0.2)],
-        (P::RB, 1) => &[(Catching, 0.4), (PassBlocking, 0.35), (Speed, 0.25)],
-        (P::RB, 2) => &[(BallCarrierVision, 0.45), (Acceleration, 0.3), (Agility, 0.25)],
-        (P::RB, 3) => {
-            &[(LegDrive, 0.3), (Balance, 0.2), (Acceleration, 0.2), (BallSecurity, 0.15), (BallCarrierVision, 0.15)]
-        }
-        (P::RB, 4) => &[(Speed, 0.4), (Acceleration, 0.3), (BallCarrierVision, 0.3)],
-        (P::WR, 0) => &[(RouteRunning, 0.45), (Catching, 0.3), (Agility, 0.15), (FootballIq, 0.1)],
-        (P::WR, 1) => &[(RouteRunning, 0.3), (Speed, 0.3), (Catching, 0.25), (FootballIq, 0.15)],
-        (P::WR, 2) => &[(Speed, 0.4), (BlockingInSpace, 0.3), (RouteRunning, 0.3)],
-        (P::WR, 3) => &[(BlockingInSpace, 0.35), (ContestedCatch, 0.3), (Catching, 0.2), (Strength, 0.15)],
-        (P::WR, 4) => &[(Speed, 0.45), (BlockingInSpace, 0.3), (Catching, 0.25)],
-        (P::TE, 0) => &[(Catching, 0.4), (RouteRunning, 0.4), (RunBlocking, 0.2)],
-        (P::TE, 1) => &[(Catching, 0.5), (RouteRunning, 0.5)],
-        (P::TE, 2) => &[(RunBlocking, 0.35), (Agility, 0.25), (Catching, 0.25), (BlockingInSpace, 0.15)],
-        (P::TE, 3) => &[(RunBlocking, 0.45), (HandUse, 0.2), (Strength, 0.2), (Anchor, 0.15)],
-        (P::TE, 4) => &[(BlockingInSpace, 0.4), (Catching, 0.3), (Speed, 0.3)],
-        (P::OT | P::IOL, 0) => &[(PassBlocking, 0.55), (Agility, 0.2), (RunBlocking, 0.15), (HandUse, 0.1)],
-        (P::OT | P::IOL, 1) => &[(PassBlocking, 0.7), (Anchor, 0.15), (Agility, 0.15)],
-        (P::OT | P::IOL, 2) => &[(Agility, 0.3), (BlockingInSpace, 0.3), (RunBlocking, 0.2), (Speed, 0.2)],
-        (P::OT | P::IOL, 3) => {
-            &[(RunBlocking, 0.4), (Strength, 0.3), (Anchor, 0.1), (BlockingInSpace, 0.1), (HandUse, 0.1)]
-        }
-        (P::OT | P::IOL, 4) => &[(RunBlocking, 0.4), (Agility, 0.25), (BlockingInSpace, 0.2), (Strength, 0.15)],
-        (P::DT, 5) => {
-            &[(Acceleration, 0.35), (FinesseRush, 0.2), (PowerRush, 0.15), (Agility, 0.15), (Anticipation, 0.15)]
-        }
-        (P::DT, 6) => &[(Anchor, 0.25), (BlockShedding, 0.2), (HandUse, 0.2), (Strength, 0.15)],
-        (P::EDGE, 5) => {
-            &[(FinesseRush, 0.25), (PowerRush, 0.2), (Acceleration, 0.2), (BlockShedding, 0.2), (Anchor, 0.15)]
-        }
-        (P::EDGE, 6) => {
-            &[(Speed, 0.25), (FinesseRush, 0.25), (Flexibility, 0.2), (ZoneCoverage, 0.15), (Pursuit, 0.15)]
-        }
-        (P::LB, 5) => &[(Speed, 0.3), (Pursuit, 0.25), (PlayRecognition, 0.25), (ZoneCoverage, 0.2)],
-        (P::LB, 6) => &[(Tackling, 0.3), (BlockShedding, 0.25), (Traffic, 0.2), (Anchor, 0.15), (Strength, 0.1)],
-        (P::CB, 7) => &[(Speed, 0.4), (ZoneCoverage, 0.35), (Anticipation, 0.15), (BallTracking, 0.1)],
-        (P::CB, 8) => &[(ZoneCoverage, 0.35), (PlayRecognition, 0.25), (Tackling, 0.25), (ManCoverage, 0.15)],
-        (P::CB, 9) => &[(ManCoverage, 0.45), (Speed, 0.35), (Press, 0.2)],
-        (P::CB, 10) => &[(Press, 0.3), (ZoneCoverage, 0.3), (Tackling, 0.3), (Strength, 0.1)],
-        (P::S, 7) => &[(Speed, 0.45), (ZoneCoverage, 0.25), (BallTracking, 0.15), (PlayRecognition, 0.15)],
-        (P::S, 8) => &[(PlayRecognition, 0.35), (Tackling, 0.25), (ZoneCoverage, 0.25), (Anticipation, 0.15)],
-        (P::S, 9) => &[(ManCoverage, 0.5), (Speed, 0.3), (Tackling, 0.2)],
-        (P::S, 10) => &[(Speed, 0.35), (ZoneCoverage, 0.35), (BallTracking, 0.15), (PlayRecognition, 0.15)],
-        (P::LB, 9) => &[(ManCoverage, 0.5), (Speed, 0.35), (Blitzing, 0.15)],
-        (P::LB, 7 | 8 | 10) => &[(ZoneCoverage, 0.6), (PlayRecognition, 0.4)],
-        (P::DT | P::EDGE, 9) => &[(Acceleration, 0.4), (FinesseRush, 0.3), (PowerRush, 0.3)],
-        (P::DT | P::EDGE, 7 | 8 | 10) => &[(BlockShedding, 0.5), (PowerRush, 0.25), (FinesseRush, 0.25)],
-        _ => &[],
-    };
-    v.to_vec()
+/// The world's job for a measured role (`systems::job_weights`).
+fn job_of_role(role: &str) -> Option<Spot> {
+    Some(match role {
+        "QB1" => Spot::QB,
+        "RB1" | "RB2" => Spot::RB,
+        "FB" => Spot::FB,
+        "X" | "Z" | "SLOT" => Spot::WR,
+        "TE1" | "TE2" | "TE3" => Spot::TE,
+        "LT" => Spot::LT,
+        "RT" => Spot::RT,
+        "LG" | "RG" => Spot::G,
+        "C" => Spot::C,
+        "DT1" | "DT2" | "DT3" => Spot::DT,
+        "EDGE1" | "EDGE2" => Spot::EDGE,
+        "SAM" => Spot::SAM,
+        "MIKE" => Spot::MLB,
+        "WILL" => Spot::OLB,
+        "CB1" | "CB2" => Spot::CB,
+        "NCB" => Spot::NB,
+        "FS" => Spot::FS,
+        "SS" => Spot::SS,
+        _ => return None,
+    })
 }
 
-/// The two-gap nose's body weight term in `score_by` (DT, slot 6): its share
-/// of the score.
-pub const HEAVY_WEIGHT: f64 = 0.2;
+/// The world's fit weights (`world/systems.rs`, the measured table of lane
+/// SF11, `fit_check values`): what a point of each rating is worth at a
+/// role's job in a system slot (0-4 the offenses in `OFFENSES` order, 5-6
+/// the fronts, 7-10 the shells), in points a game. His body weight's
+/// weight is left out here.
+pub fn fit_weights(role: &str, slot: usize) -> Vec<(Attr, f64)> {
+    let Some(job) = job_of_role(role) else { return Vec::new() };
+    systems::job_weights(job, slot)
+        .into_iter()
+        .filter(|x| x.0 != systems::WEIGHT)
+        .map(|(f, w)| (Attr::ALL[f as usize], w))
+        .collect()
+}
 
 fn pos_of_role(role: &str) -> Option<Position> {
     Some(match role {
@@ -1493,7 +1444,7 @@ fn weights(run: &Run, eff: &Effects) -> String {
         groups.entry((k, format!("{role} {ctx}"))).or_default().push((att.to_string(), sign * e.diff, e.z));
     }
     let mut md = format!(
-        "# The world's fit weights against what +15 measured ({})\n\nPoints a game, the defense's as points saved (+ is better); * past the noise. Weights from `world/systems.rs`, `score_by` (the tool's copy, checked against the engine by `tests/fit_check.rs`).\n\n| job and context | system slot | the weights, and what +15 measured | not weighted, measured |\n|---|---|---|---|\n",
+        "# The world's fit weights against what +15 measured ({})\n\nPoints a game, the defense's as points saved (+ is better); * past the noise. Weights from `world/systems.rs`, the measured table (lane SF11, `fit_check values`), as points a game for +15 of the rating at the job.\n\n| job and context | system slot | the weights, and what +15 measured | not weighted, measured |\n|---|---|---|---|\n",
         run.header()
     );
     let (mut tot, mut dead) = ([0.0f64; 2], [0.0f64; 2]);
@@ -1503,11 +1454,11 @@ fn weights(run: &Run, eff: &Effects) -> String {
         let (Some(pos), Some(c)) = (pos_of_role(role), Ctx::from_name(ctx)) else { continue };
         let (main, extra) = slots_for(pos, c);
         for (k, sl) in main.iter().map(|&s| (0, s)).chain(extra.iter().map(|&s| (1, s))) {
-            let mut w = fit_weights(pos, sl);
+            let mut w = fit_weights(role, sl);
             if w.is_empty() {
                 continue;
             }
-            w.sort_by(|a, b| b.1.total_cmp(&a.1));
+            w.sort_by(|a, b| b.1.abs().total_cmp(&a.1.abs()));
             let meas = |a: &str| arms.iter().find(|x| x.0 == a);
             let mut cells = Vec::new();
             for (a, wt) in &w {
@@ -1515,17 +1466,14 @@ fn weights(run: &Run, eff: &Effects) -> String {
                 match meas(&name) {
                     Some((_, v, z)) => {
                         let is_dead = z.abs() < 1.96;
-                        cells.push(format!("{name} {wt:.2}: {v:+.2}{}", if is_dead { "" } else { "*" }));
+                        cells.push(format!("{name} {:+.2}: {v:+.2}{}", 15.0 * wt, if is_dead { "" } else { "*" }));
                         for j in k..2 {
-                            tot[j] += wt;
-                            dead[j] += wt * f64::from(u8::from(is_dead));
+                            tot[j] += wt.abs();
+                            dead[j] += wt.abs() * f64::from(u8::from(is_dead));
                         }
                     }
-                    None => cells.push(format!("{name} {wt:.2}: not run")),
+                    None => cells.push(format!("{name} {:+.2}: not run", 15.0 * wt)),
                 }
-            }
-            if pos == Position::DT && sl == 6 {
-                cells.push(format!("(body weight) {HEAVY_WEIGHT:.2}: not run"));
             }
             let mut extra_meas: Vec<&Measured> = arms
                 .iter()

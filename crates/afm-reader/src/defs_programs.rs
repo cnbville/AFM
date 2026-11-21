@@ -3529,12 +3529,12 @@ pub const PANELS: &[Panel] = &[
         id: "S14.norms",
         page: "coaches",
         area: "S14",
-        title: r#"Each position's typical score in each system (debug)"#,
+        title: r#"Each job's typical score in each system (debug)"#,
         kind: "matrix",
-        note: r#"The world's system norms (`system_norms`): rows are positions, columns the 11 systems. An air raid should want receivers, power gap linemen."#,
+        note: r#"The world's system norms (`system_norms`): rows are jobs, columns the 11 systems; each cell is the typical college player at the job's position read in that job's fit table (lane SF11, points a game from the measured weights). A file before lane SF11 has positions as rows."#,
         sql: r#"WITH s(k, name) AS (VALUES (0, 'West Coast'), (1, 'Air raid'), (2, 'Wide zone'), (3, 'Power gap'), (4, 'Spread option'), (5, '4-3 one-gap'), (6, '3-4 two-gap'), (7, 'Cover 3'), (8, 'Quarters'), (9, 'Man pressure'), (10, 'Cover 2')),
-         p(k, pos) AS (VALUES (0, 'QB'), (1, 'RB'), (2, 'FB'), (3, 'WR'), (4, 'TE'), (5, 'OT'), (6, 'IOL'), (7, 'EDGE'), (8, 'DT'), (9, 'LB'), (10, 'CB'), (11, 'S'), (12, 'K'), (13, 'P'))
-         SELECT p.pos AS row, s.name AS col, ROUND(CASE s.k WHEN 0 THEN n._0 WHEN 1 THEN n._1 WHEN 2 THEN n._2 WHEN 3 THEN n._3 WHEN 4 THEN n._4 WHEN 5 THEN n._5 WHEN 6 THEN n._6 WHEN 7 THEN n._7 WHEN 8 THEN n._8 WHEN 9 THEN n._9 ELSE n._10 END, 1) AS value
+         p(k, pos) AS (VALUES (0, 'QB'), (1, 'RB'), (2, 'FB'), (3, 'WR'), (4, 'TE'), (5, 'LT'), (6, 'RT'), (7, 'G'), (8, 'C'), (9, 'EDGE'), (10, 'DT'), (11, 'NT'), (12, 'MLB'), (13, 'OLB'), (14, 'CB'), (15, 'NB'), (16, 'FS'), (17, 'SS'), (18, 'K'), (19, 'P'), (20, 'LS'), (21, 'SAM'))
+         SELECT p.pos AS row, s.name AS col, ROUND(CASE s.k WHEN 0 THEN n._0 WHEN 1 THEN n._1 WHEN 2 THEN n._2 WHEN 3 THEN n._3 WHEN 4 THEN n._4 WHEN 5 THEN n._5 WHEN 6 THEN n._6 WHEN 7 THEN n._7 WHEN 8 THEN n._8 WHEN 9 THEN n._9 ELSE n._10 END, 2) AS value
          FROM system_norms n JOIN p ON p.k = n._row, s ORDER BY n._row, s.k"#,
         says: None,
         needs: W,

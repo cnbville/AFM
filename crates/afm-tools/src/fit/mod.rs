@@ -17,6 +17,8 @@
 //! report's tables.
 
 pub mod read;
+pub mod values;
+pub mod world;
 
 use std::collections::HashMap;
 use std::io::Write as _;

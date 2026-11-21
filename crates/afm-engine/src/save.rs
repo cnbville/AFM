@@ -344,6 +344,10 @@ pub fn read_world(path: &Path) -> std::io::Result<World> {
     crate::world::staff::ensure_lane18(&mut w);
     // A file from before the new NIL scheme: this year's money refitted.
     crate::world::nil_bid::ensure(&mut w);
+    // A file from before the measured fit (lane SF11): each job's norms.
+    if w.system_norms == crate::world::systems::SystemNorms::default() {
+        w.system_norms = crate::world::systems::system_norms(&w);
+    }
     // A file from before individual practice: every player's flaws and
     // tools, drawn as a raw 14-year-old's and grown through his years.
     {

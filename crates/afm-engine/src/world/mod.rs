@@ -981,7 +981,10 @@ pub struct World {
     /// written from his seasons when it loads.
     #[serde(default)]
     pub(crate) pro_role_rev: u8,
-    /// Each position's typical score in each coaching system (S3).
+    /// Each job's typical college player read in that job's fit table, in
+    /// each coaching system (S3; by job since lane SF11, so a file from
+    /// before it reads none here and works them out on load).
+    #[serde(rename = "fit_norms", default)]
     pub(crate) system_norms: systems::SystemNorms,
     /// Recruiting and portal records for trials (dynasty item 11 checks).
     pub recruiting_log: RecruitingLog,
@@ -1748,7 +1751,7 @@ impl World {
             nil_rev: nil_bid::NIL_REV,
             nil_book: Default::default(),
             pro_role_rev: pro::role::PRO_ROLE_REV,
-            system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
+            system_norms: Default::default(),
             recruiting_log: RecruitingLog::default(),
             next_person: 1,
             today: dates.start,

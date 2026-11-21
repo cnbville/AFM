@@ -10,15 +10,22 @@
 //! of learning for a switch (S5), and recruits to it (S6, S7). Fit is worth
 //! a point or three, less than talent (S11). Sizes are proposed, not
 //! confirmed.
+//!
+//! What fit reads is measured (scheme-fit item 24, lane SF11): a point of
+//! each rating at each job (free and strong safety, Mike, Will and Sam,
+//! outside and slot corner apart) is worth what the match engine paid for
+//! it in each system (`data/fit_values.csv`, `fit_check values`), so a
+//! staff installs and recruits to what wins in its systems.
 
 use super::coach::Group;
 use super::season::{key_normal, key_uniform};
 use super::{Stage, World};
-use crate::attributes::Attr::{self, *};
+use crate::attributes::{Attr, Attributes};
 use crate::game::{Front, OffScheme, Shell};
 use crate::player::Player;
 use crate::positions::Position;
 use crate::rng::clamp;
+use crate::spots::Spot;
 
 pub const OFFENSES: [OffScheme; 5] =
     [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption];
@@ -196,102 +203,216 @@ pub fn overlap(kind: Kind, a: usize, b: usize) -> f64 {
     }
 }
 
-/// A player's score in what one system asks of his position (weighted
-/// attributes; body weight for a two-gap nose).
-fn score(p: &Player, pos: Position, slot: usize) -> f64 {
-    score_by(|x| p.attributes.get(x), p.body.weight, pos, slot)
+/// What a point of each rating is worth in each system, job by job, in
+/// points a game (scheme-fit item 24, lane SF11): measured on the match
+/// engine by `fit_check values` (`afm-tools`, `fit::values`). The level's
+/// typical team ran every offense, front and coverage family with every
+/// watched man's ratings and weight moved at random about his own, and a
+/// rating's worth in a system is the slope of the points his side scored
+/// (or kept off the board) on it. A system's weight is pooled with its
+/// kind's unless the two differ past the noise, so a rating every system
+/// pays alike reads the same in each. One line a weight:
+/// `system,role,feature,weight` (a role is the measuring team's man, the
+/// typical team's: `QB1`, `X`, `LG`, `MIKE`, `NCB`...).
+const FIT_VALUES_CSV: &str = include_str!("../../data/fit_values.csv");
+
+/// A feature the table reads: a rating's index, or his weight.
+pub const WEIGHT: u8 = u8::MAX;
+
+/// The measuring team's men a job's weights come from: the three
+/// receivers' jobs are the one receiver's job, as are the two guards, the
+/// two edges and the two outside corners; the nose and the
+/// three-technique share the inside men's (their 3-4 weights are the
+/// nose's and the ends' work).
+fn roles_of(job: Spot) -> &'static [&'static str] {
+    match job {
+        Spot::QB => &["QB1"],
+        Spot::RB => &["RB1"],
+        Spot::FB => &["FB"],
+        Spot::WR => &["X", "Z", "SLOT"],
+        Spot::TE => &["TE1"],
+        Spot::LT => &["LT"],
+        Spot::RT => &["RT"],
+        Spot::G => &["LG", "RG"],
+        Spot::C => &["C"],
+        Spot::EDGE => &["EDGE1", "EDGE2"],
+        Spot::DT | Spot::NT => &["DT1", "DT2"],
+        Spot::SAM => &["SAM"],
+        Spot::MLB => &["MIKE"],
+        Spot::OLB => &["WILL"],
+        Spot::CB => &["CB1", "CB2"],
+        Spot::NB => &["NCB"],
+        Spot::FS => &["FS"],
+        Spot::SS => &["SS"],
+        Spot::K | Spot::P | Spot::LS => &[],
+    }
 }
 
-/// `score` with the attributes as `a` gives them (the truth, or a staff's
-/// read) and his body weight.
-fn score_by(a: impl Fn(Attr) -> f64, weight: f64, pos: Position, slot: usize) -> f64 {
-    use Position as P;
-    let mix = |w: &[(Attr, f64)]| w.iter().map(|&(x, v)| a(x) * v).sum::<f64>();
-    let heavy = clamp((weight - 250.0) / 1.2, 20.0, 99.0);
-    match (pos, slot) {
-        (P::QB, 0) => {
-            mix(&[(ShortAccuracy, 0.3), (Decisions, 0.2), (Anticipation, 0.2), (QuickRelease, 0.15), (Footwork, 0.15)])
-        }
-        (P::QB, 1) => mix(&[
-            (ShortAccuracy, 0.2),
-            (MediumAccuracy, 0.2),
-            (DeepAccuracy, 0.15),
-            (ArmStrength, 0.15),
-            (QuickRelease, 0.15),
-            (Decisions, 0.15),
-        ]),
-        (P::QB, 2) => {
-            mix(&[(ThrowOnMove, 0.3), (BallHandling, 0.25), (MediumAccuracy, 0.2), (Speed, 0.15), (Agility, 0.1)])
-        }
-        (P::QB, 3) => mix(&[
-            (ArmStrength, 0.3),
-            (DeepAccuracy, 0.2),
-            (PocketPresence, 0.2),
-            (BallHandling, 0.15),
-            (Footwork, 0.15),
-        ]),
-        (P::QB, 4) => mix(&[
-            (Speed, 0.3),
-            (Decisions, 0.2),
-            (BallHandling, 0.15),
-            (Elusiveness, 0.15),
-            (ShortAccuracy, 0.1),
-            (Agility, 0.1),
-        ]),
-        (P::RB, 0) => mix(&[(Catching, 0.35), (BallCarrierVision, 0.25), (RouteRunning, 0.2), (Agility, 0.2)]),
-        (P::RB, 1) => mix(&[(Catching, 0.4), (PassBlocking, 0.35), (Speed, 0.25)]),
-        (P::RB, 2) => mix(&[(BallCarrierVision, 0.45), (Acceleration, 0.3), (Agility, 0.25)]),
-        (P::RB, 3) => mix(&[
-            (LegDrive, 0.3),
-            (Balance, 0.2),
-            (Acceleration, 0.2),
-            (BallSecurity, 0.15),
-            (BallCarrierVision, 0.15),
-        ]),
-        (P::RB, 4) => mix(&[(Speed, 0.4), (Acceleration, 0.3), (BallCarrierVision, 0.3)]),
-        (P::WR, 0) => mix(&[(RouteRunning, 0.45), (Catching, 0.3), (Agility, 0.15), (FootballIq, 0.1)]),
-        (P::WR, 1) => mix(&[(RouteRunning, 0.3), (Speed, 0.3), (Catching, 0.25), (FootballIq, 0.15)]),
-        (P::WR, 2) => mix(&[(Speed, 0.4), (BlockingInSpace, 0.3), (RouteRunning, 0.3)]),
-        (P::WR, 3) => mix(&[(BlockingInSpace, 0.35), (ContestedCatch, 0.3), (Catching, 0.2), (Strength, 0.15)]),
-        (P::WR, 4) => mix(&[(Speed, 0.45), (BlockingInSpace, 0.3), (Catching, 0.25)]),
-        (P::TE, 0) => mix(&[(Catching, 0.4), (RouteRunning, 0.4), (RunBlocking, 0.2)]),
-        (P::TE, 1) => mix(&[(Catching, 0.5), (RouteRunning, 0.5)]),
-        (P::TE, 2) => mix(&[(RunBlocking, 0.35), (Agility, 0.25), (Catching, 0.25), (BlockingInSpace, 0.15)]),
-        (P::TE, 3) => mix(&[(RunBlocking, 0.45), (HandUse, 0.2), (Strength, 0.2), (Anchor, 0.15)]),
-        (P::TE, 4) => mix(&[(BlockingInSpace, 0.4), (Catching, 0.3), (Speed, 0.3)]),
-        (P::OT | P::IOL, 0) => mix(&[(PassBlocking, 0.55), (Agility, 0.2), (RunBlocking, 0.15), (HandUse, 0.1)]),
-        (P::OT | P::IOL, 1) => mix(&[(PassBlocking, 0.7), (Anchor, 0.15), (Agility, 0.15)]),
-        (P::OT | P::IOL, 2) => mix(&[(Agility, 0.3), (BlockingInSpace, 0.3), (RunBlocking, 0.2), (Speed, 0.2)]),
-        (P::OT | P::IOL, 3) => {
-            mix(&[(RunBlocking, 0.4), (Strength, 0.3), (Anchor, 0.1), (BlockingInSpace, 0.1), (HandUse, 0.1)])
-        }
-        (P::OT | P::IOL, 4) => mix(&[(RunBlocking, 0.4), (Agility, 0.25), (BlockingInSpace, 0.2), (Strength, 0.15)]),
-        (P::DT, 5) => {
-            mix(&[(Acceleration, 0.35), (FinesseRush, 0.2), (PowerRush, 0.15), (Agility, 0.15), (Anticipation, 0.15)])
-        }
-        (P::DT, 6) => mix(&[(Anchor, 0.25), (BlockShedding, 0.2), (HandUse, 0.2), (Strength, 0.15)]) + 0.2 * heavy,
-        (P::EDGE, 5) => {
-            mix(&[(FinesseRush, 0.25), (PowerRush, 0.2), (Acceleration, 0.2), (BlockShedding, 0.2), (Anchor, 0.15)])
-        }
-        (P::EDGE, 6) => {
-            mix(&[(Speed, 0.25), (FinesseRush, 0.25), (Flexibility, 0.2), (ZoneCoverage, 0.15), (Pursuit, 0.15)])
-        }
-        (P::LB, 5) => mix(&[(Speed, 0.3), (Pursuit, 0.25), (PlayRecognition, 0.25), (ZoneCoverage, 0.2)]),
-        (P::LB, 6) => mix(&[(Tackling, 0.3), (BlockShedding, 0.25), (Traffic, 0.2), (Anchor, 0.15), (Strength, 0.1)]),
-        (P::CB, 7) => mix(&[(Speed, 0.4), (ZoneCoverage, 0.35), (Anticipation, 0.15), (BallTracking, 0.1)]),
-        (P::CB, 8) => mix(&[(ZoneCoverage, 0.35), (PlayRecognition, 0.25), (Tackling, 0.25), (ManCoverage, 0.15)]),
-        (P::CB, 9) => mix(&[(ManCoverage, 0.45), (Speed, 0.35), (Press, 0.2)]),
-        (P::CB, 10) => mix(&[(Press, 0.3), (ZoneCoverage, 0.3), (Tackling, 0.3), (Strength, 0.1)]),
-        (P::S, 7) => mix(&[(Speed, 0.45), (ZoneCoverage, 0.25), (BallTracking, 0.15), (PlayRecognition, 0.15)]),
-        (P::S, 8) => mix(&[(PlayRecognition, 0.35), (Tackling, 0.25), (ZoneCoverage, 0.25), (Anticipation, 0.15)]),
-        (P::S, 9) => mix(&[(ManCoverage, 0.5), (Speed, 0.3), (Tackling, 0.2)]),
-        (P::S, 10) => mix(&[(Speed, 0.35), (ZoneCoverage, 0.35), (BallTracking, 0.15), (PlayRecognition, 0.15)]),
-        (P::LB, 9) => mix(&[(ManCoverage, 0.5), (Speed, 0.35), (Blitzing, 0.15)]),
-        (P::LB, 7 | 8 | 10) => mix(&[(ZoneCoverage, 0.6), (PlayRecognition, 0.4)]),
-        (P::DT | P::EDGE, 9) => mix(&[(Acceleration, 0.4), (FinesseRush, 0.3), (PowerRush, 0.3)]),
-        (P::DT | P::EDGE, 7 | 8 | 10) => mix(&[(BlockShedding, 0.5), (PowerRush, 0.25), (FinesseRush, 0.25)]),
-        _ => 0.0,
+/// The system slot a table name stands for (`OFFENSES`, then `FRONTS`,
+/// then `SHELLS`, by their names).
+fn slot_named(s: &str) -> Option<usize> {
+    OFFENSES
+        .iter()
+        .map(|o| format!("{o:?}"))
+        .chain(FRONTS.iter().map(|f| format!("{f:?}")))
+        .chain(SHELLS.iter().map(|x| format!("{x:?}")))
+        .position(|n| n == s)
+}
+
+fn feature_named(s: &str) -> Option<u8> {
+    if s == "Weight" {
+        return Some(WEIGHT);
     }
+    Attr::ALL.iter().position(|a| format!("{a:?}") == s).map(|k| k as u8)
+}
+
+/// The table by job (`Spot` index) and system slot: each weight, and the
+/// weights on his ratings summed (what one point on every rating is worth
+/// there). By job and kind (`Kind as usize`): the kind's average weight on
+/// each rating where it pays (above 0), and their sum, the rating points a
+/// man's level is read in (`fit_at`).
+struct Table {
+    w: Vec<[Vec<(u8, f64)>; 11]>,
+    total: Vec<[f64; 11]>,
+    level: Vec<[Vec<(u8, f64)>; 3]>,
+    level_total: Vec<[f64; 3]>,
+}
+
+fn table() -> &'static Table {
+    static T: std::sync::OnceLock<Table> = std::sync::OnceLock::new();
+    T.get_or_init(|| parse(FIT_VALUES_CSV))
+}
+
+fn parse(csv: &str) -> Table {
+    let mut raw: std::collections::HashMap<(usize, &str), Vec<(u8, f64)>> = std::collections::HashMap::new();
+    for line in csv.lines().skip(1) {
+        let f: Vec<&str> = line.split(',').map(str::trim).collect();
+        if f.len() < 4 {
+            continue;
+        }
+        let (Some(slot), Some(feat), Ok(w)) = (slot_named(f[0]), feature_named(f[2]), f[3].parse::<f64>()) else {
+            continue;
+        };
+        raw.entry((slot, f[1])).or_default().push((feat, w));
+    }
+    let mut t = Table {
+        w: (0..crate::spots::SPOT_COUNT).map(|_| std::array::from_fn(|_| Vec::new())).collect(),
+        total: vec![[0.0; 11]; crate::spots::SPOT_COUNT],
+        level: (0..crate::spots::SPOT_COUNT).map(|_| std::array::from_fn(|_| Vec::new())).collect(),
+        level_total: vec![[0.0; 3]; crate::spots::SPOT_COUNT],
+    };
+    for job in Spot::ALL {
+        let roles = roles_of(job);
+        if roles.is_empty() {
+            continue;
+        }
+        for slot in 0..11 {
+            let mut sum: Vec<(u8, f64)> = Vec::new();
+            for r in roles {
+                for &(feat, w) in raw.get(&(slot, *r)).map(Vec::as_slice).unwrap_or(&[]) {
+                    match sum.iter_mut().find(|x| x.0 == feat) {
+                        Some(x) => x.1 += w,
+                        None => sum.push((feat, w)),
+                    }
+                }
+            }
+            for x in sum.iter_mut() {
+                x.1 /= roles.len() as f64;
+            }
+            sum.retain(|x| x.1 != 0.0);
+            t.total[job.index()][slot] = sum.iter().filter(|x| x.0 != WEIGHT).map(|x| x.1).sum();
+            t.w[job.index()][slot] = sum;
+        }
+        for kind in [Kind::Offense, Kind::Front, Kind::Shell] {
+            let r = kind.range();
+            let mut mean: Vec<(u8, f64)> = Vec::new();
+            for slot in r.clone() {
+                for &(feat, w) in t.w[job.index()][slot].iter().filter(|x| x.0 != WEIGHT) {
+                    match mean.iter_mut().find(|x| x.0 == feat) {
+                        Some(x) => x.1 += w / r.len() as f64,
+                        None => mean.push((feat, w / r.len() as f64)),
+                    }
+                }
+            }
+            mean.retain(|x| x.1 > 0.0);
+            t.level_total[job.index()][kind as usize] = mean.iter().map(|x| x.1).sum();
+            t.level[job.index()][kind as usize] = mean;
+        }
+    }
+    t
+}
+
+/// The table's weights for a job in a system slot, for the tools and the
+/// docs: (feature, points a game per point of the rating, or per pound of
+/// his weight).
+pub fn job_weights(job: Spot, slot: usize) -> Vec<(u8, f64)> {
+    table().w[job.index()][slot].clone()
+}
+
+/// The job a man's fit is read at: the spot at his position his ratings
+/// and body suit best (`spots::spot_rating`), a fullback only when he is
+/// clearly one, as a staff lists a backup (`spots::choose_spots`).
+pub fn fit_job(a: &Attributes, weight: f64, height: f64, pos: Position) -> Spot {
+    let spots = crate::spots::spots_of(pos);
+    let v = |s: Spot| crate::spots::spot_rating(s, a, weight, height) - if s == Spot::FB { 5.0 } else { 0.0 };
+    let mut best = spots[0];
+    for &s in &spots[1..] {
+        if v(s) > v(best) {
+            best = s;
+        }
+    }
+    best
+}
+
+/// His ratings' worth in one system at a job (points a game: the table's
+/// weights on his ratings), and the table's weight on his body weight.
+fn score_parts(a: &impl Fn(Attr) -> f64, job: Spot, slot: usize) -> (f64, f64) {
+    let mut r = 0.0;
+    let mut body = 0.0;
+    for &(f, w) in &table().w[job.index()][slot] {
+        if f == WEIGHT {
+            body = w;
+        } else {
+            r += w * a(Attr::ALL[f as usize]);
+        }
+    }
+    (r, body)
+}
+
+/// His level at a job in one kind of system, before the typical college
+/// player's is taken off: the kind's average weights where they pay, on his
+/// ratings (`Table::level`).
+fn level_score(a: &impl Fn(Attr) -> f64, job: Spot, kind: Kind) -> f64 {
+    table().level[job.index()][kind as usize].iter().map(|&(f, w)| w * a(Attr::ALL[f as usize])).sum()
+}
+
+/// His fit to each system his position plays in, at a job, in points a
+/// game against the average system of its kind: what his ratings are worth
+/// there over the typical college player's at his job, less what a man as
+/// much better or worse on every rating would gain there (fit is the shape
+/// of his game, not his level: a system that makes the whole job count
+/// more is no better fit for a better man), and his body weight's worth
+/// there over the typical man's. His level is how far he stands above the
+/// typical man in rating points, read on what the kind pays at the job.
+fn fit_at(a: impl Fn(Attr) -> f64, weight: f64, job: Spot, pos: Position, norm: &JobNorm) -> [f64; 11] {
+    let t = table();
+    let mut f = [0.0; 11];
+    for &kind in kinds(pos) {
+        let r = kind.range();
+        let per_point = t.level_total[job.index()][kind as usize];
+        let level =
+            if per_point > 1e-9 { (level_score(&a, job, kind) - norm.level[kind as usize]) / per_point } else { 0.0 };
+        let mut raw = [0.0; 11];
+        for slot in r.clone() {
+            let (x, b) = score_parts(&a, job, slot);
+            raw[slot] = x - norm.score[slot] - level * t.total[job.index()][slot] + b * (weight - norm.weight);
+        }
+        let mean = r.clone().map(|s| raw[s]).sum::<f64>() / r.len() as f64;
+        for slot in r {
+            f[slot] = raw[slot] - mean;
+        }
+    }
+    f
 }
 
 /// Whether a position plays in the offense's system.
@@ -310,96 +431,133 @@ fn kinds(pos: Position) -> &'static [Kind] {
     }
 }
 
-/// Each position's average score in each system among college players
-/// (S3): a system that asks for what every corner lacks (tackling) is not
-/// a worse fit for every roster, so fit is read against the typical player
-/// at the position. Worked out each spring.
-pub type SystemNorms = [[f64; 11]; crate::positions::POSITION_COUNT];
+/// The typical college player at a job's position, read in that job's
+/// table (S3): his ratings' worth in each system, his weight and his level
+/// in each kind (`level_score`). A system that asks for what every corner
+/// lacks is not a worse fit for every roster, so fit is read against him.
+/// Worked out each spring.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct JobNorm {
+    pub score: [f64; 11],
+    pub weight: f64,
+    #[serde(default)]
+    pub level: [f64; 3],
+}
+
+/// One norm a job (`Spot` index).
+pub type SystemNorms = [JobNorm; crate::spots::SPOT_COUNT];
 
 pub(crate) fn system_norms(w: &World) -> SystemNorms {
-    let mut sum = [[0.0; 11]; crate::positions::POSITION_COUNT];
-    let mut n = [0.0; crate::positions::POSITION_COUNT];
+    let mut sum = [JobNorm::default(); crate::spots::SPOT_COUNT];
+    let mut n = [0.0; crate::spots::SPOT_COUNT];
     for p in &w.people {
         if p.stage != Stage::College {
             continue;
         }
         let pos = p.player.position;
-        for &kind in kinds(pos) {
-            for slot in kind.range() {
-                sum[pos.index()][slot] += score(&p.player, pos, slot);
+        let a = |x: Attr| p.player.attributes.get(x);
+        for &job in crate::spots::spots_of(pos) {
+            let s = &mut sum[job.index()];
+            for &kind in kinds(pos) {
+                for slot in kind.range() {
+                    s.score[slot] += score_parts(&a, job, slot).0;
+                }
+                s.level[kind as usize] += level_score(&a, job, kind);
             }
+            s.weight += p.player.body.weight;
+            n[job.index()] += 1.0;
         }
-        n[pos.index()] += 1.0;
     }
-    for (row, &k) in sum.iter_mut().zip(&n) {
+    for (s, &k) in sum.iter_mut().zip(&n) {
         if k > 0.0 {
-            for v in row.iter_mut() {
+            for v in s.score.iter_mut().chain(s.level.iter_mut()) {
                 *v /= k;
             }
+            s.weight /= k;
         }
     }
     sum
 }
 
-/// A player's fit to every system his position plays in: his score there
-/// over the typical player's at his position, against his average across
-/// that kind, in tenths of a rating point scale (about -1 to 1). Slots his
-/// position doesn't play in are 0.
-pub fn fits(p: &Player, pos: Position, norms: &SystemNorms) -> [f64; 11] {
-    let mut f = [0.0; 11];
+/// The least a rating point at a job is taken to be worth when one man's
+/// fit is put in rating points (points a game a point, on the readers'
+/// scale): a third of a typical lineman's. The Sam and the fullback are
+/// worth less (the typical team's nickel takes the Sam's snaps), so their
+/// small fits in points don't read as large ones. Proposed, not confirmed.
+const MIN_WORTH: f64 = 0.02;
+
+/// One man's fit on the scale every reader of it was sized on (S6: the
+/// staff's lean, a recruit's showcase, the market, the screens' words, about
+/// 0.45 a spread): his fit in points a game (`fit_at`) as the rating points
+/// at his job that would be worth as much (`Table::level_total`, at least
+/// `MIN_WORTH`), in tenths, held to 1.5 either way as before.
+fn on_rating_scale(f: &[f64; 11], job: Spot, pos: Position) -> [f64; 11] {
+    let t = table();
+    let mut out = [0.0; 11];
     for &kind in kinds(pos) {
-        let r = kind.range();
-        // On the stack: recruiting weighs this for every offer.
-        let mut buf = [0.0; 11];
-        let s = &mut buf[..r.len()];
-        for (i, slot) in r.clone().enumerate() {
-            s[i] = score(p, pos, slot) - norms[pos.index()][slot];
-        }
-        let mean = s.iter().sum::<f64>() / s.len() as f64;
-        for (i, slot) in r.enumerate() {
-            f[slot] = clamp((s[i] - mean) / 10.0, -1.5, 1.5);
+        let per_point = t.level_total[job.index()][kind as usize].max(MIN_WORTH);
+        for slot in kind.range() {
+            out[slot] = (f[slot] / per_point / 10.0).clamp(-1.5, 1.5);
         }
     }
-    f
+    out
+}
+
+/// A player's fit to every system his position plays in (`fit_at`, at the
+/// job his game suits best, `fit_job`), against the average system of each
+/// kind, on the readers' scale (`on_rating_scale`). Slots his position
+/// doesn't play in are 0.
+pub fn fits(p: &Player, pos: Position, norms: &SystemNorms) -> [f64; 11] {
+    if kinds(pos).is_empty() {
+        return [0.0; 11];
+    }
+    let job = fit_job(&p.attributes, p.body.weight, p.body.height, pos);
+    on_rating_scale(&fit_at(|x| p.attributes.get(x), p.body.weight, job, pos, &norms[job.index()]), job, pos)
+}
+
+/// A person's fit to every system (`fits`) on the world's norms, for the
+/// tools (`fit_check world`).
+pub fn fits_of(w: &World, i: usize) -> [f64; 11] {
+    let p = &w.people[i].player;
+    fits(p, p.position, &w.system_norms)
 }
 
 /// A player's fit to what a team runs as a staff reads it (the NFL search's
 /// "Scheme fit"): `fits` and `fit_to` with his attributes as `a` gives them
-/// (your scouts' file) and his listed weight. None when the file hasn't
-/// seen an attribute the systems ask about, or his position plays in none.
+/// (your scouts' file) and his listed height and weight. None when the
+/// file hasn't seen an attribute the systems ask about, or his position
+/// plays in none.
 pub fn read_fit(
     w: &World,
     pos: Position,
-    weight: f64,
+    listed: (f64, f64),
     a: impl Fn(Attr) -> Option<f64>,
     inst: &Installed,
 ) -> Option<f64> {
-    let k = kinds(pos);
-    if k.is_empty() {
+    if kinds(pos).is_empty() {
         return None;
     }
-    let missing = std::cell::Cell::new(false);
-    let get = |x: Attr| {
-        a(x).unwrap_or_else(|| {
-            missing.set(true);
-            50.0
-        })
-    };
-    let norms = &w.system_norms[pos.index()];
-    let mut f = [0.0; 11];
-    for &kind in k {
-        let r = kind.range();
-        let mut buf = [0.0; 11];
-        let s = &mut buf[..r.len()];
-        for (i, slot) in r.clone().enumerate() {
-            s[i] = score_by(get, weight, pos, slot) - norms[slot];
-        }
-        let mean = s.iter().sum::<f64>() / s.len() as f64;
-        for (i, slot) in r.enumerate() {
-            f[slot] = clamp((s[i] - mean) / 10.0, -1.5, 1.5);
+    let mut seen = Attributes::default();
+    let mut missing = false;
+    for x in Attr::ALL {
+        match a(x) {
+            Some(v) => seen.set(x, v),
+            None => seen.set(x, 50.0),
         }
     }
-    (!missing.get()).then(|| fit_to(&f, pos, inst))
+    let (height, weight) = listed;
+    let job = fit_job(&seen, weight, height, pos);
+    let t = table();
+    for &kind in kinds(pos) {
+        for slot in kind.range() {
+            missing |= t.w[job.index()][slot].iter().any(|&(f, _)| f != WEIGHT && a(Attr::ALL[f as usize]).is_none());
+        }
+    }
+    if missing {
+        return None;
+    }
+    let f = fit_at(|x| seen.get(x), weight, job, pos, &w.system_norms[job.index()]);
+    Some(fit_to(&on_rating_scale(&f, job, pos), pos, inst))
 }
 
 /// The system a position plays in for a team, in words ("4-3", "Cover 3",
@@ -465,29 +623,29 @@ pub fn showcase(f: &[f64; 11], pos: Position, inst: &Installed) -> f64 {
     0.5 * feat + 0.5 * fit
 }
 
-/// The starters a coordinator weighs when he judges fit, by position:
-/// (position, how many, weight per player). The quarterback counts most.
-const WEIGH: [(Position, usize, f64); 11] = [
-    (Position::QB, 1, 3.0),
-    (Position::RB, 1, 1.0),
-    (Position::WR, 3, 1.0),
-    (Position::TE, 1, 1.0),
-    (Position::OT, 2, 1.0),
-    (Position::IOL, 3, 1.0),
-    (Position::DT, 2, 1.0),
-    (Position::EDGE, 2, 1.0),
-    (Position::LB, 3, 1.0),
-    (Position::CB, 2, 1.0),
-    (Position::S, 2, 1.0),
+/// The starters a coordinator weighs when he judges fit, by position and
+/// how many: every job the table reads, the nickel with the two outside
+/// corners. Each counts as much as the table says his job is worth.
+const STARTERS: [(Position, usize); 11] = [
+    (Position::QB, 1),
+    (Position::RB, 1),
+    (Position::WR, 3),
+    (Position::TE, 1),
+    (Position::OT, 2),
+    (Position::IOL, 3),
+    (Position::DT, 2),
+    (Position::EDGE, 2),
+    (Position::LB, 3),
+    (Position::CB, 3),
+    (Position::S, 2),
 ];
 
-/// Points a game one unit of weighted lineup fit is worth (S11): the best
-/// and worst system for a typical roster end up 1-3 points apart.
-const FIT_POINTS: f64 = 2.5;
-
-/// What each system would be worth to any roster (people indexes), in
-/// points a game against the average of its kind (update 2, G3: your
-/// roster's fit on the Identity tab, at every level).
+/// What each system would be worth to a roster (people indexes), in
+/// points a game against the average of its kind (S3; update 2, G3: your
+/// roster's fit on the Identity tab, at every level): its best men at each
+/// position by overall, seated at the jobs that suit them together as a
+/// staff seats its starters (`spots::best_order`), each man's fit at his
+/// job summed.
 pub fn roster_fit(w: &World, roster: &[usize]) -> [f64; 11] {
     let mut by_pos: Vec<Vec<(f64, usize)>> = vec![Vec::new(); crate::positions::POSITION_COUNT];
     for &i in roster {
@@ -495,63 +653,39 @@ pub fn roster_fit(w: &World, roster: &[usize]) -> [f64; 11] {
         by_pos[p.player.position.index()].push((p.player.overall(), i));
     }
     let mut v = [0.0; 11];
-    let mut weight = [0.0; 3];
-    for (pos, n, wt) in WEIGH {
+    for (pos, n) in STARTERS {
         let list = &mut by_pos[pos.index()];
         list.sort_by(|a, b| b.0.total_cmp(&a.0));
-        for &(_, i) in list.iter().take(n) {
-            let f = fits(&w.people[i].player, pos, &w.system_norms);
+        let men: Vec<usize> = list.iter().take(n).map(|x| x.1).collect();
+        let spots = crate::spots::starter_spots(pos);
+        let seats: Vec<(usize, Spot)> = if spots.len() > 1 && !men.is_empty() {
+            let r = |i: usize, s: Spot| {
+                let p = &w.people[i].player;
+                crate::spots::spot_rating(s, &p.attributes, p.body.weight, p.body.height)
+            };
+            let order = crate::spots::best_order(&men, spots, &r);
+            order.into_iter().zip(spots).filter_map(|(i, &s)| i.map(|i| (i, s))).collect()
+        } else {
+            men.iter().map(|&i| (i, crate::spots::spots_of(pos)[0])).collect()
+        };
+        for (i, job) in seats {
+            let p = &w.people[i].player;
+            let f = fit_at(|x| p.attributes.get(x), p.body.weight, job, pos, &w.system_norms[job.index()]);
             for &kind in kinds(pos) {
                 for slot in kind.range() {
-                    v[slot] += wt * f[slot];
+                    v[slot] += f[slot];
                 }
-                weight[kind as usize] += wt;
             }
-        }
-    }
-    for kind in [Kind::Offense, Kind::Front, Kind::Shell] {
-        let wt = weight[kind as usize].max(1.0);
-        for slot in kind.range() {
-            v[slot] *= FIT_POINTS * 4.0 / wt;
         }
     }
     v
 }
 
-/// What each system would be worth to this roster, in points a game
-/// against the average of its kind (S3).
+/// What each system would be worth to this program's roster, in points a
+/// game against the average of its kind (S3): its college players' fit.
 fn roster_value(w: &World, prog: &super::program::Program) -> [f64; 11] {
-    let mut by_pos: Vec<Vec<(f64, usize)>> = vec![Vec::new(); crate::positions::POSITION_COUNT];
-    for &i in &prog.roster {
-        let p = &w.people[i];
-        if p.stage != super::Stage::College {
-            continue;
-        }
-        by_pos[p.player.position.index()].push((p.player.overall(), i));
-    }
-    let mut v = [0.0; 11];
-    let mut weight = [0.0; 3];
-    for (pos, n, wt) in WEIGH {
-        let list = &mut by_pos[pos.index()];
-        list.sort_by(|a, b| b.0.total_cmp(&a.0));
-        for &(_, i) in list.iter().take(n) {
-            let p = &w.people[i];
-            let f = fits(&p.player, pos, &w.system_norms);
-            for &kind in kinds(pos) {
-                for slot in kind.range() {
-                    v[slot] += wt * f[slot];
-                }
-                weight[kind as usize] += wt;
-            }
-        }
-    }
-    for kind in [Kind::Offense, Kind::Front, Kind::Shell] {
-        let wt = weight[kind as usize].max(1.0);
-        for slot in kind.range() {
-            v[slot] *= FIT_POINTS * 4.0 / wt;
-        }
-    }
-    v
+    let ids: Vec<usize> = prog.roster.iter().copied().filter(|&i| w.people[i].stage == super::Stage::College).collect();
+    roster_fit(w, &ids)
 }
 
 /// Each spring every college staff settles its systems (S3-S5): the play

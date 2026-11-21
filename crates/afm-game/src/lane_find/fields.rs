@@ -1085,7 +1085,7 @@ pub fn scheme_fit(ctx: &Ctx, i: usize) -> Option<(usize, &'static str)> {
     let p = ctx.p(i);
     let r = ctx.read(i)?;
     let pos = p.player.position;
-    let f = systems::read_fit(w, pos, file::listed(&p.player).1, |a| r.attr(a.index()).map(|x| x.0), inst)?;
+    let f = systems::read_fit(w, pos, file::listed(&p.player), |a| r.attr(a.index()).map(|x| x.0), inst)?;
     let k = if f >= 0.15 {
         2
     } else if f <= -0.15 {
