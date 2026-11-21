@@ -2,9 +2,10 @@
 //! stand-in games (the check reads installs, fit and recruiting, not the
 //! games), then how its FBS programs install and recruit by the measured
 //! fit: the systems they run by year, what their own rosters are worth in
-//! what they run against the other systems of its kind, each class's fit to
-//! its own school's systems against the average FBS school's, and a man's
-//! fit by position.
+//! what they run against the other systems of its kind (points a game),
+//! each class's fit to its own school's systems against the average FBS
+//! school's, and a man's fit by position (both on the readers' scale,
+//! `systems::fits`: tenths of a rating point at his job).
 
 use afm_engine::positions::Position;
 use afm_engine::world::data::Division;
@@ -161,7 +162,7 @@ pub fn run(scale: f64, years: u32, seed: u32) {
         }
     }
     println!(
-        "\nfit by class (FBS college players, points a game): his fit to his own school's systems against the average FBS school's"
+        "\nfit by class (FBS college players, the readers' scale: tenths of a rating point at his job): his fit to his own school's systems against the average FBS school's"
     );
     println!("  class          players   own     average   own minus average");
     for (c, (own, avg)) in by_class.iter().enumerate() {
@@ -192,7 +193,7 @@ pub fn run(scale: f64, years: u32, seed: u32) {
             mean(own) - mean(avg)
         );
     }
-    println!("\na man's fit to his own school's systems by position (FBS college players, points a game)");
+    println!("\na man's fit to his own school's systems by position (FBS college players, the readers' scale)");
     println!("  position   players   sd      p10     p90");
     for pos in Position::ALL {
         let v = &mut by_pos[pos.index()];
