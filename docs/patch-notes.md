@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.674 (21 Nov, shipped): SF10: the roster shapes the call (PR #607)
+**TLDR:** AI play callers now build their calls around their own players, so a defense with lockdown corners plays more man and a team with a big arm takes more shots.
+- Every run, throw, personnel group, coverage and blitz leans toward what the caller's own men do best, and a sharper coordinator leans harder. (PR #607)
+- Teams with man corners call more man and single-high coverage, so those corners earn their keep. (PR #607)
+- A passer with a big arm or a strong deep ball gets more deep concepts called for him. (PR #607)
+- AI staffs bring in a bigger back on short yardage when their starter is a light one. (PR #607)
+- Look at: a team with standout corners or a big-armed passer, and how its coordinator calls the game. (PR #607)
+- Docs and tooling merged too, no game change: Docs: Cain's call on SF9 item 9, the open-field tackle lane before SF10 (PR #606).
+
 ## 0.2.673 (21 Nov, shipped): third and short (PR #605)
 **TLDR:** Third and short is a real fight now: linebackers attack the line to stop the back short of the sticks, so a run on third and 1 converts about as often as it does in the NFL.
 - On third and fourth down with a yard or two to go, linebackers fill short of the line to gain instead of meeting the back past it. (PR #605)
