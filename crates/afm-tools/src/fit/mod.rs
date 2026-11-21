@@ -207,6 +207,17 @@ slots!(
     d_dtwp,
     d_edw,
     d_edwp,
+    // The roster shapes the call (items 10, 11 and 23, lane SF10): the
+    // backs' gap runs (power, counter, iso, trap, duo) and wide runs (toss,
+    // outside zone, buck sweep), the quarterback's designed runs, the
+    // snaps on third and fourth down with 2 or less and with 4 or more to
+    // go, and the defense's single-high calls.
+    o_rgap,
+    o_rwide,
+    o_qbrun,
+    o_syn,
+    o_3ln,
+    d_1hi,
 );
 
 // Each watched man's slots: the audit's first, then the items' own.
@@ -227,7 +238,8 @@ slots!(
     ftk, ftk_blk, // dropbacks with him on the field and his yards against zone (item 6)
     on_db_z,
     ryd_z, // his pass rushes, his blitzes, his pressures on them, and on the snaps he won a rep (items 21, 22)
-    rsh, blz, bprs, wprs,
+    rsh, blz, bprs, wprs, // on the field on third and fourth down, 2 or less and 4 or more to go (item 11)
+    onsy, on3l,
 );
 
 /// The watched men: one per job on the typical team.
@@ -1171,6 +1183,17 @@ struct Games<'a> {
     pos_of: HashMap<u32, Position>,
 }
 
+/// A single-high call (Cover 1, Cover 3 and their match and robber
+/// looks), read from the defense call's words.
+fn single_high(call: &str) -> bool {
+    use afm_engine::game::playbook::Coverage;
+    Coverage::ALL
+        .iter()
+        .filter(|c| call.starts_with(c.name()))
+        .max_by_key(|c| c.name().len())
+        .is_some_and(|c| c.high() == 1)
+}
+
 /// The game seed of game `g`: the same in every arm.
 pub fn game_seed(seed: u32, g: usize) -> u64 {
     seed as u64 * 1_000_003 + g as u64
@@ -1208,6 +1231,11 @@ fn one(cx: &Games, g: usize) -> Vec<f64> {
             m[pi(ri, P::on)] += 1.0;
             if p.down >= 3 {
                 m[pi(ri, P::on3)] += 1.0;
+                if p.togo <= 2.0 {
+                    m[pi(ri, P::onsy)] += 1.0;
+                } else if p.togo >= 4.0 {
+                    m[pi(ri, P::on3l)] += 1.0;
+                }
             }
             if db {
                 m[pi(ri, P::on_db)] += 1.0;
@@ -1269,6 +1297,11 @@ fn one(cx: &Games, g: usize) -> Vec<f64> {
             if p.kind == K::Scramble {
                 t(T::o_scr, 1.0);
                 t(T::o_scr_yds, p.yards);
+            }
+            if p.down >= 3 && p.togo <= 2.0 {
+                t(T::o_syn, 1.0);
+            } else if p.down >= 3 && p.togo >= 4.0 {
+                t(T::o_3ln, 1.0);
             }
             if run {
                 t(T::o_run, 1.0);
@@ -1406,6 +1439,7 @@ fn one(cx: &Games, g: usize) -> Vec<f64> {
             t(T::d_epa, p.epa);
             t(T::d_blitz, f64::from(p.blitz));
             t(T::d_man, f64::from(p.coverage_man));
+            t(T::d_1hi, f64::from(single_high(&p.defense_call)));
             t(T::d_box, f64::from(p.box_count));
             t(T::d_base, f64::from(p.dpers == 1));
             t(T::d_nickel, f64::from(p.dpers == 2));
@@ -1611,6 +1645,19 @@ fn items(cx: &Games, p: &afm_engine::game::stats::PlayRecord, off: bool, m: &mut
     if short {
         add(m, sy, 1.0);
         add(m, sy_cv, conv);
+    }
+    if off && run {
+        if qb_run {
+            add(m, T::o_qbrun, 1.0);
+        } else if rb_run {
+            let c = p.call.as_str();
+            let has = |w: &str| c.contains(w);
+            if (has("power") && !has("QB power")) || has("counter") || has("iso") || has("trap") || has("duo") {
+                add(m, T::o_rgap, 1.0);
+            } else if has("toss") || has("outside zone") || has("buck sweep") {
+                add(m, T::o_rwide, 1.0);
+            }
+        }
     }
     let (rtk, rtk_blk, rb_car, rb_r10, rb_r20) = if off {
         (T::o_rtk, T::o_rtk_blk, T::o_rb_car, T::o_rb_r10, T::o_rb_r20)

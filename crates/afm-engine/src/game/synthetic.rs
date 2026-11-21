@@ -289,6 +289,15 @@ struct Typical {
     /// it. The engine reads a man's own against it, so a level plays as it
     /// did and only how men differ changes.
     craft: Vec<[f64; crate::craft::CRAFT_COUNT]>,
+    /// The typical man at each of a position's first three places on the
+    /// depth chart (lane SF10): his mean ratings and weight, so the
+    /// roster's read of a team's second tight end or nickel corner sits
+    /// about the level's typical second tight end or nickel corner
+    /// (`roster_fit::reference`).
+    at: Vec<[([f64; crate::attributes::ATTRIBUTE_COUNT], f64); 3]>,
+    /// The typical fullback: the back or tight end past the first whom the
+    /// staff would seat there (`Side::pick_fb`), his ratings and weight.
+    fb: ([f64; crate::attributes::ATTRIBUTE_COUNT], f64),
 }
 
 static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| {
@@ -351,7 +360,43 @@ static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| 
                     craft[pos.index()][c.index()] = men.iter().map(|p| p.craft.pts(c, 0.0)).sum::<f64>() / n;
                 }
             }
-            Typical { attrs, body, hit, start, craft }
+            let mean = |men: &[&GamePlayer], fallback: ([f64; crate::attributes::ATTRIBUTE_COUNT], f64)| {
+                if men.is_empty() {
+                    return fallback;
+                }
+                let n = men.len() as f64;
+                let mut v = [0.0; crate::attributes::ATTRIBUTE_COUNT];
+                for a in Attr::ALL {
+                    v[a.index()] = men.iter().map(|p| p.a(a)).sum::<f64>() / n;
+                }
+                (v, men.iter().map(|p| p.weight).sum::<f64>() / n)
+            };
+            let mut at = vec![[([0.0; crate::attributes::ATTRIBUTE_COUNT], 0.0); 3]; POSITION_COUNT];
+            for pos in Position::ALL {
+                for (k, slot) in at[pos.index()].iter_mut().enumerate() {
+                    let men: Vec<&GamePlayer> = league
+                        .iter()
+                        .zip(&charts)
+                        .filter_map(|(t, d)| d.list(pos).get(k).map(|&i| &t.players[i]))
+                        .collect();
+                    *slot = mean(&men, (attrs[pos.index()], body[pos.index()].1));
+                }
+            }
+            let fbs: Vec<&GamePlayer> = league
+                .iter()
+                .zip(&charts)
+                .filter_map(|(t, d)| {
+                    let fb = crate::spots::Spot::FB.index();
+                    d.list(Position::RB)
+                        .iter()
+                        .skip(1)
+                        .chain(d.list(Position::TE).iter().skip(1))
+                        .map(|&i| &t.players[i])
+                        .max_by(|a, b| a.spot_r[fb].total_cmp(&b.spot_r[fb]))
+                })
+                .collect();
+            let fb = mean(&fbs, (attrs[Position::RB.index()], body[Position::RB.index()].1));
+            Typical { attrs, body, hit, start, craft, at, fb }
         })
         .collect()
 });
@@ -381,6 +426,21 @@ pub fn typical_craft(level: Level, pos: Position, c: crate::craft::Craft) -> f64
 /// The typical starter's rating in `a` at `pos` at `level` (see `Typical`).
 pub fn typical_starter(level: Level, pos: Position, a: Attr) -> f64 {
     TYPICAL[level_slot(level)].start[pos.index()][a.index()]
+}
+
+/// The typical man's rating in `a` at place `depth` (0 the first, up to 2)
+/// on a depth chart at `pos` at `level` (lane SF10), and his weight.
+pub fn typical_at(
+    level: Level,
+    pos: Position,
+    depth: usize,
+) -> &'static ([f64; crate::attributes::ATTRIBUTE_COUNT], f64) {
+    &TYPICAL[level_slot(level)].at[pos.index()][depth.min(2)]
+}
+
+/// The typical fullback's ratings and weight at `level` (lane SF10).
+pub fn typical_fb(level: Level) -> &'static ([f64; crate::attributes::ATTRIBUTE_COUNT], f64) {
+    &TYPICAL[level_slot(level)].fb
 }
 
 /// The typical height, weight and arm length (inches, pounds, inches) of a

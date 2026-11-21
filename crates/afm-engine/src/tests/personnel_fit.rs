@@ -51,6 +51,7 @@ fn ctx() -> OffCtx {
         shots: 0.0,
         lean: Default::default(),
         players: 11,
+        fit: Default::default(),
     }
 }
 

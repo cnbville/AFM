@@ -1,0 +1,2841 @@
+cell,slot,feature,weight
+pass:slant-flat,QB,MediumAccuracy,0.00851
+pass:slant-flat,QB,Decisions,0.00400
+pass:slant-flat,WR1,Acceleration,0.00173
+pass:slant-flat,WR1,Agility,0.02247
+pass:slant-flat,WR1,RouteRunning,0.05733
+pass:slant-flat,WR1,Catching,0.00346
+pass:slant-flat,WR1,Weight,-0.00211
+pass:slant-flat,WR2,Agility,0.00247
+pass:slant-flat,WR2,RouteRunning,0.01811
+pass:slant-flat,WR2,BallTracking,0.00074
+pass:slant-flat,WR3,RouteRunning,0.00113
+pass:slant-flat,TE1,RouteRunning,0.00062
+pass:slant-flat,OT1,HandUse,0.00096
+pass:slant-flat,OT1,Agility,0.00145
+pass:slant-flat,OT2,PassBlocking,0.00185
+pass:slant-flat,IOL3,PassBlocking,0.01128
+pass:slant-flat,IOL3,Anchor,0.00108
+pass:slant-flat,IOL3,Agility,0.00113
+pass:stick,QB,ShortAccuracy,0.01694
+pass:stick,QB,MediumAccuracy,0.00474
+pass:stick,QB,Anticipation,-0.00003
+pass:stick,QB,EyeManipulation,0.00122
+pass:stick,QB,Speed,-0.01193
+pass:stick,RB,Catching,0.00110
+pass:stick,RB,RouteRunning,0.00030
+pass:stick,WR1,RouteRunning,-0.00615
+pass:stick,WR1,Release,-0.00031
+pass:stick,WR1,Catching,-0.00463
+pass:stick,WR1,ContestedCatch,-0.00079
+pass:stick,WR2,Speed,0.00129
+pass:stick,WR2,Release,0.00748
+pass:stick,WR2,BallTracking,0.00074
+pass:stick,WR3,RouteRunning,0.00016
+pass:stick,WR3,Catching,0.00328
+pass:stick,WR3,ContestedCatch,0.00094
+pass:stick,TE1,RouteRunning,0.06532
+pass:stick,TE1,Release,0.01123
+pass:stick,TE1,Catching,0.01189
+pass:stick,TE1,Weight,-0.01215
+pass:stick,OT1,HandUse,0.00096
+pass:stick,OT1,Agility,0.00145
+pass:stick,IOL3,Anchor,0.00108
+pass:hitches,QB,ArmStrength,0.00563
+pass:hitches,QB,Decisions,0.01109
+pass:hitches,QB,Speed,-0.00108
+pass:hitches,WR2,BallTracking,0.00074
+pass:hitches,OT1,HandUse,0.00096
+pass:hitches,OT1,Agility,0.00145
+pass:hitches,OT2,PassBlocking,0.00171
+pass:hitches,IOL3,PassBlocking,0.02314
+pass:hitches,IOL3,Anchor,0.00108
+pass:hitches,IOL3,Agility,0.00848
+pass:hitches,IOL3,Weight,0.00204
+pass:mesh,QB,MediumAccuracy,0.00212
+pass:mesh,QB,EyeManipulation,-0.00442
+pass:mesh,RB,RouteRunning,0.00029
+pass:mesh,WR1,Agility,0.00082
+pass:mesh,WR1,RouteRunning,-0.00798
+pass:mesh,WR1,Release,-0.00079
+pass:mesh,WR1,Catching,-0.00198
+pass:mesh,WR2,BallTracking,0.00074
+pass:mesh,WR3,Speed,0.01580
+pass:mesh,WR3,Acceleration,0.00813
+pass:mesh,WR3,Agility,0.00289
+pass:mesh,WR3,RouteRunning,0.03298
+pass:mesh,WR3,Release,0.00445
+pass:mesh,WR3,Catching,0.00381
+pass:mesh,WR3,BallTracking,0.00376
+pass:mesh,TE1,Speed,-0.01494
+pass:mesh,TE1,RouteRunning,0.01109
+pass:mesh,TE1,Catching,0.00326
+pass:mesh,TE1,Weight,-0.00212
+pass:mesh,OT1,HandUse,0.00096
+pass:mesh,OT1,Agility,0.00145
+pass:mesh,OT2,PassBlocking,0.00245
+pass:mesh,IOL3,PassBlocking,0.00221
+pass:mesh,IOL3,HandUse,0.00090
+pass:mesh,IOL3,Anchor,0.00108
+pass:smash,QB,ArmStrength,0.11654
+pass:smash,QB,MediumAccuracy,0.00097
+pass:smash,QB,DeepAccuracy,0.07383
+pass:smash,QB,Decisions,0.00497
+pass:smash,QB,EyeManipulation,0.00806
+pass:smash,WR2,BallTracking,0.00074
+pass:smash,WR3,Speed,0.05501
+pass:smash,WR3,Acceleration,0.02481
+pass:smash,WR3,Agility,0.00875
+pass:smash,WR3,RouteRunning,0.03926
+pass:smash,WR3,Release,0.00468
+pass:smash,WR3,ContestedCatch,0.00506
+pass:smash,WR3,Weight,-0.00985
+pass:smash,TE1,Release,0.00168
+pass:smash,OT1,HandUse,0.00096
+pass:smash,OT1,Agility,0.00145
+pass:smash,OT2,PassBlocking,0.00388
+pass:smash,OT2,Agility,0.00293
+pass:smash,IOL3,PassBlocking,0.03073
+pass:smash,IOL3,Anchor,0.00108
+pass:smash,IOL3,Agility,0.00576
+pass:flood,QB,ArmStrength,0.01458
+pass:flood,QB,MediumAccuracy,0.04522
+pass:flood,QB,DeepAccuracy,0.04220
+pass:flood,QB,EyeManipulation,0.01173
+pass:flood,WR1,RouteRunning,0.01198
+pass:flood,WR2,Speed,0.01185
+pass:flood,WR2,Acceleration,0.00282
+pass:flood,WR2,Release,0.01687
+pass:flood,WR2,BallTracking,0.00074
+pass:flood,WR2,Weight,-0.00247
+pass:flood,TE1,Speed,0.01336
+pass:flood,TE1,RouteRunning,0.03883
+pass:flood,TE1,Catching,0.00412
+pass:flood,TE1,ContestedCatch,0.00602
+pass:flood,TE1,Weight,-0.01792
+pass:flood,OT1,HandUse,0.00096
+pass:flood,OT1,Agility,0.00145
+pass:flood,OT2,PassBlocking,0.01226
+pass:flood,OT2,HandUse,0.00195
+pass:flood,IOL3,PassBlocking,0.02665
+pass:flood,IOL3,HandUse,0.00368
+pass:flood,IOL3,Anchor,0.00108
+pass:flood,IOL3,Agility,0.00483
+pass:curl-flat,QB,ArmStrength,0.03576
+pass:curl-flat,QB,MediumAccuracy,0.01570
+pass:curl-flat,QB,DeepAccuracy,0.01272
+pass:curl-flat,QB,Decisions,0.01339
+pass:curl-flat,QB,EyeManipulation,0.00789
+pass:curl-flat,WR1,RouteRunning,0.01593
+pass:curl-flat,WR2,ContestedCatch,0.01039
+pass:curl-flat,WR2,BallTracking,0.00074
+pass:curl-flat,WR3,Acceleration,0.00383
+pass:curl-flat,WR3,Agility,0.01139
+pass:curl-flat,WR3,RouteRunning,0.01475
+pass:curl-flat,WR3,Weight,-0.00871
+pass:curl-flat,TE1,Speed,0.00058
+pass:curl-flat,OT1,PassBlocking,0.00748
+pass:curl-flat,OT1,HandUse,0.00096
+pass:curl-flat,OT1,Agility,0.00145
+pass:curl-flat,OT2,PassBlocking,0.01348
+pass:curl-flat,OT2,HandUse,0.00263
+pass:curl-flat,IOL3,PassBlocking,0.02612
+pass:curl-flat,IOL3,HandUse,0.00165
+pass:curl-flat,IOL3,Anchor,0.00108
+pass:curl-flat,IOL3,Agility,0.00638
+pass:curl-flat,IOL3,Weight,0.00144
+pass:dagger,QB,DeepAccuracy,0.03598
+pass:dagger,QB,PocketPresence,0.00340
+pass:dagger,QB,EyeManipulation,-0.05115
+pass:dagger,QB,Speed,-0.04147
+pass:dagger,WR2,Speed,0.02270
+pass:dagger,WR2,Acceleration,0.01188
+pass:dagger,WR2,Agility,0.01408
+pass:dagger,WR2,RouteRunning,0.01984
+pass:dagger,WR2,Release,0.01060
+pass:dagger,WR2,BallTracking,0.00074
+pass:dagger,WR2,Weight,-0.00453
+pass:dagger,WR3,Speed,-0.03716
+pass:dagger,WR3,ContestedCatch,0.00307
+pass:dagger,WR3,Weight,0.00547
+pass:dagger,TE1,RouteRunning,0.00465
+pass:dagger,OT1,PassBlocking,0.00431
+pass:dagger,OT1,HandUse,0.00096
+pass:dagger,OT1,Agility,0.00145
+pass:dagger,OT2,PassBlocking,0.04603
+pass:dagger,OT2,HandUse,0.00656
+pass:dagger,OT2,Agility,0.01345
+pass:dagger,IOL1,PassBlocking,0.00135
+pass:dagger,IOL3,PassBlocking,0.00941
+pass:dagger,IOL3,Anchor,0.00108
+pass:four verticals,QB,DeepAccuracy,0.02346
+pass:four verticals,QB,EyeManipulation,-0.01057
+pass:four verticals,QB,Speed,0.00632
+pass:four verticals,WR2,Acceleration,0.00143
+pass:four verticals,WR2,BallTracking,0.00074
+pass:four verticals,WR3,RouteRunning,0.00282
+pass:four verticals,WR3,ContestedCatch,0.00279
+pass:four verticals,TE1,ContestedCatch,0.00378
+pass:four verticals,OT1,PassBlocking,0.00386
+pass:four verticals,OT1,HandUse,0.00096
+pass:four verticals,OT1,Agility,0.00145
+pass:four verticals,OT2,PassBlocking,0.00355
+pass:four verticals,IOL3,PassBlocking,0.03405
+pass:four verticals,IOL3,HandUse,0.00087
+pass:four verticals,IOL3,Anchor,0.00108
+pass:four verticals,IOL3,Agility,0.00950
+pass:Y-cross,QB,ArmStrength,0.04578
+pass:Y-cross,QB,DeepAccuracy,0.09318
+pass:Y-cross,WR2,RouteRunning,0.00223
+pass:Y-cross,WR2,Release,0.00378
+pass:Y-cross,WR2,BallTracking,0.00074
+pass:Y-cross,WR3,RouteRunning,0.00538
+pass:Y-cross,WR3,Release,0.00138
+pass:Y-cross,WR3,Catching,0.00009
+pass:Y-cross,TE1,Speed,0.00545
+pass:Y-cross,TE1,RouteRunning,0.02117
+pass:Y-cross,TE1,ContestedCatch,0.00144
+pass:Y-cross,TE1,Weight,-0.00731
+pass:Y-cross,OT1,PassBlocking,0.00634
+pass:Y-cross,OT1,HandUse,0.00096
+pass:Y-cross,OT1,Agility,0.00145
+pass:Y-cross,OT2,PassBlocking,0.02598
+pass:Y-cross,OT2,HandUse,0.00468
+pass:Y-cross,OT2,Agility,0.00743
+pass:Y-cross,IOL3,PassBlocking,0.00606
+pass:Y-cross,IOL3,HandUse,0.00075
+pass:Y-cross,IOL3,Anchor,0.00108
+pass:play-action shot,QB,ArmStrength,0.06679
+pass:play-action shot,QB,DeepAccuracy,0.07230
+pass:play-action shot,QB,Speed,-0.00873
+pass:play-action shot,WR1,Agility,0.01232
+pass:play-action shot,WR1,RouteRunning,0.01493
+pass:play-action shot,WR1,Catching,0.00408
+pass:play-action shot,WR1,ContestedCatch,0.00511
+pass:play-action shot,WR2,BallTracking,0.00074
+pass:play-action shot,OT1,HandUse,0.00096
+pass:play-action shot,OT1,Agility,0.00145
+pass:play-action shot,OT2,PassBlocking,0.00172
+pass:play-action shot,OT2,Agility,0.00231
+pass:play-action shot,IOL1,PassBlocking,0.00687
+pass:play-action shot,IOL1,Agility,0.00288
+pass:play-action shot,IOL2,PassBlocking,0.00004
+pass:play-action shot,IOL2,Agility,0.00131
+pass:play-action shot,IOL3,Anchor,0.00108
+pass:play-action boot,QB,ArmStrength,0.00324
+pass:play-action boot,QB,ShortAccuracy,0.00028
+pass:play-action boot,QB,MediumAccuracy,0.09834
+pass:play-action boot,QB,DeepAccuracy,0.01747
+pass:play-action boot,QB,EyeManipulation,-0.00401
+pass:play-action boot,QB,BallHandling,0.00164
+pass:play-action boot,QB,Speed,0.01269
+pass:play-action boot,WR2,BallTracking,0.00074
+pass:play-action boot,WR3,Agility,-0.00154
+pass:play-action boot,WR3,RouteRunning,-0.01964
+pass:play-action boot,TE1,Speed,0.00216
+pass:play-action boot,TE1,RouteRunning,0.05130
+pass:play-action boot,TE1,Release,0.00023
+pass:play-action boot,TE1,Catching,0.02203
+pass:play-action boot,TE1,ContestedCatch,0.00257
+pass:play-action boot,TE1,Weight,-0.00045
+pass:play-action boot,OT1,HandUse,0.00096
+pass:play-action boot,OT1,Agility,0.00145
+pass:play-action boot,IOL1,PassBlocking,0.02891
+pass:play-action boot,IOL1,Agility,0.01068
+pass:play-action boot,IOL1,Weight,0.00161
+pass:play-action boot,IOL3,Anchor,0.00108
+pass:play-action dig,QB,ArmStrength,0.05822
+pass:play-action dig,QB,MediumAccuracy,0.00038
+pass:play-action dig,QB,DeepAccuracy,0.07185
+pass:play-action dig,QB,Speed,-0.00944
+pass:play-action dig,WR1,Acceleration,0.00258
+pass:play-action dig,WR1,Agility,0.01635
+pass:play-action dig,WR1,RouteRunning,0.02521
+pass:play-action dig,WR1,Release,0.00033
+pass:play-action dig,WR1,Catching,0.00213
+pass:play-action dig,WR2,RouteRunning,-0.00028
+pass:play-action dig,WR2,BallTracking,0.00074
+pass:play-action dig,TE1,RouteRunning,0.00790
+pass:play-action dig,OT1,PassBlocking,0.00096
+pass:play-action dig,OT1,HandUse,0.00096
+pass:play-action dig,OT1,Agility,0.00145
+pass:play-action dig,IOL1,PassBlocking,0.00152
+pass:play-action dig,IOL3,Anchor,0.00108
+pass:RB screen,QB,ArmStrength,0.00900
+pass:RB screen,QB,ShortAccuracy,0.02009
+pass:RB screen,RB,Speed,0.00779
+pass:RB screen,RB,Acceleration,0.00136
+pass:RB screen,RB,Catching,0.00111
+pass:RB screen,RB,RouteRunning,0.00550
+pass:RB screen,RB,Weight,-0.00135
+pass:RB screen,WR1,Agility,0.00199
+pass:RB screen,WR2,BallTracking,0.00074
+pass:RB screen,WR3,Speed,0.00137
+pass:RB screen,OT1,HandUse,0.00096
+pass:RB screen,OT1,Agility,0.00145
+pass:RB screen,IOL3,Anchor,0.00108
+pass:bubble screen,QB,ShortAccuracy,0.01873
+pass:bubble screen,QB,EyeManipulation,0.01350
+pass:bubble screen,WR1,Release,0.00238
+pass:bubble screen,WR2,Acceleration,0.00119
+pass:bubble screen,WR2,Agility,0.00083
+pass:bubble screen,WR2,BallTracking,0.00074
+pass:bubble screen,WR2,Weight,0.00011
+pass:bubble screen,WR3,Acceleration,0.00512
+pass:bubble screen,WR3,Agility,0.01124
+pass:bubble screen,WR3,Catching,0.00286
+pass:bubble screen,WR3,ContestedCatch,0.00323
+pass:bubble screen,WR3,Weight,-0.00888
+pass:bubble screen,OT1,HandUse,0.00096
+pass:bubble screen,OT1,Agility,0.00145
+pass:bubble screen,IOL3,Anchor,0.00108
+pass:bubble screen,IOL3,Weight,0.00005
+pass:speed outs,QB,ArmStrength,0.01571
+pass:speed outs,QB,ShortAccuracy,0.01470
+pass:speed outs,QB,MediumAccuracy,0.01343
+pass:speed outs,QB,Decisions,0.00896
+pass:speed outs,QB,EyeManipulation,0.00751
+pass:speed outs,QB,Speed,-0.00132
+pass:speed outs,WR1,Speed,0.00179
+pass:speed outs,WR1,Agility,0.00202
+pass:speed outs,WR1,RouteRunning,0.01561
+pass:speed outs,WR2,Acceleration,0.00624
+pass:speed outs,WR2,Agility,0.00823
+pass:speed outs,WR2,RouteRunning,0.00969
+pass:speed outs,WR2,Release,0.00222
+pass:speed outs,WR2,BallTracking,0.00074
+pass:speed outs,WR2,Weight,-0.00078
+pass:speed outs,WR3,RouteRunning,0.00002
+pass:speed outs,OT1,HandUse,0.00096
+pass:speed outs,OT1,Agility,0.00145
+pass:speed outs,IOL3,PassBlocking,0.00612
+pass:speed outs,IOL3,Anchor,0.00108
+pass:speed outs,IOL3,Agility,0.00092
+pass:fades,QB,MediumAccuracy,0.02667
+pass:fades,QB,DeepAccuracy,0.01780
+pass:fades,QB,Decisions,0.03656
+pass:fades,WR1,Agility,0.00075
+pass:fades,WR2,ContestedCatch,0.01736
+pass:fades,WR2,BallTracking,0.00074
+pass:fades,WR3,Agility,0.01496
+pass:fades,WR3,RouteRunning,0.03000
+pass:fades,WR3,ContestedCatch,0.00001
+pass:fades,TE1,RouteRunning,0.01693
+pass:fades,TE1,Weight,-0.00090
+pass:fades,OT1,PassBlocking,0.00303
+pass:fades,OT1,HandUse,0.00096
+pass:fades,OT1,Agility,0.00145
+pass:fades,OT2,PassBlocking,0.00248
+pass:fades,IOL3,PassBlocking,0.00101
+pass:fades,IOL3,Anchor,0.00108
+pass:fades,IOL3,Agility,0.00167
+pass:drive,QB,ArmStrength,0.00442
+pass:drive,QB,ShortAccuracy,0.00397
+pass:drive,QB,MediumAccuracy,0.01730
+pass:drive,WR2,Speed,0.00912
+pass:drive,WR2,Acceleration,0.00624
+pass:drive,WR2,Agility,0.00451
+pass:drive,WR2,RouteRunning,0.04078
+pass:drive,WR2,Release,0.01246
+pass:drive,WR2,Catching,0.00336
+pass:drive,WR2,ContestedCatch,0.00216
+pass:drive,WR2,BallTracking,0.00074
+pass:drive,WR2,Weight,-0.00177
+pass:drive,TE1,Speed,0.02126
+pass:drive,TE1,Catching,0.00539
+pass:drive,OT1,HandUse,0.00096
+pass:drive,OT1,Agility,0.00145
+pass:drive,OT2,PassBlocking,0.00286
+pass:drive,OT2,Agility,0.00029
+pass:drive,IOL3,PassBlocking,0.00895
+pass:drive,IOL3,Anchor,0.00108
+pass:drive,IOL3,Agility,0.00222
+pass:shallow cross,QB,ArmStrength,-0.01222
+pass:shallow cross,QB,ShortAccuracy,0.00302
+pass:shallow cross,QB,MediumAccuracy,0.01750
+pass:shallow cross,QB,Decisions,-0.01308
+pass:shallow cross,QB,Anticipation,-0.00258
+pass:shallow cross,QB,EyeManipulation,-0.04738
+pass:shallow cross,WR1,Speed,0.03153
+pass:shallow cross,WR1,Acceleration,0.00819
+pass:shallow cross,WR1,Agility,0.00178
+pass:shallow cross,WR1,RouteRunning,0.01790
+pass:shallow cross,WR1,Release,0.00423
+pass:shallow cross,WR1,Catching,0.01000
+pass:shallow cross,WR1,Weight,-0.00204
+pass:shallow cross,WR2,BallTracking,0.00074
+pass:shallow cross,WR3,RouteRunning,0.00022
+pass:shallow cross,TE1,Speed,0.01397
+pass:shallow cross,TE1,RouteRunning,0.00422
+pass:shallow cross,TE1,Release,0.00238
+pass:shallow cross,TE1,Weight,-0.01028
+pass:shallow cross,OT1,PassBlocking,0.00289
+pass:shallow cross,OT1,HandUse,0.00096
+pass:shallow cross,OT1,Agility,0.00145
+pass:shallow cross,OT2,PassBlocking,0.00696
+pass:shallow cross,OT2,HandUse,0.00091
+pass:shallow cross,OT2,Agility,0.00113
+pass:shallow cross,IOL3,PassBlocking,0.02002
+pass:shallow cross,IOL3,HandUse,0.00118
+pass:shallow cross,IOL3,Anchor,0.00108
+pass:shallow cross,IOL3,Weight,0.00148
+pass:levels,QB,ArmStrength,0.02688
+pass:levels,QB,MediumAccuracy,0.01465
+pass:levels,QB,DeepAccuracy,0.02355
+pass:levels,QB,Speed,-0.00333
+pass:levels,WR2,Speed,0.02092
+pass:levels,WR2,Acceleration,0.00495
+pass:levels,WR2,RouteRunning,0.02052
+pass:levels,WR2,Catching,0.00188
+pass:levels,WR2,BallTracking,0.00074
+pass:levels,WR2,Weight,-0.00214
+pass:levels,WR3,Acceleration,0.00105
+pass:levels,WR3,Agility,0.00783
+pass:levels,WR3,RouteRunning,-0.01734
+pass:levels,WR3,Release,0.00901
+pass:levels,WR3,Weight,-0.00944
+pass:levels,OT1,HandUse,0.00096
+pass:levels,OT1,Agility,0.00145
+pass:levels,OT2,PassBlocking,0.00173
+pass:levels,IOL3,PassBlocking,0.01851
+pass:levels,IOL3,Anchor,0.00108
+pass:levels,IOL3,Agility,0.00100
+pass:levels,IOL3,Weight,0.00110
+pass:spacing,QB,ArmStrength,0.00085
+pass:spacing,WR2,Release,0.00052
+pass:spacing,WR2,BallTracking,0.00074
+pass:spacing,WR3,Agility,-0.00041
+pass:spacing,WR3,Weight,0.00665
+pass:spacing,TE1,RouteRunning,0.00145
+pass:spacing,TE1,Weight,-0.01101
+pass:spacing,OT1,HandUse,0.00096
+pass:spacing,OT1,Agility,0.00145
+pass:spacing,IOL3,HandUse,0.00009
+pass:spacing,IOL3,Anchor,0.00108
+pass:snag,QB,ArmStrength,0.03150
+pass:snag,QB,DeepAccuracy,0.01288
+pass:snag,QB,Speed,-0.00292
+pass:snag,WR1,Agility,0.00046
+pass:snag,WR1,RouteRunning,0.01414
+pass:snag,WR2,Acceleration,0.00062
+pass:snag,WR2,BallTracking,0.00074
+pass:snag,WR3,Speed,0.01455
+pass:snag,WR3,Acceleration,0.00249
+pass:snag,WR3,Agility,0.00556
+pass:snag,WR3,ContestedCatch,0.00207
+pass:snag,WR3,Weight,-0.00176
+pass:snag,TE1,Weight,-0.00234
+pass:snag,OT1,PassBlocking,0.00009
+pass:snag,OT1,HandUse,0.00096
+pass:snag,OT1,Agility,0.00145
+pass:snag,IOL3,PassBlocking,0.01149
+pass:snag,IOL3,Anchor,0.00108
+pass:snag,IOL3,Agility,0.00612
+pass:mills,QB,ArmStrength,0.03778
+pass:mills,QB,DeepAccuracy,0.08550
+pass:mills,QB,EyeManipulation,-0.00450
+pass:mills,WR2,Speed,0.01423
+pass:mills,WR2,Acceleration,0.00623
+pass:mills,WR2,Agility,0.00190
+pass:mills,WR2,RouteRunning,0.01181
+pass:mills,WR2,BallTracking,0.00074
+pass:mills,WR2,Weight,-0.00298
+pass:mills,WR3,Acceleration,0.00076
+pass:mills,WR3,Agility,0.02100
+pass:mills,WR3,RouteRunning,0.00637
+pass:mills,WR3,Weight,-0.00983
+pass:mills,OT1,PassBlocking,0.00502
+pass:mills,OT1,HandUse,0.00096
+pass:mills,OT1,Agility,0.00145
+pass:mills,OT2,PassBlocking,0.02166
+pass:mills,OT2,HandUse,0.00164
+pass:mills,OT2,Agility,0.00842
+pass:mills,IOL1,PassBlocking,0.00073
+pass:mills,IOL3,PassBlocking,0.00411
+pass:mills,IOL3,Anchor,0.00108
+pass:Y-option,QB,ArmStrength,0.00656
+pass:Y-option,QB,EyeManipulation,0.00009
+pass:Y-option,RB,Catching,0.00193
+pass:Y-option,RB,RouteRunning,0.00512
+pass:Y-option,WR2,BallTracking,0.00074
+pass:Y-option,TE1,RouteRunning,0.02743
+pass:Y-option,TE1,ContestedCatch,0.01589
+pass:Y-option,TE1,Weight,-0.00171
+pass:Y-option,OT1,HandUse,0.00096
+pass:Y-option,OT1,Agility,0.00145
+pass:Y-option,IOL3,Anchor,0.00108
+pass:Texas,QB,ArmStrength,0.02303
+pass:Texas,QB,MediumAccuracy,0.00128
+pass:Texas,QB,DeepAccuracy,0.05460
+pass:Texas,QB,Decisions,0.00395
+pass:Texas,QB,EyeManipulation,-0.03799
+pass:Texas,RB,Agility,0.00172
+pass:Texas,RB,RouteRunning,0.02133
+pass:Texas,WR1,Release,0.00965
+pass:Texas,WR2,Speed,0.00210
+pass:Texas,WR2,Release,0.00539
+pass:Texas,WR2,BallTracking,0.00074
+pass:Texas,TE1,Speed,-0.00882
+pass:Texas,TE1,RouteRunning,0.00744
+pass:Texas,TE1,Release,-0.01841
+pass:Texas,TE1,Catching,0.00208
+pass:Texas,TE1,ContestedCatch,0.01572
+pass:Texas,OT1,HandUse,0.00096
+pass:Texas,OT1,Agility,0.00145
+pass:Texas,IOL1,PassBlocking,0.00379
+pass:Texas,IOL3,PassBlocking,0.01763
+pass:Texas,IOL3,Anchor,0.00108
+pass:Texas,IOL3,Agility,0.00447
+pass:slot wheel,QB,ArmStrength,0.05481
+pass:slot wheel,QB,MediumAccuracy,0.05607
+pass:slot wheel,QB,DeepAccuracy,0.02714
+pass:slot wheel,QB,Touch,0.00326
+pass:slot wheel,QB,PocketPresence,0.00068
+pass:slot wheel,QB,Decisions,0.00471
+pass:slot wheel,WR1,RouteRunning,0.00152
+pass:slot wheel,WR2,Speed,0.00302
+pass:slot wheel,WR2,Agility,0.00003
+pass:slot wheel,WR2,RouteRunning,0.00364
+pass:slot wheel,WR2,Release,0.00047
+pass:slot wheel,WR2,Catching,0.00088
+pass:slot wheel,WR2,ContestedCatch,0.00249
+pass:slot wheel,WR2,BallTracking,0.00074
+pass:slot wheel,WR2,Weight,-0.00511
+pass:slot wheel,WR3,RouteRunning,0.02382
+pass:slot wheel,WR3,Catching,0.00749
+pass:slot wheel,TE1,RouteRunning,-0.00131
+pass:slot wheel,TE1,Catching,-0.00312
+pass:slot wheel,OT1,HandUse,0.00096
+pass:slot wheel,OT1,Agility,0.00145
+pass:slot wheel,OT2,PassBlocking,0.00193
+pass:slot wheel,OT2,HandUse,0.00076
+pass:slot wheel,IOL3,Anchor,0.00108
+pass:tunnel screen,QB,Decisions,0.00119
+pass:tunnel screen,WR2,Speed,0.00531
+pass:tunnel screen,WR2,Acceleration,0.00524
+pass:tunnel screen,WR2,Agility,0.01153
+pass:tunnel screen,WR2,RouteRunning,0.07896
+pass:tunnel screen,WR2,Catching,0.00062
+pass:tunnel screen,WR2,BallTracking,0.00074
+pass:tunnel screen,TE1,Release,0.00350
+pass:tunnel screen,OT1,HandUse,0.00096
+pass:tunnel screen,OT1,Agility,0.00145
+pass:tunnel screen,IOL3,Anchor,0.00108
+pass:RPO glance,QB,ArmStrength,0.06670
+pass:RPO glance,QB,MediumAccuracy,0.02950
+pass:RPO glance,QB,DeepAccuracy,0.04909
+pass:RPO glance,QB,EyeManipulation,0.02114
+pass:RPO glance,QB,BallHandling,0.01379
+pass:RPO glance,WR1,RouteRunning,0.01280
+pass:RPO glance,WR1,Release,-0.03586
+pass:RPO glance,WR1,Catching,0.00068
+pass:RPO glance,WR1,ContestedCatch,0.00679
+pass:RPO glance,WR2,BallTracking,0.00074
+pass:RPO glance,TE1,Release,0.02723
+pass:RPO glance,OT1,HandUse,0.00096
+pass:RPO glance,OT1,Agility,0.00145
+pass:RPO glance,IOL3,Anchor,0.00108
+pass:RPO bubble,QB,ShortAccuracy,0.01714
+pass:RPO bubble,QB,MediumAccuracy,0.09147
+pass:RPO bubble,QB,Touch,0.00580
+pass:RPO bubble,QB,BallHandling,0.01285
+pass:RPO bubble,WR2,RouteRunning,0.00102
+pass:RPO bubble,WR2,BallTracking,0.00074
+pass:RPO bubble,WR3,Speed,0.06917
+pass:RPO bubble,WR3,Acceleration,0.02870
+pass:RPO bubble,WR3,Agility,0.01598
+pass:RPO bubble,WR3,RouteRunning,0.04932
+pass:RPO bubble,WR3,Catching,0.01064
+pass:RPO bubble,WR3,Weight,-0.02799
+pass:RPO bubble,OT1,HandUse,0.00096
+pass:RPO bubble,OT1,Agility,0.00145
+pass:RPO bubble,IOL3,Anchor,0.00108
+pass:RPO slant,QB,ArmStrength,0.01746
+pass:RPO slant,QB,MediumAccuracy,0.00483
+pass:RPO slant,QB,BallHandling,-0.00625
+pass:RPO slant,WR1,Agility,0.00431
+pass:RPO slant,WR1,RouteRunning,0.10325
+pass:RPO slant,WR1,Release,-0.00679
+pass:RPO slant,WR1,Catching,0.00159
+pass:RPO slant,WR1,ContestedCatch,0.00558
+pass:RPO slant,WR2,RouteRunning,0.00390
+pass:RPO slant,WR2,BallTracking,0.00074
+pass:RPO slant,TE1,Release,0.00792
+pass:RPO slant,OT1,HandUse,0.00096
+pass:RPO slant,OT1,Agility,0.00145
+pass:RPO slant,IOL3,Anchor,0.00108
+fake:slant-flat,QB,ArmStrength,0.02305
+fake:slant-flat,QB,MediumAccuracy,0.02272
+fake:slant-flat,QB,Touch,0.00157
+fake:slant-flat,QB,QuickRelease,0.00185
+fake:slant-flat,QB,Anticipation,0.00238
+fake:slant-flat,RB,Agility,0.00008
+fake:slant-flat,WR1,Acceleration,-0.00117
+fake:slant-flat,WR1,Catching,0.00030
+fake:slant-flat,WR1,ContestedCatch,0.00941
+fake:slant-flat,WR1,Weight,0.00385
+fake:slant-flat,WR2,Speed,-0.00003
+fake:slant-flat,WR2,Agility,0.00180
+fake:slant-flat,WR2,RouteRunning,0.00034
+fake:slant-flat,WR2,BodyControl,0.00118
+fake:slant-flat,WR2,Elusiveness,0.00044
+fake:slant-flat,WR3,Agility,0.00296
+fake:slant-flat,WR3,RouteRunning,0.00818
+fake:slant-flat,TE1,RouteRunning,0.00165
+fake:slant-flat,OT1,Anchor,-0.00095
+fake:slant-flat,OT2,HandUse,0.00104
+fake:slant-flat,OT2,Agility,0.00007
+fake:slant-flat,IOL3,PassBlocking,0.00033
+fake:stick,QB,ArmStrength,0.00715
+fake:stick,QB,ShortAccuracy,0.00846
+fake:stick,QB,MediumAccuracy,0.04897
+fake:stick,QB,DeepAccuracy,0.00888
+fake:stick,QB,EyeManipulation,0.00596
+fake:stick,QB,BallHandling,0.00086
+fake:stick,RB,Agility,0.00008
+fake:stick,RB,RouteRunning,-0.00966
+fake:stick,WR1,RouteRunning,0.00187
+fake:stick,WR2,BodyControl,0.00118
+fake:stick,WR2,Elusiveness,0.00044
+fake:stick,TE1,RouteRunning,0.05867
+fake:stick,TE1,Release,0.01250
+fake:stick,TE1,Catching,0.00152
+fake:stick,TE1,Weight,-0.01904
+fake:stick,OT1,Anchor,-0.00095
+fake:stick,OT2,HandUse,0.00104
+fake:stick,OT2,Agility,0.00007
+fake:stick,IOL3,PassBlocking,0.00033
+fake:hitches,QB,ArmStrength,0.00762
+fake:hitches,QB,MediumAccuracy,0.01014
+fake:hitches,QB,DeepAccuracy,0.00275
+fake:hitches,QB,EyeManipulation,0.00100
+fake:hitches,QB,BallHandling,0.00054
+fake:hitches,QB,Speed,0.00774
+fake:hitches,RB,Agility,0.00008
+fake:hitches,WR2,Agility,0.00048
+fake:hitches,WR2,Catching,0.00151
+fake:hitches,WR2,BodyControl,0.00118
+fake:hitches,WR2,Elusiveness,0.00044
+fake:hitches,TE1,RouteRunning,0.00109
+fake:hitches,OT1,Anchor,-0.00095
+fake:hitches,OT2,HandUse,0.00104
+fake:hitches,OT2,Agility,0.00007
+fake:hitches,IOL1,PassBlocking,0.00243
+fake:hitches,IOL2,PassBlocking,0.00585
+fake:hitches,IOL2,Agility,0.00088
+fake:hitches,IOL3,PassBlocking,0.00033
+fake:mesh,QB,ArmStrength,0.00799
+fake:mesh,QB,ShortAccuracy,0.00041
+fake:mesh,QB,MediumAccuracy,0.00858
+fake:mesh,QB,DeepAccuracy,0.00317
+fake:mesh,QB,PocketPresence,0.00486
+fake:mesh,QB,Speed,-0.01719
+fake:mesh,RB,Agility,0.00008
+fake:mesh,RB,RouteRunning,0.00398
+fake:mesh,WR1,RouteRunning,-0.00611
+fake:mesh,WR1,Catching,-0.00246
+fake:mesh,WR2,Speed,0.00017
+fake:mesh,WR2,Agility,0.00141
+fake:mesh,WR2,BodyControl,0.00118
+fake:mesh,WR2,Elusiveness,0.00044
+fake:mesh,WR3,Speed,0.02961
+fake:mesh,WR3,Acceleration,0.00562
+fake:mesh,WR3,RouteRunning,0.03224
+fake:mesh,WR3,Release,0.00108
+fake:mesh,WR3,Catching,0.00165
+fake:mesh,WR3,Weight,-0.00326
+fake:mesh,TE1,Speed,-0.00768
+fake:mesh,TE1,RouteRunning,0.01621
+fake:mesh,TE1,Catching,0.00124
+fake:mesh,OT1,Anchor,-0.00095
+fake:mesh,OT2,PassBlocking,0.00006
+fake:mesh,OT2,HandUse,0.00104
+fake:mesh,OT2,Agility,0.00007
+fake:mesh,IOL1,PassBlocking,0.00211
+fake:mesh,IOL2,PassBlocking,0.00230
+fake:mesh,IOL3,PassBlocking,0.00033
+fake:smash,QB,ArmStrength,0.14121
+fake:smash,QB,DeepAccuracy,0.11159
+fake:smash,QB,Decisions,0.00566
+fake:smash,QB,Anticipation,0.00128
+fake:smash,QB,EyeManipulation,0.06428
+fake:smash,QB,Speed,-0.00393
+fake:smash,RB,Agility,0.00008
+fake:smash,WR2,Catching,0.00074
+fake:smash,WR2,BodyControl,0.00118
+fake:smash,WR2,Elusiveness,0.00044
+fake:smash,WR3,Speed,-0.00216
+fake:smash,WR3,RouteRunning,0.04172
+fake:smash,WR3,Catching,0.00555
+fake:smash,WR3,ContestedCatch,0.00287
+fake:smash,TE1,Release,0.00021
+fake:smash,OT1,Anchor,-0.00095
+fake:smash,OT2,HandUse,0.00104
+fake:smash,OT2,Agility,0.00007
+fake:smash,IOL2,PassBlocking,0.00130
+fake:smash,IOL3,PassBlocking,0.00033
+fake:flood,QB,ArmStrength,0.02344
+fake:flood,QB,MediumAccuracy,0.03144
+fake:flood,QB,DeepAccuracy,0.03898
+fake:flood,QB,EyeManipulation,0.00235
+fake:flood,QB,Speed,-0.00223
+fake:flood,RB,Agility,0.00008
+fake:flood,WR1,RouteRunning,0.01512
+fake:flood,WR1,Catching,0.00192
+fake:flood,WR1,Weight,-0.00225
+fake:flood,WR2,BodyControl,0.00118
+fake:flood,WR2,Elusiveness,0.00044
+fake:flood,WR3,Acceleration,0.00324
+fake:flood,WR3,Agility,0.01998
+fake:flood,WR3,RouteRunning,0.00298
+fake:flood,WR3,Weight,-0.00601
+fake:flood,TE1,RouteRunning,0.01978
+fake:flood,TE1,Catching,0.00439
+fake:flood,TE1,ContestedCatch,0.00571
+fake:flood,OT1,PassBlocking,0.00697
+fake:flood,OT1,HandUse,0.00027
+fake:flood,OT1,Anchor,-0.00095
+fake:flood,OT1,Agility,0.00080
+fake:flood,OT2,HandUse,0.00104
+fake:flood,OT2,Agility,0.00007
+fake:flood,IOL1,PassBlocking,0.00516
+fake:flood,IOL1,Agility,0.00208
+fake:flood,IOL2,PassBlocking,0.00035
+fake:flood,IOL2,HandUse,0.00034
+fake:flood,IOL3,PassBlocking,0.00033
+fake:curl-flat,QB,ArmStrength,0.03435
+fake:curl-flat,QB,MediumAccuracy,0.04407
+fake:curl-flat,QB,DeepAccuracy,0.02192
+fake:curl-flat,QB,PocketPresence,0.00048
+fake:curl-flat,QB,Decisions,0.00719
+fake:curl-flat,QB,EyeManipulation,0.02457
+fake:curl-flat,QB,Speed,0.00064
+fake:curl-flat,RB,Agility,0.00008
+fake:curl-flat,RB,RouteRunning,-0.00031
+fake:curl-flat,WR1,Agility,0.00774
+fake:curl-flat,WR1,RouteRunning,0.04466
+fake:curl-flat,WR1,Release,0.00086
+fake:curl-flat,WR2,Agility,0.00242
+fake:curl-flat,WR2,RouteRunning,0.01326
+fake:curl-flat,WR2,Catching,0.00534
+fake:curl-flat,WR2,BodyControl,0.00118
+fake:curl-flat,WR2,Elusiveness,0.00044
+fake:curl-flat,WR3,Acceleration,0.00334
+fake:curl-flat,WR3,Agility,0.00377
+fake:curl-flat,WR3,RouteRunning,0.01395
+fake:curl-flat,WR3,Weight,-0.00612
+fake:curl-flat,TE1,RouteRunning,0.00439
+fake:curl-flat,OT1,PassBlocking,0.01327
+fake:curl-flat,OT1,HandUse,0.00446
+fake:curl-flat,OT1,Anchor,-0.00095
+fake:curl-flat,OT1,Agility,0.00235
+fake:curl-flat,OT2,PassBlocking,0.00287
+fake:curl-flat,OT2,HandUse,0.00104
+fake:curl-flat,OT2,Agility,0.00007
+fake:curl-flat,IOL1,PassBlocking,0.00567
+fake:curl-flat,IOL2,PassBlocking,0.00237
+fake:curl-flat,IOL2,HandUse,0.00010
+fake:curl-flat,IOL2,Agility,0.00240
+fake:curl-flat,IOL3,PassBlocking,0.00033
+fake:dagger,QB,ArmStrength,0.04991
+fake:dagger,QB,DeepAccuracy,0.05067
+fake:dagger,QB,PocketPresence,0.00429
+fake:dagger,QB,Decisions,-0.00673
+fake:dagger,QB,Speed,-0.01966
+fake:dagger,RB,Agility,0.00008
+fake:dagger,WR1,RouteRunning,-0.00040
+fake:dagger,WR2,Speed,0.01519
+fake:dagger,WR2,Acceleration,0.01054
+fake:dagger,WR2,Agility,0.01289
+fake:dagger,WR2,RouteRunning,0.03009
+fake:dagger,WR2,Catching,0.00933
+fake:dagger,WR2,BodyControl,0.00118
+fake:dagger,WR2,Elusiveness,0.00044
+fake:dagger,TE1,RouteRunning,0.00111
+fake:dagger,OT1,Anchor,-0.00095
+fake:dagger,OT2,PassBlocking,0.00109
+fake:dagger,OT2,HandUse,0.00104
+fake:dagger,OT2,Agility,0.00007
+fake:dagger,IOL1,PassBlocking,0.00834
+fake:dagger,IOL1,Agility,0.00357
+fake:dagger,IOL2,PassBlocking,0.01334
+fake:dagger,IOL2,Agility,0.00425
+fake:dagger,IOL3,PassBlocking,0.00033
+fake:four verticals,QB,ArmStrength,-0.03330
+fake:four verticals,QB,DeepAccuracy,0.00829
+fake:four verticals,QB,PocketPresence,0.00751
+fake:four verticals,QB,Decisions,-0.01055
+fake:four verticals,QB,EyeManipulation,-0.01584
+fake:four verticals,QB,Speed,-0.00484
+fake:four verticals,RB,Agility,0.00008
+fake:four verticals,WR1,Speed,0.00137
+fake:four verticals,WR2,Speed,-0.00025
+fake:four verticals,WR2,BodyControl,0.00118
+fake:four verticals,WR2,Elusiveness,0.00044
+fake:four verticals,WR3,Speed,-0.01583
+fake:four verticals,WR3,ContestedCatch,0.00001
+fake:four verticals,TE1,Speed,-0.00663
+fake:four verticals,OT1,PassBlocking,0.01717
+fake:four verticals,OT1,HandUse,0.00032
+fake:four verticals,OT1,Anchor,-0.00095
+fake:four verticals,OT2,HandUse,0.00104
+fake:four verticals,OT2,Agility,0.00007
+fake:four verticals,IOL1,PassBlocking,0.00679
+fake:four verticals,IOL2,PassBlocking,0.00552
+fake:four verticals,IOL2,Agility,0.00322
+fake:four verticals,IOL3,PassBlocking,0.00033
+fake:Y-cross,QB,ArmStrength,0.05410
+fake:Y-cross,QB,DeepAccuracy,0.10698
+fake:Y-cross,QB,EyeManipulation,-0.00923
+fake:Y-cross,RB,Agility,0.00008
+fake:Y-cross,WR2,Agility,0.00004
+fake:Y-cross,WR2,BodyControl,0.00118
+fake:Y-cross,WR2,Elusiveness,0.00044
+fake:Y-cross,WR3,RouteRunning,0.00449
+fake:Y-cross,TE1,Speed,0.01609
+fake:Y-cross,TE1,RouteRunning,0.02342
+fake:Y-cross,TE1,Catching,0.00026
+fake:Y-cross,TE1,ContestedCatch,0.00432
+fake:Y-cross,TE1,Weight,-0.01069
+fake:Y-cross,OT1,Anchor,-0.00095
+fake:Y-cross,OT2,HandUse,0.00104
+fake:Y-cross,OT2,Agility,0.00007
+fake:Y-cross,IOL1,PassBlocking,0.00220
+fake:Y-cross,IOL2,PassBlocking,0.00512
+fake:Y-cross,IOL2,Agility,0.00100
+fake:Y-cross,IOL3,PassBlocking,0.00033
+fake:RB screen,QB,ArmStrength,-0.00001
+fake:RB screen,QB,ShortAccuracy,0.01025
+fake:RB screen,QB,PocketPresence,0.00483
+fake:RB screen,QB,Decisions,-0.00608
+fake:RB screen,RB,Agility,0.00008
+fake:RB screen,WR2,BodyControl,0.00118
+fake:RB screen,WR2,Elusiveness,0.00044
+fake:RB screen,OT1,Anchor,-0.00095
+fake:RB screen,OT2,HandUse,0.00104
+fake:RB screen,OT2,Agility,0.00007
+fake:RB screen,IOL3,PassBlocking,0.00033
+fake:bubble screen,QB,ArmStrength,-0.01150
+fake:bubble screen,QB,ShortAccuracy,0.00058
+fake:bubble screen,QB,MediumAccuracy,0.02807
+fake:bubble screen,QB,Decisions,0.00549
+fake:bubble screen,QB,EyeManipulation,0.01297
+fake:bubble screen,QB,BallHandling,-0.00478
+fake:bubble screen,RB,Agility,0.00008
+fake:bubble screen,WR1,Speed,0.00903
+fake:bubble screen,WR1,Acceleration,0.00854
+fake:bubble screen,WR1,RouteRunning,0.01401
+fake:bubble screen,WR1,Release,0.01384
+fake:bubble screen,WR1,Catching,0.00111
+fake:bubble screen,WR1,Weight,-0.00147
+fake:bubble screen,WR2,BodyControl,0.00118
+fake:bubble screen,WR2,Elusiveness,0.00044
+fake:bubble screen,WR3,Speed,0.02027
+fake:bubble screen,WR3,Acceleration,0.01373
+fake:bubble screen,WR3,Agility,0.01568
+fake:bubble screen,WR3,RouteRunning,0.01892
+fake:bubble screen,WR3,Catching,0.00342
+fake:bubble screen,WR3,Weight,-0.01291
+fake:bubble screen,OT1,Anchor,-0.00095
+fake:bubble screen,OT2,HandUse,0.00104
+fake:bubble screen,OT2,Agility,0.00007
+fake:bubble screen,IOL3,PassBlocking,0.00033
+fake:speed outs,QB,ArmStrength,0.02587
+fake:speed outs,QB,ShortAccuracy,0.00638
+fake:speed outs,QB,MediumAccuracy,0.04988
+fake:speed outs,QB,DeepAccuracy,0.00193
+fake:speed outs,QB,EyeManipulation,0.00468
+fake:speed outs,QB,Speed,0.01194
+fake:speed outs,RB,Agility,0.00008
+fake:speed outs,WR1,Acceleration,0.00539
+fake:speed outs,WR1,Agility,0.01212
+fake:speed outs,WR1,RouteRunning,0.01692
+fake:speed outs,WR1,ContestedCatch,0.00069
+fake:speed outs,WR2,Acceleration,0.00006
+fake:speed outs,WR2,Agility,0.00874
+fake:speed outs,WR2,RouteRunning,0.00798
+fake:speed outs,WR2,BodyControl,0.00118
+fake:speed outs,WR2,Elusiveness,0.00044
+fake:speed outs,WR2,Weight,-0.00074
+fake:speed outs,WR3,RouteRunning,0.00130
+fake:speed outs,OT1,PassBlocking,0.00308
+fake:speed outs,OT1,HandUse,0.00229
+fake:speed outs,OT1,Anchor,-0.00095
+fake:speed outs,OT2,HandUse,0.00104
+fake:speed outs,OT2,Agility,0.00007
+fake:speed outs,IOL1,PassBlocking,0.00009
+fake:speed outs,IOL2,PassBlocking,0.00185
+fake:speed outs,IOL3,PassBlocking,0.00033
+fake:fades,QB,ArmStrength,0.11880
+fake:fades,QB,DeepAccuracy,0.13891
+fake:fades,QB,EyeManipulation,0.01204
+fake:fades,QB,BallHandling,0.00735
+fake:fades,RB,Agility,0.00008
+fake:fades,WR1,Catching,0.00419
+fake:fades,WR1,ContestedCatch,0.00949
+fake:fades,WR2,Speed,0.01308
+fake:fades,WR2,Acceleration,0.00069
+fake:fades,WR2,BodyControl,0.00118
+fake:fades,WR2,Elusiveness,0.00044
+fake:fades,OT1,Anchor,-0.00095
+fake:fades,OT2,HandUse,0.00104
+fake:fades,OT2,Agility,0.00007
+fake:fades,IOL1,PassBlocking,0.00037
+fake:fades,IOL3,PassBlocking,0.00033
+fake:drive,QB,ArmStrength,0.01174
+fake:drive,QB,ShortAccuracy,0.00510
+fake:drive,QB,MediumAccuracy,0.01518
+fake:drive,QB,PocketPresence,0.00166
+fake:drive,QB,Anticipation,0.00228
+fake:drive,QB,Speed,-0.00784
+fake:drive,RB,Agility,0.00008
+fake:drive,RB,Catching,-0.00037
+fake:drive,RB,RouteRunning,-0.00397
+fake:drive,WR2,RouteRunning,0.00565
+fake:drive,WR2,Release,0.00352
+fake:drive,WR2,Catching,0.00410
+fake:drive,WR2,BodyControl,0.00118
+fake:drive,WR2,Elusiveness,0.00044
+fake:drive,TE1,RouteRunning,0.02285
+fake:drive,TE1,Catching,0.00684
+fake:drive,OT1,PassBlocking,0.00264
+fake:drive,OT1,HandUse,0.00150
+fake:drive,OT1,Anchor,-0.00095
+fake:drive,OT2,PassBlocking,0.00140
+fake:drive,OT2,HandUse,0.00104
+fake:drive,OT2,Agility,0.00007
+fake:drive,IOL1,PassBlocking,0.00065
+fake:drive,IOL2,PassBlocking,0.00061
+fake:drive,IOL3,PassBlocking,0.00033
+fake:shallow cross,QB,ArmStrength,0.00989
+fake:shallow cross,QB,ShortAccuracy,0.00097
+fake:shallow cross,QB,MediumAccuracy,0.01098
+fake:shallow cross,QB,QuickRelease,0.00011
+fake:shallow cross,QB,BallHandling,-0.02110
+fake:shallow cross,RB,Agility,0.00008
+fake:shallow cross,RB,RouteRunning,-0.00388
+fake:shallow cross,WR1,Speed,0.00590
+fake:shallow cross,WR1,Acceleration,0.00407
+fake:shallow cross,WR1,Agility,0.00320
+fake:shallow cross,WR1,Catching,0.00790
+fake:shallow cross,WR1,Weight,-0.00555
+fake:shallow cross,WR2,BodyControl,0.00118
+fake:shallow cross,WR2,Elusiveness,0.00044
+fake:shallow cross,TE1,Speed,-0.00133
+fake:shallow cross,OT1,PassBlocking,0.00992
+fake:shallow cross,OT1,Anchor,-0.00095
+fake:shallow cross,OT1,Agility,0.00529
+fake:shallow cross,OT2,HandUse,0.00104
+fake:shallow cross,OT2,Agility,0.00007
+fake:shallow cross,IOL1,PassBlocking,0.00026
+fake:shallow cross,IOL2,Agility,0.00291
+fake:shallow cross,IOL3,PassBlocking,0.00033
+fake:levels,QB,ArmStrength,0.03502
+fake:levels,QB,MediumAccuracy,0.01704
+fake:levels,QB,DeepAccuracy,0.00972
+fake:levels,QB,PocketPresence,0.00045
+fake:levels,QB,Decisions,-0.01996
+fake:levels,QB,Speed,-0.01508
+fake:levels,RB,Agility,0.00008
+fake:levels,RB,RouteRunning,-0.00439
+fake:levels,WR2,Speed,0.01115
+fake:levels,WR2,Acceleration,0.00351
+fake:levels,WR2,RouteRunning,0.01597
+fake:levels,WR2,Release,0.00396
+fake:levels,WR2,BodyControl,0.00118
+fake:levels,WR2,Elusiveness,0.00044
+fake:levels,WR3,Agility,0.00840
+fake:levels,WR3,RouteRunning,-0.01447
+fake:levels,TE1,RouteRunning,0.00487
+fake:levels,TE1,Catching,0.00284
+fake:levels,OT1,PassBlocking,0.01099
+fake:levels,OT1,HandUse,0.00460
+fake:levels,OT1,Anchor,-0.00095
+fake:levels,OT1,Agility,0.00380
+fake:levels,OT2,HandUse,0.00104
+fake:levels,OT2,Agility,0.00007
+fake:levels,IOL1,PassBlocking,0.00128
+fake:levels,IOL2,PassBlocking,0.00002
+fake:levels,IOL2,Agility,0.00122
+fake:levels,IOL3,PassBlocking,0.00033
+fake:spacing,QB,ShortAccuracy,0.00702
+fake:spacing,QB,MediumAccuracy,0.00599
+fake:spacing,QB,Decisions,-0.01376
+fake:spacing,QB,BallHandling,0.00215
+fake:spacing,RB,Agility,0.00008
+fake:spacing,WR2,RouteRunning,0.00943
+fake:spacing,WR2,Catching,0.00221
+fake:spacing,WR2,BodyControl,0.00118
+fake:spacing,WR2,Elusiveness,0.00044
+fake:spacing,WR3,Release,-0.00069
+fake:spacing,TE1,RouteRunning,0.00904
+fake:spacing,TE1,Release,0.00404
+fake:spacing,OT1,Anchor,-0.00095
+fake:spacing,OT2,HandUse,0.00104
+fake:spacing,OT2,Agility,0.00007
+fake:spacing,IOL3,PassBlocking,0.00033
+fake:snag,QB,ArmStrength,0.05392
+fake:snag,QB,ShortAccuracy,0.00411
+fake:snag,QB,MediumAccuracy,0.00880
+fake:snag,QB,DeepAccuracy,0.03221
+fake:snag,QB,Decisions,0.00535
+fake:snag,QB,EyeManipulation,0.01486
+fake:snag,QB,BallHandling,0.01059
+fake:snag,RB,Agility,0.00008
+fake:snag,WR2,RouteRunning,-0.00911
+fake:snag,WR2,Catching,0.00237
+fake:snag,WR2,BodyControl,0.00118
+fake:snag,WR2,Elusiveness,0.00044
+fake:snag,WR3,Speed,0.02385
+fake:snag,WR3,Acceleration,0.01516
+fake:snag,WR3,Agility,0.00652
+fake:snag,WR3,RouteRunning,0.02765
+fake:snag,WR3,Release,0.00476
+fake:snag,WR3,Catching,0.00195
+fake:snag,WR3,Weight,-0.00351
+fake:snag,OT1,Anchor,-0.00095
+fake:snag,OT2,HandUse,0.00104
+fake:snag,OT2,Agility,0.00007
+fake:snag,IOL2,Agility,0.00020
+fake:snag,IOL3,PassBlocking,0.00033
+fake:mills,QB,ArmStrength,0.06542
+fake:mills,QB,DeepAccuracy,0.12746
+fake:mills,QB,PocketPresence,0.00165
+fake:mills,RB,Agility,0.00008
+fake:mills,WR2,Speed,0.02090
+fake:mills,WR2,Acceleration,0.00343
+fake:mills,WR2,RouteRunning,0.01247
+fake:mills,WR2,Catching,0.01937
+fake:mills,WR2,ContestedCatch,0.00316
+fake:mills,WR2,BodyControl,0.00118
+fake:mills,WR2,Elusiveness,0.00044
+fake:mills,WR2,Weight,-0.00152
+fake:mills,WR3,Speed,-0.00682
+fake:mills,WR3,Agility,0.00933
+fake:mills,WR3,RouteRunning,0.01777
+fake:mills,WR3,Weight,-0.00073
+fake:mills,OT1,PassBlocking,0.00124
+fake:mills,OT1,Anchor,-0.00095
+fake:mills,OT2,HandUse,0.00104
+fake:mills,OT2,Agility,0.00007
+fake:mills,IOL1,PassBlocking,0.00466
+fake:mills,IOL2,PassBlocking,0.00670
+fake:mills,IOL2,Agility,0.00296
+fake:mills,IOL3,PassBlocking,0.00033
+fake:Y-option,QB,ArmStrength,0.02351
+fake:Y-option,QB,MediumAccuracy,0.00806
+fake:Y-option,QB,PocketPresence,0.00380
+fake:Y-option,QB,BallHandling,0.00771
+fake:Y-option,QB,Speed,-0.01860
+fake:Y-option,RB,Agility,0.00008
+fake:Y-option,WR2,Agility,0.00017
+fake:Y-option,WR2,Catching,0.00687
+fake:Y-option,WR2,ContestedCatch,0.00476
+fake:Y-option,WR2,BodyControl,0.00118
+fake:Y-option,WR2,Elusiveness,0.00044
+fake:Y-option,WR3,RouteRunning,0.03339
+fake:Y-option,WR3,Weight,-0.00039
+fake:Y-option,OT1,PassBlocking,0.00912
+fake:Y-option,OT1,Anchor,-0.00095
+fake:Y-option,OT2,PassBlocking,0.00006
+fake:Y-option,OT2,HandUse,0.00104
+fake:Y-option,OT2,Agility,0.00007
+fake:Y-option,IOL1,PassBlocking,0.00329
+fake:Y-option,IOL1,Agility,0.00149
+fake:Y-option,IOL2,PassBlocking,0.00676
+fake:Y-option,IOL2,Agility,0.00185
+fake:Y-option,IOL3,PassBlocking,0.00033
+fake:Texas,QB,ArmStrength,0.00150
+fake:Texas,QB,DeepAccuracy,0.03585
+fake:Texas,QB,Speed,-0.01594
+fake:Texas,RB,Agility,0.00008
+fake:Texas,RB,RouteRunning,0.01700
+fake:Texas,WR1,RouteRunning,0.01106
+fake:Texas,WR2,BodyControl,0.00118
+fake:Texas,WR2,Elusiveness,0.00044
+fake:Texas,TE1,Release,0.01401
+fake:Texas,TE1,ContestedCatch,0.03546
+fake:Texas,TE1,Weight,-0.00116
+fake:Texas,OT1,Anchor,-0.00095
+fake:Texas,OT2,HandUse,0.00104
+fake:Texas,OT2,Agility,0.00007
+fake:Texas,IOL2,PassBlocking,0.00208
+fake:Texas,IOL3,PassBlocking,0.00033
+fake:slot wheel,QB,ArmStrength,0.08777
+fake:slot wheel,QB,MediumAccuracy,0.03056
+fake:slot wheel,QB,DeepAccuracy,0.10565
+fake:slot wheel,QB,PocketPresence,0.00315
+fake:slot wheel,QB,Decisions,0.00500
+fake:slot wheel,QB,Speed,-0.01040
+fake:slot wheel,RB,Agility,0.00008
+fake:slot wheel,WR1,RouteRunning,-0.00228
+fake:slot wheel,WR2,Speed,0.01863
+fake:slot wheel,WR2,Acceleration,0.00158
+fake:slot wheel,WR2,Release,0.00978
+fake:slot wheel,WR2,Catching,0.00529
+fake:slot wheel,WR2,ContestedCatch,0.00099
+fake:slot wheel,WR2,BodyControl,0.00118
+fake:slot wheel,WR2,Elusiveness,0.00044
+fake:slot wheel,WR3,Acceleration,0.00007
+fake:slot wheel,WR3,Agility,0.02528
+fake:slot wheel,WR3,RouteRunning,0.03611
+fake:slot wheel,WR3,Release,0.00016
+fake:slot wheel,WR3,Catching,0.00994
+fake:slot wheel,WR3,Weight,-0.00793
+fake:slot wheel,OT1,Anchor,-0.00095
+fake:slot wheel,OT2,PassBlocking,0.00051
+fake:slot wheel,OT2,HandUse,0.00104
+fake:slot wheel,OT2,Agility,0.00007
+fake:slot wheel,IOL1,PassBlocking,0.00041
+fake:slot wheel,IOL2,PassBlocking,0.00446
+fake:slot wheel,IOL2,Agility,0.00235
+fake:slot wheel,IOL3,PassBlocking,0.00033
+fake:tunnel screen,QB,ArmStrength,0.00197
+fake:tunnel screen,QB,ShortAccuracy,0.01586
+fake:tunnel screen,QB,Anticipation,-0.00031
+fake:tunnel screen,QB,BallHandling,-0.00578
+fake:tunnel screen,RB,Agility,0.00008
+fake:tunnel screen,WR2,Speed,0.00556
+fake:tunnel screen,WR2,Acceleration,0.00262
+fake:tunnel screen,WR2,Agility,0.01512
+fake:tunnel screen,WR2,RouteRunning,0.06014
+fake:tunnel screen,WR2,BallTracking,0.00371
+fake:tunnel screen,WR2,BodyControl,0.00118
+fake:tunnel screen,WR2,Elusiveness,0.00044
+fake:tunnel screen,OT1,Anchor,-0.00095
+fake:tunnel screen,OT2,HandUse,0.00104
+fake:tunnel screen,OT2,Agility,0.00007
+fake:tunnel screen,IOL3,PassBlocking,0.00033
+run:InsideZone,QB,BallHandling,0.00048
+run:InsideZone,RB,Speed,0.00509
+run:InsideZone,RB,Acceleration,0.00115
+run:InsideZone,RB,LegDrive,0.00030
+run:InsideZone,RB,Balance,0.00013
+run:InsideZone,WR1,RouteRunning,-0.00018
+run:InsideZone,WR2,Agility,0.00035
+run:InsideZone,TE1,RunBlocking,0.00516
+run:InsideZone,TE1,BlockingInSpace,0.00031
+run:InsideZone,TE1,Weight,0.00597
+run:InsideZone,OT1,RunBlocking,0.00370
+run:InsideZone,OT1,HandUse,0.00012
+run:InsideZone,OT1,Agility,0.00062
+run:InsideZone,OT1,Weight,0.00023
+run:InsideZone,OT2,Agility,0.00034
+run:InsideZone,OT2,BlockingInSpace,0.00012
+run:InsideZone,IOL1,RunBlocking,0.04335
+run:InsideZone,IOL1,HandUse,0.00951
+run:InsideZone,IOL1,Strength,0.00018
+run:InsideZone,IOL1,Agility,0.00077
+run:InsideZone,IOL1,Weight,0.02369
+run:InsideZone,IOL2,RunBlocking,0.00273
+run:InsideZone,IOL2,Agility,0.00190
+run:InsideZone,IOL3,RunBlocking,0.00539
+run:OutsideZone,QB,BallHandling,0.00048
+run:OutsideZone,RB,Speed,0.00275
+run:OutsideZone,RB,Acceleration,0.00098
+run:OutsideZone,RB,Elusiveness,0.00079
+run:OutsideZone,RB,Balance,0.00218
+run:OutsideZone,RB,BallSecurity,0.00198
+run:OutsideZone,WR1,RouteRunning,-0.00018
+run:OutsideZone,WR2,Agility,0.00035
+run:OutsideZone,WR3,Speed,0.00116
+run:OutsideZone,TE1,RunBlocking,0.05800
+run:OutsideZone,TE1,BlockingInSpace,0.00031
+run:OutsideZone,TE1,Strength,0.00204
+run:OutsideZone,TE1,Weight,0.02961
+run:OutsideZone,OT1,RunBlocking,0.00623
+run:OutsideZone,OT1,HandUse,0.00255
+run:OutsideZone,OT1,Agility,0.00062
+run:OutsideZone,OT1,Weight,0.00174
+run:OutsideZone,OT2,Agility,0.00034
+run:OutsideZone,OT2,BlockingInSpace,0.00012
+run:OutsideZone,IOL1,RunBlocking,0.00999
+run:OutsideZone,IOL1,Agility,0.00077
+run:OutsideZone,IOL1,Weight,0.00453
+run:Power,QB,BallHandling,0.00048
+run:Power,RB,Speed,0.00251
+run:Power,RB,Acceleration,0.00278
+run:Power,RB,Balance,0.00263
+run:Power,RB,BallSecurity,0.00030
+run:Power,WR1,RouteRunning,-0.00018
+run:Power,WR2,Agility,0.00035
+run:Power,TE1,RunBlocking,0.00889
+run:Power,TE1,BlockingInSpace,0.00031
+run:Power,TE1,Weight,0.00102
+run:Power,OT1,RunBlocking,0.04280
+run:Power,OT1,HandUse,0.01062
+run:Power,OT1,Agility,0.00062
+run:Power,OT1,Weight,0.01914
+run:Power,OT2,Agility,0.00034
+run:Power,OT2,BlockingInSpace,0.00012
+run:Power,IOL1,RunBlocking,0.00125
+run:Power,IOL1,Agility,0.00077
+run:Power,IOL3,RunBlocking,0.01223
+run:Power,IOL3,HandUse,0.00023
+run:Power,IOL3,Weight,0.00334
+run:Counter,QB,BallHandling,0.00048
+run:Counter,RB,Speed,0.00199
+run:Counter,RB,Acceleration,0.00049
+run:Counter,RB,Elusiveness,0.00214
+run:Counter,RB,LegDrive,0.00035
+run:Counter,RB,Balance,0.00268
+run:Counter,WR1,RouteRunning,-0.00018
+run:Counter,WR2,Agility,0.00035
+run:Counter,TE1,RunBlocking,0.00590
+run:Counter,TE1,BlockingInSpace,0.00031
+run:Counter,TE1,Weight,0.00274
+run:Counter,OT1,RunBlocking,0.04726
+run:Counter,OT1,HandUse,0.00864
+run:Counter,OT1,Agility,0.00062
+run:Counter,OT1,Weight,0.02269
+run:Counter,OT2,Agility,0.00034
+run:Counter,OT2,BlockingInSpace,0.00012
+run:Counter,IOL1,RunBlocking,0.00084
+run:Counter,IOL1,Agility,0.00077
+run:Counter,IOL3,RunBlocking,0.02293
+run:Counter,IOL3,HandUse,0.00458
+run:Counter,IOL3,Weight,0.00712
+run:Draw,QB,BallHandling,0.00048
+run:Draw,RB,Speed,0.00310
+run:Draw,RB,Acceleration,0.00123
+run:Draw,RB,Agility,0.00184
+run:Draw,RB,Elusiveness,0.00118
+run:Draw,RB,BallSecurity,0.00026
+run:Draw,WR1,RouteRunning,-0.00018
+run:Draw,WR2,Agility,0.00035
+run:Draw,TE1,RunBlocking,0.00799
+run:Draw,TE1,BlockingInSpace,0.00031
+run:Draw,TE1,Weight,0.00251
+run:Draw,OT1,Agility,0.00062
+run:Draw,OT2,Agility,0.00034
+run:Draw,OT2,BlockingInSpace,0.00012
+run:Draw,IOL1,RunBlocking,0.03620
+run:Draw,IOL1,HandUse,0.00698
+run:Draw,IOL1,Agility,0.00077
+run:Draw,IOL1,Weight,0.01655
+run:Draw,IOL2,RunBlocking,0.00224
+run:Draw,IOL2,Weight,0.00008
+run:Draw,IOL3,RunBlocking,0.00370
+run:Draw,IOL3,Weight,0.00104
+run:Sneak,QB,BallHandling,0.00048
+run:Sneak,QB,Speed,0.00555
+run:Sneak,QB,Acceleration,0.00215
+run:Sneak,RB,Elusiveness,0.00016
+run:Sneak,WR1,RouteRunning,-0.00018
+run:Sneak,WR2,Agility,0.00035
+run:Sneak,TE1,BlockingInSpace,0.00031
+run:Sneak,OT1,Agility,0.00062
+run:Sneak,OT2,Agility,0.00034
+run:Sneak,OT2,BlockingInSpace,0.00012
+run:Sneak,IOL1,Agility,0.00077
+run:Sneak,IOL2,RunBlocking,0.00316
+run:Sneak,IOL2,HandUse,0.00089
+run:Sneak,IOL2,Weight,0.00133
+run:ZoneRead,QB,BallHandling,0.00048
+run:ZoneRead,RB,Speed,0.00284
+run:ZoneRead,RB,Acceleration,0.00139
+run:ZoneRead,RB,Agility,0.00004
+run:ZoneRead,RB,Elusiveness,0.00135
+run:ZoneRead,RB,LegDrive,0.00045
+run:ZoneRead,RB,Balance,0.00042
+run:ZoneRead,RB,BallSecurity,0.00025
+run:ZoneRead,WR1,RouteRunning,-0.00018
+run:ZoneRead,WR2,Agility,0.00035
+run:ZoneRead,TE1,RunBlocking,0.01484
+run:ZoneRead,TE1,BlockingInSpace,0.00031
+run:ZoneRead,TE1,Strength,0.00065
+run:ZoneRead,TE1,Weight,0.00971
+run:ZoneRead,OT1,RunBlocking,0.00238
+run:ZoneRead,OT1,Agility,0.00062
+run:ZoneRead,OT2,RunBlocking,0.00152
+run:ZoneRead,OT2,Agility,0.00034
+run:ZoneRead,OT2,BlockingInSpace,0.00012
+run:ZoneRead,OT2,Weight,0.00060
+run:ZoneRead,IOL1,RunBlocking,0.01998
+run:ZoneRead,IOL1,HandUse,0.00384
+run:ZoneRead,IOL1,Strength,0.00011
+run:ZoneRead,IOL1,Agility,0.00077
+run:ZoneRead,IOL1,Weight,0.01188
+run:ZoneRead,IOL2,RunBlocking,0.00023
+run:ZoneRead,IOL3,RunBlocking,0.00084
+run:ZoneRead,IOL3,Weight,0.00027
+run:Toss,QB,BallHandling,0.00048
+run:Toss,RB,Speed,0.00998
+run:Toss,RB,Acceleration,0.00287
+run:Toss,RB,Agility,0.01108
+run:Toss,RB,Elusiveness,0.00427
+run:Toss,RB,BallSecurity,0.00345
+run:Toss,RB,Weight,-0.00050
+run:Toss,WR1,RouteRunning,-0.00018
+run:Toss,WR2,Agility,0.00035
+run:Toss,TE1,RunBlocking,0.09220
+run:Toss,TE1,BlockingInSpace,0.00031
+run:Toss,TE1,Strength,0.00594
+run:Toss,TE1,Weight,0.04750
+run:Toss,OT1,Agility,0.00062
+run:Toss,OT2,Agility,0.00034
+run:Toss,OT2,BlockingInSpace,0.00012
+run:Toss,IOL1,Agility,0.00077
+run:BuckSweep,QB,BallHandling,0.00048
+run:BuckSweep,RB,Speed,0.00211
+run:BuckSweep,RB,Acceleration,0.00102
+run:BuckSweep,RB,Agility,0.00491
+run:BuckSweep,RB,Elusiveness,0.00089
+run:BuckSweep,RB,Balance,0.00121
+run:BuckSweep,RB,BallSecurity,0.00102
+run:BuckSweep,WR1,RouteRunning,-0.00018
+run:BuckSweep,WR2,Agility,0.00035
+run:BuckSweep,WR3,Agility,0.00106
+run:BuckSweep,TE1,RunBlocking,0.01485
+run:BuckSweep,TE1,BlockingInSpace,0.00031
+run:BuckSweep,TE1,Weight,0.00966
+run:BuckSweep,OT1,RunBlocking,0.00846
+run:BuckSweep,OT1,Agility,0.00062
+run:BuckSweep,OT1,Weight,0.00174
+run:BuckSweep,OT2,Agility,0.00034
+run:BuckSweep,OT2,BlockingInSpace,0.00012
+run:BuckSweep,IOL1,Agility,0.00077
+run:BuckSweep,IOL2,RunBlocking,0.00128
+run:BuckSweep,IOL3,RunBlocking,0.06460
+run:BuckSweep,IOL3,HandUse,0.01655
+run:BuckSweep,IOL3,Strength,0.00062
+run:BuckSweep,IOL3,Weight,0.02721
+run:Duo,QB,BallHandling,0.00048
+run:Duo,RB,Speed,0.00752
+run:Duo,RB,Acceleration,0.00053
+run:Duo,RB,Agility,0.00005
+run:Duo,RB,Elusiveness,0.00090
+run:Duo,RB,BallSecurity,0.00039
+run:Duo,WR1,RouteRunning,-0.00018
+run:Duo,WR2,Agility,0.00035
+run:Duo,TE1,RunBlocking,0.00126
+run:Duo,TE1,BlockingInSpace,0.00031
+run:Duo,TE1,Weight,0.00202
+run:Duo,OT1,RunBlocking,0.00011
+run:Duo,OT1,Agility,0.00062
+run:Duo,OT2,Agility,0.00034
+run:Duo,OT2,BlockingInSpace,0.00012
+run:Duo,IOL1,RunBlocking,0.04836
+run:Duo,IOL1,HandUse,0.01082
+run:Duo,IOL1,Strength,0.00089
+run:Duo,IOL1,Agility,0.00077
+run:Duo,IOL1,Weight,0.02233
+run:Duo,IOL2,RunBlocking,0.00615
+run:Duo,IOL2,Agility,0.00029
+run:Duo,IOL2,Weight,0.00173
+run:Duo,IOL3,RunBlocking,0.00651
+run:Duo,IOL3,Weight,0.00033
+run:Trap,QB,BallHandling,0.00048
+run:Trap,RB,Speed,0.00200
+run:Trap,RB,Acceleration,0.00271
+run:Trap,RB,Elusiveness,0.00009
+run:Trap,RB,LegDrive,0.00008
+run:Trap,RB,Balance,0.00033
+run:Trap,RB,BallSecurity,0.00118
+run:Trap,WR1,RouteRunning,-0.00018
+run:Trap,WR2,Agility,0.00035
+run:Trap,TE1,RunBlocking,0.00047
+run:Trap,TE1,BlockingInSpace,0.00031
+run:Trap,TE1,Weight,0.00041
+run:Trap,OT1,RunBlocking,0.02618
+run:Trap,OT1,HandUse,0.00813
+run:Trap,OT1,Agility,0.00062
+run:Trap,OT1,Weight,0.01280
+run:Trap,OT2,Agility,0.00034
+run:Trap,OT2,BlockingInSpace,0.00012
+run:Trap,IOL1,Agility,0.00077
+run:Trap,IOL2,RunBlocking,0.02275
+run:Trap,IOL2,HandUse,0.00361
+run:Trap,IOL2,Weight,0.00965
+run:Trap,IOL3,RunBlocking,0.00385
+run:Trap,IOL3,HandUse,0.00216
+run:Trap,IOL3,Weight,0.00103
+run:Iso,QB,BallHandling,0.00048
+run:Iso,QB,Elusiveness,-0.00076
+run:Iso,RB,Speed,0.00268
+run:Iso,RB,Acceleration,0.00357
+run:Iso,RB,Elusiveness,0.00075
+run:Iso,FB,RunBlocking,0.00277
+run:Iso,WR1,RouteRunning,-0.00018
+run:Iso,WR2,Agility,0.00035
+run:Iso,TE1,RunBlocking,0.00297
+run:Iso,TE1,BlockingInSpace,0.00031
+run:Iso,TE1,Weight,0.00402
+run:Iso,OT1,RunBlocking,0.00055
+run:Iso,OT1,Agility,0.00062
+run:Iso,OT2,Agility,0.00034
+run:Iso,OT2,BlockingInSpace,0.00012
+run:Iso,IOL1,RunBlocking,0.03562
+run:Iso,IOL1,HandUse,0.00597
+run:Iso,IOL1,Strength,0.00204
+run:Iso,IOL1,Agility,0.00077
+run:Iso,IOL1,Weight,0.01818
+run:Iso,IOL2,RunBlocking,0.00582
+run:Iso,IOL2,HandUse,0.00117
+run:Iso,IOL2,Weight,0.00206
+run:Iso,IOL3,Weight,0.00005
+run:JetSweep,QB,BallHandling,0.00048
+run:JetSweep,WR1,Agility,0.00123
+run:JetSweep,WR1,RouteRunning,-0.00018
+run:JetSweep,WR1,BlockingInSpace,0.00099
+run:JetSweep,WR2,Agility,0.00035
+run:JetSweep,WR3,Speed,0.01453
+run:JetSweep,WR3,Acceleration,0.01617
+run:JetSweep,WR3,Agility,0.01751
+run:JetSweep,WR3,RouteRunning,-0.00389
+run:JetSweep,WR3,Weight,-0.02059
+run:JetSweep,TE1,BlockingInSpace,0.00031
+run:JetSweep,OT1,Agility,0.00062
+run:JetSweep,OT2,RunBlocking,0.02997
+run:JetSweep,OT2,HandUse,0.00655
+run:JetSweep,OT2,Agility,0.00034
+run:JetSweep,OT2,BlockingInSpace,0.00012
+run:JetSweep,OT2,Weight,0.01302
+run:JetSweep,IOL1,Agility,0.00077
+run:JetSweep,IOL3,RunBlocking,0.00338
+run:QbPower,QB,BallHandling,0.00048
+run:QbPower,QB,Speed,0.00793
+run:QbPower,QB,Acceleration,0.00393
+run:QbPower,QB,Elusiveness,0.00004
+run:QbPower,QB,BallCarrierVision,-0.00027
+run:QbPower,WR1,RouteRunning,-0.00018
+run:QbPower,WR2,Agility,0.00035
+run:QbPower,TE1,RunBlocking,0.01954
+run:QbPower,TE1,BlockingInSpace,0.00031
+run:QbPower,TE1,Weight,0.00904
+run:QbPower,OT1,RunBlocking,0.03930
+run:QbPower,OT1,HandUse,0.00946
+run:QbPower,OT1,Agility,0.00062
+run:QbPower,OT1,Weight,0.01769
+run:QbPower,OT2,Agility,0.00034
+run:QbPower,OT2,BlockingInSpace,0.00012
+run:QbPower,IOL1,Agility,0.00077
+run:SpeedOption,QB,BallHandling,0.00048
+run:SpeedOption,QB,Speed,0.01731
+run:SpeedOption,QB,Acceleration,0.00506
+run:SpeedOption,QB,Weight,-0.00301
+run:SpeedOption,WR1,RouteRunning,-0.00018
+run:SpeedOption,WR2,Agility,0.00035
+run:SpeedOption,WR3,Weight,0.00110
+run:SpeedOption,TE1,BlockingInSpace,0.00031
+run:SpeedOption,OT1,Agility,0.00062
+run:SpeedOption,OT2,Agility,0.00034
+run:SpeedOption,OT2,BlockingInSpace,0.00012
+run:SpeedOption,IOL1,Agility,0.00077
+run:SpeedOption,IOL2,Weight,0.00074
+run:TripleOption,QB,BallHandling,0.00048
+run:TripleOption,RB,Speed,0.01198
+run:TripleOption,RB,Acceleration,0.00055
+run:TripleOption,RB,Elusiveness,0.00205
+run:TripleOption,RB,BallCarrierVision,0.00076
+run:TripleOption,WR1,RouteRunning,-0.00018
+run:TripleOption,WR2,Agility,0.00035
+run:TripleOption,TE1,RunBlocking,0.00711
+run:TripleOption,TE1,BlockingInSpace,0.00031
+run:TripleOption,TE1,Strength,0.00022
+run:TripleOption,OT1,Agility,0.00062
+run:TripleOption,OT1,Weight,0.00171
+run:TripleOption,OT2,Agility,0.00034
+run:TripleOption,OT2,BlockingInSpace,0.00012
+run:TripleOption,IOL1,RunBlocking,0.06219
+run:TripleOption,IOL1,HandUse,0.01532
+run:TripleOption,IOL1,Strength,0.00289
+run:TripleOption,IOL1,Agility,0.00077
+run:TripleOption,IOL1,Weight,0.02851
+group:11:run,QB,BallHandling,0.00065
+group:11:run,RB,Speed,0.00060
+group:11:run,RB,Acceleration,0.00362
+group:11:run,RB,Agility,0.00274
+group:11:run,RB,Elusiveness,0.00232
+group:11:run,RB,BallCarrierVision,0.00208
+group:11:run,RB,LegDrive,0.00117
+group:11:run,RB,Balance,0.00238
+group:11:run,RB,BallSecurity,0.00226
+group:11:run,FB,Strength,0.00046
+group:11:run,WR1,Agility,0.00012
+group:11:run,WR1,BodyControl,0.00002
+group:11:run,TE1,RunBlocking,0.01408
+group:11:run,TE1,Strength,0.00082
+group:11:run,TE1,Weight,0.00359
+group:11:run,TE3,Speed,0.00014
+group:11:run,OT1,RunBlocking,0.00622
+group:11:run,OT1,HandUse,0.00208
+group:11:run,OT1,Weight,0.00250
+group:11:run,OT2,RunBlocking,0.00262
+group:11:run,OT2,Agility,0.00069
+group:11:run,OT2,Weight,0.00125
+group:11:run,IOL1,RunBlocking,0.00658
+group:11:run,IOL1,HandUse,0.00146
+group:11:run,IOL1,Weight,0.00404
+group:11:run,IOL2,RunBlocking,0.00199
+group:11:run,IOL2,Weight,0.00034
+group:11:run,IOL3,RunBlocking,0.00750
+group:11:run,IOL3,HandUse,0.00095
+group:11:run,IOL3,Strength,0.00016
+group:11:run,IOL3,Agility,0.00128
+group:11:run,IOL3,BlockingInSpace,0.00006
+group:11:run,IOL3,Weight,0.00304
+group:11:pass,QB,ArmStrength,0.01345
+group:11:pass,QB,ShortAccuracy,0.00641
+group:11:pass,QB,MediumAccuracy,0.01199
+group:11:pass,QB,DeepAccuracy,0.02199
+group:11:pass,QB,QuickRelease,0.00161
+group:11:pass,QB,Speed,-0.00113
+group:11:pass,RB,RouteRunning,0.00574
+group:11:pass,WR1,Agility,0.00277
+group:11:pass,WR1,RouteRunning,0.00343
+group:11:pass,WR1,ContestedCatch,0.00036
+group:11:pass,WR1,Weight,-0.00035
+group:11:pass,WR2,Speed,0.00232
+group:11:pass,WR2,Acceleration,0.00049
+group:11:pass,WR2,Agility,0.00095
+group:11:pass,WR2,Release,0.00095
+group:11:pass,WR2,ContestedCatch,0.00344
+group:11:pass,WR3,Acceleration,0.00111
+group:11:pass,WR3,RouteRunning,0.00049
+group:11:pass,TE1,Speed,0.00264
+group:11:pass,TE1,RouteRunning,0.00188
+group:11:pass,TE1,ContestedCatch,0.00069
+group:11:pass,TE1,Weight,-0.00045
+group:11:pass,OT1,PassBlocking,0.00710
+group:11:pass,OT1,HandUse,0.00024
+group:11:pass,OT1,Strength,0.00018
+group:11:pass,OT2,PassBlocking,0.00573
+group:11:pass,OT2,HandUse,0.00192
+group:11:pass,OT2,Agility,0.00250
+group:11:pass,IOL1,PassBlocking,0.00061
+group:11:pass,IOL1,HandUse,0.00033
+group:11:pass,IOL3,PassBlocking,0.01078
+group:11:pass,IOL3,HandUse,0.00067
+group:11:pass,IOL3,Agility,0.00633
+group:12:run,RB,Speed,0.00013
+group:12:run,RB,Acceleration,0.00362
+group:12:run,RB,Agility,0.00308
+group:12:run,RB,Elusiveness,0.00232
+group:12:run,RB,BallCarrierVision,0.00208
+group:12:run,RB,LegDrive,0.00117
+group:12:run,RB,Balance,0.00238
+group:12:run,RB,BallSecurity,0.00226
+group:12:run,FB,Strength,0.00046
+group:12:run,WR1,Agility,0.00012
+group:12:run,WR1,BodyControl,0.00002
+group:12:run,TE1,RunBlocking,0.01356
+group:12:run,TE1,Strength,0.00082
+group:12:run,TE1,Weight,0.00574
+group:12:run,TE2,RunBlocking,0.01582
+group:12:run,TE2,Weight,0.00696
+group:12:run,TE3,Speed,0.00014
+group:12:run,OT1,RunBlocking,0.00622
+group:12:run,OT1,HandUse,0.00208
+group:12:run,OT1,Weight,0.00250
+group:12:run,OT2,Agility,0.00069
+group:12:run,OT2,BlockingInSpace,0.00049
+group:12:run,IOL1,RunBlocking,0.00658
+group:12:run,IOL1,HandUse,0.00146
+group:12:run,IOL1,Weight,0.00404
+group:12:run,IOL2,RunBlocking,0.00199
+group:12:run,IOL2,Weight,0.00034
+group:12:run,IOL3,RunBlocking,0.00425
+group:12:run,IOL3,HandUse,0.00095
+group:12:run,IOL3,Strength,0.00016
+group:12:run,IOL3,Agility,0.00128
+group:12:run,IOL3,BlockingInSpace,0.00006
+group:12:run,IOL3,Weight,0.00142
+group:12:pass,QB,ArmStrength,0.00439
+group:12:pass,QB,ShortAccuracy,0.00641
+group:12:pass,QB,MediumAccuracy,0.00771
+group:12:pass,QB,DeepAccuracy,0.02033
+group:12:pass,QB,QuickRelease,0.00161
+group:12:pass,QB,Speed,-0.00113
+group:12:pass,RB,RouteRunning,0.00574
+group:12:pass,WR1,Agility,0.00277
+group:12:pass,WR1,RouteRunning,0.00343
+group:12:pass,WR1,ContestedCatch,0.00036
+group:12:pass,WR1,Weight,-0.00035
+group:12:pass,WR2,Agility,0.00095
+group:12:pass,WR2,RouteRunning,0.00232
+group:12:pass,WR2,Release,0.00095
+group:12:pass,WR2,ContestedCatch,0.00143
+group:12:pass,WR3,Acceleration,0.00111
+group:12:pass,TE1,Speed,0.00264
+group:12:pass,TE1,ContestedCatch,0.00069
+group:12:pass,TE1,Weight,-0.00045
+group:12:pass,OT1,PassBlocking,0.00710
+group:12:pass,OT1,HandUse,0.00024
+group:12:pass,OT1,Strength,0.00018
+group:12:pass,OT2,PassBlocking,0.00573
+group:12:pass,OT2,HandUse,0.00192
+group:12:pass,OT2,Agility,0.00250
+group:12:pass,IOL1,PassBlocking,0.00061
+group:12:pass,IOL1,HandUse,0.00033
+group:12:pass,IOL3,PassBlocking,0.00782
+group:12:pass,IOL3,HandUse,0.00067
+group:12:pass,IOL3,Agility,0.00236
+group:13:run,RB,Speed,0.00169
+group:13:run,RB,Acceleration,0.00362
+group:13:run,RB,Agility,0.00698
+group:13:run,RB,Elusiveness,0.00232
+group:13:run,RB,BallCarrierVision,0.00208
+group:13:run,RB,LegDrive,0.00117
+group:13:run,RB,Balance,0.00238
+group:13:run,RB,BallSecurity,0.00226
+group:13:run,FB,Strength,0.00046
+group:13:run,WR1,Agility,0.00012
+group:13:run,WR1,BodyControl,0.00002
+group:13:run,TE1,RunBlocking,0.00751
+group:13:run,TE1,Strength,0.00082
+group:13:run,TE1,Weight,0.00597
+group:13:run,TE2,RunBlocking,0.00526
+group:13:run,TE2,Weight,0.00031
+group:13:run,TE3,Speed,0.00014
+group:13:run,TE3,RunBlocking,0.01341
+group:13:run,TE3,Weight,0.00069
+group:13:run,OT1,RunBlocking,0.00622
+group:13:run,OT1,HandUse,0.00208
+group:13:run,OT1,Weight,0.00250
+group:13:run,OT2,Agility,0.00069
+group:13:run,IOL1,RunBlocking,0.00658
+group:13:run,IOL1,HandUse,0.00146
+group:13:run,IOL1,Weight,0.00404
+group:13:run,IOL2,RunBlocking,0.00199
+group:13:run,IOL2,Weight,0.00034
+group:13:run,IOL3,RunBlocking,0.00157
+group:13:run,IOL3,HandUse,0.00095
+group:13:run,IOL3,Strength,0.00016
+group:13:run,IOL3,Agility,0.00128
+group:13:run,IOL3,BlockingInSpace,0.00006
+group:13:pass,QB,ArmStrength,0.00602
+group:13:pass,QB,ShortAccuracy,0.00641
+group:13:pass,QB,MediumAccuracy,0.01076
+group:13:pass,QB,DeepAccuracy,0.01186
+group:13:pass,QB,QuickRelease,0.00161
+group:13:pass,QB,Decisions,0.00397
+group:13:pass,QB,Speed,-0.00113
+group:13:pass,RB,RouteRunning,0.00574
+group:13:pass,WR1,Agility,0.00277
+group:13:pass,WR1,RouteRunning,0.00343
+group:13:pass,WR1,ContestedCatch,0.00036
+group:13:pass,WR1,Weight,-0.00035
+group:13:pass,WR2,Agility,0.00095
+group:13:pass,WR2,Release,0.00095
+group:13:pass,WR2,Weight,-0.00067
+group:13:pass,WR3,Acceleration,0.00111
+group:13:pass,WR3,BlockingInSpace,0.00048
+group:13:pass,TE1,Speed,0.00264
+group:13:pass,TE1,RouteRunning,0.00657
+group:13:pass,TE1,ContestedCatch,0.00069
+group:13:pass,TE1,Weight,-0.00045
+group:13:pass,OT1,PassBlocking,0.00710
+group:13:pass,OT1,HandUse,0.00024
+group:13:pass,OT1,Strength,0.00018
+group:13:pass,OT2,PassBlocking,0.00573
+group:13:pass,OT2,HandUse,0.00192
+group:13:pass,OT2,Agility,0.00250
+group:13:pass,IOL1,PassBlocking,0.00061
+group:13:pass,IOL1,HandUse,0.00033
+group:13:pass,IOL3,PassBlocking,0.01784
+group:13:pass,IOL3,HandUse,0.00067
+group:13:pass,IOL3,Agility,0.00771
+group:21:run,RB,Speed,0.00161
+group:21:run,RB,Acceleration,0.00362
+group:21:run,RB,Agility,0.00022
+group:21:run,RB,Elusiveness,0.00232
+group:21:run,RB,BallCarrierVision,0.00208
+group:21:run,RB,LegDrive,0.00117
+group:21:run,RB,Balance,0.00238
+group:21:run,RB,BallSecurity,0.00226
+group:21:run,FB,Strength,0.00046
+group:21:run,WR1,Agility,0.00012
+group:21:run,WR1,BodyControl,0.00002
+group:21:run,TE1,RunBlocking,0.01411
+group:21:run,TE1,Strength,0.00082
+group:21:run,TE1,Weight,0.00595
+group:21:run,TE3,Speed,0.00014
+group:21:run,OT1,RunBlocking,0.00622
+group:21:run,OT1,HandUse,0.00208
+group:21:run,OT1,Weight,0.00250
+group:21:run,OT2,RunBlocking,0.00621
+group:21:run,OT2,Agility,0.00069
+group:21:run,OT2,Weight,0.00084
+group:21:run,IOL1,RunBlocking,0.00658
+group:21:run,IOL1,HandUse,0.00146
+group:21:run,IOL1,Weight,0.00404
+group:21:run,IOL2,RunBlocking,0.00199
+group:21:run,IOL2,Weight,0.00034
+group:21:run,IOL3,RunBlocking,0.00502
+group:21:run,IOL3,HandUse,0.00095
+group:21:run,IOL3,Strength,0.00016
+group:21:run,IOL3,Agility,0.00128
+group:21:run,IOL3,BlockingInSpace,0.00006
+group:21:run,IOL3,Weight,0.00055
+group:21:pass,QB,ArmStrength,0.01735
+group:21:pass,QB,ShortAccuracy,0.00641
+group:21:pass,QB,MediumAccuracy,0.00209
+group:21:pass,QB,DeepAccuracy,0.02619
+group:21:pass,QB,QuickRelease,0.00161
+group:21:pass,QB,Decisions,0.00327
+group:21:pass,QB,Speed,-0.00113
+group:21:pass,RB,RouteRunning,0.00574
+group:21:pass,WR1,Agility,0.00277
+group:21:pass,WR1,RouteRunning,0.00343
+group:21:pass,WR1,ContestedCatch,0.00036
+group:21:pass,WR1,Weight,-0.00035
+group:21:pass,WR2,Speed,0.00298
+group:21:pass,WR2,Acceleration,0.00127
+group:21:pass,WR2,Agility,0.00095
+group:21:pass,WR2,RouteRunning,0.01171
+group:21:pass,WR2,Release,0.00095
+group:21:pass,WR2,ContestedCatch,0.00103
+group:21:pass,WR3,Acceleration,0.00111
+group:21:pass,TE1,Speed,0.00264
+group:21:pass,TE1,RouteRunning,0.00352
+group:21:pass,TE1,ContestedCatch,0.00069
+group:21:pass,TE1,Weight,-0.00045
+group:21:pass,OT1,PassBlocking,0.00710
+group:21:pass,OT1,HandUse,0.00024
+group:21:pass,OT1,Strength,0.00018
+group:21:pass,OT1,Agility,0.00245
+group:21:pass,OT2,PassBlocking,0.00573
+group:21:pass,OT2,HandUse,0.00192
+group:21:pass,OT2,Agility,0.00250
+group:21:pass,IOL1,PassBlocking,0.00061
+group:21:pass,IOL1,HandUse,0.00033
+group:21:pass,IOL3,HandUse,0.00067
+group:22:run,RB,Speed,0.00369
+group:22:run,RB,Acceleration,0.00362
+group:22:run,RB,Agility,0.00493
+group:22:run,RB,Elusiveness,0.00232
+group:22:run,RB,BallCarrierVision,0.00208
+group:22:run,RB,LegDrive,0.00117
+group:22:run,RB,Balance,0.00238
+group:22:run,RB,BallSecurity,0.00226
+group:22:run,FB,Strength,0.00046
+group:22:run,WR1,Agility,0.00012
+group:22:run,WR1,BodyControl,0.00002
+group:22:run,TE1,RunBlocking,0.01044
+group:22:run,TE1,Strength,0.00082
+group:22:run,TE1,Weight,0.00440
+group:22:run,TE2,RunBlocking,0.01677
+group:22:run,TE2,Weight,0.00536
+group:22:run,TE3,Speed,0.00014
+group:22:run,OT1,RunBlocking,0.00622
+group:22:run,OT1,HandUse,0.00208
+group:22:run,OT1,Weight,0.00250
+group:22:run,OT2,Agility,0.00069
+group:22:run,IOL1,RunBlocking,0.00658
+group:22:run,IOL1,HandUse,0.00146
+group:22:run,IOL1,Weight,0.00404
+group:22:run,IOL2,RunBlocking,0.00199
+group:22:run,IOL2,Weight,0.00034
+group:22:run,IOL3,RunBlocking,0.00545
+group:22:run,IOL3,HandUse,0.00095
+group:22:run,IOL3,Strength,0.00016
+group:22:run,IOL3,Agility,0.00128
+group:22:run,IOL3,BlockingInSpace,0.00006
+group:22:run,IOL3,Weight,0.00190
+group:22:pass,QB,ArmStrength,0.00648
+group:22:pass,QB,ShortAccuracy,0.00641
+group:22:pass,QB,MediumAccuracy,0.01047
+group:22:pass,QB,DeepAccuracy,0.00696
+group:22:pass,QB,QuickRelease,0.00161
+group:22:pass,QB,Speed,-0.00113
+group:22:pass,RB,RouteRunning,0.00574
+group:22:pass,WR1,Agility,0.00277
+group:22:pass,WR1,RouteRunning,0.00343
+group:22:pass,WR1,ContestedCatch,0.00036
+group:22:pass,WR1,Weight,-0.00035
+group:22:pass,WR2,Agility,0.00095
+group:22:pass,WR2,Release,0.00095
+group:22:pass,WR3,Acceleration,0.00111
+group:22:pass,TE1,Speed,0.00264
+group:22:pass,TE1,RouteRunning,0.00333
+group:22:pass,TE1,ContestedCatch,0.00069
+group:22:pass,TE1,Weight,-0.00045
+group:22:pass,OT1,PassBlocking,0.00710
+group:22:pass,OT1,HandUse,0.00024
+group:22:pass,OT1,Strength,0.00018
+group:22:pass,OT2,PassBlocking,0.00573
+group:22:pass,OT2,HandUse,0.00192
+group:22:pass,OT2,Agility,0.00250
+group:22:pass,IOL1,PassBlocking,0.00061
+group:22:pass,IOL1,HandUse,0.00033
+group:22:pass,IOL3,HandUse,0.00067
+group:10:run,RB,Speed,0.00441
+group:10:run,RB,Acceleration,0.00362
+group:10:run,RB,Elusiveness,0.00232
+group:10:run,RB,BallCarrierVision,0.00208
+group:10:run,RB,LegDrive,0.00117
+group:10:run,RB,Balance,0.00238
+group:10:run,RB,BallSecurity,0.00226
+group:10:run,FB,Strength,0.00046
+group:10:run,WR1,Agility,0.00012
+group:10:run,WR1,BodyControl,0.00002
+group:10:run,TE1,Strength,0.00082
+group:10:run,TE3,Speed,0.00014
+group:10:run,OT1,RunBlocking,0.00622
+group:10:run,OT1,HandUse,0.00208
+group:10:run,OT1,Weight,0.00250
+group:10:run,OT2,RunBlocking,0.00509
+group:10:run,OT2,Agility,0.00069
+group:10:run,OT2,Weight,0.00096
+group:10:run,IOL1,RunBlocking,0.00658
+group:10:run,IOL1,HandUse,0.00146
+group:10:run,IOL1,Weight,0.00404
+group:10:run,IOL2,RunBlocking,0.00199
+group:10:run,IOL2,Weight,0.00034
+group:10:run,IOL3,RunBlocking,0.00136
+group:10:run,IOL3,HandUse,0.00095
+group:10:run,IOL3,Strength,0.00016
+group:10:run,IOL3,Agility,0.00128
+group:10:run,IOL3,BlockingInSpace,0.00006
+group:10:pass,QB,ArmStrength,0.02241
+group:10:pass,QB,ShortAccuracy,0.00641
+group:10:pass,QB,MediumAccuracy,0.00205
+group:10:pass,QB,DeepAccuracy,0.01335
+group:10:pass,QB,QuickRelease,0.00161
+group:10:pass,QB,Decisions,0.00064
+group:10:pass,QB,Speed,-0.00113
+group:10:pass,RB,RouteRunning,0.00574
+group:10:pass,WR1,Agility,0.00277
+group:10:pass,WR1,RouteRunning,0.00343
+group:10:pass,WR1,ContestedCatch,0.00036
+group:10:pass,WR1,Weight,-0.00035
+group:10:pass,WR2,Speed,0.00165
+group:10:pass,WR2,Acceleration,0.00705
+group:10:pass,WR2,Agility,0.00095
+group:10:pass,WR2,RouteRunning,0.01144
+group:10:pass,WR2,Release,0.00095
+group:10:pass,WR2,ContestedCatch,0.00094
+group:10:pass,WR3,Acceleration,0.00111
+group:10:pass,WR3,Agility,0.00021
+group:10:pass,WR3,RouteRunning,0.00831
+group:10:pass,TE1,Speed,0.00264
+group:10:pass,TE1,ContestedCatch,0.00069
+group:10:pass,TE1,Weight,-0.00045
+group:10:pass,OT1,PassBlocking,0.00710
+group:10:pass,OT1,HandUse,0.00024
+group:10:pass,OT1,Strength,0.00018
+group:10:pass,OT1,Agility,0.00101
+group:10:pass,OT2,PassBlocking,0.00573
+group:10:pass,OT2,HandUse,0.00192
+group:10:pass,OT2,Agility,0.00250
+group:10:pass,IOL1,PassBlocking,0.00061
+group:10:pass,IOL1,HandUse,0.00033
+group:10:pass,IOL3,PassBlocking,0.01280
+group:10:pass,IOL3,HandUse,0.00067
+group:10:pass,IOL3,Agility,0.00071
+sit:short,QB,ArmStrength,-0.00000
+sit:short,RB,LegDrive,0.00005
+sit:short,RB,Balance,0.00026
+sit:short,RB,Weight,0.00042
+sit:short,WR3,Weight,-0.00005
+sit:short,TE2,RunBlocking,0.00065
+sit:short,TE2,Weight,0.00017
+sit:short,OT1,PassBlocking,-0.00010
+sit:short,OT1,RunBlocking,0.00003
+sit:short,OT2,RunBlocking,0.00008
+sit:short,OT2,Anchor,-0.00005
+sit:short,IOL1,RunBlocking,0.00051
+sit:short,IOL1,HandUse,0.00001
+sit:short,IOL1,Weight,0.00015
+sit:short,IOL3,RunBlocking,0.00085
+sit:short,IOL3,Weight,0.00039
+sit:third,QB,ArmStrength,0.00026
+sit:third,QB,ShortAccuracy,0.00026
+sit:third,QB,MediumAccuracy,0.00062
+sit:third,QB,DeepAccuracy,0.00055
+sit:third,RB,LegDrive,0.00004
+sit:third,WR1,RouteRunning,0.00011
+sit:third,WR3,Acceleration,0.00009
+sit:third,WR3,Catching,0.00007
+sit:third,TE1,RouteRunning,0.00033
+sit:third,OT1,PassBlocking,0.00003
+sit:third,IOL3,PassBlocking,0.00038
+look:Cover0/DoubleA,EDGE1,BlockShedding,-0.01477
+look:Cover0/DoubleA,EDGE1,HandUse,-0.00725
+look:Cover0/DoubleA,EDGE1,Speed,-0.00114
+look:Cover0/DoubleA,EDGE1,Strength,-0.00352
+look:Cover0/DoubleA,EDGE1,Tackling,-0.00254
+look:Cover0/DoubleA,EDGE1,Weight,-0.00013
+look:Cover0/DoubleA,EDGE2,FinesseRush,-0.00336
+look:Cover0/DoubleA,EDGE2,HandUse,-0.00160
+look:Cover0/DoubleA,EDGE2,Weight,0.01008
+look:Cover0/DoubleA,DT1,PowerRush,-0.00084
+look:Cover0/DoubleA,DT1,BlockShedding,-0.02097
+look:Cover0/DoubleA,DT1,HandUse,-0.00461
+look:Cover0/DoubleA,DT1,Strength,-0.00069
+look:Cover0/DoubleA,DT1,Acceleration,-0.00091
+look:Cover0/DoubleA,DT1,Tackling,-0.00011
+look:Cover0/DoubleA,DT1,Weight,-0.00021
+look:Cover0/DoubleA,DT2,PowerRush,-0.00656
+look:Cover0/DoubleA,DT2,FinesseRush,-0.00165
+look:Cover0/DoubleA,DT2,BlockShedding,-0.00153
+look:Cover0/DoubleA,DT2,HandUse,-0.00328
+look:Cover0/DoubleA,DT2,Acceleration,-0.00186
+look:Cover0/DoubleA,DT2,Weight,0.00232
+look:Cover0/DoubleA,MIKE,Tackling,-0.00212
+look:Cover0/DoubleA,MIKE,PlayRecognition,-0.00140
+look:Cover0/DoubleA,MIKE,Speed,-0.00057
+look:Cover0/DoubleA,MIKE,Weight,0.00254
+look:Cover0/DoubleA,WILL,Tackling,-0.00147
+look:Cover0/DoubleA,WILL,BlockShedding,-0.00020
+look:Cover0/DoubleA,CB1,ManCoverage,-0.01741
+look:Cover0/DoubleA,CB1,Acceleration,-0.00058
+look:Cover0/DoubleA,CB1,Tackling,-0.00308
+look:Cover0/DoubleA,CB2,ManCoverage,-0.00996
+look:Cover0/DoubleA,CB2,Speed,-0.00128
+look:Cover0/DoubleA,CB2,Acceleration,-0.00104
+look:Cover0/DoubleA,CB2,Agility,-0.00220
+look:Cover0/DoubleA,CB2,Tackling,-0.00109
+look:Cover0/DoubleA,CB2,Weight,0.00141
+look:Cover0/DoubleA,NB,ManCoverage,-0.00574
+look:Cover0/DoubleA,NB,Agility,-0.00070
+look:Cover0/DoubleA,NB,Tackling,-0.00319
+look:Cover0/DoubleA,NB,Weight,0.00075
+look:Cover0/DoubleA,FS,Speed,-0.00121
+look:Cover0/DoubleA,FS,Tackling,-0.00268
+look:Cover0/DoubleA,FS,PlayRecognition,-0.00013
+look:Cover0/DoubleA,SS,ManCoverage,-0.02712
+look:Cover0/DoubleA,SS,Speed,-0.00029
+look:Cover0/DoubleA,SS,Tackling,-0.01065
+look:Cover0/DoubleA,SS,PlayRecognition,-0.00526
+look:Cover1/Four,EDGE1,BlockShedding,-0.00901
+look:Cover1/Four,EDGE1,HandUse,-0.00725
+look:Cover1/Four,EDGE1,Speed,-0.00114
+look:Cover1/Four,EDGE1,Strength,-0.00352
+look:Cover1/Four,EDGE1,Tackling,-0.00254
+look:Cover1/Four,EDGE1,Weight,-0.00013
+look:Cover1/Four,EDGE2,FinesseRush,-0.00428
+look:Cover1/Four,EDGE2,HandUse,-0.00160
+look:Cover1/Four,DT1,PowerRush,-0.00084
+look:Cover1/Four,DT1,BlockShedding,-0.00792
+look:Cover1/Four,DT1,Strength,-0.00069
+look:Cover1/Four,DT1,Acceleration,-0.00091
+look:Cover1/Four,DT1,Tackling,-0.00011
+look:Cover1/Four,DT1,Weight,-0.00021
+look:Cover1/Four,DT2,PowerRush,-0.00656
+look:Cover1/Four,DT2,FinesseRush,-0.00165
+look:Cover1/Four,DT2,BlockShedding,-0.00153
+look:Cover1/Four,DT2,HandUse,-0.00328
+look:Cover1/Four,DT2,Acceleration,-0.00341
+look:Cover1/Four,DT2,Weight,0.00232
+look:Cover1/Four,MIKE,Tackling,-0.00212
+look:Cover1/Four,MIKE,PlayRecognition,-0.00140
+look:Cover1/Four,MIKE,Speed,-0.00057
+look:Cover1/Four,MIKE,Weight,0.00254
+look:Cover1/Four,WILL,Tackling,-0.00147
+look:Cover1/Four,WILL,BlockShedding,-0.00020
+look:Cover1/Four,CB1,ManCoverage,-0.02429
+look:Cover1/Four,CB1,Acceleration,-0.00058
+look:Cover1/Four,CB1,Tackling,-0.00128
+look:Cover1/Four,CB2,ManCoverage,-0.02753
+look:Cover1/Four,CB2,Press,-0.00132
+look:Cover1/Four,CB2,Speed,-0.00128
+look:Cover1/Four,CB2,Acceleration,-0.00104
+look:Cover1/Four,CB2,Weight,0.00141
+look:Cover1/Four,NB,ManCoverage,-0.03394
+look:Cover1/Four,NB,Agility,-0.00070
+look:Cover1/Four,NB,Tackling,-0.00319
+look:Cover1/Four,NB,Weight,0.00075
+look:Cover1/Four,FS,ZoneCoverage,-0.00675
+look:Cover1/Four,FS,Speed,-0.00121
+look:Cover1/Four,FS,Tackling,-0.00268
+look:Cover1/Four,FS,PlayRecognition,-0.00013
+look:Cover1/Four,SS,ZoneCoverage,0.00066
+look:Cover1/Four,SS,ManCoverage,-0.01348
+look:Cover1/Four,SS,Speed,-0.00029
+look:Cover1/Four,SS,Tackling,-0.00119
+look:Cover1/Four,SS,PlayRecognition,-0.00526
+look:Cover1/LbBlitz,EDGE1,BlockShedding,-0.00827
+look:Cover1/LbBlitz,EDGE1,HandUse,-0.00725
+look:Cover1/LbBlitz,EDGE1,Speed,-0.00114
+look:Cover1/LbBlitz,EDGE1,Strength,-0.00352
+look:Cover1/LbBlitz,EDGE1,Tackling,-0.00254
+look:Cover1/LbBlitz,EDGE1,Weight,-0.00013
+look:Cover1/LbBlitz,EDGE2,FinesseRush,-0.00229
+look:Cover1/LbBlitz,EDGE2,HandUse,-0.00160
+look:Cover1/LbBlitz,EDGE2,Weight,0.00090
+look:Cover1/LbBlitz,DT1,PowerRush,-0.00084
+look:Cover1/LbBlitz,DT1,BlockShedding,-0.00386
+look:Cover1/LbBlitz,DT1,HandUse,-0.00186
+look:Cover1/LbBlitz,DT1,Strength,-0.00069
+look:Cover1/LbBlitz,DT1,Acceleration,-0.00091
+look:Cover1/LbBlitz,DT1,Tackling,-0.00011
+look:Cover1/LbBlitz,DT1,Weight,-0.00021
+look:Cover1/LbBlitz,DT2,PowerRush,-0.00656
+look:Cover1/LbBlitz,DT2,FinesseRush,-0.00165
+look:Cover1/LbBlitz,DT2,BlockShedding,-0.00153
+look:Cover1/LbBlitz,DT2,HandUse,-0.00328
+look:Cover1/LbBlitz,DT2,Acceleration,-0.00524
+look:Cover1/LbBlitz,DT2,Weight,0.00232
+look:Cover1/LbBlitz,MIKE,Tackling,-0.00212
+look:Cover1/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Cover1/LbBlitz,MIKE,Speed,-0.00057
+look:Cover1/LbBlitz,MIKE,Weight,0.00254
+look:Cover1/LbBlitz,WILL,Tackling,-0.00147
+look:Cover1/LbBlitz,WILL,BlockShedding,-0.00020
+look:Cover1/LbBlitz,CB1,ManCoverage,-0.01702
+look:Cover1/LbBlitz,CB1,Acceleration,-0.00058
+look:Cover1/LbBlitz,CB2,ManCoverage,-0.02300
+look:Cover1/LbBlitz,CB2,Speed,-0.00128
+look:Cover1/LbBlitz,CB2,Acceleration,-0.00104
+look:Cover1/LbBlitz,CB2,Agility,-0.00160
+look:Cover1/LbBlitz,CB2,Weight,0.00141
+look:Cover1/LbBlitz,NB,ManCoverage,-0.02315
+look:Cover1/LbBlitz,NB,Agility,-0.00070
+look:Cover1/LbBlitz,NB,Tackling,-0.00319
+look:Cover1/LbBlitz,NB,Weight,0.00075
+look:Cover1/LbBlitz,FS,ZoneCoverage,-0.00388
+look:Cover1/LbBlitz,FS,Speed,-0.00121
+look:Cover1/LbBlitz,FS,Anticipation,-0.00718
+look:Cover1/LbBlitz,FS,Tackling,-0.00268
+look:Cover1/LbBlitz,FS,PlayRecognition,-0.00013
+look:Cover1/LbBlitz,SS,ManCoverage,-0.02324
+look:Cover1/LbBlitz,SS,Speed,-0.00029
+look:Cover1/LbBlitz,SS,Tackling,-0.00869
+look:Cover1/LbBlitz,SS,PlayRecognition,-0.00526
+look:Cover2/Four,EDGE1,BlockShedding,-0.00715
+look:Cover2/Four,EDGE1,HandUse,-0.00725
+look:Cover2/Four,EDGE1,Speed,-0.00114
+look:Cover2/Four,EDGE1,Strength,-0.00352
+look:Cover2/Four,EDGE1,Tackling,-0.00254
+look:Cover2/Four,EDGE1,Weight,-0.00013
+look:Cover2/Four,EDGE2,FinesseRush,-0.00539
+look:Cover2/Four,EDGE2,HandUse,-0.00160
+look:Cover2/Four,EDGE2,Acceleration,-0.00215
+look:Cover2/Four,DT1,PowerRush,-0.00084
+look:Cover2/Four,DT1,BlockShedding,-0.01090
+look:Cover2/Four,DT1,HandUse,-0.00075
+look:Cover2/Four,DT1,Strength,-0.00069
+look:Cover2/Four,DT1,Acceleration,-0.00091
+look:Cover2/Four,DT1,Tackling,-0.00011
+look:Cover2/Four,DT1,Weight,-0.00021
+look:Cover2/Four,DT2,PowerRush,-0.00656
+look:Cover2/Four,DT2,FinesseRush,-0.00165
+look:Cover2/Four,DT2,BlockShedding,-0.00153
+look:Cover2/Four,DT2,HandUse,-0.00328
+look:Cover2/Four,DT2,Acceleration,-0.00255
+look:Cover2/Four,DT2,Weight,0.00232
+look:Cover2/Four,MIKE,Tackling,-0.00212
+look:Cover2/Four,MIKE,PlayRecognition,-0.00140
+look:Cover2/Four,MIKE,Speed,-0.00057
+look:Cover2/Four,MIKE,Weight,0.00254
+look:Cover2/Four,WILL,Tackling,-0.00147
+look:Cover2/Four,WILL,ZoneCoverage,-0.00305
+look:Cover2/Four,WILL,BlockShedding,-0.00020
+look:Cover2/Four,CB1,ZoneCoverage,-0.00035
+look:Cover2/Four,CB1,Acceleration,-0.00058
+look:Cover2/Four,CB2,ZoneCoverage,-0.00791
+look:Cover2/Four,CB2,Speed,-0.00128
+look:Cover2/Four,CB2,Acceleration,-0.00104
+look:Cover2/Four,CB2,Weight,0.00141
+look:Cover2/Four,NB,ZoneCoverage,-0.00261
+look:Cover2/Four,NB,Agility,-0.00070
+look:Cover2/Four,NB,Tackling,-0.00319
+look:Cover2/Four,NB,Weight,0.00075
+look:Cover2/Four,FS,Speed,-0.00121
+look:Cover2/Four,FS,Anticipation,-0.00025
+look:Cover2/Four,FS,Tackling,-0.00268
+look:Cover2/Four,FS,PlayRecognition,-0.00013
+look:Cover2/Four,SS,ZoneCoverage,-0.01296
+look:Cover2/Four,SS,Speed,-0.00029
+look:Cover2/Four,SS,Anticipation,-0.00648
+look:Cover2/Four,SS,Tackling,-0.00192
+look:Cover2/Four,SS,PlayRecognition,-0.00526
+look:Cover2/LbBlitz,EDGE1,BlockShedding,-0.00347
+look:Cover2/LbBlitz,EDGE1,HandUse,-0.00725
+look:Cover2/LbBlitz,EDGE1,Speed,-0.00114
+look:Cover2/LbBlitz,EDGE1,Strength,-0.00352
+look:Cover2/LbBlitz,EDGE1,Tackling,-0.00254
+look:Cover2/LbBlitz,EDGE1,Weight,-0.00013
+look:Cover2/LbBlitz,EDGE2,FinesseRush,-0.00149
+look:Cover2/LbBlitz,EDGE2,HandUse,-0.00160
+look:Cover2/LbBlitz,EDGE2,Acceleration,-0.00291
+look:Cover2/LbBlitz,DT1,PowerRush,-0.00084
+look:Cover2/LbBlitz,DT1,BlockShedding,-0.00374
+look:Cover2/LbBlitz,DT1,Strength,-0.00069
+look:Cover2/LbBlitz,DT1,Acceleration,-0.00091
+look:Cover2/LbBlitz,DT1,Tackling,-0.00011
+look:Cover2/LbBlitz,DT1,Weight,-0.00021
+look:Cover2/LbBlitz,DT2,PowerRush,-0.00656
+look:Cover2/LbBlitz,DT2,FinesseRush,-0.00165
+look:Cover2/LbBlitz,DT2,BlockShedding,-0.00153
+look:Cover2/LbBlitz,DT2,HandUse,-0.00328
+look:Cover2/LbBlitz,DT2,Acceleration,-0.00240
+look:Cover2/LbBlitz,DT2,Weight,0.00232
+look:Cover2/LbBlitz,MIKE,Tackling,-0.00212
+look:Cover2/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Cover2/LbBlitz,MIKE,ZoneCoverage,-0.00503
+look:Cover2/LbBlitz,MIKE,Speed,-0.00057
+look:Cover2/LbBlitz,MIKE,Weight,0.00254
+look:Cover2/LbBlitz,WILL,Tackling,-0.00147
+look:Cover2/LbBlitz,WILL,BlockShedding,-0.00020
+look:Cover2/LbBlitz,CB1,ZoneCoverage,-0.00006
+look:Cover2/LbBlitz,CB1,Acceleration,-0.00058
+look:Cover2/LbBlitz,CB2,ZoneCoverage,-0.00663
+look:Cover2/LbBlitz,CB2,Speed,-0.00128
+look:Cover2/LbBlitz,CB2,Acceleration,-0.00104
+look:Cover2/LbBlitz,CB2,Weight,0.00141
+look:Cover2/LbBlitz,NB,ZoneCoverage,-0.00214
+look:Cover2/LbBlitz,NB,Speed,-0.00001
+look:Cover2/LbBlitz,NB,Agility,-0.00070
+look:Cover2/LbBlitz,NB,Tackling,-0.00319
+look:Cover2/LbBlitz,NB,Weight,0.00075
+look:Cover2/LbBlitz,FS,Speed,-0.00121
+look:Cover2/LbBlitz,FS,Tackling,-0.00268
+look:Cover2/LbBlitz,FS,PlayRecognition,-0.00013
+look:Cover2/LbBlitz,SS,ZoneCoverage,-0.01209
+look:Cover2/LbBlitz,SS,Speed,-0.00029
+look:Cover2/LbBlitz,SS,Anticipation,-0.00531
+look:Cover2/LbBlitz,SS,Tackling,-0.00033
+look:Cover2/LbBlitz,SS,PlayRecognition,-0.00526
+look:Tampa2/Four,EDGE1,FinesseRush,-0.00089
+look:Tampa2/Four,EDGE1,BlockShedding,-0.00441
+look:Tampa2/Four,EDGE1,HandUse,-0.00725
+look:Tampa2/Four,EDGE1,Speed,-0.00114
+look:Tampa2/Four,EDGE1,Strength,-0.00352
+look:Tampa2/Four,EDGE1,Tackling,-0.00254
+look:Tampa2/Four,EDGE1,Weight,-0.00013
+look:Tampa2/Four,EDGE2,FinesseRush,-0.00335
+look:Tampa2/Four,EDGE2,HandUse,-0.00160
+look:Tampa2/Four,DT1,PowerRush,-0.00084
+look:Tampa2/Four,DT1,BlockShedding,-0.00463
+look:Tampa2/Four,DT1,Strength,-0.00069
+look:Tampa2/Four,DT1,Acceleration,-0.00091
+look:Tampa2/Four,DT1,Tackling,-0.00011
+look:Tampa2/Four,DT1,Weight,-0.00021
+look:Tampa2/Four,DT2,PowerRush,-0.00656
+look:Tampa2/Four,DT2,FinesseRush,-0.00165
+look:Tampa2/Four,DT2,BlockShedding,-0.00153
+look:Tampa2/Four,DT2,HandUse,-0.00328
+look:Tampa2/Four,DT2,Acceleration,-0.00171
+look:Tampa2/Four,DT2,Weight,0.00232
+look:Tampa2/Four,MIKE,Tackling,-0.00212
+look:Tampa2/Four,MIKE,PlayRecognition,-0.00140
+look:Tampa2/Four,MIKE,Speed,-0.00057
+look:Tampa2/Four,MIKE,Weight,0.00254
+look:Tampa2/Four,WILL,Tackling,-0.00147
+look:Tampa2/Four,WILL,BlockShedding,-0.00020
+look:Tampa2/Four,CB1,Acceleration,-0.00058
+look:Tampa2/Four,CB2,ZoneCoverage,-0.00354
+look:Tampa2/Four,CB2,Speed,-0.00128
+look:Tampa2/Four,CB2,Acceleration,-0.00104
+look:Tampa2/Four,CB2,Weight,0.00141
+look:Tampa2/Four,NB,ZoneCoverage,-0.00205
+look:Tampa2/Four,NB,Agility,-0.00070
+look:Tampa2/Four,NB,Tackling,-0.00319
+look:Tampa2/Four,NB,Weight,0.00075
+look:Tampa2/Four,FS,Speed,-0.00121
+look:Tampa2/Four,FS,Anticipation,-0.00107
+look:Tampa2/Four,FS,Tackling,-0.00268
+look:Tampa2/Four,FS,PlayRecognition,-0.00013
+look:Tampa2/Four,SS,ZoneCoverage,-0.00806
+look:Tampa2/Four,SS,Speed,-0.00029
+look:Tampa2/Four,SS,Anticipation,-0.00283
+look:Tampa2/Four,SS,Tackling,-0.00120
+look:Tampa2/Four,SS,PlayRecognition,-0.00526
+look:Tampa2/LbBlitz,EDGE1,FinesseRush,-0.00047
+look:Tampa2/LbBlitz,EDGE1,BlockShedding,-0.00429
+look:Tampa2/LbBlitz,EDGE1,HandUse,-0.00725
+look:Tampa2/LbBlitz,EDGE1,Speed,-0.00114
+look:Tampa2/LbBlitz,EDGE1,Strength,-0.00352
+look:Tampa2/LbBlitz,EDGE1,Tackling,-0.00254
+look:Tampa2/LbBlitz,EDGE1,Weight,-0.00013
+look:Tampa2/LbBlitz,EDGE2,FinesseRush,-0.00301
+look:Tampa2/LbBlitz,EDGE2,HandUse,-0.00160
+look:Tampa2/LbBlitz,EDGE2,Weight,0.00164
+look:Tampa2/LbBlitz,DT1,PowerRush,-0.00084
+look:Tampa2/LbBlitz,DT1,BlockShedding,-0.00465
+look:Tampa2/LbBlitz,DT1,HandUse,-0.00058
+look:Tampa2/LbBlitz,DT1,Strength,-0.00069
+look:Tampa2/LbBlitz,DT1,Acceleration,-0.00091
+look:Tampa2/LbBlitz,DT1,Tackling,-0.00011
+look:Tampa2/LbBlitz,DT1,Weight,-0.00021
+look:Tampa2/LbBlitz,DT2,PowerRush,-0.00656
+look:Tampa2/LbBlitz,DT2,FinesseRush,-0.00165
+look:Tampa2/LbBlitz,DT2,BlockShedding,-0.00153
+look:Tampa2/LbBlitz,DT2,HandUse,-0.00328
+look:Tampa2/LbBlitz,DT2,Acceleration,-0.00093
+look:Tampa2/LbBlitz,DT2,Weight,0.00232
+look:Tampa2/LbBlitz,MIKE,Tackling,-0.00212
+look:Tampa2/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Tampa2/LbBlitz,MIKE,Speed,-0.00057
+look:Tampa2/LbBlitz,MIKE,Weight,0.00254
+look:Tampa2/LbBlitz,WILL,Tackling,-0.00147
+look:Tampa2/LbBlitz,WILL,BlockShedding,-0.00020
+look:Tampa2/LbBlitz,CB1,ZoneCoverage,-0.00375
+look:Tampa2/LbBlitz,CB1,Acceleration,-0.00058
+look:Tampa2/LbBlitz,CB2,ZoneCoverage,-0.00509
+look:Tampa2/LbBlitz,CB2,Speed,-0.00128
+look:Tampa2/LbBlitz,CB2,Acceleration,-0.00104
+look:Tampa2/LbBlitz,CB2,Weight,0.00141
+look:Tampa2/LbBlitz,NB,ZoneCoverage,-0.00272
+look:Tampa2/LbBlitz,NB,Agility,-0.00070
+look:Tampa2/LbBlitz,NB,Tackling,-0.00319
+look:Tampa2/LbBlitz,NB,Weight,0.00075
+look:Tampa2/LbBlitz,FS,ZoneCoverage,-0.00039
+look:Tampa2/LbBlitz,FS,Speed,-0.00121
+look:Tampa2/LbBlitz,FS,Tackling,-0.00268
+look:Tampa2/LbBlitz,FS,PlayRecognition,-0.00013
+look:Tampa2/LbBlitz,SS,ZoneCoverage,-0.01485
+look:Tampa2/LbBlitz,SS,Speed,-0.00029
+look:Tampa2/LbBlitz,SS,Anticipation,-0.00753
+look:Tampa2/LbBlitz,SS,PlayRecognition,-0.00526
+look:Cover3/Four,EDGE1,FinesseRush,-0.00186
+look:Cover3/Four,EDGE1,BlockShedding,-0.01081
+look:Cover3/Four,EDGE1,HandUse,-0.00725
+look:Cover3/Four,EDGE1,Speed,-0.00114
+look:Cover3/Four,EDGE1,Strength,-0.00352
+look:Cover3/Four,EDGE1,Tackling,-0.00254
+look:Cover3/Four,EDGE1,Weight,-0.00013
+look:Cover3/Four,EDGE2,FinesseRush,-0.00317
+look:Cover3/Four,EDGE2,HandUse,-0.00160
+look:Cover3/Four,DT1,PowerRush,-0.00084
+look:Cover3/Four,DT1,BlockShedding,-0.00437
+look:Cover3/Four,DT1,Strength,-0.00069
+look:Cover3/Four,DT1,Acceleration,-0.00091
+look:Cover3/Four,DT1,Tackling,-0.00011
+look:Cover3/Four,DT1,Weight,-0.00021
+look:Cover3/Four,DT2,PowerRush,-0.00656
+look:Cover3/Four,DT2,FinesseRush,-0.00165
+look:Cover3/Four,DT2,BlockShedding,-0.00153
+look:Cover3/Four,DT2,HandUse,-0.00328
+look:Cover3/Four,DT2,Acceleration,-0.00133
+look:Cover3/Four,DT2,Weight,0.00232
+look:Cover3/Four,MIKE,Tackling,-0.00212
+look:Cover3/Four,MIKE,PlayRecognition,-0.00140
+look:Cover3/Four,MIKE,ZoneCoverage,-0.00699
+look:Cover3/Four,MIKE,Speed,-0.00057
+look:Cover3/Four,MIKE,Weight,0.00254
+look:Cover3/Four,WILL,Tackling,-0.00147
+look:Cover3/Four,WILL,PlayRecognition,-0.00348
+look:Cover3/Four,WILL,BlockShedding,-0.00020
+look:Cover3/Four,CB1,Acceleration,-0.00058
+look:Cover3/Four,CB1,Tackling,-0.00018
+look:Cover3/Four,CB2,ZoneCoverage,-0.00171
+look:Cover3/Four,CB2,Speed,-0.00128
+look:Cover3/Four,CB2,Acceleration,-0.00104
+look:Cover3/Four,CB2,Agility,-0.00340
+look:Cover3/Four,CB2,Anticipation,-0.00032
+look:Cover3/Four,CB2,Weight,0.00141
+look:Cover3/Four,NB,Agility,-0.00070
+look:Cover3/Four,NB,Tackling,-0.00319
+look:Cover3/Four,NB,Weight,0.00075
+look:Cover3/Four,FS,ZoneCoverage,-0.00276
+look:Cover3/Four,FS,Speed,-0.00121
+look:Cover3/Four,FS,Anticipation,-0.00135
+look:Cover3/Four,FS,Tackling,-0.00268
+look:Cover3/Four,FS,PlayRecognition,-0.00013
+look:Cover3/Four,SS,ZoneCoverage,-0.01062
+look:Cover3/Four,SS,Speed,-0.00029
+look:Cover3/Four,SS,Tackling,-0.00227
+look:Cover3/Four,SS,PlayRecognition,-0.00526
+look:Cover3/LbBlitz,EDGE1,PowerRush,-0.00006
+look:Cover3/LbBlitz,EDGE1,BlockShedding,-0.00864
+look:Cover3/LbBlitz,EDGE1,HandUse,-0.00725
+look:Cover3/LbBlitz,EDGE1,Speed,-0.00114
+look:Cover3/LbBlitz,EDGE1,Strength,-0.00352
+look:Cover3/LbBlitz,EDGE1,Tackling,-0.00254
+look:Cover3/LbBlitz,EDGE1,Weight,-0.00013
+look:Cover3/LbBlitz,EDGE2,FinesseRush,-0.00229
+look:Cover3/LbBlitz,EDGE2,HandUse,-0.00160
+look:Cover3/LbBlitz,EDGE2,Acceleration,-0.00128
+look:Cover3/LbBlitz,DT1,PowerRush,-0.00084
+look:Cover3/LbBlitz,DT1,BlockShedding,-0.00991
+look:Cover3/LbBlitz,DT1,Strength,-0.00069
+look:Cover3/LbBlitz,DT1,Acceleration,-0.00091
+look:Cover3/LbBlitz,DT1,Tackling,-0.00011
+look:Cover3/LbBlitz,DT1,Weight,-0.00021
+look:Cover3/LbBlitz,DT2,PowerRush,-0.00656
+look:Cover3/LbBlitz,DT2,FinesseRush,-0.00165
+look:Cover3/LbBlitz,DT2,BlockShedding,-0.00153
+look:Cover3/LbBlitz,DT2,HandUse,-0.00328
+look:Cover3/LbBlitz,DT2,Acceleration,-0.00235
+look:Cover3/LbBlitz,DT2,Weight,0.00232
+look:Cover3/LbBlitz,MIKE,Tackling,-0.00212
+look:Cover3/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Cover3/LbBlitz,MIKE,Speed,-0.00057
+look:Cover3/LbBlitz,MIKE,Weight,0.00254
+look:Cover3/LbBlitz,WILL,Tackling,-0.00147
+look:Cover3/LbBlitz,WILL,BlockShedding,-0.00020
+look:Cover3/LbBlitz,CB1,ZoneCoverage,-0.00157
+look:Cover3/LbBlitz,CB1,Acceleration,-0.00058
+look:Cover3/LbBlitz,CB1,Tackling,-0.00128
+look:Cover3/LbBlitz,CB2,Speed,-0.00128
+look:Cover3/LbBlitz,CB2,Acceleration,-0.00104
+look:Cover3/LbBlitz,CB2,Weight,0.00141
+look:Cover3/LbBlitz,NB,ZoneCoverage,-0.00321
+look:Cover3/LbBlitz,NB,Speed,-0.00022
+look:Cover3/LbBlitz,NB,Agility,-0.00070
+look:Cover3/LbBlitz,NB,Tackling,-0.00319
+look:Cover3/LbBlitz,NB,Weight,0.00075
+look:Cover3/LbBlitz,FS,ZoneCoverage,-0.00440
+look:Cover3/LbBlitz,FS,Speed,-0.00121
+look:Cover3/LbBlitz,FS,Anticipation,-0.00147
+look:Cover3/LbBlitz,FS,Tackling,-0.00268
+look:Cover3/LbBlitz,FS,PlayRecognition,-0.00013
+look:Cover3/LbBlitz,SS,ZoneCoverage,-0.00670
+look:Cover3/LbBlitz,SS,Speed,-0.00029
+look:Cover3/LbBlitz,SS,Tackling,-0.00174
+look:Cover3/LbBlitz,SS,PlayRecognition,-0.00526
+look:Cover4/Four,EDGE1,BlockShedding,-0.00536
+look:Cover4/Four,EDGE1,HandUse,-0.00725
+look:Cover4/Four,EDGE1,Speed,-0.00114
+look:Cover4/Four,EDGE1,Strength,-0.00352
+look:Cover4/Four,EDGE1,Tackling,-0.00254
+look:Cover4/Four,EDGE1,Weight,-0.00013
+look:Cover4/Four,EDGE2,FinesseRush,-0.00362
+look:Cover4/Four,EDGE2,HandUse,-0.00160
+look:Cover4/Four,DT1,PowerRush,-0.00084
+look:Cover4/Four,DT1,BlockShedding,-0.00312
+look:Cover4/Four,DT1,Strength,-0.00069
+look:Cover4/Four,DT1,Acceleration,-0.00091
+look:Cover4/Four,DT1,Tackling,-0.00011
+look:Cover4/Four,DT1,Weight,-0.00021
+look:Cover4/Four,DT2,PowerRush,-0.00656
+look:Cover4/Four,DT2,FinesseRush,-0.00165
+look:Cover4/Four,DT2,BlockShedding,-0.00153
+look:Cover4/Four,DT2,HandUse,-0.00328
+look:Cover4/Four,DT2,Acceleration,-0.00084
+look:Cover4/Four,DT2,Weight,0.00232
+look:Cover4/Four,MIKE,Tackling,-0.00212
+look:Cover4/Four,MIKE,PlayRecognition,-0.00140
+look:Cover4/Four,MIKE,ZoneCoverage,-0.00241
+look:Cover4/Four,MIKE,Speed,-0.00057
+look:Cover4/Four,MIKE,Weight,0.00254
+look:Cover4/Four,WILL,Tackling,-0.00147
+look:Cover4/Four,WILL,BlockShedding,-0.00020
+look:Cover4/Four,CB1,Acceleration,-0.00058
+look:Cover4/Four,CB2,ZoneCoverage,-0.00312
+look:Cover4/Four,CB2,Speed,-0.00128
+look:Cover4/Four,CB2,Acceleration,-0.00104
+look:Cover4/Four,CB2,Weight,0.00141
+look:Cover4/Four,NB,ZoneCoverage,-0.00442
+look:Cover4/Four,NB,Agility,-0.00070
+look:Cover4/Four,NB,Tackling,-0.00319
+look:Cover4/Four,NB,Weight,0.00075
+look:Cover4/Four,FS,ZoneCoverage,-0.00955
+look:Cover4/Four,FS,Speed,-0.00121
+look:Cover4/Four,FS,FootballIq,-0.00105
+look:Cover4/Four,FS,Anticipation,-0.00812
+look:Cover4/Four,FS,Tackling,-0.00268
+look:Cover4/Four,FS,PlayRecognition,-0.00013
+look:Cover4/Four,SS,ZoneCoverage,-0.00388
+look:Cover4/Four,SS,Speed,-0.00029
+look:Cover4/Four,SS,Tackling,-0.00151
+look:Cover4/Four,SS,PlayRecognition,-0.00526
+look:Cover4/LbBlitz,EDGE1,BlockShedding,-0.00437
+look:Cover4/LbBlitz,EDGE1,HandUse,-0.00725
+look:Cover4/LbBlitz,EDGE1,Speed,-0.00114
+look:Cover4/LbBlitz,EDGE1,Strength,-0.00352
+look:Cover4/LbBlitz,EDGE1,Tackling,-0.00254
+look:Cover4/LbBlitz,EDGE1,Weight,-0.00013
+look:Cover4/LbBlitz,EDGE2,FinesseRush,-0.00235
+look:Cover4/LbBlitz,EDGE2,HandUse,-0.00160
+look:Cover4/LbBlitz,EDGE2,Weight,0.00244
+look:Cover4/LbBlitz,DT1,PowerRush,-0.00084
+look:Cover4/LbBlitz,DT1,BlockShedding,-0.00036
+look:Cover4/LbBlitz,DT1,Strength,-0.00069
+look:Cover4/LbBlitz,DT1,Acceleration,-0.00091
+look:Cover4/LbBlitz,DT1,Tackling,-0.00011
+look:Cover4/LbBlitz,DT1,Weight,-0.00021
+look:Cover4/LbBlitz,DT2,PowerRush,-0.00656
+look:Cover4/LbBlitz,DT2,FinesseRush,-0.00165
+look:Cover4/LbBlitz,DT2,BlockShedding,-0.00153
+look:Cover4/LbBlitz,DT2,HandUse,-0.00328
+look:Cover4/LbBlitz,DT2,Acceleration,-0.00172
+look:Cover4/LbBlitz,DT2,Weight,0.00232
+look:Cover4/LbBlitz,MIKE,Tackling,-0.00212
+look:Cover4/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Cover4/LbBlitz,MIKE,ZoneCoverage,-0.00200
+look:Cover4/LbBlitz,MIKE,Speed,-0.00057
+look:Cover4/LbBlitz,MIKE,Weight,0.00254
+look:Cover4/LbBlitz,WILL,Tackling,-0.00147
+look:Cover4/LbBlitz,WILL,BlockShedding,-0.00020
+look:Cover4/LbBlitz,CB1,Acceleration,-0.00058
+look:Cover4/LbBlitz,CB2,ZoneCoverage,-0.00111
+look:Cover4/LbBlitz,CB2,Speed,-0.00128
+look:Cover4/LbBlitz,CB2,Acceleration,-0.00104
+look:Cover4/LbBlitz,CB2,Anticipation,-0.00314
+look:Cover4/LbBlitz,CB2,Weight,0.00141
+look:Cover4/LbBlitz,NB,ZoneCoverage,-0.00073
+look:Cover4/LbBlitz,NB,Speed,-0.00127
+look:Cover4/LbBlitz,NB,Agility,-0.00070
+look:Cover4/LbBlitz,NB,Tackling,-0.00319
+look:Cover4/LbBlitz,NB,Weight,0.00075
+look:Cover4/LbBlitz,FS,Speed,-0.00121
+look:Cover4/LbBlitz,FS,FootballIq,-0.00112
+look:Cover4/LbBlitz,FS,Tackling,-0.00268
+look:Cover4/LbBlitz,FS,PlayRecognition,-0.00013
+look:Cover4/LbBlitz,SS,ZoneCoverage,-0.00032
+look:Cover4/LbBlitz,SS,Speed,-0.00029
+look:Cover4/LbBlitz,SS,PlayRecognition,-0.00526
+look:Cover2Man/Four,EDGE1,BlockShedding,-0.00699
+look:Cover2Man/Four,EDGE1,HandUse,-0.00725
+look:Cover2Man/Four,EDGE1,Speed,-0.00114
+look:Cover2Man/Four,EDGE1,Strength,-0.00352
+look:Cover2Man/Four,EDGE1,Tackling,-0.00254
+look:Cover2Man/Four,EDGE1,Weight,-0.00013
+look:Cover2Man/Four,EDGE2,FinesseRush,-0.00832
+look:Cover2Man/Four,EDGE2,HandUse,-0.00160
+look:Cover2Man/Four,DT1,PowerRush,-0.00084
+look:Cover2Man/Four,DT1,BlockShedding,-0.00221
+look:Cover2Man/Four,DT1,Strength,-0.00069
+look:Cover2Man/Four,DT1,Acceleration,-0.00091
+look:Cover2Man/Four,DT1,Tackling,-0.00011
+look:Cover2Man/Four,DT1,Weight,-0.00021
+look:Cover2Man/Four,DT2,PowerRush,-0.00656
+look:Cover2Man/Four,DT2,FinesseRush,-0.00165
+look:Cover2Man/Four,DT2,BlockShedding,-0.00153
+look:Cover2Man/Four,DT2,HandUse,-0.00328
+look:Cover2Man/Four,DT2,Acceleration,-0.00388
+look:Cover2Man/Four,DT2,Weight,0.00232
+look:Cover2Man/Four,MIKE,Tackling,-0.00212
+look:Cover2Man/Four,MIKE,PlayRecognition,-0.00140
+look:Cover2Man/Four,MIKE,ManCoverage,-0.00164
+look:Cover2Man/Four,MIKE,Speed,-0.00057
+look:Cover2Man/Four,MIKE,Weight,0.00254
+look:Cover2Man/Four,WILL,Tackling,-0.00147
+look:Cover2Man/Four,WILL,ZoneCoverage,-0.00913
+look:Cover2Man/Four,WILL,BlockShedding,-0.00020
+look:Cover2Man/Four,CB1,ManCoverage,-0.00615
+look:Cover2Man/Four,CB1,Acceleration,-0.00058
+look:Cover2Man/Four,CB1,Tackling,-0.00005
+look:Cover2Man/Four,CB2,ManCoverage,-0.03913
+look:Cover2Man/Four,CB2,Press,-0.00298
+look:Cover2Man/Four,CB2,Speed,-0.00128
+look:Cover2Man/Four,CB2,Acceleration,-0.00104
+look:Cover2Man/Four,CB2,Agility,-0.00122
+look:Cover2Man/Four,CB2,Weight,0.00141
+look:Cover2Man/Four,NB,ManCoverage,-0.01969
+look:Cover2Man/Four,NB,Agility,-0.00070
+look:Cover2Man/Four,NB,Tackling,-0.00319
+look:Cover2Man/Four,NB,Weight,0.00075
+look:Cover2Man/Four,FS,Speed,-0.00121
+look:Cover2Man/Four,FS,Tackling,-0.00268
+look:Cover2Man/Four,FS,PlayRecognition,-0.00013
+look:Cover2Man/Four,SS,ZoneCoverage,-0.01214
+look:Cover2Man/Four,SS,Speed,-0.00029
+look:Cover2Man/Four,SS,Anticipation,-0.00025
+look:Cover2Man/Four,SS,PlayRecognition,-0.00526
+look:Cover2Man/LbBlitz,EDGE1,FinesseRush,-0.00032
+look:Cover2Man/LbBlitz,EDGE1,BlockShedding,-0.00678
+look:Cover2Man/LbBlitz,EDGE1,HandUse,-0.00725
+look:Cover2Man/LbBlitz,EDGE1,Speed,-0.00114
+look:Cover2Man/LbBlitz,EDGE1,Strength,-0.00352
+look:Cover2Man/LbBlitz,EDGE1,Tackling,-0.00254
+look:Cover2Man/LbBlitz,EDGE1,Weight,-0.00013
+look:Cover2Man/LbBlitz,EDGE2,FinesseRush,-0.00172
+look:Cover2Man/LbBlitz,EDGE2,HandUse,-0.00160
+look:Cover2Man/LbBlitz,EDGE2,Weight,0.00337
+look:Cover2Man/LbBlitz,DT1,PowerRush,-0.00084
+look:Cover2Man/LbBlitz,DT1,Strength,-0.00069
+look:Cover2Man/LbBlitz,DT1,Acceleration,-0.00091
+look:Cover2Man/LbBlitz,DT1,Tackling,-0.00011
+look:Cover2Man/LbBlitz,DT1,Weight,-0.00021
+look:Cover2Man/LbBlitz,DT2,PowerRush,-0.00656
+look:Cover2Man/LbBlitz,DT2,FinesseRush,-0.00165
+look:Cover2Man/LbBlitz,DT2,BlockShedding,-0.00153
+look:Cover2Man/LbBlitz,DT2,HandUse,-0.00328
+look:Cover2Man/LbBlitz,DT2,Acceleration,-0.00560
+look:Cover2Man/LbBlitz,DT2,Weight,0.00232
+look:Cover2Man/LbBlitz,MIKE,Tackling,-0.00212
+look:Cover2Man/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Cover2Man/LbBlitz,MIKE,Speed,-0.00057
+look:Cover2Man/LbBlitz,MIKE,Weight,0.00254
+look:Cover2Man/LbBlitz,WILL,Tackling,-0.00147
+look:Cover2Man/LbBlitz,WILL,BlockShedding,-0.00020
+look:Cover2Man/LbBlitz,CB1,ManCoverage,-0.00774
+look:Cover2Man/LbBlitz,CB1,Acceleration,-0.00058
+look:Cover2Man/LbBlitz,CB2,ManCoverage,-0.02570
+look:Cover2Man/LbBlitz,CB2,Press,-0.00004
+look:Cover2Man/LbBlitz,CB2,Speed,-0.00128
+look:Cover2Man/LbBlitz,CB2,Acceleration,-0.00104
+look:Cover2Man/LbBlitz,CB2,Agility,-0.00379
+look:Cover2Man/LbBlitz,CB2,Weight,0.00141
+look:Cover2Man/LbBlitz,NB,ManCoverage,-0.01602
+look:Cover2Man/LbBlitz,NB,Agility,-0.00070
+look:Cover2Man/LbBlitz,NB,Tackling,-0.00319
+look:Cover2Man/LbBlitz,NB,Weight,0.00075
+look:Cover2Man/LbBlitz,FS,ZoneCoverage,-0.00310
+look:Cover2Man/LbBlitz,FS,Speed,-0.00121
+look:Cover2Man/LbBlitz,FS,Tackling,-0.00268
+look:Cover2Man/LbBlitz,FS,PlayRecognition,-0.00013
+look:Cover2Man/LbBlitz,SS,ZoneCoverage,-0.01160
+look:Cover2Man/LbBlitz,SS,Speed,-0.00029
+look:Cover2Man/LbBlitz,SS,Anticipation,-0.00335
+look:Cover2Man/LbBlitz,SS,PlayRecognition,-0.00526
+look:Cover6/Four,EDGE1,BlockShedding,-0.00439
+look:Cover6/Four,EDGE1,HandUse,-0.00725
+look:Cover6/Four,EDGE1,Speed,-0.00114
+look:Cover6/Four,EDGE1,Strength,-0.00352
+look:Cover6/Four,EDGE1,Tackling,-0.00254
+look:Cover6/Four,EDGE1,Weight,-0.00013
+look:Cover6/Four,EDGE2,FinesseRush,-0.00546
+look:Cover6/Four,EDGE2,HandUse,-0.00160
+look:Cover6/Four,DT1,PowerRush,-0.00084
+look:Cover6/Four,DT1,BlockShedding,-0.00560
+look:Cover6/Four,DT1,HandUse,-0.00152
+look:Cover6/Four,DT1,Strength,-0.00069
+look:Cover6/Four,DT1,Acceleration,-0.00091
+look:Cover6/Four,DT1,Tackling,-0.00011
+look:Cover6/Four,DT1,Weight,-0.00021
+look:Cover6/Four,DT2,PowerRush,-0.00656
+look:Cover6/Four,DT2,FinesseRush,-0.00165
+look:Cover6/Four,DT2,BlockShedding,-0.00153
+look:Cover6/Four,DT2,HandUse,-0.00328
+look:Cover6/Four,DT2,Weight,0.00232
+look:Cover6/Four,MIKE,Tackling,-0.00212
+look:Cover6/Four,MIKE,PlayRecognition,-0.00140
+look:Cover6/Four,MIKE,ZoneCoverage,-0.00625
+look:Cover6/Four,MIKE,Speed,-0.00057
+look:Cover6/Four,MIKE,Weight,0.00254
+look:Cover6/Four,WILL,Tackling,-0.00147
+look:Cover6/Four,WILL,BlockShedding,-0.00020
+look:Cover6/Four,CB1,ZoneCoverage,-0.00223
+look:Cover6/Four,CB1,Acceleration,-0.00058
+look:Cover6/Four,CB2,ZoneCoverage,-0.00204
+look:Cover6/Four,CB2,Speed,-0.00128
+look:Cover6/Four,CB2,Acceleration,-0.00104
+look:Cover6/Four,CB2,Anticipation,-0.00233
+look:Cover6/Four,CB2,Weight,0.00141
+look:Cover6/Four,NB,ZoneCoverage,-0.00619
+look:Cover6/Four,NB,Agility,-0.00070
+look:Cover6/Four,NB,Tackling,-0.00319
+look:Cover6/Four,NB,Weight,0.00075
+look:Cover6/Four,FS,Speed,-0.00121
+look:Cover6/Four,FS,Tackling,-0.00268
+look:Cover6/Four,FS,PlayRecognition,-0.00013
+look:Cover6/Four,SS,ZoneCoverage,-0.00397
+look:Cover6/Four,SS,Speed,-0.00029
+look:Cover6/Four,SS,Tackling,-0.00059
+look:Cover6/Four,SS,PlayRecognition,-0.00526
+look:Cover6/LbBlitz,EDGE1,BlockShedding,-0.01080
+look:Cover6/LbBlitz,EDGE1,HandUse,-0.00725
+look:Cover6/LbBlitz,EDGE1,Speed,-0.00114
+look:Cover6/LbBlitz,EDGE1,Strength,-0.00352
+look:Cover6/LbBlitz,EDGE1,Tackling,-0.00254
+look:Cover6/LbBlitz,EDGE1,Weight,-0.00013
+look:Cover6/LbBlitz,EDGE2,FinesseRush,-0.00222
+look:Cover6/LbBlitz,EDGE2,HandUse,-0.00160
+look:Cover6/LbBlitz,EDGE2,Acceleration,-0.00007
+look:Cover6/LbBlitz,EDGE2,Weight,0.00117
+look:Cover6/LbBlitz,DT1,PowerRush,-0.00084
+look:Cover6/LbBlitz,DT1,Strength,-0.00069
+look:Cover6/LbBlitz,DT1,Acceleration,-0.00091
+look:Cover6/LbBlitz,DT1,Tackling,-0.00011
+look:Cover6/LbBlitz,DT1,Weight,-0.00021
+look:Cover6/LbBlitz,DT2,PowerRush,-0.00656
+look:Cover6/LbBlitz,DT2,FinesseRush,-0.00165
+look:Cover6/LbBlitz,DT2,BlockShedding,-0.00153
+look:Cover6/LbBlitz,DT2,HandUse,-0.00328
+look:Cover6/LbBlitz,DT2,Acceleration,-0.00176
+look:Cover6/LbBlitz,DT2,Weight,0.00232
+look:Cover6/LbBlitz,MIKE,Tackling,-0.00212
+look:Cover6/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Cover6/LbBlitz,MIKE,ZoneCoverage,-0.00099
+look:Cover6/LbBlitz,MIKE,Speed,-0.00057
+look:Cover6/LbBlitz,MIKE,Weight,0.00254
+look:Cover6/LbBlitz,WILL,Tackling,-0.00147
+look:Cover6/LbBlitz,WILL,PlayRecognition,-0.00031
+look:Cover6/LbBlitz,WILL,BlockShedding,-0.00020
+look:Cover6/LbBlitz,CB1,ZoneCoverage,-0.00621
+look:Cover6/LbBlitz,CB1,Acceleration,-0.00058
+look:Cover6/LbBlitz,CB2,Press,-0.00037
+look:Cover6/LbBlitz,CB2,Speed,-0.00128
+look:Cover6/LbBlitz,CB2,Acceleration,-0.00104
+look:Cover6/LbBlitz,CB2,Anticipation,-0.00362
+look:Cover6/LbBlitz,CB2,Tackling,-0.00176
+look:Cover6/LbBlitz,CB2,Weight,0.00141
+look:Cover6/LbBlitz,NB,ZoneCoverage,-0.00371
+look:Cover6/LbBlitz,NB,Agility,-0.00070
+look:Cover6/LbBlitz,NB,Tackling,-0.00319
+look:Cover6/LbBlitz,NB,Weight,0.00075
+look:Cover6/LbBlitz,FS,Speed,-0.00121
+look:Cover6/LbBlitz,FS,Anticipation,-0.00141
+look:Cover6/LbBlitz,FS,Tackling,-0.00268
+look:Cover6/LbBlitz,FS,PlayRecognition,-0.00013
+look:Cover6/LbBlitz,SS,ZoneCoverage,-0.00240
+look:Cover6/LbBlitz,SS,Speed,-0.00029
+look:Cover6/LbBlitz,SS,Anticipation,-0.00156
+look:Cover6/LbBlitz,SS,Tackling,-0.00104
+look:Cover6/LbBlitz,SS,PlayRecognition,-0.00526
+look:Cover1Robber/Four,EDGE1,BlockShedding,-0.00727
+look:Cover1Robber/Four,EDGE1,HandUse,-0.00725
+look:Cover1Robber/Four,EDGE1,Speed,-0.00114
+look:Cover1Robber/Four,EDGE1,Strength,-0.00352
+look:Cover1Robber/Four,EDGE1,Tackling,-0.00254
+look:Cover1Robber/Four,EDGE1,Weight,-0.00013
+look:Cover1Robber/Four,EDGE2,FinesseRush,-0.00988
+look:Cover1Robber/Four,EDGE2,HandUse,-0.00160
+look:Cover1Robber/Four,DT1,PowerRush,-0.00084
+look:Cover1Robber/Four,DT1,BlockShedding,-0.00094
+look:Cover1Robber/Four,DT1,HandUse,-0.00092
+look:Cover1Robber/Four,DT1,Strength,-0.00069
+look:Cover1Robber/Four,DT1,Acceleration,-0.00091
+look:Cover1Robber/Four,DT1,Tackling,-0.00011
+look:Cover1Robber/Four,DT1,Weight,-0.00021
+look:Cover1Robber/Four,DT2,PowerRush,-0.00656
+look:Cover1Robber/Four,DT2,FinesseRush,-0.00165
+look:Cover1Robber/Four,DT2,BlockShedding,-0.00153
+look:Cover1Robber/Four,DT2,HandUse,-0.00328
+look:Cover1Robber/Four,DT2,Acceleration,-0.00257
+look:Cover1Robber/Four,DT2,Weight,0.00232
+look:Cover1Robber/Four,MIKE,Tackling,-0.00212
+look:Cover1Robber/Four,MIKE,PlayRecognition,-0.00140
+look:Cover1Robber/Four,MIKE,ManCoverage,-0.00420
+look:Cover1Robber/Four,MIKE,Speed,-0.00057
+look:Cover1Robber/Four,MIKE,Weight,0.00254
+look:Cover1Robber/Four,WILL,Tackling,-0.00147
+look:Cover1Robber/Four,WILL,ZoneCoverage,-0.00791
+look:Cover1Robber/Four,WILL,BlockShedding,-0.00020
+look:Cover1Robber/Four,CB1,ManCoverage,-0.01679
+look:Cover1Robber/Four,CB1,Acceleration,-0.00058
+look:Cover1Robber/Four,CB2,ManCoverage,-0.03107
+look:Cover1Robber/Four,CB2,Speed,-0.00128
+look:Cover1Robber/Four,CB2,Acceleration,-0.00104
+look:Cover1Robber/Four,CB2,Weight,0.00141
+look:Cover1Robber/Four,NB,ManCoverage,-0.01062
+look:Cover1Robber/Four,NB,Agility,-0.00070
+look:Cover1Robber/Four,NB,Tackling,-0.00319
+look:Cover1Robber/Four,NB,Weight,0.00075
+look:Cover1Robber/Four,FS,ZoneCoverage,-0.00504
+look:Cover1Robber/Four,FS,Speed,-0.00121
+look:Cover1Robber/Four,FS,Anticipation,-0.00411
+look:Cover1Robber/Four,FS,Tackling,-0.00268
+look:Cover1Robber/Four,FS,PlayRecognition,-0.00013
+look:Cover1Robber/Four,SS,ZoneCoverage,-0.00976
+look:Cover1Robber/Four,SS,Speed,-0.00029
+look:Cover1Robber/Four,SS,Tackling,-0.00189
+look:Cover1Robber/Four,SS,PlayRecognition,-0.00526
+look:Cover1Robber/LbBlitz,EDGE1,FinesseRush,-0.00163
+look:Cover1Robber/LbBlitz,EDGE1,BlockShedding,-0.00979
+look:Cover1Robber/LbBlitz,EDGE1,HandUse,-0.00725
+look:Cover1Robber/LbBlitz,EDGE1,Speed,-0.00114
+look:Cover1Robber/LbBlitz,EDGE1,Strength,-0.00352
+look:Cover1Robber/LbBlitz,EDGE1,Tackling,-0.00254
+look:Cover1Robber/LbBlitz,EDGE1,Weight,-0.00013
+look:Cover1Robber/LbBlitz,EDGE2,FinesseRush,-0.00273
+look:Cover1Robber/LbBlitz,EDGE2,HandUse,-0.00160
+look:Cover1Robber/LbBlitz,EDGE2,Acceleration,-0.00108
+look:Cover1Robber/LbBlitz,EDGE2,Weight,0.00242
+look:Cover1Robber/LbBlitz,DT1,PowerRush,-0.00084
+look:Cover1Robber/LbBlitz,DT1,BlockShedding,-0.00431
+look:Cover1Robber/LbBlitz,DT1,HandUse,-0.00106
+look:Cover1Robber/LbBlitz,DT1,Strength,-0.00069
+look:Cover1Robber/LbBlitz,DT1,Acceleration,-0.00091
+look:Cover1Robber/LbBlitz,DT1,Tackling,-0.00011
+look:Cover1Robber/LbBlitz,DT1,Weight,-0.00021
+look:Cover1Robber/LbBlitz,DT2,PowerRush,-0.00656
+look:Cover1Robber/LbBlitz,DT2,FinesseRush,-0.00165
+look:Cover1Robber/LbBlitz,DT2,BlockShedding,-0.00153
+look:Cover1Robber/LbBlitz,DT2,HandUse,-0.00328
+look:Cover1Robber/LbBlitz,DT2,Acceleration,-0.00116
+look:Cover1Robber/LbBlitz,DT2,Weight,0.00232
+look:Cover1Robber/LbBlitz,MIKE,Tackling,-0.00212
+look:Cover1Robber/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Cover1Robber/LbBlitz,MIKE,Speed,-0.00057
+look:Cover1Robber/LbBlitz,MIKE,Weight,0.00254
+look:Cover1Robber/LbBlitz,WILL,Tackling,-0.00147
+look:Cover1Robber/LbBlitz,WILL,BlockShedding,-0.00020
+look:Cover1Robber/LbBlitz,CB1,ManCoverage,-0.01767
+look:Cover1Robber/LbBlitz,CB1,Acceleration,-0.00058
+look:Cover1Robber/LbBlitz,CB1,Tackling,-0.00013
+look:Cover1Robber/LbBlitz,CB2,ManCoverage,-0.02699
+look:Cover1Robber/LbBlitz,CB2,Speed,-0.00128
+look:Cover1Robber/LbBlitz,CB2,Acceleration,-0.00104
+look:Cover1Robber/LbBlitz,CB2,Weight,0.00141
+look:Cover1Robber/LbBlitz,NB,ManCoverage,-0.02239
+look:Cover1Robber/LbBlitz,NB,Speed,-0.00042
+look:Cover1Robber/LbBlitz,NB,Agility,-0.00070
+look:Cover1Robber/LbBlitz,NB,Tackling,-0.00319
+look:Cover1Robber/LbBlitz,NB,Weight,0.00075
+look:Cover1Robber/LbBlitz,FS,ZoneCoverage,-0.00274
+look:Cover1Robber/LbBlitz,FS,Speed,-0.00121
+look:Cover1Robber/LbBlitz,FS,Anticipation,-0.00222
+look:Cover1Robber/LbBlitz,FS,Tackling,-0.00268
+look:Cover1Robber/LbBlitz,FS,PlayRecognition,-0.00013
+look:Cover1Robber/LbBlitz,SS,ZoneCoverage,-0.01802
+look:Cover1Robber/LbBlitz,SS,Speed,-0.00029
+look:Cover1Robber/LbBlitz,SS,Tackling,-0.00294
+look:Cover1Robber/LbBlitz,SS,PlayRecognition,-0.00526
+look:Cover3Match/Four,EDGE1,BlockShedding,-0.00593
+look:Cover3Match/Four,EDGE1,HandUse,-0.00725
+look:Cover3Match/Four,EDGE1,Speed,-0.00114
+look:Cover3Match/Four,EDGE1,Strength,-0.00352
+look:Cover3Match/Four,EDGE1,Tackling,-0.00254
+look:Cover3Match/Four,EDGE1,Weight,-0.00013
+look:Cover3Match/Four,EDGE2,FinesseRush,-0.00530
+look:Cover3Match/Four,EDGE2,HandUse,-0.00160
+look:Cover3Match/Four,EDGE2,Acceleration,-0.00131
+look:Cover3Match/Four,DT1,PowerRush,-0.00084
+look:Cover3Match/Four,DT1,BlockShedding,-0.00728
+look:Cover3Match/Four,DT1,HandUse,-0.00106
+look:Cover3Match/Four,DT1,Strength,-0.00069
+look:Cover3Match/Four,DT1,Acceleration,-0.00091
+look:Cover3Match/Four,DT1,Tackling,-0.00011
+look:Cover3Match/Four,DT1,Weight,-0.00021
+look:Cover3Match/Four,DT2,PowerRush,-0.00656
+look:Cover3Match/Four,DT2,FinesseRush,-0.00165
+look:Cover3Match/Four,DT2,BlockShedding,-0.00153
+look:Cover3Match/Four,DT2,HandUse,-0.00328
+look:Cover3Match/Four,DT2,Weight,0.00232
+look:Cover3Match/Four,MIKE,Tackling,-0.00212
+look:Cover3Match/Four,MIKE,PlayRecognition,-0.00140
+look:Cover3Match/Four,MIKE,Speed,-0.00057
+look:Cover3Match/Four,MIKE,Weight,0.00254
+look:Cover3Match/Four,WILL,Tackling,-0.00147
+look:Cover3Match/Four,WILL,ZoneCoverage,-0.00440
+look:Cover3Match/Four,WILL,BlockShedding,-0.00020
+look:Cover3Match/Four,CB1,Acceleration,-0.00058
+look:Cover3Match/Four,CB2,ZoneCoverage,-0.00353
+look:Cover3Match/Four,CB2,Speed,-0.00128
+look:Cover3Match/Four,CB2,Acceleration,-0.00104
+look:Cover3Match/Four,CB2,Weight,0.00141
+look:Cover3Match/Four,NB,ZoneCoverage,-0.00342
+look:Cover3Match/Four,NB,Agility,-0.00070
+look:Cover3Match/Four,NB,Tackling,-0.00319
+look:Cover3Match/Four,NB,Weight,0.00075
+look:Cover3Match/Four,FS,ZoneCoverage,-0.00331
+look:Cover3Match/Four,FS,Speed,-0.00121
+look:Cover3Match/Four,FS,Tackling,-0.00268
+look:Cover3Match/Four,FS,PlayRecognition,-0.00013
+look:Cover3Match/Four,SS,ZoneCoverage,-0.00463
+look:Cover3Match/Four,SS,Speed,-0.00029
+look:Cover3Match/Four,SS,Tackling,-0.00348
+look:Cover3Match/Four,SS,PlayRecognition,-0.00526
+look:Cover3Match/LbBlitz,EDGE1,BlockShedding,-0.00914
+look:Cover3Match/LbBlitz,EDGE1,HandUse,-0.00725
+look:Cover3Match/LbBlitz,EDGE1,Speed,-0.00114
+look:Cover3Match/LbBlitz,EDGE1,Strength,-0.00352
+look:Cover3Match/LbBlitz,EDGE1,Tackling,-0.00254
+look:Cover3Match/LbBlitz,EDGE1,Weight,-0.00013
+look:Cover3Match/LbBlitz,EDGE2,FinesseRush,-0.00419
+look:Cover3Match/LbBlitz,EDGE2,HandUse,-0.00160
+look:Cover3Match/LbBlitz,EDGE2,Weight,0.00083
+look:Cover3Match/LbBlitz,DT1,PowerRush,-0.00084
+look:Cover3Match/LbBlitz,DT1,BlockShedding,-0.00811
+look:Cover3Match/LbBlitz,DT1,HandUse,-0.00013
+look:Cover3Match/LbBlitz,DT1,Strength,-0.00069
+look:Cover3Match/LbBlitz,DT1,Acceleration,-0.00091
+look:Cover3Match/LbBlitz,DT1,Tackling,-0.00011
+look:Cover3Match/LbBlitz,DT1,Weight,-0.00021
+look:Cover3Match/LbBlitz,DT2,PowerRush,-0.00656
+look:Cover3Match/LbBlitz,DT2,FinesseRush,-0.00165
+look:Cover3Match/LbBlitz,DT2,BlockShedding,-0.00153
+look:Cover3Match/LbBlitz,DT2,HandUse,-0.00328
+look:Cover3Match/LbBlitz,DT2,Acceleration,-0.00288
+look:Cover3Match/LbBlitz,DT2,Weight,0.00232
+look:Cover3Match/LbBlitz,MIKE,Tackling,-0.00212
+look:Cover3Match/LbBlitz,MIKE,PlayRecognition,-0.00140
+look:Cover3Match/LbBlitz,MIKE,Speed,-0.00057
+look:Cover3Match/LbBlitz,MIKE,Weight,0.00254
+look:Cover3Match/LbBlitz,WILL,Tackling,-0.00147
+look:Cover3Match/LbBlitz,WILL,BlockShedding,-0.00020
+look:Cover3Match/LbBlitz,CB1,Acceleration,-0.00058
+look:Cover3Match/LbBlitz,CB1,Tackling,-0.00175
+look:Cover3Match/LbBlitz,CB2,Speed,-0.00128
+look:Cover3Match/LbBlitz,CB2,Acceleration,-0.00104
+look:Cover3Match/LbBlitz,CB2,Agility,-0.00022
+look:Cover3Match/LbBlitz,CB2,Tackling,-0.00170
+look:Cover3Match/LbBlitz,CB2,Weight,0.00141
+look:Cover3Match/LbBlitz,NB,ZoneCoverage,-0.00163
+look:Cover3Match/LbBlitz,NB,Agility,-0.00070
+look:Cover3Match/LbBlitz,NB,Tackling,-0.00319
+look:Cover3Match/LbBlitz,NB,Weight,0.00075
+look:Cover3Match/LbBlitz,FS,ZoneCoverage,-0.00400
+look:Cover3Match/LbBlitz,FS,Speed,-0.00121
+look:Cover3Match/LbBlitz,FS,Anticipation,-0.00556
+look:Cover3Match/LbBlitz,FS,Tackling,-0.00268
+look:Cover3Match/LbBlitz,FS,PlayRecognition,-0.00013
+look:Cover3Match/LbBlitz,SS,ZoneCoverage,-0.00908
+look:Cover3Match/LbBlitz,SS,Speed,-0.00029
+look:Cover3Match/LbBlitz,SS,Tackling,-0.00303
+look:Cover3Match/LbBlitz,SS,PlayRecognition,-0.00526
+dpers:Base:run,EDGE1,BlockShedding,-0.04248
+dpers:Base:run,EDGE1,HandUse,-0.01723
+dpers:Base:run,EDGE1,Strength,-0.00813
+dpers:Base:run,EDGE1,Tackling,-0.00217
+dpers:Base:run,EDGE1,Weight,-0.00599
+dpers:Base:run,DT1,BlockShedding,-0.00997
+dpers:Base:run,DT1,HandUse,-0.00570
+dpers:Base:run,DT1,Acceleration,-0.00004
+dpers:Base:run,DT2,BlockShedding,-0.00145
+dpers:Base:run,DT2,Strength,-0.00018
+dpers:Base:run,SAM,Anticipation,0.00009
+dpers:Base:run,MIKE,BlockShedding,-0.00163
+dpers:Base:run,CB2,Weight,0.00183
+dpers:Base:run,FS,Tackling,-0.00227
+dpers:Base:run,FS,PlayRecognition,-0.00062
+dpers:Base:run,SS,Tackling,-0.00762
+dpers:Base:run,SS,PlayRecognition,-0.00341
+dpers:Base:pass,EDGE2,PowerRush,-0.00149
+dpers:Base:pass,EDGE2,FinesseRush,-0.00523
+dpers:Base:pass,EDGE2,HandUse,-0.00107
+dpers:Base:pass,DT2,PowerRush,-0.00815
+dpers:Base:pass,DT2,HandUse,-0.00558
+dpers:Base:pass,DT2,Acceleration,-0.00029
+dpers:Base:pass,DT2,Weight,0.00228
+dpers:Base:pass,SAM,ZoneCoverage,-0.00012
+dpers:Base:pass,MIKE,ZoneCoverage,-0.00810
+dpers:Base:pass,MIKE,Weight,0.00447
+dpers:Base:pass,WILL,PlayRecognition,-0.00095
+dpers:Base:pass,WILL,ZoneCoverage,-0.00433
+dpers:Base:pass,CB1,ZoneCoverage,-0.00142
+dpers:Base:pass,CB1,Acceleration,-0.00001
+dpers:Base:pass,CB2,ManCoverage,-0.00736
+dpers:Base:pass,CB2,ZoneCoverage,-0.00359
+dpers:Base:pass,CB2,Speed,-0.00210
+dpers:Base:pass,CB2,Anticipation,-0.00157
+dpers:Base:pass,NB,Tackling,-0.00052
+dpers:Base:pass,FS,ZoneCoverage,-0.00879
+dpers:Base:pass,FS,Anticipation,-0.00743
+dpers:Base:pass,SS,ZoneCoverage,-0.01602
+dpers:Base:pass,SS,ManCoverage,-0.00500
+dpers:Base:pass,SS,Anticipation,-0.00698
+dpers:Base:pass,SS,PlayRecognition,-0.00155
+dpers:Base:pass,SS,Weight,0.00252
+dpers:Nickel:run,EDGE1,BlockShedding,-0.04248
+dpers:Nickel:run,EDGE1,HandUse,-0.01723
+dpers:Nickel:run,EDGE1,Strength,-0.00813
+dpers:Nickel:run,EDGE1,Tackling,-0.00217
+dpers:Nickel:run,EDGE1,Weight,-0.00599
+dpers:Nickel:run,DT1,BlockShedding,-0.03540
+dpers:Nickel:run,DT1,HandUse,-0.01242
+dpers:Nickel:run,DT1,Strength,-0.00569
+dpers:Nickel:run,DT1,Acceleration,-0.00004
+dpers:Nickel:run,DT1,Weight,-0.00379
+dpers:Nickel:run,DT2,BlockShedding,-0.00145
+dpers:Nickel:run,DT2,Strength,-0.00018
+dpers:Nickel:run,MIKE,BlockShedding,-0.00163
+dpers:Nickel:run,FS,Tackling,-0.00227
+dpers:Nickel:run,FS,PlayRecognition,-0.00062
+dpers:Nickel:run,SS,Tackling,-0.00762
+dpers:Nickel:run,SS,PlayRecognition,-0.00341
+dpers:Nickel:pass,EDGE2,PowerRush,-0.00149
+dpers:Nickel:pass,EDGE2,FinesseRush,-0.00523
+dpers:Nickel:pass,EDGE2,HandUse,-0.00107
+dpers:Nickel:pass,EDGE2,Weight,0.00168
+dpers:Nickel:pass,DT2,PowerRush,-0.00815
+dpers:Nickel:pass,DT2,HandUse,-0.00558
+dpers:Nickel:pass,DT2,Acceleration,-0.00917
+dpers:Nickel:pass,DT2,Weight,0.00228
+dpers:Nickel:pass,MIKE,ZoneCoverage,-0.00810
+dpers:Nickel:pass,MIKE,Weight,0.00447
+dpers:Nickel:pass,WILL,PlayRecognition,-0.00095
+dpers:Nickel:pass,WILL,ZoneCoverage,-0.00433
+dpers:Nickel:pass,CB1,ManCoverage,-0.00880
+dpers:Nickel:pass,CB1,ZoneCoverage,-0.00142
+dpers:Nickel:pass,CB1,Acceleration,-0.00001
+dpers:Nickel:pass,CB2,ManCoverage,-0.00736
+dpers:Nickel:pass,CB2,ZoneCoverage,-0.00359
+dpers:Nickel:pass,CB2,Speed,-0.00210
+dpers:Nickel:pass,CB2,Anticipation,-0.00157
+dpers:Nickel:pass,NB,ManCoverage,-0.00331
+dpers:Nickel:pass,NB,ZoneCoverage,-0.00664
+dpers:Nickel:pass,NB,Tackling,-0.00052
+dpers:Nickel:pass,FS,ZoneCoverage,-0.00879
+dpers:Nickel:pass,FS,Anticipation,-0.00743
+dpers:Nickel:pass,SS,ZoneCoverage,-0.00636
+dpers:Nickel:pass,SS,ManCoverage,-0.00500
+dpers:Nickel:pass,SS,Anticipation,-0.00698
