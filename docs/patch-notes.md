@@ -8,6 +8,22 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.671 (21 Nov, shipped): SF7: coverage jobs (scheme-fit items 18, 19 and 20) (PR #603)
+**TLDR:** Lockdown corners now play like lockdown corners, and a blown coverage really leaves a receiver open. A strong safety who can cover no longer gets worse against the run.
+- The best man-to-man corners read their receiver's break before it comes, so they keep getting better at the very top. (PR #603)
+- A defender who blows his coverage now leaves his man or his zone open, so missed assignments cost the defense. (PR #603)
+- A strong safety lines up and fits the run where his coordinator's call puts him; his skills decide how well he plays it. (PR #603)
+- Scoring, penalties and the league's other totals stay where they were. (PR #603)
+- Look at: how often passers complete balls against your best man-to-man corner. (PR #603)
+
+## 0.2.670 (21 Nov, shipped): capital lane CS6: the Your seat screen (PR #602)
+**TLDR:** High school and NFL coaches get their own Capital page: bond night with the town's poll and your work in town, and the owner's report card with your leverage.
+- Watch a stadium bond's poll move with your season, the crowds and the tax bill, and do a Rotary talk or a phone bank night to help it along. (PR #602)
+- Ask the school board for a stadium bond once a year. (PR #602)
+- See your booster club's builds and what it has set aside for the next room. (PR #602)
+- As an NFL coach, read the players' report card room by room and how likely the owner is to say yes to each room. (PR #602)
+- Look at: Capital, Your seat. (PR #602)
+
 ## 0.2.669 (20 Nov, shipped): SF5: where picks and breakups come from (scheme-fit items 15-17) (PR #600), ballhawk safeties (PR #601)
 **TLDR:** 2 changes ship together. Interceptions and pass breakups now come from the right places. Defensive linemen stop picking off passes through the line, deep safeties can play a long ball, and defenders get credit for the passes they knock away. A free safety's instincts now show on the field. A safety who reads the quarterback breaks on throws before the ball is out and comes away with more interceptions, and a quarterback who looks him off opens the field.
 - SF5: where picks and breakups come from (scheme-fit items 15-17) (PR #600): Interceptions and pass breakups now come from the right places. Defensive linemen stop picking off passes through the line, deep safeties can play a long ball, and defenders get credit for the passes they knock away.
