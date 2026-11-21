@@ -229,6 +229,12 @@ impl Move {
     }
 }
 
+/// A defender whose spot is off the line: rushing the passer, he blitzes
+/// (scheme-fit item 21).
+pub(crate) fn blitzer(label: &str) -> bool {
+    matches!(label, "LB" | "CB" | "NB" | "FS" | "SS")
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     /// 0: the team snapping or kicking, 1: the other team.
@@ -1851,6 +1857,33 @@ const EDGE_FINESSE_AGILITY: f64 = 0.12;
 /// +0.21), so half of it (proposed, not confirmed).
 const EDGE_CLOSE_REACH: f64 = 0.15;
 
+/// How far round his blocker a rusher winning a speed or finesse rep works
+/// (scheme-fit item 22): squared up while the blocker holds the rep, at the
+/// blocker's hip two thirds of the way to the shed (w at 1 / `HIP_TURN`) and
+/// past it, toward the blocker's back, when he sheds (108 degrees round from
+/// square). At 1 he sheds at the hip: 39% of a tackle's finesse wins became
+/// pressure (bull rush wins 47%) and Finesse Rush +15 on him still cost 1.4
+/// pressures a season at the NFL; at 2 and 3, 44% of his finesse wins became
+/// pressure and 43% to 47% of those were sacks (NFL test league; of the
+/// whole league's pressures about 21% were sacks, real 28%). Proposed, not
+/// confirmed.
+const HIP_TURN: f64 = 1.5;
+/// The seconds his turn round the blocker eases in over (proposed, not
+/// confirmed).
+const HIP_EASE: f64 = 0.25;
+/// How fast an engaged pass block gives ground toward the passer whatever
+/// the move, in yards a second (scheme-fit item 22): the bull rush's floor.
+/// What the rusher wins on top of it, up to 0.65 yd/s at w 1, is driven at
+/// 1.4 on a bull rush and 0.7 on a speed or finesse move. The whole drive
+/// was scaled by the move, so a losing speed or finesse rep gave half the
+/// bull rush's ground (0.18 against 0.35 yd/s at w -1): a tackle's stalled
+/// bull rush became pressure 3.5 times as often as his stalled finesse move
+/// (3.2% of reps against 0.9%, NFL test league; now 3.0% and 1.4%), so a
+/// tackle given Finesse Rush left his bull rush for it and got fewer
+/// pressures. The bull rush's drive is the same as before. Proposed, not
+/// confirmed.
+const POCKET_GIVE: f64 = 0.35;
+
 /// A defensive tackle's first step on a pass rush, over the 0.64
 /// Acceleration points a pound his 10-yard split shows: the heavy man plays
 /// two gaps and reads the run before he rushes, so he gets off later. His
@@ -2571,7 +2604,14 @@ impl<'a> Sim<'a> {
         } else {
             0.0
         };
-        let get_off = de.a(Attr::Acceleration) * k_acc + (0.6 - k_acc) * craft + de.a(Attr::Anticipation) * 0.4 - heft
+        // A blitzer's read of the snap is his timing of it, his Blitzing
+        // (scheme-fit item 21), about his level's typical man at his spot.
+        let snap_read = if pass && blitzer(de.label) {
+            typ(Attr::Anticipation) + de.a(Attr::Blitzing) - typ(Attr::Blitzing)
+        } else {
+            de.a(Attr::Anticipation)
+        };
+        let get_off = de.a(Attr::Acceleration) * k_acc + (0.6 - k_acc) * craft + snap_read * 0.4 - heft
             + 12.0 * self.lean(d, Tend::SnapTiming)
             + self.link(d, &[Link::GetOff])
             + self.link(d, &[Link::Length]);
@@ -2676,11 +2716,26 @@ impl<'a> Sim<'a> {
         (best.0, best.2)
     }
 
+    /// A rusher's finesse and power rush moves. A man rushing from off the
+    /// line (a blitzer: a linebacker or a back) beats his blocker with his
+    /// Blitzing (scheme-fit item 21): his moves are read as his Blitzing about
+    /// his level's typical man at his position, whose blitz plays as before.
+    fn rush_moves(&self, d: usize) -> (f64, f64) {
+        let a = &self.agents[d];
+        if !blitzer(a.label) {
+            return (a.a(Attr::FinesseRush), a.a(Attr::PowerRush));
+        }
+        let typ = |x: Attr| super::synthetic::typical(self.level, self.player(d).position, x);
+        let b = a.a(Attr::Blitzing) - typ(Attr::Blitzing);
+        (typ(Attr::FinesseRush) + b, typ(Attr::PowerRush) + b)
+    }
+
     /// Rusher strength for a move, on the rating scale. A speed rush is
     /// the finesse rusher's arc, won with burst and bend; a power rush is
     /// strength through the hands; a finesse move is hands and quickness.
     fn rush_power(&self, d: usize, mv: Move) -> f64 {
         let a = &self.agents[d];
+        let (finesse_rush, power_rush) = self.rush_moves(d);
         // The wide arc wins the corner more often; a man who stops to get
         // his hands up gives up some rush (tendencies).
         let edge = matches!(a.job, Job::Rush { contain, .. } if contain != 0.0);
@@ -2707,7 +2762,7 @@ impl<'a> Sim<'a> {
                         let typ = |x: Attr| super::synthetic::typical(self.level, self.player(d).position, x);
                         0.35 * (1.0 - k)
                             * ((0.2 * typ(Attr::Speed) + 0.15 * typ(Attr::Acceleration)) / 0.35
-                                + (0.75 - EDGE_ARC_BEND) * (a.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
+                                + (0.75 - EDGE_ARC_BEND) * (finesse_rush - typ(Attr::FinesseRush))
                                 + EDGE_ARC_BEND * (a.a(Attr::Flexibility) - typ(Attr::Flexibility))
                                 + 0.25 * (a.a(Attr::HandUse) - typ(Attr::HandUse)))
                     } else {
@@ -2725,7 +2780,7 @@ impl<'a> Sim<'a> {
                         (
                             EDGE_SPEED_BEND * a.a(Attr::Flexibility)
                                 + (0.15 - EDGE_SPEED_BEND)
-                                    * (typ(Attr::Flexibility) + a.a(Attr::FinesseRush) - typ(Attr::FinesseRush)),
+                                    * (typ(Attr::Flexibility) + finesse_rush - typ(Attr::FinesseRush)),
                             EDGE_TALL_BEND
                                 * (g.height - th).max(0.0)
                                 * (a.a(Attr::Flexibility) - typ(Attr::Flexibility)),
@@ -2733,7 +2788,7 @@ impl<'a> Sim<'a> {
                     } else {
                         (0.15 * a.a(Attr::Flexibility), 0.0)
                     };
-                    0.4 * a.a(Attr::FinesseRush)
+                    0.4 * finesse_rush
                         + 0.2 * k * a.a(Attr::Speed)
                         + 0.15 * k * a.a(Attr::Acceleration)
                         + bend
@@ -2756,7 +2811,7 @@ impl<'a> Sim<'a> {
                     };
                     // The push is the legs, the long arm and the hands the
                     // upper body (item 4b).
-                    0.4 * a.a(Attr::PowerRush)
+                    0.4 * power_rush
                         + 0.15 * a.a(Attr::LowerBody)
                         + 0.1 * a.a(Attr::Strength)
                         + 0.15 * a.a(Attr::HandUse)
@@ -2773,12 +2828,12 @@ impl<'a> Sim<'a> {
                         let typ = |x: Attr| super::synthetic::typical(self.level, self.player(d).position, x);
                         (0.25 - ka)
                             * (typ(Attr::Agility)
-                                + 0.6 * (a.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
+                                + 0.6 * (finesse_rush - typ(Attr::FinesseRush))
                                 + 0.4 * (a.a(Attr::HandUse) - typ(Attr::HandUse)))
                     } else {
                         0.0
                     };
-                    0.45 * a.a(Attr::FinesseRush)
+                    0.45 * finesse_rush
                         + ka * a.a(Attr::Agility)
                         + 0.2 * a.a(Attr::HandUse)
                         + 0.1 * a.a(Attr::BlockShedding)
@@ -3276,10 +3331,13 @@ impl<'a> Sim<'a> {
                     self.agents[b].recover_at = t + rec;
                 }
                 self.release(k);
-                // He comes off the block where he won it.
+                // He comes off the block where he won it: running past the
+                // man on a speed or finesse move, out of the push on a bull
+                // rush (scheme-fit item 22: a finesse win came off at the bull
+                // rush's pace).
                 let push = match e.mv {
-                    Move::Speed => 0.6,
-                    _ => 0.3,
+                    Move::Speed | Move::Finesse => 0.6,
+                    Move::Power => 0.3,
                 };
                 let toward =
                     qb.or(carrier).map(|q| (self.agents[q].pos - self.agents[d].pos).norm()).unwrap_or(v2(-1.0, 0.0));
@@ -3325,8 +3383,9 @@ impl<'a> Sim<'a> {
             let dir = (target - dp).norm();
             let drive = if e.pass {
                 // Bull rushes collapse the pocket; speed rushes bend the edge.
+                // The set gives ground the same whatever the move (item 22).
                 let power = if e.mv == Move::Power { 1.4 } else { 0.7 };
-                (0.25 + 0.65 * (w + 1.0) / 2.0) * power
+                POCKET_GIVE + 0.65 * (w + 1.0) / 2.0 * power
             } else {
                 1.6 * w
             };
@@ -3371,7 +3430,15 @@ impl<'a> Sim<'a> {
             let off = (dp - bp).norm();
             let mid = mid + (v + lateral).scale(DT);
             self.agents[b].pos = mid - off.scale(0.45);
-            self.agents[d].pos = mid + off.scale(0.45);
+            // A rusher winning a speed or finesse rep works around his
+            // blocker's shoulder (scheme-fit item 22); a bull rush goes
+            // through the man instead (the drive above).
+            if e.pass && !fooled && e.mv != Move::Power && e.helper.is_none() {
+                let turned = self.around(bp, target, off, w);
+                self.agents[d].pos = self.agents[b].pos + turned.scale(0.9);
+            } else {
+                self.agents[d].pos = mid + off.scale(0.45);
+            }
             self.agents[b].vel = v;
             self.agents[d].vel = v;
             if let Some(h) = e.helper {
@@ -3379,6 +3446,28 @@ impl<'a> Sim<'a> {
                 self.agents[h].vel = v;
             }
         }
+    }
+
+    /// Where a speed or finesse rusher stands on his blocker `bp`, as the
+    /// unit step from the blocker (scheme-fit item 22): squared up in front
+    /// of him while the blocker holds the rep (w at 0 or below), working
+    /// round his shoulder as he wins it, at his hip at w 1 / `HIP_TURN` and
+    /// past it when he sheds, so a won rep leaves nothing between him and
+    /// the passer at `target`. He turns toward the side he stands on, eased
+    /// in over `HIP_EASE` seconds. A rep stood wherever the two met, so a
+    /// tackle's finesse win was shed in front of his blocker, 5.6 yards from
+    /// the passer, against 4.5 for a bull rush that had driven the man back,
+    /// and 16% of his finesse wins became pressure against 48% of his bull
+    /// rush wins (NFL test league, 300 games).
+    fn around(&self, bp: V2, target: V2, off: V2, w: f64) -> V2 {
+        let face = (bp - target).norm();
+        if face.len() < 0.5 {
+            return off;
+        }
+        let side = if face.x * off.y - face.y * off.x >= 0.0 { face.perp() } else { face.perp().scale(-1.0) };
+        let k = HIP_TURN * clamp(w, 0.0, 1.0);
+        let want = (face.scale(1.0 - k) + side.scale(k)).norm();
+        (off + (want - off).scale((DT / HIP_EASE).min(1.0))).norm()
     }
 
     /// Whether pass blocker `b` can take on rusher `d` (with the
