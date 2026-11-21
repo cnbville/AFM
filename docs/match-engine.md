@@ -2515,6 +2515,8 @@ The league (2,000 games a seed, main > after):
 | fourth down conversion | 54.7 > 52.4 | 55.0 > 53.5 | 51.9 > 50.6 | 52.2 > 50.9 | 49.3 > 47.7 | 50.8 > 49.5 | 53.7 |
 | fourth down tries a team game | 1.52 > 1.54 | 1.49 > 1.52 | 1.88 > 1.92 | 1.87 > 1.93 | 1.45 > 1.44 | 1.46 > 1.52 | 1.46 |
 
+The typical team (`fit_check`'s typical arm in each of the 12 contexts, team 0 of the league; FBS seeds 151 and 171 at 3,000 games an arm, NFL 161 at 2,400; main > after, the range over the contexts): on third and fourth down and 2 or less its backs' and other runners' runs convert NFL 77.2-79.4% > 66.5-69.2% (real 67% for backs), FBS 81.3-83.6% and 81.3-82.9% > 74.7-76.1% and 72.5-74.8%; against its defense NFL 73.1-78.8% > 64.3-70.2%, FBS 75.4-80.7% and 76.7-81.4% > 69.8-72.2% and 69.6-73.0%. Its quarterbacks' runs stay (NFL 83.8-90.0% > 83.6-90.8%, FBS 81.5-89.7% and 85.3-92.4% > 81.3-89.6% and 82.8-92.4%; real 79%), and so do its backs' long runs (NFL 20+ 0.97-1.17% > 0.95-1.17%, 10+ 6.8-8.2% > 6.7-8.3%; FBS 20+ 1.29-1.65% > 1.25-1.68%).
+
 Why:
 
 - **Backs convert at the real rate** (item 8). A linebacker who meets the back short of the sticks makes a stop, so linebackers end 29.3% of short-yardage runs at 1.85 yards (real 24.5% at 2.17) and the line's share falls toward real (tackles 20.7% to 15.3%, real 16.8%). Each distance and box comes to its real rate, the 8-man box still 6 points high. The no-gain share on third and 1 rises from 9.6% to 15.6% (real 21.0%), and runs of 6+ on it fall from 28.0% to 24.3% (16.7%): the back still breaks past the sticks more often than real, item 9's open field.
