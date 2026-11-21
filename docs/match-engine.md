@@ -62,7 +62,7 @@ There is no high school play-by-play dataset yet, so the HS column has no real f
 - **Kickoffs**: NFL returns average 18 against 26.5. College and high school returns average about 10, because the synthetic kickers there are weak and their kicks land short. The real kickoff data predates the NFL's 2025 rule.
 - **High school plays** (83 a team) are far above real high school games (12-minute quarters).
 - **FBS completion** is about 7 points under the real figure (it was 4 before the physics fixes made the quarterback count; high school fell from 47% to 45% the same way). The lower levels' receivers and coverage are as far behind as their quarterbacks, so the fix is likely in the catch and coverage, not the throw.
-- **Explosive runs are rare** at the NFL level: backs' designed runs gain 10+ on 8.8% of carries (real 10.4% in 2024) and 20+ on 1.0% (2.3%), on 4,000 games over lane SF9 (2026-11-21; 3.6% of carries gained 10+ when this list was written). The cause and what was tried are in "Short yardage and long runs" below.
+- **Wide runs are stuffed half as often as real** at the NFL level: 11.6% of the backs' wide runs go for no gain or a loss on the test rosters and 8.0% on world seed 1's clubs (real 23.2%), and few reach the sideline (1-4 yard wide runs 0.1% out of bounds, real 12.8%), so wide runs gain 5.6 to 6.4 yards a carry (real 4.72). The long runs themselves are at real since lane SF9b (2026-11-21: backs' 10+ 10.6% of carries, 20+ 2.26%, real 10.4% and 2.26%; 3.6% of carries gained 10+ when this list was written), in "The open-field tackle" below.
 - **Returns fell** with the physics fixes: NFL punt returns average 7.3 (9.5 real, 8.7 before), kickoffs 16.7 (18.2 before). Starters no longer return kicks, so the returners are backups (a Claude pick, proposed, not confirmed; returns are on Raichel's open list).
 - **Passing yards run high** at the NFL level (8.2 a throw against 7.05, 11.6% explosive against 8.8%): coordinators who know what beats what pick good passes, and the coverage doesn't yet take everything back.
 
@@ -2529,7 +2529,7 @@ Item 9, traced and stopped. Each variant on the same 4,000 NFL games (seed 11; m
 - **The fit moved, the wall moved with it.** The deep fit at 12 yards: 10+ 15.4%, 20+ 1.07% (the runs reach 10 and stop there). Attacking at 7: 11.9% and 1.29%. A one-high safety as the last man and two-high safeties split by the run's side: 12.3% and 1.07%. The rotated-down safety his own fit (2.5 and 6.5 yards): 8.72% and 1.30%, at 4.26 yards a carry (main 4.44, real 4.50). The box count out to 9.5 yards: 9.04% and 1.33% at 4.28. The deep back coming down at full speed before the runner is through (0.6 of it today): 10.2% and 2.66%, but 42% of the 20+ runs went 40+ (real 25%) at 4.88 a carry and 130 rushing yards a team game (real 118).
 - **A later read did nothing.** The tackler reading the carrier's cut 0.15 to 0.35 s late, or his spot 0.25 s late: 20+ 1.01% to 1.05%; the late read in the chase too, 1.30%. Head-on tackles missed more (their angle term -0.3 to +0.3): 1.25%.
 - **Only the open field opens it.** A squared-up tackler shuffling at 55% of his top speed: 10+ 9.99%, 20+ 1.88%, 20+ of 10+ 18.8%. At 1.5 times the gap a second: 10.1%, 2.17% and 21.6%. But the same tackle meets receivers after the catch: yards after the catch rose to 5.75 and 5.73 a catch (real 5.20), pass yards 237 to 248 and 247 a team game, rushing yards to 127 and 131 (real 118), points to 28.62 and 29.04, and safeties ended 10% of the 20+ runs (real 40%).
-- **What it needs** (Cain chose this as its own lane on 2026-11-21, lane SF9b, straight after SF10; its sizes proposed, not confirmed). The open-field tackle as one piece for runs, the catch and returns (the return breakaways are short too, `GAPS.md`): a squared-up tackler gives ground to the carrier's cut by his own and the carrier's ratings rather than a near-perfect shuffle, sized so the backs' tail, yards after the catch and returns land on real together, with the deep safeties' fit read by the coverage and the wide run's stuffs and sideline (below). The burner arms (`fit_check`'s `RB1-pg-fast` and the rest) were not run, since the tail did not move.
+- **What it needs** (Cain chose this as its own lane on 2026-11-21, lane SF9b, straight after SF10; its sizes proposed, not confirmed; built the same day, "The open-field tackle" below). The open-field tackle as one piece for runs, the catch and returns (the return breakaways are short too, `GAPS.md`): a squared-up tackler gives ground to the carrier's cut by his own and the carrier's ratings rather than a near-perfect shuffle, sized so the backs' tail, yards after the catch and returns land on real together, with the deep safeties' fit read by the coverage and the wide run's stuffs and sideline (below). The burner arms (`fit_check`'s `RB1-pg-fast` and the rest) were not run, since the tail did not move.
 
 Also seen on the way (`GAPS.md`): wide runs are 32% of the backs' runs (real end-gap runs 20%) and are stuffed for no gain or a loss 11.6% of the time (real 23.2%), linebackers making 2.4% of those stuffs (27.7%); wide runs of 1-4 yards end out of bounds 0.1% of the time (real 12.8%) and of 5-9 3.7% (19.4%).
 
@@ -2606,6 +2606,118 @@ Why:
 Speed: `match_check`, 2,000 games on seeds 1 and 2 at each level, main and the lane in turn on an otherwise quiet machine, the order swapped between seeds; the tool's own time. Working the fit out on every snap cost the NFL +4.9% (pairs +8.8% and +1.1%), FBS +5.5% (+8.4% and +2.7%) and high school +2.5% (+5.0% and 0.0%), so each side keeps the fit and the men it read (`Side::off_memo`, `def_memo`) and works it out again only when its men change, since a game's players never change. With it every game plays the same (`match_check`'s output is the same line for line at every level on both seeds), and the lane against main is the NFL -2.7% (+1.1% and -6.5%), FBS +1.2% (-2.5% and +4.9%) and high school +2.4% (+2.5% and +2.2%), inside a pair's noise.
 
 Still off (`GAPS.md`): no third-down back, since third and long pays no back's hands or protection; a back's build barely changes which run is called (Leg Drive and weight pay on no run in particular, the burner's edge waits for item 9's open-field tackle); a smart free safety leans to quarters, not to single-high man and pressure (Cain's addition); the second and third tight ends' hands pay nothing on 12 and 13 throws; fast receivers on deep routes (the table pays a receiver's Speed on the shallow cross, smash and the bubble, not four verticals); screens off a fake 6 points under real on the rebuilt call table; quarterbacks' other short-yardage runs (6% of theirs, converting 21%); the world's passers lean deep (the typical starter isn't the world's); one table, measured at the NFL, serves every level; the run or pass split doesn't read the roster (proposed, not confirmed: item 10's bullets name which run and which throw, not how often each).
+
+## The open-field tackle (scheme-fit lane SF9b, item 9, 2026-11-21)
+
+Design: `docs/design/scheme-fit.md`, item 9, and lane SF9's trace ("Short yardage and long runs", above). Backs' designed runs of 20+ yards are 2.26% of real NFL carries, of 10+ 10.4%, and 21.8% of the runs that reach 10 go on to 20 (nflverse 2024); then a burner's speed should be worth what it really is (item 9's second half). Cain chose the open-field tackle as its own lane on 2026-11-21 ("Open-field lane before SF10", then "okay" to SF10 merging first): one piece for runs, the catch and returns, with the deep safeties' fit and the wide run's stuffs and sideline, measured against all three, and SF10's tables rebuilt on its engine. Every size below is proposed, not confirmed.
+
+How it was measured: `match_check` with `AFM_RUNDIAG=1 AFM_GAPS=1`, the SF9 read-out and the lane's new rows for yards after the catch by length (beside nflverse 2024), 4,000 NFL games on seed 11, main 371fb53 and after, every variant on the same games; the league at the NFL, FBS and high school on seeds 1 and 2 (2,000 games, `AFM_GAPS=1`) and on world seed 1's 32 NFL clubs (`AFM_AB_WORLD`), main and after; `fit_check` on the audit's NFL seed 161 (2,400 games an arm): the first back's Speed +15 (0.14 s in the forty, every other rating held) and the drawn fast and slow backs (four men a band, 4.42 against 4.64 s) in power gap and wide zone, and SF10's 17 arms, main and after; real backs' 20+ runs against the forty with the draft slot held (nflverse play-by-play 2018-25, players and the combine, as `data/real-world/scripts/ab_real.py`), with and without where they carry held.
+
+What was wrong on main:
+
+- **A squared-up tackler mirrored the carrier** (lane SF9's trace). Once a tackler was 0.4 to 5 yards in front of the carrier and within 6, he shuffled to where the carrier's line met his at 4 times the gap a second, up to his full top speed (`game/sim.rs`, `pursue_cap`), so the carrier could seldom get round him: deep safeties' head-on tackles on backs' runs missed 6.7% of the time.
+- **He squared up to every runner in front.** Whichever way the runner was going, a man in front broke down and shuffled, so the meeting at the safeties' depth was a duel of moves and the runner's speed never decided it: speed got a back to 10 yards, never from 10 to 20.
+- **Every deep back fitted the run the same way.** At 9.75 yards, attacking once the runner was 4.75 past the line, coming down at 0.6 of his speed, whatever the coverage, his job or the run's side (`game/scrimmage.rs`, `defend`), so both safeties met the runner at the same depth on every run.
+- **The rotated-down safety backed up.** At 8.1 yards (`ss_depth`), just outside the box count, he took the deep fit and dropped toward 9.75 before he came forward.
+- **The carrier ran at 95% of his top speed** (`run_carrier`). One arm on the ball costs a sprinter 1-2% (Barr et al. 2015, international rugby players over 40 m with the ball in one hand). At 95% linebackers, who run about 2.5% under the typical back without a ball, ran backs down from behind: they ended 16.5% of the 20+ runs (real 7.2%).
+
+What changed (`game/sim.rs`, `pursue_cap`, `run_carrier`; `game/scrimmage.rs`, `defend`, `deep_fit`):
+
+- **He squares up only to a runner coming at him** (`SQUARE_UP` 0.7): the cosine between the runner's line and the line from the runner to him over 0.7, about 45 degrees, or the runner nearly still. A runner crossing his face or going away from him he races on his angle at full speed (the pursuit intercept, with the last man's deeper angle), so a faster runner beats it and a slower one is run down or pushed to the sideline.
+- **Squared up, he shuffles by his feet and the carrier's cut** (`SHUFFLE` 0.65, `SHUFFLE_FEET` 0.01, `SHUFFLE_CUT` 0.005): sideways at most 0.65 of his top speed for a tackler with feet 60 (half Agility, 0.3 Tackling, 0.2 Pursuit) against a carrier with a cut of 70 (half Agility, half Elusiveness), 0.01 more a point of his feet and 0.005 less a point of the carrier's cut, held to 0.4-1.0 (his full top speed before).
+- **The deep backs fit by their job in the call** (`deep_fit`; each as the runner's depth when he attacks, his depth until then and the share of his top speed he comes down at). A safety with the deep zone in a single-high shell (Cover 1, Cover 3, Cover 1 robber, Cover 3 match) is the last line: 7, 13 and 0.3 (`FIT_LAST`). A safety on the far side of the run (the runner a yard or more past the ball the other way) plays the cutback from depth: 6.5, 12 and 0.4 (`FIT_AWAY`). The rest fill the alley: 4.75, 9.75 and 0.85 (`FIT_ALLEY`). A safety's share moves 0.1 a step of his Downhill lean (`FIT_DOWNHILL`), and a back rolled into the box keeps 0.6 (`BOX_SHARE`).
+- **A deep back already nearer the line than his fit holds his depth** there, so the rotated-down safety plays the run from 7.2 to 9 yards.
+- **The ball carrier runs at 98.5% of his top speed** (`CARRY_PACE`; backs, receivers after the catch, returners and quarterbacks alike).
+- **The tables on the new engine:** the coaches' call table (`call_values 2000`), the roster table (`call_values roster 100000`) and the analysts' four models (`xcomp_fit 600`, `xyards_fit 600`, `xpass_fit 600 7`, `decide_fit 1500 1`).
+
+Backs' designed runs, the catch and returns (`match_check`, 4,000 NFL games on seed 11, main > after; real nflverse 2024):
+
+| | main | after | real |
+|---|---|---|---|
+| 10+ yards, of carries | 8.71% | 10.56% | 10.4% |
+| 20+ | 0.98% | 2.26% | 2.26% |
+| 40+ | 0.30% | 0.51% | 0.56% |
+| of the runs that reach 10, on to 20 | 11.2% | 21.4% | 21.8% |
+| of the runs past 20, on to 40 | 30.3% | 22.5% | 24.6% |
+| 5-9 yards, of carries | 31.8% | 28.2% | 24.5% |
+| safeties end the 5-9, 10-19 and 20+ | 49.3, 74.1, 17.1% | 43.3, 56.4, 34.7% | 23.3, 46.8, 39.8% |
+| linebackers end the 20+ | 16.5% | 12.2% | 7.2% |
+| corners end the 20+, touchdowns of them | 28.1, 24.4% | 20.7, 21.5% | 24.2, 22.3% |
+| inside the tackles: a carry, 10+, 20+ | 3.84, 6.5%, 0.76% | 3.99, 8.4%, 1.72% | 4.26, 9.6%, 1.93% |
+| wide of them | 5.24, 13.4%, 1.44% | 5.63, 15.1%, 3.40% | 4.72, 13.5%, 3.69% |
+| rushing yards a team game | 116.3 | 121.9 | 118.0 |
+| yards after the catch | 5.14 | 5.17 | 5.20 |
+| catches going 1-4, 10-19 and 20+ after the catch | 46.6, 9.8, 4.1% | 45.8, 10.4, 3.9% | 34.3, 14.3, 3.9% |
+| kickoff returns of 40+, punt returns of 20+ | 2.5, 4.2% | 2.7, 4.8% | 5.0, 8.0% |
+| points a team game | 25.93 | 26.61 | 22.51 |
+
+The burner (`fit_check`, NFL seed 161, 2,400 games an arm; points of carries for the first back; real backs from nflverse 2018-25 at the same draft slot, per the same gap in the forty):
+
+| | main | after | real |
+|---|---|---|---|
+| Speed +15 (0.14 s), power gap and wide zone: 20+ | +0.3, +0.3 | +0.5, +0.4 | +0.67, with where they carry held +0.51 |
+| the same: 10+ | +1.0, +0.9 | +0.8, +0.8 | +1.09 |
+| the same: yards a carry | +0.25, +0.17 | +0.32, +0.30 | |
+| the same: points a game | +0.41, +0.03 | +0.47, +0.58 | |
+| drawn 0.22 s faster (4.42 against 4.64 s, 206 against 239 pounds), as recruited: 20+ | +0.1 ±0.3, +0.0 ±0.4 | +0.6 ±0.4, +0.8 ±0.3 | +1.06 (0.52 to 1.61), held +0.80 (0.22 to 1.39) |
+| the same: 10+ | -0.3, -0.4 | +0.5, +1.1 | +1.71 |
+| the same: of the runs that reach 10, on to 20 | +2.1, +1.1 | +4.1, +5.0 | +6.3 |
+| the same: yards a carry, before contact | -0.06, -0.09; +0.26, +0.24 | +0.14, +0.32; +0.44, +0.61 | +0.28 over expected (the spec) |
+
+SF10's arms on the new engine (`fit_check`, NFL seed 161, 2,400 games an arm, each change on team 0 against its typical arm on the same games; main 371fb53 > after, the after side ± its standard error over the 40 blocks; main's side is SF10's own "after" column within a few hundredths):
+
+| arm | measure | main | after |
+|---|---|---|---|
+| three corners built for man (West Coast) | man, single-high (points of calls), points against a game | +7.32, +3.51, -0.13 | +7.39 ±0.19, +3.33 ±0.30, -0.52 ±0.21 |
+| the nickel corner's Man Coverage +15 | man | +2.59 | +2.57 ±0.18 |
+| the first corner's Man Coverage +15 | man, points against | +1.70, -0.75 | +1.92 ±0.17, -0.96 ±0.22 |
+| the passer's Arm Strength +15 | air yards a throw, the X's targets 20+ out (points of his targets), points | +0.46, +0.88, +1.27 | +0.42 ±0.05, +0.89 ±0.46, +0.87 ±0.28 |
+| the passer's Deep Accuracy +15 | air yards, points | +0.10, +1.32 | +0.18 ±0.05, +0.66 ±0.25 |
+| the X receiver's Speed +15 | his targets 20+ out, points | +1.34, +0.39 | +1.24 ±0.43, -0.11 ±0.29 |
+| the left tackle's Pass Blocking +15 | points | +0.41 | -0.28 ±0.22 |
+| the second tight end's Run Blocking +15 (a 12 personnel scheme) | 12 personnel, points of snaps | +0.22 | +0.07 ±0.23 |
+| the third tight end's Run Blocking +15 (a 13 personnel scheme) | 13 personnel | +0.29 | +0.21 ±0.28 |
+| the first back at 195 pounds (power gap) | the second back on, points of the short-yardage snaps | +36.0 | +33.5 ±0.7 |
+| the first back at 235 pounds | the same | +1.1 | +3.4 ±0.9 |
+| the second back's Pass Blocking +15 | the second back on, points of the third and long snaps | +0.57 | +0.75 ±0.48 |
+| the first back's Leg Drive +15 (power gap) | gap runs, points of the backs' runs; points | +0.27, +0.53 | +0.29 ±0.17, -0.31 ±0.19 |
+| the passer's Speed +15 (West Coast; spread option) | designed runs a team game | +0.01 and +0.62 | -0.00 ±0.02 and +0.57 ±0.04 |
+| the free safety's Zone Coverage, Play Recognition, Football IQ and Anticipation +15 (West Coast; man pressure) | single-high, blitz (points of snaps), points against | -0.34 and +0.24, -0.19 and -0.31, -1.21 and -1.02 | -0.13 ±0.26 and -0.18 ±0.26, +0.06 and +0.06, -1.09 ±0.21 and -0.93 ±0.22 |
+| the first back's Speed +15 (power gap; wide zone) | wide runs, points of the backs' runs; his carries a game | -0.04 and +0.40, +0.28 and +0.32 | +0.03 ±0.08 and +0.56 ±0.24, +0.44 ±0.11 and +0.26 ±0.11 |
+
+The league (`match_check`, 2,000 games a seed, main > after; real NFL 2024, nflverse):
+
+| | NFL seed 1 | NFL seed 2 | FBS seed 1 | FBS seed 2 | high school seed 1 | high school seed 2 | real NFL |
+|---|---|---|---|---|---|---|---|
+| points a team game | 26.75 > 27.46 | 27.89 > 28.74 | 25.68 > 26.34 | 25.44 > 26.67 | 20.56 > 21.50 | 19.45 > 20.33 | 22.51 (FBS 26.97) |
+| yards a carry | 4.37 > 4.60 | 4.29 > 4.38 | 4.76 > 4.96 | 4.63 > 4.83 | 5.59 > 5.89 | 5.24 > 5.48 | 4.50 (FBS 5.12) |
+| runs of 10+, of carries | 7.2 > 9.6% | 6.9 > 8.7% | 11.7 > 12.2% | 11.3 > 11.5% | 18.9 > 17.6% | 16.6 > 15.1% | 11.6% (FBS 14.5%) |
+| runs of 10-19 yards | 8.1 > 8.7% | 7.8 > 8.0% | 12.6 > 11.0% | 12.3 > 10.5% | 19.2 > 15.5% | 17.1 > 13.5% | 8.2% |
+| runs of 20+ yards | 1.1 > 2.2% | 1.1 > 2.0% | 1.3 > 2.5% | 1.1 > 2.4% | 1.7 > 3.7% | 1.5 > 3.1% | 2.3% |
+| yards after the catch | 5.03 > 5.02 | 5.30 > 5.30 | 6.55 > 6.61 | 6.81 > 6.95 | 7.03 > 7.20 | 7.06 > 7.22 | 5.20 |
+| third down conversion | 44.3 > 44.0% | 45.5 > 45.2% | 41.7 > 41.4% | 42.0 > 41.4% | 40.3 > 39.1% | 40.8 > 40.1% | 39.8% |
+| kickoff returns of 40+ | 2.7 > 2.9% | 2.5 > 2.6% | 0.8 > 0.9% | 1.0 > 1.0% | 0.5 > 0.7% | 0.6 > 1.0% | 5.0% |
+| punt returns of 20+ | 4.5 > 5.1% | 4.0 > 4.9% | 4.6 > 5.4% | 4.9 > 5.6% | 4.8 > 6.3% | 4.6 > 5.3% | 8.0% |
+
+World seed 1's 32 NFL clubs (`AFM_AB_WORLD`, 2,000 games on seed 1, main > after; real nflverse 2024): backs' designed runs of 10+ 9.49% > 10.82% (real 10.4%), of 20+ 1.12% > 2.49% (2.26%), of the runs that reach 10 on to 20 11.8% > 23.0% (21.8%), of those past 20 on to 40 27.2% > 22.5% (24.6%), safeties ending the 20+ 16.6% > 31.7% (39.8%); yards a carry 4.51 > 4.75 (4.50), inside the tackles 3.96 > 4.08 (4.26) and wide of them 5.84 > 6.35 (4.72); rushing yards 130.9 > 137.2 a team game (118.0), yards after the catch 5.59 > 5.60 (5.20), points 28.33 > 29.53 (22.51), third down 45.3% > 45.1% (39.8%); kickoff returns of 40+ 4.4% > 4.5% (5.0%), punt returns of 20+ 5.1% > 6.7% (8.0%); backs' yards a carry over 204-carry blocks spread 0.53 > 0.69 (real 0.57).
+
+Why:
+
+- **Speed now decides the meeting in the open.** A tackler squares up only to a runner coming at him (`SQUARE_UP`); one crossing his face or past him he races on his angle, so a faster back beats the angle and a slower one is caught. Of the runs that reach 10, 21.4% go on to 20 (main 11.2%, real 21.8%), and the drawn fast backs take 4.1 and 5.0 points more of theirs on to 20 than the slow (main 2.1 and 1.1, real 6.3). The first back's Speed +15 adds 0.5 and 0.4 points of 20+ runs (main 0.3 and 0.3; real 0.51 with where they carry held, 0.67 raw), and backs drawn 0.22 s faster as recruited +0.6 and +0.8 (main +0.1 and +0.0), inside the real band (+1.06, 0.52 to 1.61) and at its usage-held +0.80.
+- **The tail at real with the right man at the end of it.** The deep middle safety stays deep and comes down slowly as the last line (`FIT_LAST`), so of the runs past 20 he ends 34.7% (main 17.1%, real 39.8%) and 22.5% go on to 40 (main 30.3%, real 24.6%); a deep back coming down at full speed made 42% of them go 40+ (lane SF9). The alley player still fills at 0.85 of his speed, so 5-9 yard runs fall from 31.8% to 28.2% of carries (real 24.5%) and safeties end 43.3% of them (main 49.3%, real 23.3%).
+- **Yards after the catch stay at real**, since the same rule meets receivers: a defender coming at the catch from in front squares up, one chasing from the side or behind races his angle. 5.14 > 5.17 a catch (real 5.20); loosening the shuffle alone, as lane SF9 tried, gave 5.75.
+- **The carrier's pace.** At 98.5% of his top speed linebackers end 12.2% of the 20+ runs (main 16.5%, real 7.2%) and corners 20.7% (28.1%, 24.2%).
+- **Returns move little** (kickoff returns of 40+ 2.5% > 2.7%, real 5.0%; punt returns of 20+ 4.2% > 4.8%, real 8.0%): every lever in this lane moved them by a few tenths, so the return's own wall (the cover men at the catch on punts, the kicker and two safeties on kickoffs, lane EG3's trace) holds them, not the open-field shuffle (`GAPS.md`).
+- **The roster table pays the back's speed.** Rebuilt on the new engine, it pays the first back's Speed 0.091 yards a point summed over its 12 runs (main 0.055): outside zone 0.0103 a point (0.0028), the toss 0.0163 (0.0100), inside zone 0.0097 (0.0051), counter 0.0090 (0.0020). Every run pays it more, so a burner leans the call to runs (his carries +0.44 and +0.26 a game, main +0.28 and +0.32) but barely to the wide ones (+0.56 ±0.24 points of the backs' runs in wide zone, +0.03 in power gap).
+- **Inside the tackles the tail is real; wide of them it runs past real.** On world seed 1's clubs 1.92% of the inside runs go 20+ (real 1.93%) and 4.27% of the wide ones (3.69%), at 6.35 yards a carry wide (main 5.84, real 4.72), since only 8.0% of the wide runs are stuffed (real 23.2%): the wide run's stuffs and sideline are what the open field doesn't reach (below, `GAPS.md`). Yards a carry go 4.51 > 4.75 there (real 4.50), and on the test rosters 4.37 > 4.60 and 4.29 > 4.38.
+- **The league: the runs past 20 double at every level and points rise 0.7 to 1.2 a team game.** The NFL test rosters 26.75 > 27.46 and 27.89 > 28.74 (real 22.51), FBS 25.68 > 26.34 and 25.44 > 26.67 (real 26.97), high school 20.56 > 21.50 and 19.45 > 20.33, the world's clubs 28.33 > 29.53. At FBS and high school the 10-19 yard runs fall 1.6 to 3.7 points, since the alley player comes down sooner and the last man stays deep. Every total stays inside its test band.
+- **SF10's arms keep their shape.** Every call's lean moves within its noise: three corners built for man still lean 7.4 points to man and 3.3 to single-high, the big arm still throws 0.42 yards deeper, a 195-pound first back still gives way on 33.5 points more of the short-yardage snaps. Points move by up to 0.8 on single arms (the passer's Deep Accuracy +1.32 > +0.66, the first back's Leg Drive +0.53 > -0.31), but the typical arm's own games move a context's arms together: in the West Coast the six arms that change nothing on its offense (the corners, the free safety, the second back's Pass Blocking, the passer's Speed) score 0.27 a game under it here and 0.12 over on main, and in power gap the eight drawn backs 0.37 under (main 0.18 over). With that taken out the passer's Arm Strength, his Deep Accuracy, the X's Speed, the left tackle's Pass Blocking and the back's Leg Drive move -0.01, -0.27, -0.11, -0.30 and -0.29 against main, inside the noise.
+
+Tried and dropped, each on the same 4,000 NFL games: the carrier's pace alone at 0.97, 0.985 and full speed, before the square-up rule (the 40+ share of the runs past 20 38%, 41% and 42.5%, real 24.6%; points up to 27.8); the square-up cone at 0.5 and 0.85 (20+ 1.81% and 1.71%, against 1.77% at 0.7 in the same build: the cone's width barely matters); the last man's lead at 1.2 and 1.6 (`LAST_MAN_LEAD`, 1.4 kept: 20+ 1.59%, and 2.04% with yards after the catch 5.30); the alley filling at 0.7 of his speed (20+ 1.38%); the alley later, at 5.5 and 10.5 yards (10+ 11.7%); the last line and the far safety deeper, at 14 and 13 yards (20+ 1.78%, the tail unchanged); the last line's and the far safety's shares at 0.4 and 0.4 (20+ 2.10%) and at 0.35 and 0.35 (2.29%, within the noise of the 0.3 and 0.4 kept, 2.25% on the old tables).
+
+Speed (`match_check`, 2,000 games on seeds 1 and 2 at each level, main and the lane in turn on an otherwise quiet machine, the order swapped between seeds; the tool's own time): the NFL +0.1% (pairs +3.3% and -3.1%), FBS -2.6% (-1.5% and -3.6%), high school -1.9% (0.0% and -3.7%), inside a pair's noise.
+
+Still off (`GAPS.md`): the wide run's stuffs and sideline (wide runs stuffed 11.6% of the time, real 23.2%, linebackers making 2.3% of those stuffs, real 27.7%; wide runs of 1-4 yards out of bounds 0.1%, real 12.8%): the open-field tackle doesn't reach them, since those runs end inside the tackle box before the open field, so they need the wide run's path and the defense's force and flow; returns' breakaways; safeties still end 43% of the 5-9 yard runs (real 23%) and 56% of the 10-19 (47%), linebackers 12% of the 20+ (7%); catches going 1-4 yards after the catch 45.8% (real 34.3%) and 10-19 10.4% (14.3%); backs' yards a carry spread over 204-carry blocks 0.84 on the test rosters (main 0.69, real 0.57) and 0.69 on world seed 1's clubs (main 0.53): the luck in it is at real (0.43 within one back, real about 0.42) and the lasting part wider (0.52 on the world's clubs, real about 0.39), so who the back is decides too much of his yards a carry; points.
 
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).

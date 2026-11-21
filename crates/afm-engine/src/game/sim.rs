@@ -1791,6 +1791,47 @@ pub const SCRIMMAGE_REACH: f64 = 2.0;
 /// and 40-64% of inside runs, while tosses and jet sweeps, run at the
 /// sideline, were at real (minor bug 163; proposed, not confirmed).
 const SPACE_BLOCK_GAP: f64 = 3.0;
+
+/// A squared-up tackler's shuffle in the open field (lane SF9b, scheme-fit
+/// item 9): his top speed's share he can move sideways at while he stays
+/// square, for a tackler with feet 60 (half Agility, 0.3 Tackling, 0.2
+/// Pursuit) against a carrier with a cut of 70 (half Agility, half
+/// Elusiveness); `SHUFFLE_FEET` a point of his feet more, `SHUFFLE_CUT` a
+/// point of the carrier's cut less. He shuffled at his full top speed with
+/// a perfect read of the carrier's line, so deep safeties' head-on tackles
+/// on backs' runs missed 6.7% of the time and runs that reached 10 yards
+/// went on to 20 11% of the time (real 21.8%, nflverse 2024). Alone, at 55%
+/// of his top speed, yards after the catch rose half a yard (real stays):
+/// sized with the deep backs' fits (`scrimmage.rs`, `deep_fit`),
+/// `SQUARE_UP` and `CARRY_PACE` so runs and the catch land together
+/// (proposed, not confirmed).
+const SHUFFLE: f64 = 0.65;
+const SHUFFLE_FEET: f64 = 0.01;
+const SHUFFLE_CUT: f64 = 0.005;
+
+/// A tackler in front squares up only to a runner coming at him (lane
+/// SF9b, scheme-fit item 9): the cosine between the runner's line and the
+/// line from the runner to him, 0.7 about 45 degrees. A runner crossing his
+/// face or going away from him he races on his angle at full speed, so a
+/// faster runner beats it and a slower one is run down or pushed to the
+/// sideline. He squared up to every runner 0.4 to 5 yards ahead of him,
+/// so the meeting at the safeties' depth was decided by the runner's move,
+/// never his speed: with the deep backs' fits and the shuffle in, a back's
+/// Speed +15 (0.14 s in the forty) added 0.2 points of 20+ runs in power
+/// gap and in wide zone (`fit_check`, NFL seed 161; real backs that much
+/// faster +0.67, +0.51 with where they carry held, nflverse 2018-25), the
+/// runs that reached 10 went on to 20 no more often for him (real +6.3
+/// points a 0.22 s), and 35% of the runs past 20 went past 40 (real 25%).
+/// Proposed, not confirmed.
+const SQUARE_UP: f64 = 0.7;
+
+/// The ball carrier's pace, a share of his top speed: one arm on the ball
+/// costs a sprinter 1-2% (Barr et al. 2015, international rugby players
+/// over 40 m). It was 0.95, so linebackers, who run about 2.5% under the
+/// typical back without a ball, ran backs down from behind: they ended
+/// 16.5% of NFL backs' 20+ runs, 12.2% with lane SF9b's open field and
+/// this pace (real 7.2%, nflverse 2024; proposed, not confirmed).
+const CARRY_PACE: f64 = 0.985;
 /// The chance a tick that he works off it then (proposed, not confirmed).
 const SPACE_BLOCK_LEAVE: f64 = 0.6;
 
@@ -3842,8 +3883,10 @@ impl<'a> Sim<'a> {
             }
         }
         let dir = best.1.map_or(v2(goal, 0.0), dir_of);
-        // With the ball in one arm he runs a little under his top speed.
-        let pace = if pressing { speed.min(self.agents[c].vmax * 0.95) } else { self.agents[c].vmax * 0.95 };
+        // With the ball in one arm he runs a little under his top speed
+        // (`CARRY_PACE`).
+        let pace =
+            if pressing { speed.min(self.agents[c].vmax * CARRY_PACE) } else { self.agents[c].vmax * CARRY_PACE };
         self.steer(c, dir.scale(pace));
         let x = self.agents[c].pos.x;
         if (x - self.progress) * goal > 0.0 {
@@ -3863,14 +3906,22 @@ impl<'a> Sim<'a> {
         let cp = self.agents[c].pos;
         let cv = self.agents[c].vel;
         let dist = a.pos.dist(cp);
-        // In front of the runner and close, he breaks down and squares up:
-        // he shuffles to where the runner will cross his spot and comes
-        // forward under control, so the runner has to beat him with a move
-        // (topic 2.2). Good tacklers keep more speed doing it. Tested first:
-        // it reads none of the intercept below, which is pure, so that is
-        // worked out only when he chases (world speed lane).
+        // In front of the runner and close, with the runner coming at him,
+        // he breaks down and squares up: he shuffles to where the runner
+        // will cross his spot and comes forward under control, so the runner
+        // has to beat him with a move (topic 2.2). Good tacklers keep more
+        // speed doing it. A runner crossing his face or going away from him
+        // he races on his angle (below), so the faster man wins it (lane
+        // SF9b, `SQUARE_UP`). Tested first: it reads none of the intercept
+        // below, which is pure, so that is worked out only when he chases
+        // (world speed lane).
         let ahead = (a.pos.x - cp.x) * self.goal;
-        if ahead > 0.4 && ahead < 5.0 && dist < 6.0 && cap >= 1.0 {
+        if ahead > 0.4
+            && ahead < 5.0
+            && dist < 6.0
+            && cap >= 1.0
+            && (cv.len() <= 0.5 || dist <= 0.1 || cv.norm().dot((a.pos - cp).scale(1.0 / dist)) > SQUARE_UP)
+        {
             // Breaking down is footwork and feel, not the tackle itself
             // (dynasty item 1: tackling now decides only the finish).
             let feet = 0.5 * a.a(Attr::Agility) + 0.3 * a.a(Attr::Tackling) + 0.2 * a.a(Attr::Pursuit);
@@ -3885,7 +3936,16 @@ impl<'a> Sim<'a> {
             let t_meet = ahead / (run_x + fwd);
             let y_aim = clamp(cp.y + cv.y * t_meet, 0.5, width() - 0.5);
             let me = a.pos;
-            let lateral = clamp((y_aim - me.y) * 4.0, -a.vmax, a.vmax);
+            // Squared up he shuffles, he doesn't sprint sideways: his
+            // shuffle is a share of his top speed by his feet, less against
+            // a carrier with a quick cut (lane SF9b, `SHUFFLE`). He used to
+            // move sideways at his full top speed, so the carrier could
+            // never get round him.
+            let r = &self.agents[c];
+            let cut = 0.5 * r.a(Attr::Agility) + 0.5 * r.a(Attr::Elusiveness);
+            let share = clamp(SHUFFLE + SHUFFLE_FEET * (feet - 60.0) - SHUFFLE_CUT * (cut - 70.0), 0.4, 1.0);
+            let shuffle = a.vmax * share;
+            let lateral = clamp((y_aim - me.y) * 4.0, -shuffle, shuffle);
             let want = v2(-self.goal * fwd, lateral);
             self.steer(i, want);
             return;

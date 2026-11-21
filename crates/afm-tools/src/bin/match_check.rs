@@ -1028,6 +1028,21 @@ fn main() {
                         }
                         if p.complete {
                             *m.entry("yac").or_default() += p.yac;
+                            // How far after the catch, rounded to the yard
+                            // as real spots are (lane SF9b).
+                            let y = p.yac.round();
+                            let k = if y <= 0.0 {
+                                "yac_0"
+                            } else if y < 5.0 {
+                                "yac_1"
+                            } else if y < 10.0 {
+                                "yac_5"
+                            } else if y < 20.0 {
+                                "yac_10"
+                            } else {
+                                "yac_20"
+                            };
+                            *m.entry(k).or_default() += 1.0;
                         }
                     }
                     if !p.throw_away
@@ -1641,13 +1656,24 @@ fn main() {
         row("  gain when they make it", first_tackle[k][1] / first_tackle[k][0].max(1.0), Some(yds));
     }
     row("YAC per completion", g("yac") / g("cmp"), Some(5.2));
+    // Real 2024 regular season (nflverse, completions with YAC recorded).
+    for (k, name, real) in [
+        ("yac_0", "YAC 0 or less", 0.247),
+        ("yac_1", "YAC 1-4", 0.343),
+        ("yac_5", "YAC 5-9", 0.229),
+        ("yac_10", "YAC 10-19", 0.143),
+        ("yac_20", "YAC 20+", 0.039),
+    ] {
+        row(name, g(k) / g("cmp").max(1.0), Some(real));
+    }
+    row("YAC 20+ of 10+", g("yac_20") / (g("yac_10") + g("yac_20")).max(1.0), Some(0.214));
     let real_ay = [(0.176, 0.788), (0.501, 0.709), (0.207, 0.545), (0.115, 0.360)];
     let tot: f64 = ay.iter().map(|b| b[0]).sum();
     for (k, name) in ["air < 0", "air 0-9", "air 10-19", "air 20+"].iter().enumerate() {
         row(&format!("{name} share"), ay[k][0] / tot.max(1.0), Some(real_ay[k].0));
         row(&format!("{name} completion"), ay[k][1] / ay[k][0].max(1.0), Some(real_ay[k].1));
         row(&format!("{name} int rate"), ay[k][2] / ay[k][0].max(1.0), None);
-        row(&format!("{name} YAC"), ay[k][3] / ay[k][1].max(1.0), None);
+        row(&format!("{name} YAC"), ay[k][3] / ay[k][1].max(1.0), Some([9.49, 4.09, 3.67, 5.72][k]));
         row(&format!("{name} separation"), ay[k][4] / ay[k][0].max(1.0), None);
         row(&format!("{name} tight window"), ay[k][5] / ay[k][0].max(1.0), None);
     }
