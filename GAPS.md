@@ -210,6 +210,8 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 
 - **A call can't be let go to voicemail** (medium). When a call rings you take it or hand it to your staff; real coaches also let it ring and call back later, and a family or recruit left waiting reads that. A "let it ring" choice with a call back would need its own cost by who is calling. Found 2026-11-19 (thread "Let me answer calls during Continue").
 
+- **No AI cut to the 105 before the season, and your own signing room is advice, not a stop** (medium). Real House-era FBS programs must be at or under 105 on the first day of the season, with the designated players outside it. AFM trims to the limit at fall camp (`camp_trim`, your roster meeting's `seat_trim`), and the class plan shows places left, but I found no hard refusal when you offer or sign past the room (not fully traced; check `college_offer`/commit paths). Measured fall rosters ran 93.8-102.4 with 35 of 138 over by 1.6 (recruiting.md).
+
 ## UI
 
 - **Your graduate assistants, analysts and QC coaches have no "Let go" shortcut** (medium). They are real coaches you can read (team staff view `views::juniors`, coach pages) but the moves that fit a coach (`lane_people::coach_moves`: Give him a raise, Let him go) and the Staff tab's "Your assistants" table come from `facts::assistants`, which lists only coordinators and position coaches, and `staffing::fire` does nothing for a man with no `job` (juniors hold a `junior` post). Real head coaches let GAs go. Needs: the same raise and Let go moves on a junior, ending the post (year to year, little or no buyout) and opening it. Found 2026-11-22 (thread "Check if graduate assistants can be fired").
