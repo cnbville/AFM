@@ -2640,26 +2640,45 @@ pub(crate) fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
 /// season still adds to everyone's count and whether the winter portal is
 /// still ahead. The seasons a player gets come from his division and the
 /// season (`eligibility::seasons_allowed`, minor bug B9).
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug)]
 struct RosterRead {
-    stage: SignStage,
     /// The era's transfer flow for the winter window after the season just
     /// played (`era_factor`), which the world's own portal draws use.
     portal_era: f64,
+    /// Where the season before the class's fall stands for everyone's count.
+    played: Played,
+    /// Past the early-entry deadline: whoever declared has left the roster
+    /// (`Stage::Declared`), so those still on it stay.
+    draft_settled: bool,
+    /// The winter transfer window is still to come.
+    window_ahead: bool,
+}
+
+/// The season before a class's fall, as a roster read counts it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Played {
+    /// Not begun: it adds a season for everyone.
+    Ahead,
+    /// Begun and not yet settled (January 2): it adds one where it counts
+    /// (`count_pending`).
+    Pending,
+    /// Settled: already in his count.
+    Settled,
 }
 
 impl RosterRead {
-    /// Seasons this season still adds: in the summer it hasn't been played,
-    /// in December it counts unless a redshirt keeps it (settled January 2).
+    /// Seasons this season still adds: before it begins one for everyone,
+    /// until January 2 settles it one where it counts.
     fn pending(self, p: &Person) -> u32 {
-        match self.stage {
-            SignStage::Summer(_) => 1,
-            SignStage::Early => p.cal.count_pending as u32,
-            _ => 0,
+        match self.played {
+            Played::Ahead => 1,
+            Played::Pending => p.cal.count_pending as u32,
+            Played::Settled => 0,
         }
     }
 
-    /// The read for a class signing in `sign_year` at `stage`.
+    /// The read for a class signing in `sign_year` at a signing stage (the
+    /// signing days' own reads).
     fn new(w: &World, stage: SignStage, sign_year: i32) -> Self {
         let label = sign_year - 1;
         // December's read expected the yearly base rate, while the world
@@ -2667,12 +2686,54 @@ impl RosterRead {
         // under the single January window): in the test world about 12
         // FBS leavers a roster where 28 entered, so the rest of the class
         // waited for February (minor bug 384's lane).
-        RosterRead { stage, portal_era: era_factor(label, w.changes.rules(label).transfer) }
+        let portal_era = era_factor(label, w.changes.rules(label).transfer);
+        let played = match stage {
+            SignStage::Summer(_) => Played::Ahead,
+            SignStage::Early => Played::Pending,
+            _ => Played::Settled,
+        };
+        RosterRead {
+            portal_era,
+            played,
+            draft_settled: matches!(stage, SignStage::Final | SignStage::Late(_)),
+            window_ahead: matches!(stage, SignStage::Summer(_) | SignStage::Early),
+        }
+    }
+
+    /// The read on today's date (your desk's class plan, minor bug 424):
+    /// the season before the class's fall, the early-entry deadline and the
+    /// winter window each as they stand today. The signing stages' reads
+    /// named the whole run from December's signing day to February's
+    /// "Final", so on a January 1 start the seniors' season just played was
+    /// not yet in their count (it is settled January 2), the underclassmen
+    /// who mean to declare by the January deadline read as staying and the
+    /// January window's transfers were not expected: about 30 places of an
+    /// FBS roster read as taken that would be open by spring. A February
+    /// read for the class after (the world's year rolls after the Super
+    /// Bowl) read the season still to play as played, the same way.
+    fn today(w: &World, sign_year: i32) -> Self {
+        // The class signing this calendar year after the world's year has
+        // rolled: its signing days are under way, everything settled.
+        let mut read = RosterRead::new(w, SignStage::Final, sign_year);
+        if sign_year == w.year {
+            return read;
+        }
+        let d = &w.dates;
+        if w.today <= d.fall_camp {
+            read.played = Played::Ahead;
+            read.draft_settled = false;
+            read.window_ahead = true;
+        } else {
+            read.played = Played::Pending;
+            read.draft_settled = w.today > d.declare_deadline;
+            read.window_ahead = w.today < d.portal_open;
+        }
+        read
     }
 
     /// The era's winter transfer flow, while that window is still to come.
     fn portal_ahead(self) -> Option<f64> {
-        matches!(self.stage, SignStage::Summer(_) | SignStage::Early).then_some(self.portal_era)
+        self.window_ahead.then_some(self.portal_era)
     }
 }
 
@@ -2703,6 +2764,7 @@ fn leaving(
     bars: Option<(f64, f64)>,
     draft: DraftRead,
     portal: Option<f64>,
+    told: bool,
 ) -> f64 {
     if d == Division::JUCO {
         // Junior college players move up or stop after two seasons.
@@ -2730,7 +2792,10 @@ fn leaving(
     };
     // The yearly entry chance by role, times the era's flow, as the
     // world's own portal draws it (`lean_checkpoint`, `portal_open`).
+    // A man his staff told he isn't in the plans enters the window as the
+    // world draws him (`roster_call::told_goes`), whatever his role.
     let transfer = match (portal, p.last_role) {
+        _ if told => super::folk::roster_call::TOLD_GO,
         (Some(era), Some(PlayingTime::Backup)) => PIPELINE.portal_entry.backup * era,
         (Some(era), Some(PlayingTime::Rotation)) => PIPELINE.portal_entry.rotation * era,
         _ => 0.0,
@@ -2742,13 +2807,16 @@ fn leaving(
 /// (fix list 1.2, T5.2). In the summer and December the seniors, early
 /// entrants and winter transfers are still on the roster: the staff signs
 /// for the roster it will have, not the one it has.
-fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read: RosterRead) -> (f64, f64) {
+///
+/// `told`: his staff told him he isn't in the plans before the window
+/// (your roster meeting, `roster_call::told_ids`), so he is likely gone.
+fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read: RosterRead, told: bool) -> (f64, f64) {
     let seasons = p.college_seasons + read.pending(p);
     // By February the entrants have left; those still here are staying.
     // (They used to keep a December read's 3% change of mind, about one
     // place a roster that February and the late days signed over the
     // limit.)
-    let settled = matches!(read.stage, SignStage::Final | SignStage::Late(_));
+    let settled = read.draft_settled;
     let next = leaving(
         p,
         d,
@@ -2758,6 +2826,7 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         bars,
         if settled { DraftRead::Settled } else { p.cal.declare_plan.map_or(DraftRead::Guess, DraftRead::Plan) },
         read.portal_ahead(),
+        told,
     );
     let after = leaving(
         p,
@@ -2768,6 +2837,7 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         bars,
         DraftRead::Guess,
         Some(read.portal_era),
+        false,
     );
     (next, 1.0 - (1.0 - next) * (1.0 - after))
 }
@@ -2799,6 +2869,7 @@ fn class_plan(
     seed: u64,
     bars: Option<(f64, f64)>,
     read: RosterRead,
+    told: &[u32],
 ) -> ClassPlan {
     // A school without a team that fall signs no one and takes no walk-ons.
     if !prog.plays(sign_year) {
@@ -2823,7 +2894,7 @@ fn class_plan(
             continue;
         }
         let (k, wo) = (p.player.position.index(), p.walk_on as usize);
-        let (next, two) = gone(p, prog.division, sign_year, bars, read);
+        let (next, two) = gone(p, prog.division, sign_year, bars, read, told.binary_search(&p.player.id).is_ok());
         now[k][wo] += 1.0 - next;
         stay[k][wo] += 1.0 - two;
         if takes_a_place(p, whole_roster, sign_year) {
@@ -5808,6 +5879,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         .and_then(|s| if let super::scouting::readers::Staff::Program(p) = s { Some(p) } else { None });
     let own_mins = w.scouting.own.minimums.clone();
     let read = RosterRead::new(w, stage, sign_year);
+    let told = super::folk::roster_call::told_ids(w);
     let mut signed_by: Vec<Vec<usize>> = vec![Vec::new(); programs.len()];
     // Found on all cores, then listed in person order (world speed lane).
     let signees: Vec<(usize, usize)> = w
@@ -5823,7 +5895,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let mut plans: Vec<ClassPlan> = programs
         .par_iter()
         .zip(signed_by.par_iter())
-        .map(|(prog, signed)| class_plan(prog, &w.people, signed, sign_year, habit_seed, bars, read))
+        .map(|(prog, signed)| class_plan(prog, &w.people, signed, sign_year, habit_seed, bars, read, &told))
         .collect();
     // A board per position (fix list 1.1): each staff ranks the recruits it
     // sees against the others at the same spot. Kickers, punters and long
@@ -6363,7 +6435,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         .par_iter()
         .zip(signed_by.par_iter())
         .zip(plans.par_iter())
-        .map(|((prog, signed), plan)| PaidLine::read(prog, &w.people, signed, sign_year, bars, read, plan, today, 0))
+        .map(|((prog, signed), plan)| {
+            PaidLine::read(prog, &w.people, signed, sign_year, bars, read, plan, today, 0, &told)
+        })
         .collect();
     // What his place in the set pays: None outside it, else the floor of
     // any offer (`PaidLine::pays`).
@@ -10884,6 +10958,7 @@ impl PaidLine {
         plan: &ClassPlan,
         today: Date,
         deals: usize,
+        told: &[u32],
     ) -> PaidLine {
         let gate = super::ncaa::two_pots(Date::ymd(sign_year, 7, 1));
         let year = super::nil_bid::deal_year(today);
@@ -10894,7 +10969,7 @@ impl PaidLine {
             if p.stage != Stage::College || p.cal.portal.is_some() || signed_ahead(p).is_some() {
                 continue;
             }
-            let back = 1.0 - gone(p, prog.division, sign_year, bars, read).0;
+            let back = 1.0 - gone(p, prog.division, sign_year, bars, read, told.binary_search(&p.player.id).is_ok()).0;
             july += back;
             if !p.walk_on && back > 0.0 {
                 keys.push((split_place(p, year), p.player.overall(), back, share_value(p)));
@@ -10961,10 +11036,11 @@ fn pays_recruit(w: &World, j: usize, i: usize, ahead: usize) -> Option<f64> {
         return Some(0.0);
     }
     let prog = &w.programs[j];
-    let read = RosterRead::new(w, stage_now(w, sign_year), sign_year);
-    let plan = class_plan(prog, &w.people, &[], sign_year, w.options.seed as u64, w.draft_bars, read);
+    let read = RosterRead::today(w, sign_year);
+    let told = super::folk::roster_call::told_ids(w);
+    let plan = class_plan(prog, &w.people, &[], sign_year, w.options.seed as u64, w.draft_bars, read, &told);
     let deals = w.nil_book.signed_paid.get(j).copied().unwrap_or(0) as usize;
-    let line = PaidLine::read(prog, &w.people, &[], sign_year, w.draft_bars, read, &plan, w.today, deals);
+    let line = PaidLine::read(prog, &w.people, &[], sign_year, w.draft_bars, read, &plan, w.today, deals, &told);
     let p = &w.people[i];
     line.pays(first_place(ahead, p.player.position), p.player.overall(), p.player.position)
 }
@@ -11487,23 +11563,12 @@ pub(crate) fn next_class(w: &World) -> i32 {
     }
 }
 
-/// The signing stage a read today stands in (`class_outlook`, `pays_recruit`).
-fn stage_now(w: &World, sign_year: i32) -> SignStage {
-    match (w.dates.early_signing, &w.prev_dates) {
-        _ if sign_year == w.year => SignStage::Final,
-        (Some(e), _) if w.today > e => SignStage::Final,
-        (Some(_), _) if w.today.month() == 12 => SignStage::Early,
-        _ if w.today.month() >= 12 || w.today.month() <= 2 => SignStage::Final,
-        _ => SignStage::Summer(0),
-    }
-}
-
 /// Your staff's class plan (lane 10): see `front_office::college::ClassOutlook`.
 use super::front_office::college::ClassOutlook;
 
 pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
     let sign_year = next_class(w);
-    let read = RosterRead::new(w, stage_now(w, sign_year), sign_year);
+    let read = RosterRead::today(w, sign_year);
     let prog = &w.programs[j];
     let signed: Vec<usize> = w
         .people
@@ -11512,7 +11577,8 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
         .filter(|(_, p)| signed_ahead(p).is_some_and(|s| s.program == j))
         .map(|(i, _)| i)
         .collect();
-    let plan = class_plan(prog, &w.people, &signed, sign_year, w.options.seed as u64, w.draft_bars, read);
+    let told = super::folk::roster_call::told_ids(w);
+    let plan = class_plan(prog, &w.people, &signed, sign_year, w.options.seed as u64, w.draft_bars, read, &told);
     let (limit, signees) = super::ncaa::roster_limits(prog, sign_year);
     ClassOutlook {
         sign_year,
@@ -11528,6 +11594,98 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Minor bug 424: your class plan reads today's date. On a January 1
+    /// start the season just played is not settled until January 2, the
+    /// declarers go by the January deadline and the January window is
+    /// ahead: a senior who has used his seasons is leaving, a declarer is
+    /// most likely gone and a backup may transfer, where the signing
+    /// stages' "Final" read kept every one of them. A man you told he isn't
+    /// in the plans is read as the window takes him. After the world's year
+    /// rolls in February, the class after reads the season still to play.
+    #[test]
+    fn your_class_plan_counts_who_leaves_from_today() {
+        let mut w = crate::tests::legacy::seat("college");
+        let mine = w.seat.and_then(|s| s.program).unwrap();
+        let div = w.programs[mine].division;
+        w.add_class_aged(19);
+        let year = w.year;
+        let pool: Vec<usize> =
+            (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::HighSchool).take(4).collect();
+        let sign = year + 1;
+        w.programs[mine].roster.clear();
+        // (class, seasons used, season pending, role, his December plan)
+        let made = [
+            (sign - 4, 4, true, PlayingTime::Starter, None),
+            (sign - 3, 2, true, PlayingTime::Starter, Some(true)),
+            (sign - 2, 1, true, PlayingTime::Backup, None),
+            (sign - 2, 1, true, PlayingTime::Starter, None),
+        ];
+        for (&i, &(class, used, pending, role, plan)) in pool.iter().zip(&made) {
+            let q = &mut w.people[i];
+            q.stage = Stage::College;
+            q.college = Some(mine);
+            q.class_of = class;
+            q.college_seasons = used;
+            q.cal.count_pending = pending;
+            q.last_role = Some(role);
+            q.cal.declare_plan = plan;
+            q.walk_on = false;
+            w.programs[mine].roster.push(i);
+        }
+        let [senior, declarer, backup, starter] = [pool[0], pool[1], pool[2], pool[3]];
+        // January 1, before the season is settled and the window opens.
+        w.today = Date::ymd(year + 1, 1, 1);
+        assert_eq!(next_class(&w), sign);
+        let read = RosterRead::today(&w, sign);
+        let go = |w: &World, i: usize, told: bool| gone(&w.people[i], div, sign, w.draft_bars, read, told).0;
+        assert_eq!(go(&w, senior, false), 1.0, "his fifth season, just played, is his last");
+        assert!(go(&w, declarer, false) > 0.89, "he means to declare by the January deadline");
+        let base = go(&w, backup, false);
+        assert!(base > 0.2, "a backup may transfer in the January window: {base}");
+        assert_eq!(go(&w, starter, false), 0.0);
+        assert!(go(&w, starter, true) > super::super::folk::roster_call::TOLD_GO - 1e-9, "told he isn't in the plans");
+        // Telling three men moves the board's places as the window will.
+        let before = class_outlook(&w, mine).room;
+        let extra: Vec<usize> =
+            (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::HighSchool).take(3).collect();
+        for &i in &extra {
+            let q = &mut w.people[i];
+            q.stage = Stage::College;
+            q.college = Some(mine);
+            q.class_of = sign - 2;
+            q.college_seasons = 1;
+            q.cal.count_pending = true;
+            q.last_role = Some(PlayingTime::Starter);
+            q.walk_on = false;
+            w.programs[mine].roster.push(i);
+        }
+        let with = class_outlook(&w, mine).room;
+        assert_eq!(before, with + 3, "three staying men take three places");
+        let today = w.today;
+        for &i in &extra {
+            w.folk.told.insert(w.people[i].player.id, today);
+        }
+        let told = class_outlook(&w, mine).room;
+        assert!(told >= with + 2, "three told men free their places: {with} then {told}");
+        // A cut man is off the roster today: his place is open.
+        w.folk.told.clear();
+        let id = w.people[extra[0]].player.id;
+        super::super::front_office::college::cut(&mut w, id).expect("cut");
+        assert_eq!(class_outlook(&w, mine).room, with + 1, "a cut frees his place");
+        // After the year rolls (the morning after the Super Bowl), the class
+        // after: the season still to play counts for everyone.
+        w.today = w.dates.start;
+        let next = next_class(&w);
+        assert_eq!(next, year + 1);
+        let q = &mut w.people[senior];
+        q.class_of = next - 4;
+        q.college_seasons = 4;
+        q.cal.count_pending = false;
+        let read = RosterRead::today(&w, next);
+        assert_eq!(read.played, Played::Ahead);
+        assert_eq!(gone(&w.people[senior], div, next, w.draft_bars, read, false).0, 1.0, "his fifth season is to come");
+    }
 
     /// Minor bug 372: a playoff team's player of yours who means to enter the
     /// portal has no entry once his team is out, as one on a team outside the

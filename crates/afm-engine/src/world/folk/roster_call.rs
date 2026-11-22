@@ -1086,6 +1086,15 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, _team: Team, code: u32) {
     s.end();
 }
 
+/// The men your staff has told it is moving on from, waiting for the
+/// window (sorted ids): the class plan counts them as the window will take
+/// them (`TOLD_GO`), so telling a man frees his place on the board.
+pub(crate) fn told_ids(w: &World) -> Vec<u32> {
+    let today = w.today;
+    // A BTreeMap keeps its ids in order.
+    w.folk.told.iter().filter(|(_, d)| d.days_to(today) <= TOLD_DAYS).map(|(&id, _)| id).collect()
+}
+
 /// He is told he isn't in the plans: his word for the window.
 fn tell(w: &mut World, i: usize, today: Date) {
     let id = w.people[i].player.id;
