@@ -15673,7 +15673,7 @@ Staff turnover is my line. I've seen it wreck kids at the worst time. ~ handler
 I don't want to commit and then watch everybody who recruited me leave. I just don't. ~ himself
 I came here once for a coach who left. I'm not doing it twice. ~ college transfer
 You change coordinators every other year and I'm out. I want to learn something and keep building on it. ~ college
-Whoever coaches him has to talk to him like a human being. That's non-negotiable.
+Whoever coaches him has to talk to him like a human being. That's non-negotiable. ~ !himself
 He's a kid, not a stat line. Treat him like a person or we move on. ~ parent
 I'll say this once. My grandson gets treated with respect or he doesn't come. ~ grandparent
 He's not a piece of inventory. If your staff handles him that way, I tell him to walk. ~ handler
@@ -15849,8 +15849,8 @@ The kid's not a commodity. If your staff treats him like one, I'll move him some
 My guy needs to feel like he matters there, not just on Saturdays. That's non-negotiable. ~ handler
 I just don't want to be lied to. If you lie to me once, I'm done. ~ himself
 If somebody makes me promises and none of them happen, I'm gone. ~ himself
-I come to every one of his games, and I'm loud about it. If he's not treated right, you'll hear me. ~ loud
-I don't get to be around as much as I'd like, so I need to know the people there will treat him right when I can't. ~ absent
+I come to every one of his games, and I'm loud about it. If he's not treated right, you'll hear me. ~ loud !himself
+I don't get to be around as much as I'd like, so I need to know the people there will treat him right when I can't. ~ absent !himself
 If they promise me a role and then I'm on the bench, I'm back in the portal. ~ college transfer nil
 I didn't come this far to be ignored. If I'm not part of the plan, tell me now. ~ college
 I'll go where I'm valued. If I feel like a backup plan, I'm not coming. ~ college ego

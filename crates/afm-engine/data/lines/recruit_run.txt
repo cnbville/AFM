@@ -1099,25 +1099,25 @@ I'll ask this once and listen close. What makes players better here? ~ calm pare
 Walk me through how you make a guy better.
 What happens to a kid who isn't ready yet?
 How many of your guys go on to play pro?
-Who works with him one on one?
-Does he get film study from day one?
+Who works with him one on one? ~ !himself
+Does he get film study from day one? ~ !himself
 Tell me about your strength program.
-Will he be coached or just coached up on game day?
-What did {name} not do well last year, and how do you fix it?
+Will he be coached or just coached up on game day? ~ !himself
+What did {name} not do well last year, and how do you fix it? ~ !himself
 Show me a player who got better here.
-Will you put him in front of the scouts?
+Will you put him in front of the scouts? ~ !himself
 How do you handle a kid who's good but raw?
-What's the plan for {name} after his first year?
+What's the plan for {name} after his first year? ~ !himself
 I need to see how you build a player, not just a roster.
 Do your guys leave here better than they came in?
-Does the staff stay, or will his position coach leave?
+Does the staff stay, or will his position coach leave? ~ !himself
 Who developed your last pro?
-Who makes sure he's ready for the next level?
+Who makes sure he's ready for the next level? ~ !himself
 Tell me about the guys who left early for the pros.
-How soon could he start getting looked at by NFL teams?
+How soon could he start getting looked at by NFL teams? ~ !himself
 How do you get a player noticed?
-Do you have a plan for {name}, or does he figure it out?
-What does the offseason look like for him?
+Do you have a plan for {name}, or does he figure it out? ~ !himself
+What does the offseason look like for him? ~ !himself
 Can I see where your guys train?
 Where do your players end up after they leave you?
 How many of your players are in the league right now?
@@ -1125,41 +1125,41 @@ I'm not worried about this year. What about down the road?
 What do you do for a kid's body?
 Do you teach technique or just run plays?
 Who's on staff that has coached in the league?
-We want to know he'll be better when he leaves. How?
-What can you do for him that the others can't?
+We want to know he'll be better when he leaves. How? ~ !himself
+What can you do for him that the others can't? ~ !himself
 Do you have somebody who coaches the little things?
-He's got the talent. Can you turn it into a career?
-How does a kid like {name} get from here to the pros?
+He's got the talent. Can you turn it into a career? ~ !himself
+How does a kid like {name} get from here to the pros? ~ !himself
 Are you a stepping stone or a destination?
 How many of your guys got drafted? Honest number.
-Do you take his dream seriously?
-Does {name} get a real shot at going pro?
+Do you take his dream seriously? ~ !himself
+Does {name} get a real shot at going pro? ~ !himself
 How hard do you push your players?
-What's his path to the league here?
-Will he be coached hard here?
+What's his path to the league here? ~ !himself
+Will he be coached hard here? ~ !himself
 Do you build players or just collect them?
-Does your staff have a track record with players at his position?
+Does your staff have a track record with players at his position? ~ !himself
 I want a real answer about the league. What are the odds?
 Do you grind them or babysit them?
 What do the pros say about how you coach?
 Who in your program can I call about how you develop guys?
-Does he get better here or just older?
-Is this the place that makes him a pro?
-How early does a kid like {name} get on the field to develop?
+Does he get better here or just older? ~ !himself
+Is this the place that makes him a pro? ~ !himself
+How early does a kid like {name} get on the field to develop? ~ !himself
 Does the film room matter to you?
 What's your best story of a kid who made it?
-How's his body going to look in two years here?
-My question is simple. Can you make him a pro?
-I want to know who's actually going to teach him.
-Where will he be as a player in three years?
+How's his body going to look in two years here? ~ !himself
+My question is simple. Can you make him a pro? ~ !himself
+I want to know who's actually going to teach him. ~ !himself
+Where will he be as a player in three years? ~ !himself
 Do you have a plan to get my guy to the league?
 How do you sell the league to a kid who's not there yet?
-Can you promise he'll improve?
-Do you see {name} as a pro?
+Can you promise he'll improve? ~ !himself
+Do you see {name} as a pro? ~ !himself
 What does a year with you do for a player?
 Do you teach how to be a pro, on and off the field?
-Does he play early, or does he wait and learn?
-Does he get a real development plan, written down?
+Does he play early, or does he wait and learn? ~ !himself
+Does he get a real development plan, written down? ~ !himself
 Tell me what your staff does that builds pros.
 How are you different from the other schools at making players better?
 How do I know the coaching here is good?
@@ -1196,16 +1196,16 @@ What do you do for a player who has the talent but isn't polished yet?
 Be straight with me. Is this the place that takes a player to the highest level?
 Walk me through what the development looks like from the first day of camp.
 I don't care about promises. Show me how a player actually gets better here.
-Who decides when a player is ready for more, and how does he decide it?
+Who decides when a player is ready for more, and how does he decide it? ~ !himself
 What separates the players you've developed from the ones who stalled?
 Nobody improves by accident. What's the system?
 How do you handle a player who's good but isn't growing?
-What does a player do in the offseason here that he wouldn't do somewhere else?
+What does a player do in the offseason here that he wouldn't do somewhere else? ~ !himself
 Does the film work get a player ready for the next level, or is it just reps?
 How much of the getting-better part is on the coaches and how much is on the player?
 Name one player you took from raw to ready.
 What do the pro scouts say about your program when they come through?
-If a player works hard here, where does that realistically take him?
+If a player works hard here, where does that realistically take him? ~ !himself
 I need to know the road. Where does it start and where does it end?
 How early do you start preparing a player for the league?
 Do scouts even come around your practices?
@@ -1217,22 +1217,22 @@ How do you teach the mental side of the game, the part that carries to the next 
 Does your program turn out guys who last in the league or guys who wash out fast?
 What does a player's body look like after a year of your training?
 How does a player's role change from the first year to the last?
-Where do you see a player at this position in three years if he does everything right?
+Where do you see a player at this position in three years if he does everything right? ~ !himself
 Give me the real timeline. When does a player start looking like a pro?
 How do you make sure a talented player doesn't get lost in the shuffle?
 What's the first thing you'd fix in a player's game?
 How do you measure growth besides stats?
 Do you coach for the next game or for the next level?
-How much individual attention does a player get from his position coach?
+How much individual attention does a player get from his position coach? ~ !himself
 What does your strength staff do that actually makes a difference?
-How do you keep a player hungry once he starts getting better?
+How do you keep a player hungry once he starts getting better? ~ !himself
 Tell me about the guys who left your program better than they arrived.
 Who in your building has coached players who made the league?
-What happens to a player's development when he gets hurt?
+What happens to a player's development when he gets hurt? ~ !himself
 What happens when a player stops improving?
 How does a player get noticed by the pros from your program?
 Is there a plan written down for a player's growth, or is it just talk?
-What does a player need to work on most before the pros will look at him?
+What does a player need to work on most before the pros will look at him? ~ !himself
 What would you change about a player's game in the first month?
 I'd like to know how a player gets from good to great here.
 Does your program make a player a better person as well as a better player?
@@ -1240,22 +1240,22 @@ Would you say the best players here have been made or just found?
 What does the next level demand that a player can't learn anywhere else?
 How do you prepare a player for the speed of the pro game?
 What's the biggest jump you've seen a player make in a single year?
-Who's going to push a player when he doesn't feel like working?
+Who's going to push a player when he doesn't feel like working? ~ !himself
 How many of your players actually reach their ceiling?
 Where do your players land when they leave you?
 Talk to me about the weight room, the film room and the practice field. How do all three make a pro?
-What do you expect a player to look like at the end of his time with you?
+What do you expect a player to look like at the end of his time with you? ~ !himself
 Are you building a player for a job or for a career?
 I want a plan, not a pitch. How does a player grow here?
 Tell me what a good development year looks like for a player.
-How do you tell a player the truth about where he stands?
+How do you tell a player the truth about where he stands? ~ !himself
 What's the difference between a coach who develops and a coach who just plays?
-How does a player know when he's ready for the pros?
+How does a player know when he's ready for the pros? ~ !himself
 Do you set goals with each player, or does everyone get the same program?
 What's your track record with players that nobody else wanted?
 Do you teach the little things, like footwork, hand placement, reading keys?
 How do you stay patient with a player who needs time?
-What does a pro-ready player do on his own time that others don't?
+What does a pro-ready player do on his own time that others don't? ~ !himself
 I'd like to hear about a player you couldn't develop and why.
 How hard do you push a young player?
 What's the one thing a player has to do here to make the league?
@@ -1264,29 +1264,29 @@ Show me what separates this place from every other stop on the road.
 What would a typical week of getting better look like?
 How do you balance developing one player with winning games?
 Is playing early good for a player's growth, or does waiting help more?
-What do you see in a player that tells you he'll make it?
-Who helps a player once he's chasing the league?
-How does your staff bring out what a player doesn't know he has?
+What do you see in a player that tells you he'll make it? ~ !himself
+Who helps a player once he's chasing the league? ~ !himself
+How does your staff bring out what a player doesn't know he has? ~ !himself
 What has the program done for a player who came in underrated?
 Is there a ceiling on how far a player can go from here?
 How do you work with a player on the habits that last past football?
 What part of a player's game gets better fastest under your coaches?
 What part takes the longest?
 Tell me how a player who's behind gets caught up.
-When a pro scout calls about one of your players, what does he say?
+When a pro scout calls about one of your players, what does he say? ~ !himself
 I'm trusting you with something big. How do you make this player better?
 How is the training here built for a long career and not just the next season?
-Do you ever tell a player he isn't going to make it?
+Do you ever tell a player he isn't going to make it? ~ !himself
 Are the guys who made it to the pros still coming back to help the young ones?
-What does it take for a player to be a pro before he's even a pro?
+What does it take for a player to be a pro before he's even a pro? ~ !himself
 How much of a player's growth happens in the classroom and film study?
 I'm looking for a place that makes players better. Is this it?
-What would a player be doing today that he'll thank you for later?
-How do you take a good athlete and turn him into a real football player?
+What would a player be doing today that he'll thank you for later? ~ !himself
+How do you take a good athlete and turn him into a real football player? ~ !himself
 What do you do differently from the other programs that talk about the league?
 Tell me one thing you'd do to make a player better that no one else would.
 What's the honest answer? Is the pro level realistic?
-How will a player be different when he leaves than when he arrives?
+How will a player be different when he leaves than when he arrives? ~ !himself
 Give me one example of a player you built from the ground up.
 What kind of player do you do your best work with?
 Show me how {name} gets bigger, faster and better than he is today. ~ parent loud
@@ -1374,7 +1374,7 @@ Can you really get him to the next level, or is that just recruiting talk? ~ par
 Who's responsible for making him better, the position coach or the strength staff? ~ !himself
 What do you do with a player who has the tools but no polish?
 Tell me about a kid you turned into something nobody saw coming.
-What happens when a player stops improving? Do you give up on him?
+What happens when a player stops improving? Do you give up on him? ~ !himself
 How would I know {name} is on track for the next level? ~ !himself
 How does a player here get better in year three than in year one?
 Do you coach the player or just the position?
@@ -1408,7 +1408,7 @@ I've watched your players' highlights online. Do they get that good here or befo
 Everybody posts about their draft picks. How many of yours are actually good? ~ online modern
 My son's name is all over the internet already. How do you keep the attention from hurting his growth? ~ online modern parent
 I'm not asking about money. I want to know how he gets to the next level. ~ !himself parent
-We keep it quiet in our house. We just want to know how he gets better. ~ calm
+We keep it quiet in our house. We just want to know how he gets better. ~ calm !himself
 I'm not much of a talker, so I'll keep it simple. How do you develop him? ~ calm !himself
 I'd rather listen than talk. Tell me how your players grow here. ~ calm
 Quietly, between us, how many of your players made it to the pros? ~ calm
@@ -1525,7 +1525,7 @@ I'll shout his name from the top row. Just tell me I can get there. ~ parent lou
 I'll film every snap he plays. Please tell me it's close enough. ~ parent online modern
 We're quiet people, but we are not quiet about this. How far is it? ~ parent calm
 Can we get to his games without flying? ~ !himself
-We'd like him close, Coach. Is that possible?
+We'd like him close, Coach. Is that possible? ~ !himself
 Is this a place we can drive to? ~ !himself
 Will he be home for the holidays? ~ !himself
 I want to be in the stands. Is that realistic? ~ !himself
@@ -1671,7 +1671,7 @@ We need to know how hard it is to get there from here.
 Distance was the first thing we talked about at the table.
 Tell us it's close. That's what we want to hear.
 What's the nearest big city to us on the way, and how long is the haul?
-Staying near the people who raised him is what we want. How near are you?
+Staying near the people who raised him is what we want. How near are you? ~ !himself
 Will it feel like a different world, or can we still get home easy?
 A place that's reachable by car, that's what we're hoping for.
 How many hours of road are we signing up for?
@@ -1721,7 +1721,7 @@ The long drive worries us, plain and simple.
 We're asking about miles first, everything else second.
 I'd like to know how hard it'll be to come see things for ourselves.
 I'm hollering from the stands every single game. How close are we talking? ~ loud
-{name} knows my voice from the top row. Can I still be heard from where you are? ~ loud
+{name} knows my voice from the top row. Can I still be heard from where you are? ~ loud !himself
 If I can't get to the games, I'll lose my mind. Be straight with me about the distance. ~ loud
 We pack the car and make a whole day of it. Is that still doable with you? ~ loud
 Nobody cheers louder than this family. How far would we be driving? ~ loud
@@ -1740,46 +1740,46 @@ I don't do quiet at games, and I don't do far away. Help me out here. ~ loud
 My boy plays harder when he hears us. Can we be close enough for that? ~ loud parent
 The whole family travels loud and travels together. What's the drive look like? ~ loud
 If it's a six hour drive, I'll still do it, but I'd like to know now. ~ loud
-{name} needs his people in the crowd. How close is that to home? ~ loud
+{name} needs his people in the crowd. How close is that to home? ~ loud !himself
 Don't tell me it's close if it isn't. I'll find out the first road trip. ~ loud
 I'd rather be near enough to bang on the fence after the game. ~ loud
 We're not the quiet type, coach, and we're not the far away type either. ~ loud
 Can I get there and back in a day? That's what I'm asking. ~ loud
 I post every game and every highlight, so I need to know if we can even get there. ~ online modern
-Half my friends follow his games online. Will we be able to watch from home if we can't drive? ~ online modern
+Half my friends follow his games online. Will we be able to watch from home if we can't drive? ~ online modern !himself
 How good is the live stream for your games? Distance makes that matter to me. ~ online modern
 I'd tag the whole family at your field. I just have to know how far it is first. ~ online modern
-I share everything he does. If he's far, I want to be able to see it all. ~ online
+I share everything he does. If he's far, I want to be able to see it all. ~ online !himself
 Are the games easy to watch from a phone? We might need that if it's far. ~ online modern
-I've followed his recruiting from the start. Where you are on the map is the part I keep checking. ~ online
-Our whole page is about {name}. Are you close enough that we can keep posting from the stands? ~ online modern
-We'd video call every day, sure, but I'd rather see him in person. How far are we talking? ~ online modern
-Everyone back home follows him online. They'll want to know how far he's going. ~ online modern
-I scroll his highlights every night. Please tell me you're not across the country. ~ online modern
+I've followed his recruiting from the start. Where you are on the map is the part I keep checking. ~ online !himself
+Our whole page is about {name}. Are you close enough that we can keep posting from the stands? ~ online modern !himself
+We'd video call every day, sure, but I'd rather see him in person. How far are we talking? ~ online modern !himself
+Everyone back home follows him online. They'll want to know how far he's going. ~ online modern !himself
+I scroll his highlights every night. Please tell me you're not across the country. ~ online modern !himself
 Photos from the sideline are the best part for me. Is it close enough to get them? ~ online
-My timeline is full of his plays. I'd hate to only see him through a screen. ~ online modern
+My timeline is full of his plays. I'd hate to only see him through a screen. ~ online modern !himself
 Can we film from the stands at your place? We'd be driving a ways to do it. ~ online modern
-It's easy to say we'll video chat, but I want him within reach. ~ online modern
+It's easy to say we'll video chat, but I want him within reach. ~ online modern !himself
 What would the travel look like for us? I'd have to plan it all out ahead. ~ online
 I'm already planning the family road trip posts. Let's find out how long the road is. ~ online modern
-{name} is a homebody who's never complained about it. How far is it from here? ~ calm
-We keep things private and simple at home. I want him near enough to come back to that. ~ calm
+{name} is a homebody who's never complained about it. How far is it from here? ~ calm !himself
+We keep things private and simple at home. I want him near enough to come back to that. ~ calm !himself
 I'm not worried about much, but the distance is on my mind. ~ calm
 I'd like to know how long it takes to get to you. I'll just quietly plan around it. ~ calm
 We're a quiet family. A short drive would suit us fine. ~ calm
-I don't need a lot of games, coach. I just need him a reasonable drive away. ~ calm
+I don't need a lot of games, coach. I just need him a reasonable drive away. ~ calm !himself
 It's one question for me. How far is it from our house? ~ calm
-I'll be honest, I like having him nearby. What's the distance like? ~ calm
+I'll be honest, I like having him nearby. What's the distance like? ~ calm !himself
 No rush on the answer, but I'd like to hear how far it really is. ~ calm
-Home matters to him. I'd like to understand how far he'd be from it. ~ calm
+Home matters to him. I'd like to understand how far he'd be from it. ~ calm !himself
 We've talked it over quietly, and distance came up first. ~ calm
 I'm not going to be at every game, but I'd like to know I could be. ~ calm
 A manageable drive would make this easier for all of us. ~ calm
-How often could he come home? That's the part I keep thinking about. ~ calm
+How often could he come home? That's the part I keep thinking about. ~ calm !himself
 My son is steady, but he's never been far from us. Tell me about the distance. ~ calm parent
 I don't make a fuss, coach. I just want my boy within a day's drive. ~ calm parent
 It would settle my mind to know it's not a long trip. ~ calm
-I'd rather he stay where we can reach him. Can you say how far you are? ~ calm
+I'd rather he stay where we can reach him. Can you say how far you are? ~ calm !himself
 Can you tell me how long the trip takes? I'd want to plan quietly for it. ~ calm
 We take things one step at a time. First step is how far this is from home. ~ calm
 I'm not around as much as I'd like, so distance worries me more than it should. ~ absent
@@ -1787,9 +1787,9 @@ I'm not around as much as I'd like, so distance worries me more than it should. 
 @key homevisit.ask.family
 What does a family get from you besides a schedule?
 If my people come to a game, where do they fit with you? ~ himself
-How often will you call us, and not only him?
-I'm not asking about wins yet. I'm asking how you treat the people behind {name}.
-Will we get to see him, or does the program own his time?
+How often will you call us, and not only him? ~ !himself
+I'm not asking about wins yet. I'm asking how you treat the people behind {name}. ~ !himself
+Will we get to see him, or does the program own his time? ~ !himself
 My family comes as a package with me, Coach. Is that okay here? ~ himself
 Do you know the families of the players you already have?
 How do you handle a family that has questions at midnight?
@@ -1813,7 +1813,7 @@ Nobody I know back home trusts a smooth talker. How are families treated here? ~
 Skip the sales pitch. Do the families here get looked after or not? ~ northeast
 Where I come from, you earn trust slowly. What do you do for the families? ~ northeast
 We're far from everything we know. How do we stay connected to him? ~ west !himself
-Out west we don't have much family nearby. Who becomes his people there? ~ west
+Out west we don't have much family nearby. Who becomes his people there? ~ west !himself
 My grandson has people who love him. Will you treat them well? ~ grandparent
 I've watched him grow up. What do I get to be a part of? ~ grandparent
 At my age I don't travel easy. Will somebody call me and tell me how he's doing? ~ grandparent
@@ -1824,9 +1824,9 @@ Parents ask me all the time what happens once he's yours. What do I tell them? ~
 I'll be honest with them either way. What does your program give a family? ~ handler
 How do you keep families in the loop without making it about the game?
 Is there one person on your staff who answers when a family calls?
-What happens if something at home pulls him away? ~ !handler
+What happens if something at home pulls him away? ~ !handler !himself
 If something serious happens in the family, what do you do?
-Will he be allowed to come home when we need him?
+Will he be allowed to come home when we need him? ~ !himself
 I need to know you'll let him be a son first. ~ parent
 What does the program do for a parent who's never done this before? ~ parent
 Are there other families here I can talk to?
@@ -1834,29 +1834,29 @@ Can we talk to the parents of your current players?
 Do you ever ask the family what you can do better?
 How does a family find out something's wrong before it's too late?
 Will we hear bad news from you, or from somebody else?
-When he struggles, who tells us first?
+When he struggles, who tells us first? ~ !himself
 Coach, would you want your own family treated the way you treat ours?
 Can my family come to practice or only to games? ~ himself
 My people have been with me since the start. Will you make room for them? ~ himself
 Does your staff learn who's in a player's corner at home?
 How do you make a family feel like they belong?
-{name} brings his whole family with him. Are you ready for that?
+{name} brings his whole family with him. Are you ready for that? ~ !himself
 I'm giving you the most important thing in my life. What do I get back? ~ parent
 What does it mean to be part of your family, not just your roster? ~ himself
 Is the family talk you give recruits something you actually live?
 My boy listens to his family before anyone. Do you? ~ parent
-Do you want to know the people who raised him?
+Do you want to know the people who raised him? ~ !himself
 Does the program do anything for families, or is it all about the field? ~ !himself
 Do the families in this program ever get together outside of games?
 If we call you directly, will you pick up?
-What does the family get to see of his day to day?
-Does your staff text us or only him? ~ modern
+What does the family get to see of his day to day? ~ !himself
+Does your staff text us or only him? ~ modern !himself
 I'd want a text now and then, not just a form letter. ~ parent modern
 Are we going to get updates, or do we have to chase them?
 If the family has a problem with something, who do we go to?
 [We|My people] need to know you see {name} as more than a player. ~ himself
 Does the program treat a family as a piece of the team or as a distraction?
-If this worked out, what would his family's role in it be?
+If this worked out, what would his family's role in it be? ~ !himself
 I don't want to be the parent in the parking lot. Where do we belong? ~ parent
 Will my voice count if I say something about him? ~ parent
 I'm [proud|nervous|protective] of him. How do you treat a family like mine? ~ parent
@@ -1864,7 +1864,7 @@ I'm not the quiet type, so I'll ask it plainly. How do you treat a family? ~ par
 I'll be at every game with a sign. Does your staff mind families that do that? ~ parent loud
 I like to keep my phone for family. Will you respect that or message us all hours? ~ parent calm modern
 I get nervous around coaches. Please tell me how this works for a family. ~ parent calm
-He's the first one in the family to get this far. What do we need to know? ~ !handler
+He's the first one in the family to get this far. What do we need to know? ~ !handler !himself
 Does a family who knows nothing about football still get treated right?
 I don't know the ins and outs, so I'll ask about the people. How do you care for them?
 How do you take care of the ones who can't be here every week?
@@ -1879,32 +1879,32 @@ Will they let my family into the locker room hallway after games? ~ himself
 How do you handle it when a family and a coach don't see eye to eye?
 Is there a family night, a dinner, anything where we'd get to know everyone?
 What did the last family say about you when their player left?
-If he gets hurt, who sits with us?
-{name} says he feels at home with you. Does his family get to feel that way too?
-Does the whole house get invited in, or just him?
+If he gets hurt, who sits with us? ~ !himself
+{name} says he feels at home with you. Does his family get to feel that way too? ~ !himself
+Does the whole house get invited in, or just him? ~ !himself
 I need to hear that you'll treat his family the way you want yours treated. ~ !himself
 What's one thing you do for families that other programs don't?
-How much will we really see of him once he's yours?
-I'm asking for the family, not for him. How are we treated?
+How much will we really see of him once he's yours? ~ !himself
+I'm asking for the family, not for him. How are we treated? ~ !himself
 Make me believe my family is welcome in this. ~ himself
-What does a bad day look like for his family?
+What does a bad day look like for his family? ~ !himself
 Will somebody call us before we hear it from somebody else?
 Do you actually know the families on your team?
-How close will we be able to stay to him?
+How close will we be able to stay to him? ~ !himself
 I'd like to know what we're signing up for, as a family.
-Will we be able to see him on holidays?
-What's the first thing you'd do if he got homesick?
+Will we be able to see him on holidays? ~ !himself
+What's the first thing you'd do if he got homesick? ~ !himself
 Do you ever sit down with the families, just to talk?
 How many of your players' families do you really know?
 We're a close family. Is that a problem for you?
 Will you pick up the phone if I call you directly? ~ modern
 I'm not here for the football. I'm here for him. ~ parent calm
-Tell me how you'd talk to his family on a hard week.
-How does the family stay in his life there?
+Tell me how you'd talk to his family on a hard week. ~ !himself
+How does the family stay in his life there? ~ !himself
 If we show up unannounced, are we in the way?
 How does a family like ours fit in?
 Will you tell me the truth, even when it's bad news?
-What happens to his people when the season gets ugly?
+What happens to his people when the season gets ugly? ~ !himself
 I'll be at every game I can. Will somebody know my name? ~ parent loud
 Do the parents get a seat, or just a ticket?
 I've got a lot to say about how he's treated. Will you listen? ~ parent loud
@@ -1949,7 +1949,7 @@ I can't be at every game, but I want to know about him. ~ parent absent
 I've missed a lot. Will you help me stay close to him? ~ parent absent
 His whole family's counting on this place. Is it ready? ~ !himself
 Will the family be able to watch him on a screen if we can't travel? ~ parent modern
-Will we be able to FaceTime him whenever we want? ~ !handler modern
+Will we be able to FaceTime him whenever we want? ~ !handler modern !himself
 Do you let his people text you? ~ !himself modern
 Is there anyone on staff who looks out for the families? ~ !himself
 If I need something, who do I call? ~ parent
@@ -1963,7 +1963,7 @@ I'm not ready for him to leave. Tell me why I should be. ~ parent
 I just want to be sure we're not losing him. ~ !himself
 Can you tell me how you've treated the families of your players?
 Is it a real family, or just something you say on the recruiting trail?
-Does everyone on your staff care about his people?
+Does everyone on your staff care about his people? ~ !himself
 How does your program treat the families, honestly?
 What do the families get to see, and what do you keep behind closed doors?
 Families come up a lot in this process. Where do they fit in your program?
@@ -1977,7 +1977,7 @@ Show me one thing your program has done for a family when it counted.
 Where do parents and relatives stand when the games get tense?
 Nobody asks this, but what does a family do if they disagree with a call you make?
 Can a family get you on the phone, or do they get a secretary? ~ modern
-When a player is hurting, how fast does his family hear about it?
+When a player is hurting, how fast does his family hear about it? ~ !himself
 What kind of relationship do you want with the people at home?
 Walk me through how families are treated on a game weekend.
 I care less about the facilities and more about how families are handled. Convince me.
@@ -2070,71 +2070,71 @@ Does your program put the family first or the team first? Don't dodge it.
 Describe the way you talk to families, in your own words.
 What do families deserve from a coach, in your view?
 You're going to hear me in the stands, so I need to know families are welcome. ~ loud
-I'm not shy about this. How does your program treat the people who raised him? ~ loud
-Will I get to see him play, or do you keep parents behind a fence? ~ loud
-I yell, I cheer, I embarrass him. Is there room for a family like that? ~ loud
+I'm not shy about this. How does your program treat the people who raised him? ~ loud !himself
+Will I get to see him play, or do you keep parents behind a fence? ~ loud !himself
+I yell, I cheer, I embarrass him. Is there room for a family like that? ~ loud !himself
 Let me ask it straight. Do parents get treated like part of this or like a problem? ~ loud
 Where do the families sit, and do you make us feel wanted there? ~ loud
 I'll be at everything I can get to. Does that bother you? ~ loud
 How many of the parents do you actually know by name? ~ loud
-If he gets hurt, who calls me first? ~ loud
-If I've got something to say about how he's treated, will you listen or just nod? ~ loud
+If he gets hurt, who calls me first? ~ loud !himself
+If I've got something to say about how he's treated, will you listen or just nod? ~ loud !himself
 We're a loud bunch, and we show up. Can your program handle that? ~ loud
 I need to know you'll treat my family with respect, even when I'm hollering. ~ loud
 Do you shake our hands after the game, win or lose? ~ loud
 Are the families a nuisance to your staff, or do you actually want us around? ~ loud
 What's your answer when a parent shows up upset? ~ loud
 Do you throw anything for the families, or is it just the players who matter? ~ loud
-I'm in his corner all the way. Tell me you can say the same. ~ loud
+I'm in his corner all the way. Tell me you can say the same. ~ loud !himself
 Are we going to be welcome in the building, or only on game day? ~ loud
-I want to see how you talk to the families, not just how you talk to him. ~ loud
+I want to see how you talk to the families, not just how you talk to him. ~ loud !himself
 My people travel. Are you going to make that easy or hard on us? ~ loud
 Make me believe the families matter to you, and make it quick. ~ loud
 Will you pick up when I call, or do I get a secretary? ~ loud
-How does your program treat the people who made him who he is? ~ loud
+How does your program treat the people who made him who he is? ~ loud !himself
 We keep things quiet at home. Will you respect that? ~ calm
-He's a good kid, and we'd like to keep him that way. How do you help? ~ calm
+He's a good kid, and we'd like to keep him that way. How do you help? ~ calm !himself
 I'm not one to make noise. If something's wrong, how would I find out? ~ calm
 What do you do for families who live far from the school? ~ calm
 I'd like to understand how you treat the people at home. ~ calm
-We're private people. How much of his life becomes your business? ~ calm
+We're private people. How much of his life becomes your business? ~ calm !himself
 Is there somebody I can talk to without it turning into a thing? ~ calm
-What happens when he's hurting and doesn't want to say so? ~ calm
+What happens when he's hurting and doesn't want to say so? ~ calm !himself
 I'll keep my distance. I just need to know the door's open if I knock. ~ calm
-Tell me quietly, and honestly, who is watching out for him. ~ calm
+Tell me quietly, and honestly, who is watching out for him. ~ calm !himself
 How involved do you expect the family to be? I'd rather be asked than assumed. ~ calm
 I'd like to know how you handle it when a young man misses home. ~ calm
-We're a steady household. Will he find that kind of steady with you? ~ calm
-What do you say to a family who just wants him safe and doing well? ~ calm
-I'm not here to be impressed. I want to know he's cared for. ~ calm
+We're a steady household. Will he find that kind of steady with you? ~ calm !himself
+What do you say to a family who just wants him safe and doing well? ~ calm !himself
+I'm not here to be impressed. I want to know he's cared for. ~ calm !himself
 How do you keep families informed without crowding them? ~ calm
-He's not a loud kid. Who is going to notice if he's struggling? ~ calm
+He's not a loud kid. Who is going to notice if he's struggling? ~ calm !himself
 Do the families get a say, or are we just told afterward? ~ calm
 A good program is one the family trusts. How do you earn that? ~ calm
 What does your staff do when a young man's home life is rough? ~ calm
-We took our time before this visit. What should we know about the people he'd be around? ~ calm
-I don't ask for much. Just keep him close to people who care. ~ calm
-If we only get one question, it's who watches him when we can't. ~ calm
+We took our time before this visit. What should we know about the people he'd be around? ~ calm !himself
+I don't ask for much. Just keep him close to people who care. ~ calm !himself
+If we only get one question, it's who watches him when we can't. ~ calm !himself
 Do you let families see what the team posts, or is it all locked down? ~ online modern
-I post about him a lot. Is that going to be a problem with your program? ~ online modern
+I post about him a lot. Is that going to be a problem with your program? ~ online modern !himself
 Will the families be in the group chat, or do we hear it last? ~ online modern
 Is there a text thread or an app for parents, or do we just follow along online? ~ online modern
-Can I still post about his games and his team? Some places shut that down. ~ online modern
+Can I still post about his games and his team? Some places shut that down. ~ online modern !himself
 Do you reach out to families by phone, or only by text? ~ online modern
 I see how teams treat families online. What does yours do? ~ online modern
 Will you tag the families when you post, or only the players? ~ online modern
-My followers are going to ask where he lands. Do you let families share the news first? ~ online modern
-Do the parents get a say in what goes up about him? ~ online modern
+My followers are going to ask where he lands. Do you let families share the news first? ~ online modern !himself
+Do the parents get a say in what goes up about him? ~ online modern !himself
 Are you going to answer my messages or just leave me on read? ~ online modern
 I've read what folks say about your place online. What do your families actually say? ~ online modern
-Does your staff ever reach out to the family, or is it all through him and his phone? ~ online modern
-We run his page as a family. Will you work with us or around us? ~ online modern
+Does your staff ever reach out to the family, or is it all through him and his phone? ~ online modern !himself
+We run his page as a family. Will you work with us or around us? ~ online modern !himself
 Do the families get the same updates the players do, or do we find out from social media? ~ online modern
 How do the parents stay connected when we can't be there in person? ~ online modern
 Are the families part of your online presence, or just the players? ~ online modern
 I film everything, from practices to game footage. Can I keep doing that? ~ online modern
 I follow your program closely. How do you actually talk to families off the screen? ~ online modern
-I'd like to be able to video call with him. Does your program make time for that? ~ online modern
+I'd like to be able to video call with him. Does your program make time for that? ~ online modern !himself
 Is there a family page, or do parents just wing it with the rest of the internet? ~ online modern
 
 @key homevisit.ask.nil
@@ -2184,88 +2184,88 @@ Nothing fancy here, just a fair deal. What are you offering? ~ parent midwest
 I don't need a show, I need the dollar amount. ~ parent midwest
 Folks in our town work hard for every dollar, so I'm asking carefully. ~ parent midwest
 I'll skip the small talk. What's the number? ~ parent northeast
-What does the money look like for him?
-How much would {name} actually see?
+What does the money look like for him? ~ !himself
+How much would {name} actually see? ~ !himself
 Is there real money here, or just talk?
 I'd like to hear the dollars first. ~ calm
 Be honest with me about the money.
-What can you put in his pocket?
-What's {name} worth to you? Say it plain! ~ loud
-I've seen what other kids post about their deals. What's his? ~ online modern nil
+What can you put in his pocket? ~ !himself
+What's {name} worth to you? Say it plain! ~ loud !himself
+I've seen what other kids post about their deals. What's his? ~ online modern nil !himself
 I'm gone a lot for work, so give me the money part first. ~ absent
-Back home, everybody knows what these boys make. What's his? ~ texas
+Back home, everybody knows what these boys make. What's his? ~ texas !himself
 Money matters to us. I won't hide it.
-Can he make a living off his name here? ~ nil
+Can he make a living off his name here? ~ nil !himself
 I don't want surprises later. What's the pay?
 Give me real numbers, not a sales pitch.
 Do you pay your guys or not?
 We're not rich, coach. What would this mean for us?
 My son needs to eat. What's the deal? ~ parent
-Will he be taken care of financially? ~ calm
+Will he be taken care of financially? ~ calm !himself
 What do your players actually earn?
 Let's skip the small talk. What's the figure?
-I need to know what he can count on.
-How does a kid like {name} get paid here?
+I need to know what he can count on. ~ !himself
+How does a kid like {name} get paid here? ~ !himself
 Don't make me guess about the money.
 Honestly, that's the first thing I want to know. What's the money?
 Who handles the deals, and how much do they bring in? ~ nil
-He's worked hard. What does that earn him?
-I watch every game from the stands, and I'm asking what he gets paid! ~ loud
+He's worked hard. What does that earn him? ~ !himself
+I watch every game from the stands, and I'm asking what he gets paid! ~ loud !himself
 Is it guaranteed or is it a maybe?
 Can you put anything in writing?
-What do boys at his spot usually get?
+What do boys at his spot usually get? ~ !himself
 Tell me about the brand deals around here. ~ nil modern
-He's got followers already. Does that count for money? ~ online modern nil
-I post about him all the time. Can that turn into a deal? ~ online modern nil
-I'll ask it the way folks do back home. What's he making? ~ south
+He's got followers already. Does that count for money? ~ online modern nil !himself
+I post about him all the time. Can that turn into a deal? ~ online modern nil !himself
+I'll ask it the way folks do back home. What's he making? ~ south !himself
 Up here, we don't beat around it. How much? ~ northeast
 In the Midwest we're careful with money. Tell me plainly. ~ midwest
 How do the payments work? Monthly, per deal, what?
 Money's tight at home. Help me understand.
 I want to hear it from you, not the internet.
-What happens to the deal if he gets hurt?
-What if he doesn't start? Does the pay stop?
-Is it the same for every freshman, or does he negotiate?
+What happens to the deal if he gets hurt? ~ !himself
+What if he doesn't start? Does the pay stop? ~ !himself
+Is it the same for every freshman, or does he negotiate? ~ !himself
 Can you tell me what the top guys pull in?
-How early does he start earning?
-He'll need something to live on. What can you do?
+How early does he start earning? ~ !himself
+He'll need something to live on. What can you do? ~ !himself
 I'm not asking for the moon. Just fair.
 How do you decide who gets what?
 Be straight, coach. How much?
 Tell me what the deals look like, start to finish. ~ nil
 I'd like numbers I can take home and sit on. ~ calm
-We'll keep this between us. What's his number? ~ calm
+We'll keep this between us. What's his number? ~ calm !himself
 I don't need fancy. I need real money.
 There's a lot of noise out there. What's true here?
 Do local businesses sign guys here? ~ nil
-Can he do camps and signings for pay? ~ nil
+Can he do camps and signings for pay? ~ nil !himself
 How much would it help us at home?
-Will he see money his first year?
-I'm only going to ask once. What can he earn?
+Will he see money his first year? ~ !himself
+I'm only going to ask once. What can he earn? ~ !himself
 If the money's right, we'll listen.
 What's your best number, coach?
 Do you match what the other places pay?
-Are the deals tied to how he plays?
-I want it plain. What's in it for him?
-Is there a cap on what he can make?
+Are the deals tied to how he plays? ~ !himself
+I want it plain. What's in it for him? ~ !himself
+Is there a cap on what he can make? ~ !himself
 The money's the reason we're sitting here, honestly.
-Can he get paid and still focus on football?
+Can he get paid and still focus on football? ~ !himself
 I know it's awkward. How much?
-We've talked about it all week. What's his share?
+We've talked about it all week. What's his share? ~ !himself
 Money first, then the rest. What's the number?
 Can you show me what a recent signee got? ~ nil
 How many guys on your roster are getting paid?
-Does he need to sign something before he gets a number?
-He deserves to be paid for what he does. Will he be?
+Does he need to sign something before he gets a number? ~ !himself
+He deserves to be paid for what he does. Will he be? ~ !himself
 Say the number out loud, coach. I can take it. ~ loud
 Let me hear it. What's the pay? ~ loud
 I don't make it to many games, so I need the money laid out clear. ~ absent
 How does a first-year guy get a piece? ~ nil
 Where does that money come from?
 Will it be enough to matter?
-How do taxes work on what he makes? ~ nil
+How do taxes work on what he makes? ~ nil !himself
 Give me the plain version of the money side.
-What can {name} expect to be paid?
+What can {name} expect to be paid? ~ !himself
 I'm calm about it, but I do need the number. ~ calm
 Show me the money side and then we'll talk football.
 What's the real figure, coach?
@@ -2282,7 +2282,7 @@ We've been told the money is coming. When does it show up?
 Give it to us plain, coach. What's the offer?
 What happens to the deal if the playing time doesn't come?
 We've done our homework on what other places pay. Where do you land?
-Is any of it guaranteed, or is it all talk until he plays?
+Is any of it guaranteed, or is it all talk until he plays? ~ !himself
 Nobody's said a word about money yet. I'd like to start there.
 Walk us through what the money looks like, start to finish.
 Honestly, the money is the first thing on my mind.
@@ -2432,7 +2432,7 @@ My boy's got a gift. What will somebody pay for it? ~ parent
 Do the players here make real money or just enough for groceries? ~ parent nil
 How many of your players are actually getting paid, and how much? ~ parent nil
 I need to know what he'd bring home in a year. ~ parent
-Does the staff set up the deals, or does he find his own? ~ nil
+Does the staff set up the deals, or does he find his own? ~ nil !himself
 We'd want an advisor to look at anything he signs. Is that fine with you? ~ parent
 The money doesn't decide it for us, but it counts. What are we looking at? ~ parent
 Is there a number you can put in front of us today? ~ parent
@@ -2460,7 +2460,7 @@ Just between us, what does a player like {name} usually see? ~ parent
 Honestly, I'd like to know what the money looks like before anything else. ~ parent calm
 Start with the dollars, coach. Everything else comes after. ~ parent loud
 Give me the figure for {name}, not the pitch. ~ parent loud
-Do you set a fixed number, or does it move with his play?
+Do you set a fixed number, or does it move with his play? ~ !himself
 Is there a bonus for starting, or is the money flat? ~ nil
 How do players here get paid for appearances? ~ nil
 If he gets a deal from somewhere else, does ours still hold? ~ parent
@@ -2470,10 +2470,10 @@ How much of the money comes from the program and how much from outside? ~ nil
 We're not shopping him around, but we do need the dollar number. ~ parent calm
 Are the deals guaranteed for the season, or do they get renegotiated? ~ nil
 What does he have to do to keep the money coming in? ~ parent
-Walk us through what {name} would earn in his first year, start to finish.
+Walk us through what {name} would earn in his first year, start to finish. ~ !himself
 My son's worth something to you, so put a number on it. ~ parent loud
 I'd like honest numbers, not a recruiting sales pitch. ~ parent calm
-Can he sign his own deals, or does the program control them? ~ nil
+Can he sign his own deals, or does the program control them? ~ nil !himself
 Is the money tied to social media posts, or to something else? ~ online modern nil
 Who do we call if a deal falls through? ~ parent calm
 Does the program take a cut of what he earns? ~ parent
@@ -2483,7 +2483,7 @@ We've been told the money can be big. How big is it for him? ~ parent loud
 Can he keep his own money, or does part of it go somewhere else? ~ parent nil
 What would be expected of him for the NIL money? ~ parent
 What are the best deals your players have landed so far? ~ nil
-Can he do appearances or camps for extra money? ~ nil
+Can he do appearances or camps for extra money? ~ nil !himself
 I want to be clear with my son about the money, so give me the real figures. ~ parent calm
 
 @key homevisit.ask.playing
@@ -2621,14 +2621,14 @@ What do the first-year players usually get, special teams or real snaps?
 Can a newcomer earn the job in the first few weeks?
 Is it a fair fight for the job, or is the deck stacked?
 When the game's on the line, who do you trust, young or old?
-How do you explain it to a player when he's not getting on the field?
+How do you explain it to a player when he's not getting on the field? ~ !himself
 Be real with us. What are the odds of early playing time?
 [Honestly|Frankly], the field matters most to us. What can you tell us?
 What kind of opportunity are we looking at on the field?
 When the lineup changes, how do you decide who moves up?
 Does your staff stick with the plan, or does the best player just play?
 Is there a number of reps you expect a newcomer to get?
-Do you cut a player's snaps if somebody new shows up and outworks him?
+Do you cut a player's snaps if somebody new shows up and outworks him? ~ !himself
 Who's in the way, and how big is the gap?
 Do you rotate players in, or does the first group stay the first group?
 I'd like a straight answer on the first year, nothing fancy.
@@ -2639,8 +2639,8 @@ What do you say to families who ask about playing time every year?
 How are first-team spots filled when somebody leaves?
 Does the staff show you where a player stands, or do you have to guess?
 Will there be a clear conversation if the answer changes?
-What's the first thing you tell a player about his role?
-How fast can somebody move up when he's playing well?
+What's the first thing you tell a player about his role? ~ !himself
+How fast can somebody move up when he's playing well? ~ !himself
 Does a good week in practice actually count?
 Who plays more, the proven guys or the new faces?
 Do the coaches make the call, or does the film?
@@ -2823,7 +2823,7 @@ He's not here to sit. Tell me he plays. ~ parent loud
 Do you give young guys a real shot?
 I can't be at every game. Will there be game film of him playing? ~ parent absent
 Is the lineup open, or is it set?
-I'll keep it simple. Does he play?
+I'll keep it simple. Does he play? ~ !himself
 I'd like to hear about his role this fall. ~ parent calm
 Does special teams come first?
 Will I see his number on the field? ~ parent loud
@@ -2872,7 +2872,7 @@ We've been posting about this process all year. Tell the folks what the school i
 Everybody online keeps talking about your program. What about the school? ~ online parent modern
 I looked up the school on my phone. I'd like to hear it from you. ~ modern !himself
 Is the school any good, or is it just the name on the jersey? ~ himself
-Tell me the truth, Coach. Will he graduate from there? ~ calm
+Tell me the truth, Coach. Will he graduate from there? ~ calm !himself
 I'd rather talk about his education than his stats. ~ !himself
 Nobody's yelling about the football here. Tell us about the school. ~ calm !himself
 I'm usually on the road, so I need to know somebody there watches his schoolwork. ~ absent parent
@@ -2985,7 +2985,7 @@ Who runs the study hall, and does anyone care?
 Does the school look after kids when they're homesick?
 What do your players say about the classes?
 I'm picking a school, not a team. Sell me on it. ~ himself
-Does a kid at your school have to give up on his major?
+Does a kid at your school have to give up on his major? ~ !himself
 I want to hear what the school stands for.
 Will he get a real education or just a jersey? ~ !himself
 Convince me the school matters to you.
@@ -3088,7 +3088,7 @@ What does the school do to keep players focused on class?
 How much freedom do players have with their classes?
 Do you let players choose the hard majors, or steer them toward easy ones?
 How does the school treat a player once the season ends?
-Who makes sure a player gets the classes he needs to graduate?
+Who makes sure a player gets the classes he needs to graduate? ~ !himself
 I need to hear about the academics before we talk about anything else.
 Does the school care about players who aren't stars?
 How does the school compare to the others on grades alone?
@@ -3099,31 +3099,31 @@ Do you check in on a player's classes yourself, or does somebody else?
 How do you feel about a player putting school ahead of football?
 Does the school keep its promises on academics?
 Do your players come back and finish if they leave early?
-Let me ask you straight, Coach. What is this school actually going to do for {name}? ~ loud
+Let me ask you straight, Coach. What is this school actually going to do for {name}? ~ loud !himself
 I'm going to be loud about this. School first, football second. ~ loud
 Everybody in the stands knows me, and I tell them all the same thing. The classroom comes first. ~ loud
 Don't hand me a brochure. Tell me how good the school really is. ~ loud
 What are the classes like? I won't sign off on anything that's a joke. ~ loud
-I don't want my boy just passing. I want him learning something. ~ loud
+I don't want my boy just passing. I want him learning something. ~ loud !himself
 How many tutors do you have? And don't say plenty, give me a number. ~ loud
-If {name} struggles in a class, who calls me? Because I will answer on the first ring. ~ loud
+If {name} struggles in a class, who calls me? Because I will answer on the first ring. ~ loud !himself
 Listen, I've yelled at plenty of refs, but I'm not here to yell. I'm here to ask about the school. ~ loud
 What's the graduation rate for your football guys? I want the real figure. ~ loud
 Tell me who's holding these kids accountable in the classroom. ~ loud
 Do your players actually go to class, or do they just show up for practice? ~ loud
-I'm proud of that boy and I want a school that's proud of him in a lecture hall too. ~ loud
+I'm proud of that boy and I want a school that's proud of him in a lecture hall too. ~ loud !himself
 What do you say to a parent who cares more about the diploma than the jersey? ~ loud
 How hard is it to keep up academically while playing here? Be honest with me. ~ loud
 If I show up to a class unannounced, will your players be sitting in it? ~ loud
 Where do your guys end up after football? I want names of the jobs, not just the NFL dreams. ~ loud
-I'll be at every game, but I'll also be asking about his grades every week. How does the school handle that? ~ loud
+I'll be at every game, but I'll also be asking about his grades every week. How does the school handle that? ~ loud !himself
 Is this a real school or a football factory with a nice logo? ~ loud
-Some schools just want his arm and his legs. What does this one want from his mind? ~ loud
-What's the plan if {name} falls behind in a class? Don't dance around it. ~ loud
+Some schools just want his arm and his legs. What does this one want from his mind? ~ loud !himself
+What's the plan if {name} falls behind in a class? Don't dance around it. ~ loud !himself
 Honestly, I came in here ready to talk football, but the school is what I need sold to me. ~ loud
 Does the school stand behind these boys when football gets hard? ~ loud
-I'm a loud dad, Coach, and the loudest thing I have to say is that he's getting a real education. ~ loud
-Somebody posted a list of the best schools for his kind of major. Where does yours land? ~ online modern
+I'm a loud dad, Coach, and the loudest thing I have to say is that he's getting a real education. ~ loud !himself
+Somebody posted a list of the best schools for his kind of major. Where does yours land? ~ online modern !himself
 I've been reading up on the school all week. What's the real story behind what people say online? ~ online modern
 Some of the comments on your program's page are rough. How does the school handle that stuff? ~ online
 I follow a few of your players online, and half of them never mention class. Do they go? ~ online modern
@@ -3134,62 +3134,62 @@ Seen a few threads about the school. Who do I believe? ~ online
 Your school's page looks great, Coach, but pages are pages. What's the daily routine? ~ online
 Is it true your players get their own academic coaches? I read something about that. ~ online
 There's a lot of noise out there about this school. Walk me through what's real. ~ online
-We talked about it in the family group chat. What does a normal school day look like for {name}? ~ online modern
+We talked about it in the family group chat. What does a normal school day look like for {name}? ~ online modern !himself
 I like what you post about your players graduating. Is it every one of them, or just the ones that make the highlights? ~ online modern
-Folks said online that the workload is heavy. Does the school help him through it? ~ online modern
+Folks said online that the workload is heavy. Does the school help him through it? ~ online modern !himself
 Do your people keep tabs on what they say online, or just on what they do in class? ~ online modern
 How does the school make sure these kids don't live only for the clips? ~ online
 What majors do your players actually pick? I checked the list and couldn't tell. ~ online
 There's a ranking for everything now. What does the school itself bring besides football? ~ online
-My question is simple. Is this school going to make him smarter, or only more famous? ~ online
+My question is simple. Is this school going to make him smarter, or only more famous? ~ online !himself
 Everyone has an opinion about the place. I'd rather hear it from you. How is the school? ~ online
-I just want to understand the school. What would a regular week look like for {name}? ~ calm
+I just want to understand the school. What would a regular week look like for {name}? ~ calm !himself
 We've talked about this at home. The school matters more to us than anything else. ~ calm
 Tell me about the classes. Take your time. ~ calm
-I'd like to know who looks after his schoolwork when practice runs long. ~ calm
+I'd like to know who looks after his schoolwork when practice runs long. ~ calm !himself
 We're not in a hurry. What kind of student does well at your school? ~ calm
 How do your players balance class and football? I'd like to hear it plainly. ~ calm
 I don't need a big pitch. Just tell me what the school is like. ~ calm
-Does he get help if a class gets hard? We'd want to know that. ~ calm
-Our house is quiet about this stuff, but we care. What does the school expect from him? ~ calm
-Is the school the kind of place where he can be a student first? ~ calm
+Does he get help if a class gets hard? We'd want to know that. ~ calm !himself
+Our house is quiet about this stuff, but we care. What does the school expect from him? ~ calm !himself
+Is the school the kind of place where he can be a student first? ~ calm !himself
 We'd like to know how many of your players finish what they start in the classroom. ~ calm
-Can you tell me a little about the teachers? He does best with people who pay attention to him. ~ calm
-How big are the classes? He doesn't do well getting lost in a crowd. ~ calm
-We think about the long road. What does the school give him that lasts past football? ~ calm
+Can you tell me a little about the teachers? He does best with people who pay attention to him. ~ calm !himself
+How big are the classes? He doesn't do well getting lost in a crowd. ~ calm !himself
+We think about the long road. What does the school give him that lasts past football? ~ calm !himself
 What's the first thing a new player has to figure out about academics there? ~ calm
 It's a big decision for us. Tell me how the school treats kids who are quiet. ~ calm
-Who would be his academic contact? A name helps us feel comfortable. ~ calm
-How do you handle a player who wants to switch his major? ~ calm
-He's thoughtful, and he'll want to learn. Will the school give him room for that? ~ calm
+Who would be his academic contact? A name helps us feel comfortable. ~ calm !himself
+How do you handle a player who wants to switch his major? ~ calm !himself
+He's thoughtful, and he'll want to learn. Will the school give him room for that? ~ calm !himself
 I'd rather hear about the school and let the football speak for itself. ~ calm
 We're not asking for perfect. We want to know the school is honest with its players. ~ calm
-What I want to know is whether he can have a normal student life there. ~ calm
+What I want to know is whether he can have a normal student life there. ~ calm !himself
 Walk us through how classes and training fit together, if you would. ~ calm
-I don't get to see {name} much, so I need to know who's checking on his schoolwork there. ~ absent
-I'm not around as often as I should be. Who keeps an eye on his classes when I can't? ~ absent
-Somebody has to make sure he goes to class. I can't be that person from here. Who is it? ~ absent
+I don't get to see {name} much, so I need to know who's checking on his schoolwork there. ~ absent !himself
+I'm not around as often as I should be. Who keeps an eye on his classes when I can't? ~ absent !himself
+Somebody has to make sure he goes to class. I can't be that person from here. Who is it? ~ absent !himself
 I'll be honest, I miss a lot. Tell me the school has people who notice when a kid slips. ~ absent
-Does the school call home if he's falling behind? Because I need that call. ~ absent
+Does the school call home if he's falling behind? Because I need that call. ~ absent !himself
 I'm hard to reach, so give me one name at the school I can always get. ~ absent
-My time with him is short these days. What will the school do for him that I can't? ~ absent
-Who's there for him when his grades dip and nobody at home catches it? ~ absent
-I don't see his schoolwork often. Can I get updates without having to chase them? ~ absent
-I wasn't there for a lot of his years, so I want a school that picks up where I left off. ~ absent
-Is there somebody at the school who will actually check in on {name}, even when I forget to? ~ absent
+My time with him is short these days. What will the school do for him that I can't? ~ absent !himself
+Who's there for him when his grades dip and nobody at home catches it? ~ absent !himself
+I don't see his schoolwork often. Can I get updates without having to chase them? ~ absent !himself
+I wasn't there for a lot of his years, so I want a school that picks up where I left off. ~ absent !himself
+Is there somebody at the school who will actually check in on {name}, even when I forget to? ~ absent !himself
 I can't promise I'll be at every parent weekend. Does the school keep us in the loop anyway? ~ absent
-Give me the plain version. If he needs help with a class, how does he get it? ~ absent
-I'm not the one he talks to about school. Will an adult there keep him on track? ~ absent
-Who does he go to when a class gets heavy and I'm not around? ~ absent
-Is the school the kind that stays on a kid? Because I can't always be on him. ~ absent
-I'm barely home some weeks. Tell me he'll have structure at school. ~ absent
-I want to know the school won't let him drift, because I might not notice in time. ~ absent
+Give me the plain version. If he needs help with a class, how does he get it? ~ absent !himself
+I'm not the one he talks to about school. Will an adult there keep him on track? ~ absent !himself
+Who does he go to when a class gets heavy and I'm not around? ~ absent !himself
+Is the school the kind that stays on a kid? Because I can't always be on him. ~ absent !himself
+I'm barely home some weeks. Tell me he'll have structure at school. ~ absent !himself
+I want to know the school won't let him drift, because I might not notice in time. ~ absent !himself
 How does your school treat a kid whose family isn't around every day? ~ absent
 Who makes sure the schoolwork gets done? I trust you, but I need names. ~ absent
 I don't have a lot of time to ask questions, so let me ask the big one. Is this a good school? ~ absent
-If he needs a ride to a tutor or a nudge to study, does somebody there handle that? ~ absent
-I miss most of his games, so tell me about the part I can still help with. How does school work? ~ absent
-I'll leave the football to you. I just need to know somebody there cares about his classes. ~ absent
+If he needs a ride to a tutor or a nudge to study, does somebody there handle that? ~ absent !himself
+I miss most of his games, so tell me about the part I can still help with. How does school work? ~ absent !himself
+I'll leave the football to you. I just need to know somebody there cares about his classes. ~ absent !himself
 
 @key homevisit.ask.winning
 Tell me straight, Coach, does your team win? ~ parent
@@ -3289,7 +3289,7 @@ Show me how this team wins.
 Do you win when it counts?
 Does he get to compete for titles here? ~ !himself
 What's your plan for winning? ~ parent
-My boy hates losing. Does your team?
+My boy hates losing. Does your team? ~ !himself
 I want him on a team that wins. ~ parent
 We came to hear how you win.
 Tell me about your winning culture.
@@ -3309,12 +3309,12 @@ I need to win. Can you help me? ~ himself
 How do you plan to win here, Coach?
 Is this team going to win now, or later?
 Tell us why you win.
-We want to see him win.
+We want to see him win. ~ !himself
 Does this team win?
-How are you going to make him a winner?
+How are you going to make him a winner? ~ !himself
 Do you build winners here?
 How many wins did you get last year? ~ !himself
-Will he win if he comes here?
+Will he win if he comes here? ~ !himself
 He wants to win, plain and simple. ~ handler
 My kid just wants wins. ~ parent
 The wins are what we care about. ~ parent
@@ -3326,7 +3326,7 @@ Where does this team finish?
 Are you competing for a title or not?
 Is this program going places?
 I want to win and win a lot. ~ himself
-Will he get a ring?
+Will he get a ring? ~ !himself
 How's your win column look?
 I want him winning, Coach. ~ parent
 Is this place going to win?
@@ -3349,7 +3349,7 @@ I'll be in the stands screaming. Will I be screaming for a winner? ~ loud parent
 His highlights get posted every week. Will his team win? ~ online parent modern
 I post about him a lot. I want to post wins. ~ online parent modern
 Our followers want to see him win. ~ online parent modern
-I post his games, Coach. I'd love to post wins. ~ online modern
+I post his games, Coach. I'd love to post wins. ~ online modern !himself
 I don't get to many games. Does his team win? ~ absent parent
 I miss a lot of games, so I hope he's winning. ~ absent parent
 I can't be there much, so tell me about the wins. ~ absent parent
@@ -3374,11 +3374,11 @@ I've trained him for years. He deserves a winner. ~ handler
 Tell us straight, how much does this team win?
 Winning is what we care about most. Do you win here?
 What does winning look like here, year after year?
-{name} wants to be on a team that wins. Is this that team?
+{name} wants to be on a team that wins. Is this that team? ~ !himself
 Losing eats at us. How do you handle it when it happens?
 How long has this team been in the hunt?
 We talked it over, and it comes down to winning.
-Can you promise us he'd be part of something that wins?
+Can you promise us he'd be part of something that wins? ~ !himself
 Show us the trophy case. That's where we start.
 Nobody in our house likes losing. Where does this team stand?
 Does this place compete for titles, or just show up?
@@ -3401,22 +3401,22 @@ We keep coming back to one question, and it's whether you win.
 Where is this team headed? We want it going up.
 I'd rather be on a team that wins than a team that's comfortable. Which are you?
 How many close games did this team pull out lately?
-Does {name} walk into a winning room or a rebuilding one?
+Does {name} walk into a winning room or a rebuilding one? ~ !himself
 Tell us how you plan to beat the teams at the top.
-Winning changes everything for a kid. Can you give him that?
+Winning changes everything for a kid. Can you give him that? ~ !himself
 What's your answer when someone asks why you'll win it all?
 [What|Why] should we believe this team is a winner?
 Is the winning going to last, or was it a good run?
 Give us your best case that this team wins.
 How does your staff keep a winning team winning?
-We believe in his talent. Now we need to believe in your results.
+We believe in his talent. Now we need to believe in your results. ~ !himself
 We're looking at a few places, and the one that wins gets the edge.
 Is this a team that finds a way to win?
 Do the players here expect to win, or just hope to?
 Convince us that this team has real winning in its future.
 What do you do differently from the teams that lose?
 Has this team ever turned things around quickly?
-He wants a trophy more than he wants a spotlight. Can you give him that?
+He wants a trophy more than he wants a spotlight. Can you give him that? ~ !himself
 Does this program build winners, or does it just collect them?
 We have one big question, and it's about the scoreboard.
 Where does the winning start with you?
@@ -3427,18 +3427,18 @@ Our family is competitive. Is this team?
 How many more wins until this team is where you want it?
 Does your team win when it counts the most?
 Why does your team win games the others lose?
-We'd like him to be somewhere that expects to win every week.
+We'd like him to be somewhere that expects to win every week. ~ !himself
 Tell us about the biggest win you ever coached.
 What's the record you're proudest of, and what's the one you want to beat?
 Be real with us. Can this team win a title or not?
 I want someone to tell us this team wins and mean it.
-What kind of record can we expect while he's here?
+What kind of record can we expect while he's here? ~ !himself
 Do you know how to win? That's what we want to hear.
-He doesn't want to wait around for a winning team. Does it exist here?
+He doesn't want to wait around for a winning team. Does it exist here? ~ !himself
 We're hoping you can tell us this is a team on the rise.
 Everything else is secondary for us. Do you win?
-Will he get a chance to win something real?
-We want to be proud of the team he plays for. Winning helps.
+Will he get a chance to win something real? ~ !himself
+We want to be proud of the team he plays for. Winning helps. ~ !himself
 Show us some proof that the wins are coming.
 We watch every result. What should we be seeing from you?
 If we picked you, what would we be getting, a contender or a pretender?
@@ -3446,7 +3446,7 @@ How soon can this team win big?
 We know that winning takes time. How much time do you need?
 What do you say to people who think this team can't win?
 I'll say it plainly. We want wins.
-He'll work as hard as anyone. Will the team win with him?
+He'll work as hard as anyone. Will the team win with him? ~ !himself
 We want a team that fights to the whistle. Does yours win that way?
 Our biggest worry is being on a team that doesn't win. Should we be worried?
 We come to this with one thing in mind, and that's a win column.
@@ -3455,68 +3455,68 @@ It's simple. We want to win, and we want to know if you can.
 When the pressure's on, does your team come through?
 We don't want to hear about potential. We want to hear about wins.
 I'm in the stands screaming every game, so I need to know we're going to be screaming happy. ~ loud
-Win, Coach. That's what I care about. Is {name} going to win here? ~ loud
+Win, Coach. That's what I care about. Is {name} going to win here? ~ loud !himself
 Nobody in our house likes losing, and we're not quiet about it. ~ loud
 How many games are you winning a year? Give me a number. ~ loud
 We want a team that wins big and wins loud. Is that yours? ~ loud
 Tell me about winning. That's the whole reason we're sitting here. ~ loud
-{name} hates losing and so do I. Can you show me a winner? ~ loud
+{name} hates losing and so do I. Can you show me a winner? ~ loud !himself
 I'll be on my feet the whole game. Give me something to cheer about. ~ loud
 Does this team win, yes or no? Don't dance around it. ~ loud
 I'm going to be the loudest one out there, so make it worth it. Do you win? ~ loud
 We've had enough close losses. I need to hear you win the big ones. ~ loud
 How does a program like yours go about winning? Spell it out for me. ~ loud
-I want {name} playing for a team that makes the whole town proud. Is that you? ~ loud
+I want {name} playing for a team that makes the whole town proud. Is that you? ~ loud !himself
 What's your plan to win championships here? I want details. ~ loud
-{name} doesn't just want to play. He wants to win, and so do I. ~ loud
+{name} doesn't just want to play. He wants to win, and so do I. ~ loud !himself
 Say it to my face. Are you building a winner? ~ loud
-People are watching where he goes. Is your team one that wins? ~ online
-I tell everyone about his games, so I'd like to tell them about a lot of wins. ~ online
-The whole crowd of people who follow him wants to know if you win. So do I. ~ online
-Wherever he lands, people will see it. Are you winning enough to be worth sharing? ~ online
-Plenty of people have opinions about his choice. A winning team would quiet them. ~ online
-He has a following, and winners keep a following. Do you win? ~ online
-Fans of his will go where the wins are. Are the wins here? ~ online
+People are watching where he goes. Is your team one that wins? ~ online !himself
+I tell everyone about his games, so I'd like to tell them about a lot of wins. ~ online !himself
+The whole crowd of people who follow him wants to know if you win. So do I. ~ online !himself
+Wherever he lands, people will see it. Are you winning enough to be worth sharing? ~ online !himself
+Plenty of people have opinions about his choice. A winning team would quiet them. ~ online !himself
+He has a following, and winners keep a following. Do you win? ~ online !himself
+Fans of his will go where the wins are. Are the wins here? ~ online !himself
 Does your team win the kind of games people talk about afterwards? ~ online
-Folks will ask me how his team is doing every week. I want to have good answers. ~ online
+Folks will ask me how his team is doing every week. I want to have good answers. ~ online !himself
 Show me why people should be excited about your team. Winning, I hope? ~ online
-We'd love {name} to be part of a team people are talking about for the right reasons. ~ online
+We'd love {name} to be part of a team people are talking about for the right reasons. ~ online !himself
 People like to share good news, Coach. Will you give us some wins to share? ~ online
 We don't need noise. We just want to know if you win. ~ calm
 Winning matters to us, quietly. Does your team do it? ~ calm
-I'm not going to make a scene about it. I just want {name} on a winner. ~ calm
+I'm not going to make a scene about it. I just want {name} on a winner. ~ calm !himself
 We're pretty private people. All we ask is whether this program wins. ~ calm
 Tell me honestly, Coach. Is this a team that wins? ~ calm
 I'll keep my thoughts to myself, but winning is high on my list. ~ calm
 I don't need big promises. I'd like to hear how you win games. ~ calm
 How have you done in the games that count? I'll take the straight answer. ~ calm
-Winning has always been important to him. Can he win here? ~ calm
+Winning has always been important to him. Can he win here? ~ calm !himself
 I'd like a program that wins steadily, not just once in a while. ~ calm
 We've talked it over at home. Winning is what we want to hear about. ~ calm
-If he's going to put in the work, I'd like it to lead to wins. Does it here? ~ calm
+If he's going to put in the work, I'd like it to lead to wins. Does it here? ~ calm !himself
 I'm not the type to shout from the stands. I just hope your team wins. ~ calm
 What do you do to keep winning year after year? ~ calm
 We're just trying to make a good choice. Does winning come with it? ~ calm
-He's put a lot into this game. I'd like to see it pay off in wins. ~ calm
+He's put a lot into this game. I'd like to see it pay off in wins. ~ calm !himself
 I don't say much, but I do want to hear how often you win. ~ calm
 Does the team win more than it loses? That's what I'd like to know. ~ calm
 Be straight with me about winning. I can handle the answer. ~ calm
-I'm not around much, Coach, but I know he wants to win. Will he? ~ absent
-With my schedule I miss most of it. Tell me his team wins. ~ absent
+I'm not around much, Coach, but I know he wants to win. Will he? ~ absent !himself
+With my schedule I miss most of it. Tell me his team wins. ~ absent !himself
 I can't be at every game, so I'll be checking in on the results. Are they good ones? ~ absent
-I'm away more than I'd like. I want {name} somewhere that wins. ~ absent
+I'm away more than I'd like. I want {name} somewhere that wins. ~ absent !himself
 I'll be catching games when I can. I hope there's plenty of winning to catch. ~ absent
-Honestly, I haven't seen much of his games. Is this a team that wins? ~ absent
+Honestly, I haven't seen much of his games. Is this a team that wins? ~ absent !himself
 I trust you with the details. I just want to know that you win. ~ absent
-I miss a lot of his games, so I want the ones I do see to be wins. ~ absent
+I miss a lot of his games, so I want the ones I do see to be wins. ~ absent !himself
 Winning matters to me, even from a distance. Do you win here? ~ absent
-I'm not always around, but I'd feel better knowing he's on a winner. ~ absent
-I'll be hearing about his season secondhand, so give me wins to hear about. ~ absent
+I'm not always around, but I'd feel better knowing he's on a winner. ~ absent !himself
+I'll be hearing about his season secondhand, so give me wins to hear about. ~ absent !himself
 Tell me the truth, since I can't see it for myself. Does your team win? ~ absent
 I can't get to every game, but I follow the results. How do you fare? ~ absent
 My time is short, so I'll ask the big one. Do you win? ~ absent
-I leave a lot to others, but I want {name} on a winning team. ~ absent
-I haven't been to many of his games, but I know he plays to win. Will he here? ~ absent
+I leave a lot to others, but I want {name} on a winning team. ~ absent !himself
+I haven't been to many of his games, but I know he plays to win. Will he here? ~ absent !himself
 If I can only make a couple games, I want them to be wins. ~ absent
 Tell me honestly, can {name} win a title at your place? ~ !himself
 If we're gonna drive up here, I need to know you win. ~ !himself
@@ -3685,7 +3685,7 @@ Somebody should have prepared you better.
 It didn't feel honest.
 I appreciate you coming, but that missed.
 You may want to rethink that approach.
-That doesn't sound like a place where he'd grow.
+That doesn't sound like a place where he'd grow. ~ !himself
 We deserve a better answer than that.
 You dodged us.
 I keep waiting for the real answer.
@@ -3719,7 +3719,7 @@ You've got work to do here, Coach.
 We're going to need a better plan than that.
 We aren't looking for a pitch, we're looking for the truth.
 That was disappointing to hear.
-I don't see how that helps him.
+I don't see how that helps him. ~ !himself
 Let's try this again, because that didn't work.
 Hold on, coach. That is not what I came here to hear. ~ loud
 No. No, I'm sorry, that doesn't work for us at all. ~ loud
@@ -3737,7 +3737,7 @@ Everybody in this room just got real quiet for a reason. ~ loud
 No way. Absolutely not. Try again. ~ loud
 You lost me right there, coach. Completely lost me. ~ loud
 Then why are we even talking? Seriously, why? ~ loud
-I'll say it plain: that is not good enough for him. ~ loud
+I'll say it plain: that is not good enough for him. ~ loud !himself
 Hey, I yell at refs for less. That was a bad answer. ~ loud
 We came to hear something real, and that wasn't it. ~ loud
 Wow. Okay. That is not what I expected from you. ~ loud
@@ -3745,26 +3745,26 @@ Don't hand me that, coach. I've seen that play before. ~ loud
 Man, that fell flat. Flat as a board. ~ loud
 Nah, I'm not letting that one slide. ~ loud
 Coach, with all due respect, that's a swing and a miss. ~ loud
-People will hear about wherever he lands, so that answer worries us. ~ online
+People will hear about wherever he lands, so that answer worries us. ~ online !himself
 We care how this looks, coach, and that didn't look good. ~ online
-I'd have a hard time explaining that to everyone who follows his story. ~ online
+I'd have a hard time explaining that to everyone who follows his story. ~ online !himself
 A lot of people are watching this decision, and that wasn't impressive. ~ online
 Honestly, that's not something I'd want to share with anyone. ~ online
-We get asked every day where he's going, and that won't help you. ~ online
+We get asked every day where he's going, and that won't help you. ~ online !himself
 I can already hear what everyone would say about that answer. ~ online
 That didn't give us anything worth telling people. ~ online
 We want a story we're proud to tell, and that isn't it. ~ online
 Everyone's going to ask how this visit went. I don't love the answer. ~ online
-Folks keep close track of his journey, coach, and they'd want more than that. ~ online
+Folks keep close track of his journey, coach, and they'd want more than that. ~ online !himself
 That wasn't the highlight we were hoping for. ~ online
-We're building his name carefully, and that doesn't fit. ~ online
+We're building his name carefully, and that doesn't fit. ~ online !himself
 Nothing about that is something I'd put my name behind. ~ online
 Not great, coach. Not great at all, and people will ask us. ~ online
 Our circle expects us to choose well. That answer makes it harder. ~ online
 That sounds like every other school's line, and we'd be embarrassed to repeat it. ~ online
 I wanted something I could be proud to tell people. That wasn't it. ~ online
-If I told that to the family and friends who keep up with him, they'd frown. ~ online
-Coach, that's not going to play well with the folks watching him. ~ online
+If I told that to the family and friends who keep up with him, they'd frown. ~ online !himself
+Coach, that's not going to play well with the folks watching him. ~ online !himself
 We don't want to tell people we chose this on that note. ~ online
 I appreciate you coming, but that doesn't sit right with us. ~ calm
 We'll keep that to ourselves, coach. It isn't what we hoped to hear. ~ calm
@@ -3784,20 +3784,20 @@ That doesn't feel right to me, and I trust that feeling. ~ calm
 Appreciate the time. I just can't get behind that. ~ calm
 We'll talk it over after you leave, but I already know. ~ calm
 Let me be clear without raising my voice: no. ~ calm
-Understood. It just isn't what he needs. ~ calm
+Understood. It just isn't what he needs. ~ calm !himself
 Mm. I don't think so, coach. ~ calm
 I don't get to see much of it, but that doesn't sound right. ~ absent
 Since I can't be at every practice, I need to trust the person, and that didn't help. ~ absent
-I only catch bits of his season, and that isn't what I want for him. ~ absent
+I only catch bits of his season, and that isn't what I want for him. ~ absent !himself
 I miss a lot of it, so when I do listen, it has to count. That didn't. ~ absent
 Honestly, I'm out of the loop on most of this, and that answer won't fix it. ~ absent
-I wasn't there for most of his games, coach. I need more from you. ~ absent
-I can't be around, so someone has to look out for him. That wasn't looking out. ~ absent
+I wasn't there for most of his games, coach. I need more from you. ~ absent !himself
+I can't be around, so someone has to look out for him. That wasn't looking out. ~ absent !himself
 I'd have to rely on you, and that gives me no comfort. ~ absent
 I don't know the details like the others do, but I know that's not good. ~ absent
 Hard to feel good when I'm barely there and you say that. ~ absent
 I keep my distance from the football side, but that bothered me. ~ absent
-That makes me worry about him when I'm not here. ~ absent
+That makes me worry about him when I'm not here. ~ absent !himself
 Coach, I'm not here a lot. That's why that answer matters so much. ~ absent
 I haven't seen much of this world, and what I just heard doesn't help. ~ absent
 Sorry, I'm not the one who's around, but my answer's still no. ~ absent
@@ -4360,7 +4360,7 @@ I like a steady answer. That was one. ~ calm
 I haven't been around much, but I heard that. ~ absent parent
 I miss a lot of this, so thank you for explaining. ~ absent parent
 I wish I could be at more of this. That helps. ~ absent
-Good to know someone's looking out for him. ~ absent
+Good to know someone's looking out for him. ~ absent !himself
 Well, that's good to hear. ~ midwest
 That's a fair answer, folks around here would say. ~ midwest
 Alright, that's fair, and I respect it. ~ northeast
@@ -4408,7 +4408,7 @@ It makes sense when you say it like that.
 Look, that answered more than you know.
 I wrote that down, coach.
 We feel better than when you walked in.
-It sounds like you've actually thought about him.
+It sounds like you've actually thought about him. ~ !himself
 You made a good case, and you made it simply.
 I didn't think a visit would change my mind. This might.
 We needed that. Thank you for not overselling it.
@@ -4442,7 +4442,7 @@ I wasn't sure about this visit, but I am now.
 That feels right to us.
 Okay, I see why people talk about you.
 Good, because that's what has been on our minds.
-You talk like someone who'd keep his word.
+You talk like someone who'd keep his word. ~ !himself
 Thank you for saying it straight.
 This visit just got a lot more interesting.
 That eased my mind more than you'd think.
@@ -4497,7 +4497,7 @@ You say it like that and I'll be tagging your program all week. ~ online modern
 I'll send this to the whole group chat as soon as you leave. ~ online modern
 My feed is about to be nothing but you. ~ online modern
 Okay, that's the one I'm quoting. ~ online modern
-People keep asking me who he's going with. I might finally have an answer. ~ online modern
+People keep asking me who he's going with. I might finally have an answer. ~ online modern !himself
 I wasn't planning to share anything, but this changes it. ~ online modern
 Write that down, somebody, so I get the words right when I post. ~ online modern
 Folks in my comments are going to have a lot to say about this. ~ online modern
@@ -4745,7 +4745,7 @@ All I want to hear about is {first}, then {second}.
 We keep coming back to {first}. After that, {second}.
 {first} first, then we can talk about {second}.
 My priorities are {first}, then {second}. No secret there.
-I want {first} for him. After that, {second}.
+I want {first} for him. After that, {second}. ~ !himself
 Our whole decision sits on {first}, with {second} behind it.
 Put it this way. {first} counts most, {second} counts next.
 I'll say it so the whole room hears: {first}, then {second}! ~ loud
@@ -4772,7 +4772,7 @@ Around here we don't dress it up. {first}, then {second}. ~ northeast
 Out west we see it simple too. {first} first, {second} next. ~ west
 For my boy it's {first}, then {second}. ~ parent
 I want {first} for my son. {second} comes second. ~ parent
-Whatever else, {first} for him. Then {second}.
+Whatever else, {first} for him. Then {second}. ~ !himself
 Say we had to pick one thing. {first}. Then {second}.
 Give us {first} and we're listening. {second} helps too.
 You'll want {first} sorted. We'll want {second} right after.
@@ -4915,9 +4915,9 @@ People ask me in the comments every week. I tell them {first}, and then {second}
 I've said it in a hundred posts and I'll say it here: {first}, and {second} after that. ~ online modern
 Folks follow along with us, so I try to be straight. {first} matters most. {second} is next. ~ online
 We've got a lot of people watching this process. For us it comes down to {first} and {second}. ~ online
-I share a lot of what he's doing, and what I always say is {first}. {second} too. ~ online modern
+I share a lot of what he's doing, and what I always say is {first}. {second} too. ~ online modern !himself
 Half my group chat has an opinion on this. Mine is {first}, then {second}. ~ online modern
-Everybody's watching where he lands, so let me be clear. {first}, then {second}. ~ online
+Everybody's watching where he lands, so let me be clear. {first}, then {second}. ~ online !himself
 I keep a running thread on this decision. At the top of it: {first}. Right under: {second}. ~ online modern
 You can scroll back and see it. {first} has been my answer for a long time, and {second} close behind. ~ online modern
 There's a lot of noise out there, and the people following us want to know: {first} and {second}. ~ online
@@ -4929,7 +4929,7 @@ People send us messages about every school. My answer to all of them: {first}, t
 It's no secret what we're looking for. {first}. And then {second}. ~ online
 I put it in writing for everyone to see: {first} and {second}. ~ online modern
 We keep a lot of this public, so you already know: {first} is the priority, {second} is next. ~ online
-Plenty of people have opinions about where he should go. Ours is {first}, then {second}. ~ online
+Plenty of people have opinions about where he should go. Ours is {first}, then {second}. ~ online !himself
 I like to keep everybody in the loop, so here's the short version. {first}. Then {second}. ~ online
 Quietly, and without a fuss: {first} first, {second} second. ~ calm
 We've thought about this for a while, and it's pretty simple. {first}, then {second}. ~ calm
@@ -4967,7 +4967,7 @@ Don't mistake my being gone for not caring. {first} is what I want, and {second}
 I'm out a lot, so I rely on you to be straight. {first} comes first and {second} follows. ~ absent
 I've missed a lot of the games. I can't miss this. {first}, then {second}. ~ absent
 I can't be around every day, so these two matter even more. {first} and {second}. ~ absent
-I don't get to see him play much. That's why {first} matters to me, and {second} too. ~ absent
+I don't get to see him play much. That's why {first} matters to me, and {second} too. ~ absent !himself
 
 @key hscall.ask.character
 Tell me about {name} away from the field.

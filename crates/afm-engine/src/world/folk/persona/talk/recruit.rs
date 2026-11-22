@@ -84,6 +84,22 @@ pub const LANDED_SHARE: f32 = 0.5;
 /// Less than this on your case, either way, is no move at all.
 const MOVED: f32 = 1e-5;
 
+/// How much a fair hard truth or a question you left unanswered costs a
+/// recruit's trust when your program is a clear step above every school
+/// that has offered him, or nobody has (`pitch::Reach::Step`): a kid with
+/// no offers hears an SEC coach's honest read of his game as interest, not
+/// a slight (Cain 2026-11-22: "Your athleticism is great but your accuracy
+/// is lacking", said to a quarterback with no offers, "didn't land").
+/// Proposed, not confirmed.
+pub const EAGER_EAR: f32 = 0.5;
+
+/// What his leverage does to a fair hard truth's cost (a sting, a dodge):
+/// `EAGER_EAR` a step below you, else in full. An insult or a threat hurts
+/// whoever says it.
+pub fn eager(w: &World, x: &With) -> f32 {
+    if pitch::reach(w, x.i, x.j, x.transfer) == pitch::Reach::Step { EAGER_EAR } else { 1.0 }
+}
+
 /// The wants a man names when he tells you what he wants
 /// (`knowing::wants_known`: three for himself, his family or his agent).
 const TOLD_WANTS: usize = 3;
@@ -237,7 +253,7 @@ pub fn size(w: &World, s: &Scene, h: &super::super::ear::Hit, wants: &[Want], op
         How::Flattered => (0.0, pt.map_or(0.0, |p| FLATTER * p.lean)),
         // A straight answer: no pull (applied as the chip's "be straight").
         How::Doubted => (0.0, 0.0),
-        How::Stung => (-0.02 * ear, if grouped { 0.5 * floor } else { 0.0 }),
+        How::Stung => (-0.02 * ear * eager(w, &x), if grouped { 0.5 * floor } else { 0.0 }),
         How::Insulted => (-(0.07 + 0.04 * ego) * ear, if grouped { floor } else { 0.0 }),
         How::Threatened => (-(0.05 + 0.03 * temper) * ear, if grouped { floor } else { 0.0 }),
     };
@@ -245,6 +261,11 @@ pub fn size(w: &World, s: &Scene, h: &super::super::ear::Hit, wants: &[Want], op
         return None;
     }
     Some(Sized { hit: h.clone(), trust: trust * fade, mood: lean * fade, faded: fade < 1.0 })
+}
+
+/// The hit `hits::dodged` adds for a question you left unanswered.
+fn dodge(h: &Sized) -> bool {
+    h.hit.item == Item::HisWord && h.hit.how == How::Doubted && h.trust < 0.0
 }
 
 /// Whether a hit is on something your case can make a point of: a point,
@@ -261,6 +282,14 @@ fn on_point(item: &Item) -> bool {
 /// was weighed against the point as if it were a pull, won, and left no
 /// point to land (the landing read, agreed by Cain 2026-11-17).
 pub fn cap(w: &World, s: &Scene, hits: &mut [Sized]) {
+    // A question you left unanswered (`hits::dodged`, sized for anyone):
+    // his leverage reads it as it reads a sting.
+    if let Some(x) = with(w, s) {
+        let k = eager(w, &x);
+        for h in hits.iter_mut().filter(|h| on_case(&x, h.hit.on) && dodge(h)) {
+            h.trust *= k;
+        }
+    }
     let left = pitch::exchanges_left(w, s);
     for h in hits.iter_mut().filter(|h| !on_point(&h.hit.item)) {
         h.mood = 0.0;
@@ -348,8 +377,9 @@ pub fn best_now(w: &World, s: &Scene, wants: &[Want]) -> f32 {
 /// exchanges are spent or nothing of yours backs it; said again in the
 /// same talk, it moved nothing; a fresh point his case already holds as
 /// well or better is covered. With no point, a straight answer or a warm
-/// word that lifts his trust helps a little. Read in `turn` after `cap`,
-/// before anything lands.
+/// word that lifts his trust helps a little; a line with no warm word that
+/// moved nothing and cost next to nothing gets no landing words. Read in
+/// `turn` after `cap`, before anything lands.
 pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Sized], wants: &[Want]) -> Landing {
     let Some(x) = with(w, s) else { return Landing::Untouched };
     let here = |who: Them| on_case(&x, who) && room.present.iter().any(|p| p.who == who);
@@ -396,6 +426,14 @@ pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Siz
     let fresh = mine.iter().any(|h| h.mood > 0.0 && !h.faded);
     if fresh && kept(w, s, hits, wants).is_some() {
         return Landing::Covered;
+    }
+    // "It didn't move him" is for a line that tried to: a warm word on
+    // something of his. A hard question or a criticism he's heard already
+    // that cost next to nothing is a question, with no landing words (Cain
+    // 2026-11-22: "You don't see your accuracy as a problem?" read "it
+    // didn't move him").
+    if !reading.hits.iter().any(|h| here(h.on) && warm(h.how)) {
+        return Landing::Untouched;
     }
     Landing::Nothing
 }

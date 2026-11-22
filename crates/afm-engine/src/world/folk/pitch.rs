@@ -277,8 +277,13 @@ fn you(w: &World) -> Option<usize> {
 /// online, calm) but is never the parent who isn't around; a trainer and a
 /// recruit who decides himself speak in neither.
 fn speaker(w: &World, t: &Talk) -> Speaker {
+    // He speaks for himself (on the phone, in a message, a transfer): the
+    // lines his family says about him ("We want to know he'll be better
+    // when he leaves. How?") are not his (Cain 2026-11-22).
     if t.himself() {
-        return Speaker::player(w, t.i);
+        let mut sp = Speaker::player(w, t.i);
+        sp.tags.push("himself");
+        return sp;
     }
     const STYLE: [&str; 4] = ["loud", "online", "calm", "absent"];
     let mut sp = Speaker::parent(w, t.i);
@@ -1776,13 +1781,56 @@ fn home(w: &mut World, s: &mut Scene, t: &Talk) {
 // ---------------------------------------------------------------------------
 // The opening.
 
-/// How warm he is to you: where you stand on his list.
+/// Where a program stands against the schools that have offered him: his
+/// leverage, which sets his tone before you say a word (Cain 2026-11-22: a
+/// quarterback with no offers took an SEC school's call with "Nobody's got
+/// me yet, just so you know": "it's arrogant and not at all how a 0 offer
+/// QB would talk to a SEC school").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Reach {
+    /// A clear step above every school that has offered him, or nobody
+    /// has: a look from you is the best thing in his recruitment.
+    Step,
+    /// About the level of his best offer.
+    Level,
+    /// Below his best offer.
+    Below,
+}
+
+/// A clear step in program prestige (0-1): about the gap from a good Group
+/// of Five program to a Power Four one. Proposed, not confirmed.
+const STEP: f64 = 0.1;
+
+/// Where program `j` stands against the schools that have offered him
+/// (his race, `j` itself left out), by program prestige.
+pub fn reach(w: &World, i: usize, j: usize, transfer: bool) -> Reach {
+    let race = if transfer { portal::race(w, i) } else { crate::world::front_office::college::race_at(w, i) };
+    let best = race.iter().filter(|r| r.0 != j).map(|r| w.programs[r.0].prestige).fold(f64::NEG_INFINITY, f64::max);
+    let you = w.programs[j].prestige;
+    if !best.is_finite() || you >= best + STEP {
+        Reach::Step
+    } else if you >= best - STEP {
+        Reach::Level
+    } else {
+        Reach::Below
+    }
+}
+
+/// How warm he is to you: where you stand on his list once you've offered;
+/// before that, how your program sits against the schools that have (a kid
+/// a clear step below you is eager, not guarded: being off his list only
+/// means you haven't offered).
 fn warmth(w: &World, t: &Talk) -> &'static str {
     let race = if t.transfer { portal::race(w, t.i) } else { crate::world::front_office::college::race_at(w, t.i) };
     match race.iter().position(|r| r.0 == t.j) {
         Some(0 | 1) => "warm",
         Some(2 | 3) => "polite",
-        _ => "guarded",
+        Some(_) => "guarded",
+        None => match reach(w, t.i, t.j, t.transfer) {
+            Reach::Step => "eager",
+            Reach::Level => "polite",
+            Reach::Below => "guarded",
+        },
     }
 }
 
@@ -1803,19 +1851,26 @@ fn news<'a>(w: &World, t: &Talk, sheet: &'a Sheet) -> Vec<&'a Point> {
 
 /// Where the two of you stand, when nothing changed: a commitment, the
 /// first talk, a long silence, your last season, or picking up again.
-fn history(w: &World, t: &Talk, sheet: &Sheet) -> (String, Facts) {
+fn history(w: &World, t: &Talk, sheet: &Sheet, warm: &str) -> (Vec<String>, Facts) {
     let p = &w.people[t.i];
     let f = base(w, t);
     if !t.transfer
         && let Some((c, ..)) = p.cal.commit
     {
-        return (if c == t.j { "recruit.committed.you" } else { "recruit.committed.elsewhere" }.into(), f);
+        return (vec![if c == t.j { "recruit.committed.you" } else { "recruit.committed.elsewhere" }.into()], f);
     }
     let last = w.folk.talked.with(t.id).map(|r| r.on).max();
     let today = w.today;
     match last {
-        None if w.folk.pulls.of(t.id).next().is_none() => ("recruit.history.first".into(), f),
-        Some(d) if d.days_to(today) > SILENCE_DAYS => ("recruit.history.silence".into(), f),
+        // A first talk with a school a step above him: the step shows.
+        None if w.folk.pulls.of(t.id).next().is_none() => {
+            let mut keys = vec!["recruit.history.first".to_string()];
+            if warm == "eager" {
+                keys.insert(0, "recruit.history.first.eager".into());
+            }
+            (keys, f)
+        }
+        Some(d) if d.days_to(today) > SILENCE_DAYS => (vec!["recruit.history.silence".into()], f),
         _ => {
             let year = |pt: &Point| pt.get("last_year").and_then(|y| y.parse::<i32>().ok());
             if let Some(pt) = sheet.get(Kind::Titles).filter(|pt| year(pt).is_some_and(|y| y >= w.year - 1))
@@ -1824,13 +1879,13 @@ fn history(w: &World, t: &Talk, sheet: &Sheet) -> (String, Facts) {
                 let wins = rec.split('-').next().and_then(|x| x.parse::<u32>().ok()).unwrap_or(0);
                 let f = f.clone().with("last_record", rec.to_string());
                 if wins >= GOOD_YEAR {
-                    return ("recruit.team.good_year".into(), f);
+                    return (vec!["recruit.team.good_year".into()], f);
                 }
                 if wins <= BAD_YEAR {
-                    return ("recruit.team.bad_year".into(), f);
+                    return (vec!["recruit.team.bad_year".into()], f);
                 }
             }
-            ("recruit.history.again".into(), f)
+            (vec!["recruit.history.again".into()], f)
         }
     }
 }
@@ -1913,8 +1968,8 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
         }
     }
     if !opened {
-        let (key, ff) = history(w, &t, &sheet);
-        if let Some(x) = say(w, s, 3, &[key], &sp, &ff) {
+        let (keys, ff) = history(w, &t, &sheet, warm);
+        if let Some(x) = say(w, s, 3, &keys, &sp, &ff) {
             s.them(&name, x, None);
         }
     }

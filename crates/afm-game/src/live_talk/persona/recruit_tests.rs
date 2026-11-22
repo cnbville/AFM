@@ -74,6 +74,44 @@ pub(super) fn recruit_talk(name: &str, kind: Kind, decider: Decider) -> (Game, A
     (g, f, sid, i, id, mine)
 }
 
+/// A call to a senior quarterback who speaks for himself, on your board
+/// with no offer from anyone (Cain's call, 2026-11-22: a quarterback with no
+/// offers called by an SEC school): (the game, the talk).
+pub(super) fn unoffered_qb(name: &str) -> (Game, u32) {
+    use afm_engine::positions::Position;
+    let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
+    let mine = w
+        .programs
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.division == Division::FBS)
+        .max_by(|a, b| a.1.prestige.total_cmp(&b.1.prestige))
+        .unwrap()
+        .0;
+    w.start_career(&you(), Job::College(mine), 7);
+    w.add_class_aged(17);
+    let i = (0..w.people.len())
+        .filter(|&i| w.people[i].stage == Stage::HighSchool && w.people[i].family().decider == Decider::Himself)
+        .min_by_key(|&i| (w.people[i].player.position != Position::QB, w.people[i].class_of, i))
+        .expect("a recruit who speaks for himself");
+    w.people[i].player.position = Position::QB;
+    w.people[i].cal.offers.clear();
+    w.people[i].cal.early_offers.clear();
+    let id = w.people[i].player.id;
+    fc::add(&mut w, id).unwrap();
+    let mut s = Scene::new(Kind::RecruitCall, w.today, "A talk".to_string());
+    s.a = id as u64;
+    s.b = mine as u64;
+    s.who = vec![Who::Player(id)];
+    let sid = scene::add(&mut w, s);
+    let mut g = Game::new(home(name));
+    g.world = Some(w);
+    let f = Arc::new(Fake::new());
+    g.ai.use_fake(f);
+    g.call("people_scene", &json!({ "id": sid })).unwrap();
+    (g, sid)
+}
+
 pub(super) fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
     g.call(cmd, &args).unwrap_or_else(|e| panic!("{cmd}: {e}"))
 }
@@ -637,4 +675,93 @@ fn a_point_his_case_already_holds_says_so() {
     assert!(heard.contains("your case already gave"), "{heard}");
     let card = f.asked().into_iter().rev().find(|r| r.label == VOICE).map(|r| r.user).unwrap_or_default();
     assert!(card.contains("adds nothing new for you"), "the voice is told why: {card}");
+}
+
+/// The ear card's tag for the first item whose words start so.
+fn item_tag(g: &Game, sid: u32, starts: &str) -> String {
+    let w = g.world.as_ref().unwrap();
+    let s = scene_of(g, sid);
+    let (c, _) = super::super::cards::ear(w, &s, &super::room_of(w, &s), &super::parts_of(s.kind), "");
+    c.items
+        .iter()
+        .find(|i| i.text.starts_with(starts))
+        .map(|i| i.tag.clone())
+        .unwrap_or_else(|| panic!("no item {starts}: {:?}", c.items.iter().map(|i| &i.text).collect::<Vec<_>>()))
+}
+
+#[test]
+fn a_kid_with_no_offers_takes_a_bigger_schools_call_eagerly() {
+    // Cain 2026-11-22: a quarterback with no offers answered an SEC
+    // school's call with "Nobody's got me yet, just so you know". Off his
+    // list only means you haven't offered: with nobody else after him, the
+    // call is the biggest thing in his recruitment.
+    let (g, sid) = unoffered_qb("eager-open");
+    let w = g.world.as_ref().unwrap();
+    let s = scene_of(&g, sid);
+    let i = afm_engine::world::folk::person(w, s.a as u32).unwrap();
+    assert_eq!(pitch::reach(w, i, s.b as usize, false), pitch::Reach::Step);
+    let me = afm_engine::world::folk::scene::your_name(w);
+    let last = me.split_whitespace().last().unwrap().to_string();
+    let first = w.people[i].name.split_whitespace().next().unwrap().to_string();
+    let fill =
+        |t: &str| t.replace("{you}", &last).replace("{name}", &first).replace("{team}", w.program_name(s.b as usize));
+    let eager: Vec<String> = afm_engine::world::folk::voice::bank()
+        .versions("recruit.open.call.eager")
+        .iter()
+        .map(|v| afm_engine::world::folk::voice::tidy(&fill(v.0)))
+        .collect();
+    let his: Vec<&str> = s.lines.iter().filter(|l| l.by == 2).map(|l| l.text.as_str()).collect();
+    assert!(eager.iter().any(|e| e == his[0]), "his first words are eager: {his:?}");
+    // His own voice knows it too: no offers, and yours isn't out.
+    let mine = afm_engine::world::folk::persona::talk::standing::words(w, Them::Player(s.a as u32)).join(". ");
+    assert!(mine.contains("You have no college offers yet"), "{mine}");
+}
+
+#[test]
+fn an_honest_read_with_a_plan_to_fix_it_doesnt_miss_with_an_eager_kid() {
+    // Cain 2026-11-22: "Your athleticism is great but your accuracy is
+    // lacking. How confident are you that we'll be able to fix that
+    // together?" to a quarterback nobody had offered read "stung on his
+    // pride; it didn't land". The hard truth costs a kid a step below you
+    // half; the plan is a pitch on his getting better.
+    let (mut g, sid) = unoffered_qb("eager-truth");
+    let f = Arc::new(Fake::new());
+    g.ai.use_fake(f.clone());
+    let pride = item_tag(&g, sid, "his pride");
+    let better = item_tag(&g, sid, "what he wants: getting better");
+    let mut q = act("question", "", "", "");
+    q["topic"] = json!("Football");
+    // It also leaves his opening question unanswered, as Cain's did.
+    let hits = vec![
+        json!({ "on": "", "item": pride, "how": "stung" }),
+        json!({ "on": "", "item": better, "how": "reassured" }),
+    ];
+    let reading = body(&json!({ "acts": [q], "hits": hits, "dodged": true, "not_talk": false }).to_string(), 1200, 120);
+    let v = say(
+        &mut g,
+        &f,
+        sid,
+        "Your athleticism is great but your accuracy is lacking. How confident are you that we'll be able to fix that together?",
+        reading,
+    );
+    let heard = v["heard"].as_str().unwrap_or_default();
+    assert!(heard.contains("stung on his pride") && heard.contains("you didn't answer his question"), "{v}");
+    // A sting and the dodge at half: it costs a little, never past the bar (with nothing
+    // of yours on his getting better in this tiny world, the plan makes no
+    // point to land).
+    assert!(heard.ends_with("it cost you a little"), "{v}");
+}
+
+#[test]
+fn a_doubt_on_his_pride_is_a_question_not_a_line_that_moved_nothing() {
+    // Cain 2026-11-22: "You don't see your accuracy as a problem?" read "a
+    // question; it didn't move him". A doubt on his pride is sized as
+    // nothing for a recruit: it is a question, with no landing words.
+    let (mut g, f, sid, ..) = recruit_talk("doubt-pride", Kind::RecruitCall, Decider::Himself);
+    let pride = item_tag(&g, sid, "his pride");
+    let mut q = act("question", "", "", "");
+    q["topic"] = json!("Football");
+    let reading = ear(vec![q], vec![json!({ "on": "", "item": pride, "how": "doubted" })]);
+    let v = say(&mut g, &f, sid, "You don't see your accuracy as a problem?", reading);
+    assert_eq!(v["heard"], "a question", "{v}");
 }
