@@ -608,13 +608,18 @@ pub fn calls_by(
             let prog = &w.programs[j];
             let whole = crate::world::ncaa::whole_roster_limit(prog, next);
             let limit = crate::world::ncaa::roster_limits(prog, next).0;
-            // The places next season as a staff counts them: the men who
-            // return and the class it signed (a December roster without
-            // its signees showed room it didn't have).
-            let used = match level_marks {
+            // The places as a staff counts them: the roster it has now
+            // under next season's rules (a program that filled its places
+            // will fill them again), or the men who return with the class
+            // it signed, whichever is more. December's leavers and February's
+            // class both count.
+            let now =
+                roster.iter().filter(|&&i| crate::world::recruiting::takes_a_place(&w.people[i], whole, next)).count();
+            let signed = match level_marks {
                 Some(lm) => lm.places.get(j).copied().unwrap_or(0),
                 None => crate::world::recruiting::counted_rosters(w, next).get(j).copied().unwrap_or(0),
             };
+            let used = now.max(signed);
             Some((limit.saturating_sub(used), whole))
         }
         _ => None,
