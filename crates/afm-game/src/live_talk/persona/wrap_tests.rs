@@ -182,3 +182,48 @@ fn ending_an_interview_leaves_him_waiting_on_the_staff_screen() {
     assert_eq!(t.waiting, Some(w.today), "his patience runs from today");
     assert!(inbox(&g, "people: decision").iter().any(|l| l.contains("staff screen")));
 }
+
+/// The red "still your call" lines on the calendar that still wait on you.
+fn waiting_calls(g: &Game) -> Vec<String> {
+    let w = g.world.as_ref().unwrap();
+    w.calendar.all().filter(|e| e.rule == "people: decision" && e.needs_decision).map(|e| e.text.clone()).collect()
+}
+
+#[test]
+fn a_decision_line_clears_when_you_settle_the_coach() {
+    // Bug (Cain's save, 2026-11-22): two red "Still your call after your talk
+    // with X: keeping him" lines stayed on the staff screen after one coach
+    // was let go and the other settled, because nothing ever closed them.
+    use afm_engine::world::folk::{facts, staffing};
+    let (mut g, f, _) = game("wrap-calls", true);
+    let f = f.unwrap();
+    let (a, b) = {
+        let w = g.world.as_ref().unwrap();
+        let team = Team::seat(w).unwrap();
+        let staff = facts::assistants(w, team);
+        assert!(staff.len() >= 2, "the seat has assistants");
+        (staff[0].0, staff[1].0)
+    };
+    let mut ids = Vec::new();
+    for c in [a, b] {
+        let id = meeting(&mut g, Kind::Holdover, c as u32);
+        assert_eq!(goodbye(&mut g, &f, id, "Let's pick this up later.", "Okay, Coach.")["state"], "done");
+        ids.push(id);
+    }
+    assert_eq!(waiting_calls(&g).len(), 2, "both talks left a call: {:?}", waiting_calls(&g));
+    // One is let go from the staff screen.
+    {
+        let w = g.world.as_mut().unwrap();
+        staffing::fire(w, a, "let go by the head coach");
+    }
+    let left = waiting_calls(&g);
+    assert_eq!(left.len(), 1, "his call is settled: {left:?}");
+    assert!(left[0].contains(&g.world.as_ref().unwrap().coaches[b].name), "{left:?}");
+    // The other is decided in the firing meeting on his own screen: you let it drop.
+    {
+        let w = g.world.as_mut().unwrap();
+        let fid = staffing::start_firing(w, b).unwrap();
+        scene::hand(w, fid).unwrap();
+    }
+    assert!(waiting_calls(&g).is_empty(), "{:?}", waiting_calls(&g));
+}

@@ -217,6 +217,8 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
     w.folk.staff.deals.retain(|d| d.coach != coach);
     let first = first_season(w, employer, since);
     w.coaches[coach].job = Some(Job { employer, role, since, first });
+    // A decision you left open about him (an interview) is settled: he has a job.
+    super::folk::settle_calls(w, coach);
     super::folk::staffing::sign(w, coach);
     w.coaches[coach].wins = 0;
     w.coaches[coach].losses = 0;
@@ -314,6 +316,8 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
     let year = w.year;
     let Some(job) = w.coaches[coach].job.take() else { return };
     let to = season_label(w, job.employer);
+    // A decision you left open about him (keeping or letting him go) is settled: he is out.
+    super::folk::settle_calls(w, coach);
     // A coach fired with years left: his buyout lands on the books.
     if why.starts_with("fired")
         && let Some(k) = w.coaches[coach].contract

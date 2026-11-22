@@ -631,6 +631,25 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
 
 /// A line for your inbox and calendar, about your team, in plain words.
 pub(crate) fn post_mine(w: &mut World, d: Date, loud: Loudness, decision: bool, rule: &'static str, text: &str) {
+    post_mine_about(w, d, loud, decision, rule, text, None);
+}
+
+/// The rule of the line a talk leaves when you end it without settling a
+/// decision (`persona::talk::wrap`).
+pub(crate) const CALL_RULE: &str = "people: decision";
+
+/// `post_mine`, with the coach the line is about linked in its text (the
+/// name must appear in `text`), so the line can be found again and closed
+/// when that decision is settled (`settle_calls`).
+pub(crate) fn post_mine_about(
+    w: &mut World,
+    d: Date,
+    loud: Loudness,
+    decision: bool,
+    rule: &'static str,
+    text: &str,
+    about: Option<usize>,
+) {
     let Some(t) = Team::seat(w) else { return };
     let mut e = Event::new(d, t.level(), Kind::Slot, loud, plain(text)).rule(rule);
     match t {
@@ -641,7 +660,30 @@ pub(crate) fn post_mine(w: &mut World, d: Date, loud: Loudness, decision: bool, 
     if decision {
         e = e.decision();
     }
+    if let Some(c) = about.filter(|&c| c < w.coaches.len()) {
+        let name = plain(&w.coaches[c].name);
+        e = e.coach_link(c, &name);
+    }
     w.calendar.post(e);
+}
+
+/// A decision about this coach is settled (he left his job, was hired, or
+/// you decided him on his own screen): the red "still your call" lines
+/// about him stop waiting on you. The lines stay on the calendar as what
+/// happened.
+pub(crate) fn settle_calls(w: &mut World, coach: usize) {
+    if w.seat.is_none() {
+        return;
+    }
+    let (from, to) = (w.today.add(-60), w.today.add(1));
+    let who = crate::calendar::Link::Coach(coach as u32);
+    for (_, list) in w.calendar.events.range_mut(from..=to) {
+        for e in list.iter_mut().filter(|e| e.needs_decision && e.rule == CALL_RULE) {
+            if e.refs.iter().any(|r| r.to == who) {
+                e.needs_decision = false;
+            }
+        }
+    }
 }
 
 /// Adds a line to your people log (kept to the newest 600).
