@@ -1466,14 +1466,16 @@ pub fn talents(w: &World) -> Vec<f32> {
 /// coach's standing, weighted by the talent the school controls; any list
 /// of schools (`area_level` for one of lane G1a's areas).
 pub fn area_points(w: &World, prog: usize, schools: &[usize], talent: &[f32]) -> f32 {
-    let (mut sum, mut weight) = (0.0f32, 0.0f32);
+    // A weighted mean of 0-100 points, summed in f64: in f32 the sum and the
+    // divide round apart and an all-Home area read 100.0000076.
+    let (mut sum, mut weight) = (0.0f64, 0.0f64);
     for &h in schools {
-        let t = talent.get(h).copied().unwrap_or(1.0);
+        let t = f64::from(talent.get(h).copied().unwrap_or(1.0));
         let p = people::head_coach_of(w, h).map_or(0.0, |who| staff(w, prog, who).0);
-        sum += t * p;
+        sum += t * f64::from(p);
         weight += t;
     }
-    if weight > 0.0 { sum / weight } else { 0.0 }
+    if weight > 0.0 { (sum / weight) as f32 } else { 0.0 }
 }
 
 /// A program's standing in one of Ground's areas (GR27, lane G1a's
