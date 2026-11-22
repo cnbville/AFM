@@ -876,7 +876,9 @@ async function runMove(m, who, at) {
     case "depth_down": return depthStep(id, m.k === "depth_up" ? -1 : 1);
     // A coach.
     case "raise": return moveMenu(at, "A raise", [[0.05, "5%"], [0.1, "10%"], [0.15, "15%"], [0.25, "25%: keep him from leaving"]], (v) => moveDo("people_raise", { coach: m.coach, share: Number(v) }));
-    case "fire": if (await sure(`Let ${name} go?`, "You tell him yourself. What's left of his deal is owed, and the room and his recruits will hear about it.", "Call him in")) ppGoScene(api("people_fire", { coach: m.coach })); return;
+    case "fire": if (await sure(`Let ${name} go?`, m.junior ? "You tell him yourself. His post is year to year, so nothing is owed, and it opens for you to fill. The players close to him will feel it." : "You tell him yourself. What's left of his deal is owed, and the room and his recruits will hear about it.", "Call him in")) ppGoScene(api("people_fire", { coach: m.coach })); return;
+    // An open graduate assistant, analyst or quality-control post (C36).
+    case "junior_hire": if (await sure(`Hire ${name}?`, "He takes the post at its pay, and the call takes an hour of your week.", "Hire him")) moveDo("people_junior_hire", { coach: m.coach, post: m.post }); return;
     case "interview": return ppGoScene(api("people_interview", { coach: m.coach, role: m.role }));
     // The offer with its years, promises and clauses (hiring.js, lane 18).
     case "hire": return hrOffer(m.coach, m.role);
@@ -901,7 +903,7 @@ async function depthStep(id, dir) {
 // The moves on a menu, in the order the game gives them.
 function moveItems(moves, who, at) {
   // After the menu's own click has closed it, so a choice it opens stays.
-  return moves.map((m) => ({ label: m.t + (["talk", "ask", "stay_go", "raise", "ir", "ir_back", "cut", "scholarship", "redshirt", "hire", "fire"].includes(m.k) ? "…" : ""), run: () => setTimeout(() => runMove(m, who, at), 0) }));
+  return moves.map((m) => ({ label: m.t + (["talk", "ask", "stay_go", "raise", "ir", "ir_back", "cut", "scholarship", "redshirt", "hire", "fire", "junior_hire"].includes(m.k) ? "…" : ""), run: () => setTimeout(() => runMove(m, who, at), 0) }));
 }
 // The hover card's three moves for the screen you're on (topic 17 rule 4).
 const PEEK_MOVES = {

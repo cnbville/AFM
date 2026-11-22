@@ -390,8 +390,25 @@ screens.people_staff = async (a) => {
       { k: "family", t: "At home", l: true, wrap: true, hide: true },
       { k: "act", t: "", f: (r) => `<button class="st-btn small glass" data-act="ppraise" data-id="${r.coach}">Raise</button> <button class="st-btn small glass" data-act="ppfire" data-id="${r.coach}" data-name="${esc(plainText(r.link))}">Let go</button>`, v: () => 0 },
     ];
+    // Graduate assistants, analysts and quality control (C36): year to
+    // year, so letting one go owes nothing and opens the post.
+    const jcols = [
+      { k: "link", t: "Coach", l: true, f: (r) => rich(r.link), v: (r) => plainText(r.link) },
+      { k: "post", t: "Post", l: true },
+      { k: "room", t: "Room", l: true },
+      { k: "age", t: "Age" },
+      { k: "since", t: "Since" },
+      { k: "ends", t: "Through", tip: "A graduate assistant's two years end after this season", f: (r) => esc(r.ends || "Year to year"), v: (r) => r.ends || 9999 },
+      { k: "salary", t: "Pay", f: (r) => esc(r.salary || "—") },
+      { k: "potential", t: "Potential", l: true, wrap: true, hide: true },
+      { k: "trust", t: "With you", l: true, f: (r) => esc(r.trust || "New") },
+      { k: "act", t: "", f: (r) => `<button class="st-btn small glass" data-act="ppraise" data-id="${r.coach}">Raise</button> <button class="st-btn small glass" data-act="ppfire" data-junior="1" data-id="${r.coach}" data-name="${esc(plainText(r.link))}">Let go</button>`, v: () => 0 },
+    ];
+    const jopen = (x.juniorPosts || []).filter((p) => p.open > 0);
+    const jhead = x.level === "nfl" ? "Quality control" : "Graduate assistants and analysts";
+    const juniors = (x.juniorPosts || []).length ? `<section class="panel"><h2>${jhead} <small>${x.juniors.length} · year to year${jopen.length ? ` · open: ${jopen.map((p) => `${p.open} ${esc(p.name.toLowerCase())}`).join(", ")} <a class="link" data-act="tab" data-key="pstab" data-t="Hiring">fill ›</a>` : ""}</small></h2>${table("ps-juniors", jcols, x.juniors, { empty: "Nobody in these posts.", tools: false })}</section>` : "";
     body = `<section class="panel"><h2>Your assistants <small>${x.rows.length}${x.owed ? ` · still owed to coaches you let go: ${esc(x.owed)}` : ""}</small></h2>${table("ps-staff", cols, x.rows, { empty: x.level === "hs" ? "Your high school staff is below." : "No assistants." })}</section>
-      <section class="panel"><h2>Support staff and the rest of the building</h2>${table("ps-support", [{ k: "title", t: "Job", l: true }, { k: "name", t: "Name", l: true, f: (r) => (r.link ? rich(r.link) : esc(r.name)) }, { k: "age", t: "Age" }, { k: "since", t: "Since" }, { k: "subject", t: "Teaches", l: true, f: (r) => esc(r.subject || "") }, { k: "pay", t: "Pay" }], x.support, { tools: false, empty: "Nobody on file." })}</section>`;
+      ${juniors}<section class="panel"><h2>Support staff and the rest of the building</h2>${table("ps-support", [{ k: "title", t: "Job", l: true }, { k: "name", t: "Name", l: true, f: (r) => (r.link ? rich(r.link) : esc(r.name)) }, { k: "age", t: "Age" }, { k: "since", t: "Since" }, { k: "subject", t: "Teaches", l: true, f: (r) => esc(r.subject || "") }, { k: "pay", t: "Pay" }], x.support, { tools: false, empty: "Nobody on file." })}</section>`;
   } else if (tab === "Hiring") {
     body = await hrSearch(x);
   } else {
@@ -517,7 +534,8 @@ Object.assign(CORE_MORE, {
     });
   },
   ppfire: async (el) => {
-    if (!(await sure(`Let ${el.dataset.name} go?`, "You tell him yourself. What's left of his deal is owed, and the room and his recruits will hear about it.", "Call him in"))) return;
+    const note = el.dataset.junior ? "You tell him yourself. His post is year to year, so nothing is owed, and it opens for you to fill. The players close to him will feel it." : "You tell him yourself. What's left of his deal is owed, and the room and his recruits will hear about it.";
+    if (!(await sure(`Let ${el.dataset.name} go?`, note, "Call him in"))) return;
     ppGoScene(api("people_fire", { coach: Number(el.dataset.id) }));
   },
   pprole: (el) => { keep("pshire", {}).role = el.dataset.v; keep("hrfilter", { page: 0 }).page = 0; refresh(el); },

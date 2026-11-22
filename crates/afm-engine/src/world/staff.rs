@@ -4021,7 +4021,7 @@ pub(crate) fn junior_slots(w: &World, e: Employer) -> Vec<(super::coach::Post, u
 }
 
 /// What a junior post pays a year.
-pub(crate) fn junior_pay(w: &World, e: Employer, post: super::coach::Post) -> f64 {
+pub fn junior_pay(w: &World, e: Employer, post: super::coach::Post) -> f64 {
     use super::coach::Post;
     let top = match e {
         Employer::College(p) => matches!(w.programs[p].division, Division::FBS),
@@ -4050,9 +4050,25 @@ pub(crate) fn junior_pay(w: &World, e: Employer, post: super::coach::Post) -> f6
 /// often a former player just done (C11), with a learning ceiling that can
 /// run well past where he starts (proposed, not confirmed: +1.5 on the
 /// ceiling, give or take 1.5).
-fn new_junior(w: &mut World, e: Employer, post: super::coach::Post, group: Option<Group>) -> usize {
-    use super::coach::{Junior, Post};
-    let (tier, state, hc) = match e {
+pub(crate) fn new_junior(w: &mut World, e: Employer, post: super::coach::Post, group: Option<Group>) -> usize {
+    use super::coach::Post;
+    let (tier, state, hc) = junior_tier(w, e);
+    let (lo, hi) = match post {
+        Post::GradAssistant => (22, 26),
+        Post::Analyst => (24, 34),
+        Post::QualityControl => (24, 31),
+    };
+    let age = w.rng.int(lo, hi) as u32;
+    let want = Want { state, hc, group, ..Want::default() };
+    let c = new_coach_for(w, tier, age, CoachPool::Entering, want);
+    start_junior(w, c, e, post, group);
+    c
+}
+
+/// The level a team's juniors are drawn at (a level below its coaches),
+/// with its state and head coach for the former players it draws first.
+fn junior_tier(w: &World, e: Employer) -> (CoachTier, Option<usize>, Option<usize>) {
+    match e {
         Employer::College(p) => {
             let t = match w.programs[p].division {
                 Division::FBS => CoachTier::Fcs,
@@ -4063,23 +4079,66 @@ fn new_junior(w: &mut World, e: Employer, post: super::coach::Post, group: Optio
         }
         Employer::Nfl(t) => (CoachTier::Fbs, None, w.nfl[t].head_coach),
         _ => (CoachTier::HighSchool, None, None),
-    };
-    let (lo, hi) = match post {
-        Post::GradAssistant => (22, 26),
-        Post::Analyst => (24, 34),
-        Post::QualityControl => (24, 31),
-    };
-    let age = w.rng.int(lo, hi) as u32;
-    let want = Want { state, hc, group, ..Want::default() };
-    let c = new_coach_for(w, tier, age, CoachPool::Entering, want);
+    }
+}
+
+/// A man new to coaching starts his junior post (C36): his learning
+/// ceiling lifted, his name a few points lower than a coach's.
+fn start_junior(w: &mut World, c: usize, e: Employer, post: super::coach::Post, group: Option<Group>) {
+    use super::coach::Junior;
     let seed = w.options.seed as u64;
+    let year = w.year;
     let co = &mut w.coaches[c];
     let lift = 1.5 + 1.5 * super::season::key_normal(seed ^ 0x6A_C311, c as u64);
     co.learning_ceiling = clamp(co.learning_ceiling + lift, 1.0, 20.0);
     co.reputation = clamp(co.reputation - 4.0, 1.0, 20.0);
     let g = group.unwrap_or(co.came_up);
-    co.junior = Some(Junior { employer: e, post, group: g, since: w.year, until: None });
+    co.junior = Some(Junior { employer: e, post, group: g, since: year, until: None });
+}
+
+/// A former player in coaching you hire into a junior post (C11, C36):
+/// he becomes a coach the world keeps, at the level a new junior there is
+/// drawn at.
+pub(crate) fn former_junior(w: &mut World, k: usize, e: Employer, post: super::coach::Post, group: Group) -> usize {
+    let (tier, _, _) = junior_tier(w, e);
+    let c = super::former::to_coach(w, k, tier);
+    start_junior(w, c, e, post, Some(group));
     c
+}
+
+/// A coach the world keeps you hire into a junior post (C36): he leaves
+/// the job he has (or his junior post elsewhere) for it.
+pub(crate) fn take_junior(w: &mut World, c: usize, e: Employer, post: super::coach::Post, group: Group) {
+    use super::coach::Junior;
+    if w.coaches[c].job.is_some() {
+        leave(w, c, "left for another job");
+    }
+    let year = w.year;
+    w.coaches[c].junior = Some(Junior { employer: e, post, group, since: year, until: None });
+}
+
+/// Ends a man's junior post today (you let him go): the players close to
+/// him feel it, as they do any coach's leaving.
+pub(crate) fn end_junior(w: &mut World, c: usize) {
+    let year = w.year;
+    let Some(j) = w.coaches[c].junior_now() else { return };
+    if let Some(x) = w.coaches[c].junior.as_mut() {
+        x.until = Some(year);
+    }
+    super::folk::bonds::coach_left(w, c, j.employer);
+}
+
+/// A team's junior posts still open (C36): its posts less the men in them.
+pub fn junior_openings(w: &World, e: Employer) -> Vec<(super::coach::Post, usize)> {
+    let held = juniors_of(w, e);
+    junior_slots(w, e)
+        .into_iter()
+        .map(|(p, n)| {
+            let have = held.iter().filter(|&&c| w.coaches[c].junior_now().is_some_and(|j| j.post == p)).count();
+            (p, n.saturating_sub(have))
+        })
+        .filter(|x| x.1 > 0)
+        .collect()
 }
 
 /// Fills every team's empty junior posts (C36).
@@ -4140,9 +4199,17 @@ fn junior_year(w: &mut World) {
             continue;
         }
         let Some(j) = co.junior_now() else { continue };
+        // A man you raised over his post's pay is that much less likely to
+        // move on (proposed, not confirmed: the chance times his post's pay
+        // over his).
+        let kept = super::folk::staffing::junior_salary(w, c)
+            .map_or(1.0, |s| (junior_pay(w, j.employer, j.post) / s.max(1.0)).min(1.0));
         let ends = match j.post {
             Post::GradAssistant => year - j.since >= 2,
-            _ => super::season::key_uniform(w.options.seed as u64 ^ 0x1A1_7EA2, (c as u64) << 16 ^ year as u64) < 0.17,
+            _ => {
+                super::season::key_uniform(w.options.seed as u64 ^ 0x1A1_7EA2, (c as u64) << 16 ^ year as u64)
+                    < 0.17 * kept
+            }
         };
         if ends {
             w.coaches[c].junior.as_mut().unwrap().until = Some(year);

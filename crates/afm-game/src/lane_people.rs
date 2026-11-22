@@ -19,13 +19,13 @@ use afm_engine::world::folk::persona::{Them, office};
 use afm_engine::world::folk::rules::RuleKind;
 use afm_engine::world::folk::scene::{Kind, Scene, Who};
 use afm_engine::world::folk::talks::{self, Line, PromiseTo, Subject};
-use afm_engine::world::folk::{self as folk, Team, boss, facts, network, staffing, ties};
+use afm_engine::world::folk::{self as folk, Team, boss, facts, juniors, network, staffing, ties};
 use serde_json::{Value, json};
 
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 37] = [
+const COMMANDS: [&str; 40] = [
     "people_agenda",
     "people_sitdown",
     "people_reference",
@@ -56,6 +56,9 @@ const COMMANDS: [&str; 37] = [
     "people_offer",
     "people_fire",
     "people_raise",
+    "people_junior_candidates",
+    "people_junior_hire",
+    "people_junior_pick",
     "people_contacts",
     "people_reach",
     "people_cast",
@@ -261,6 +264,26 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let text = staffing::raise(w, c, share)?;
             Ok(json!({ "text": text, "staff": staff(w) }))
         })(),
+        // Your graduate assistants, analysts and quality-control coaches
+        // (C36): who could take an open post, hiring one, and letting the
+        // room's coach bring one in.
+        "people_junior_candidates" => junior_post(args).map(|p| junior_candidates(w, p)),
+        "people_junior_hire" => (|| {
+            let post = junior_post(args)?;
+            let who = match (num(args, "coach"), num(args, "former")) {
+                (Ok(c), _) => juniors::Applicant::Coach(c as usize),
+                (_, Ok(f)) => juniors::Applicant::Former(f as u32),
+                _ => return Err("Missing coach or former.".to_string()),
+            };
+            let text = juniors::hire(w, who, post, group_arg(args))?;
+            Ok(json!({ "text": text, "staff": staff(w) }))
+        })(),
+        "people_junior_pick" => (|| {
+            let post = junior_post(args)?;
+            let g = group_arg(args).ok_or("Missing group.")?;
+            let text = juniors::staff_pick(w, post, g)?;
+            Ok(json!({ "text": text, "staff": staff(w) }))
+        })(),
         "people_contacts" => Ok(contacts(w)),
         "people_reach" => (|| {
             let c = num(args, "coach")? as usize;
@@ -311,6 +334,48 @@ pub(crate) fn group_key(g: Group) -> &'static str {
         Group::DB => "db",
         Group::Specialists => "st",
     }
+}
+
+fn junior_post(args: &Value) -> Result<afm_engine::world::coach::Post, String> {
+    args.get("post").and_then(Value::as_str).and_then(juniors::post_from).ok_or_else(|| "Missing post.".to_string())
+}
+
+/// A room from `group` (its key, "qb" to "st").
+fn group_arg(args: &Value) -> Option<Group> {
+    let g = args.get("group").and_then(Value::as_str)?;
+    Group::ALL.iter().copied().find(|x| group_key(*x) == g)
+}
+
+/// Who could take an open junior post on your staff.
+fn junior_candidates(w: &World, post: afm_engine::world::coach::Post) -> Value {
+    let rows: Vec<Value> = juniors::candidates(w, post)
+        .into_iter()
+        .map(|p| {
+            json!({
+                "coach": p.coach,
+                "former": p.former,
+                "link": p.coach.map_or_else(|| p.name.clone(), |c| folk::coach_link(w, c)),
+                "age": p.age,
+                "now": p.now,
+                "played": p.played,
+                "tie": p.tie,
+                "group": group_key(p.group),
+                "room": cap(p.group.name()),
+                "read": p.read.map(|r| json!([r.0, r.1])),
+                "potential": p.potential,
+                "takes": p.takes,
+            })
+        })
+        .collect();
+    let open = juniors::posts(w).iter().find(|x| x.0 == post).map_or(0, |x| x.2);
+    json!({
+        "post": juniors::post_key(post),
+        "postName": cap(post.name()),
+        "open": open,
+        "pay": Team::seat(w).map(|t| money(afm_engine::world::staff::junior_pay(w, t.employer(), post))),
+        "rows": rows,
+        "hours": talks::hours_left(w),
+    })
 }
 
 pub(crate) fn role_key(r: Role) -> String {
@@ -1040,8 +1105,41 @@ fn staff(w: &World) -> Value {
         .collect();
     let openings: Vec<Value> =
         staffing::openings(w).into_iter().map(|r| json!({ "key": role_key(r), "name": cap(r.name()) })).collect();
+    // Your graduate assistants, analysts and quality-control coaches (C36).
+    let mine = staffing::my_juniors(w);
+    let junior_rows: Vec<Value> = mine
+        .iter()
+        .filter_map(|&c| {
+            let co = &w.coaches[c];
+            let j = co.junior_now()?;
+            Some(json!({
+                "coach": c,
+                "link": folk::coach_link(w, c),
+                "post": cap(j.post.name()),
+                "postKey": juniors::post_key(j.post),
+                "room": cap(j.group.name()),
+                "age": co.age_on(w.today),
+                "since": j.since,
+                // A graduate assistant's two years (C36).
+                "ends": (j.post == afm_engine::world::coach::Post::GradAssistant).then_some(j.since + 1),
+                "salary": staffing::junior_salary(w, c).map(money),
+                "trust": w.folk.mine.trust_of(folk::coach_key(c)).map(trust_words),
+                "potential": afm_engine::world::folk::coach_look::potential_in(
+                    w,
+                    &afm_engine::world::folk::coach_look::Ctx::new(w),
+                    c
+                )
+                .0,
+            }))
+        })
+        .collect();
+    let junior_posts: Vec<Value> = juniors::posts(w)
+        .into_iter()
+        .map(|(p, n, open)| json!({ "key": juniors::post_key(p), "name": cap(p.name()), "posts": n, "open": open }))
+        .collect();
     let support: Vec<Value> = staffing::drawn_staff(w, team)
         .into_iter()
+        .filter(|d| d.coach.is_none_or(|c| !mine.contains(&c)))
         .map(|d| {
             json!({
                 "name": d.name,
@@ -1060,6 +1158,8 @@ fn staff(w: &World) -> Value {
         "level": level_key(team.level()),
         "rows": rows,
         "openings": openings,
+        "juniors": junior_rows,
+        "juniorPosts": junior_posts,
         "support": support,
         "owed": if owed > 0.0 { Some(money(owed)) } else { None },
         "pool": w.folk.staff.pool_bonus,
@@ -1087,6 +1187,24 @@ pub(crate) fn coach_moves(w: &World, c: usize) -> Vec<Value> {
         return Vec::new();
     }
     let mut out = Vec::new();
+    // Your graduate assistant, analyst or quality-control coach (C36): his
+    // raise, letting him go, and any full-time opening as his promotion.
+    if staffing::my_junior(w, c) {
+        out.push(json!({ "k": "raise", "t": "Give him a raise", "coach": c, "junior": true }));
+        out.push(json!({ "k": "fire", "t": "Let him go", "coach": c, "junior": true }));
+    } else {
+        // An open junior post he could take.
+        for (p, _, open) in juniors::posts(w) {
+            if open > 0 && juniors::fits(w, c, p) {
+                out.push(json!({
+                    "k": "junior_hire",
+                    "t": format!("Hire him as your {}", p.name()),
+                    "coach": c,
+                    "post": juniors::post_key(p),
+                }));
+            }
+        }
+    }
     for r in staffing::openings(w) {
         let role = cap(r.name());
         out.push(

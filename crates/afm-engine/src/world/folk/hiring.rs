@@ -263,7 +263,7 @@ pub fn pay_now(w: &World, c: usize) -> f64 {
                 _ => base * (0.8 + 0.4 * co.reputation / 20.0),
             }
         }
-        (None, Some(j)) => crate::world::staff::junior_pay(w, j.employer, j.post),
+        (None, Some(_)) => super::staffing::junior_salary(w, c).unwrap_or(0.0),
         _ => 0.0,
     }
 }
@@ -290,6 +290,20 @@ pub fn ask(w: &World, c: usize, role: Role) -> f64 {
         a = a.max(r * 1.05);
     }
     (a / 1000.0).round() * 1000.0
+}
+
+/// The step a junior post on your staff is for him, in standing (one rung
+/// = 0.2): a junior post is half a rung under a position coach.
+pub fn junior_step(w: &World, c: usize) -> f64 {
+    let Some(team) = Team::seat(w) else { return 0.0 };
+    let co = &w.coaches[c];
+    let to = standing(w, team.employer(), rung(None, None, true));
+    let from = match (co.job, co.junior_now()) {
+        (Some(j), _) => standing(w, j.employer, rung(Some(j.role), title_of(w, c), false)),
+        (None, Some(j)) => standing(w, j.employer, rung(None, None, true)),
+        (None, None) => return 1.0,
+    };
+    to - from
 }
 
 /// The step your job is for him, in standing (one rung = 0.2).

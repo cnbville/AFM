@@ -73,6 +73,12 @@ pub struct Staffs {
     /// This season's NFL interim head coaches: (team, coach, the team's
     /// wins and losses when he took over; realism audit item 7).
     pub interims: Vec<(u32, u32, u32, u32)>,
+    /// Raises you gave your graduate assistants, analysts and
+    /// quality-control coaches (coach, the season his post began, dollars a
+    /// year): a junior post has no deal, its pay is the post's until you
+    /// raise it, and a new post starts at the post's pay again.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub junior_pay: Vec<(u32, i32, f64)>,
 }
 
 /// The share your athletic director added to program `p`'s recruiting
@@ -104,6 +110,33 @@ pub fn staff_bonus(w: &World, team: Team) -> f64 {
         }
         _ => 0.0,
     }
+}
+
+/// What a man in a junior post makes a year (C36): the post's pay, or
+/// what you raised him to. None for a man not in a junior post.
+pub fn junior_salary(w: &World, c: usize) -> Option<f64> {
+    let j = w.coaches.get(c)?.junior_now()?;
+    let raised = w.folk.staff.junior_pay.iter().find(|x| x.0 as usize == c && x.1 == j.since).map(|x| x.2);
+    Some(raised.unwrap_or_else(|| crate::world::staff::junior_pay(w, j.employer, j.post)))
+}
+
+/// Whether a coach holds a junior post on your staff (a graduate
+/// assistant, analyst or quality-control coach).
+pub fn my_junior(w: &World, c: usize) -> bool {
+    let Some(team) = Team::seat(w) else { return false };
+    w.career.as_ref().is_none_or(|k| k.coach != c)
+        && w.coaches.get(c).and_then(|x| x.junior_now()).is_some_and(|j| j.employer == team.employer())
+        && w.coaches[c].job.is_none()
+}
+
+/// Your graduate assistants, analysts and quality-control coaches, by post
+/// and the season each started.
+pub fn my_juniors(w: &World) -> Vec<usize> {
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    let mut v: Vec<usize> =
+        crate::world::staff::juniors_of(w, team.employer()).into_iter().filter(|&c| my_junior(w, c)).collect();
+    v.sort_by_key(|&c| w.coaches[c].junior_now().map(|j| (j.post as u8, j.since, c)));
+    v
 }
 
 impl Staffs {
@@ -336,8 +369,9 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
                 } else {
                     "Defensive"
                 };
-                let pay =
-                    crate::world::staff::junior_pay(w, Employer::Nfl(t), crate::world::coach::Post::QualityControl);
+                let pay = junior_salary(w, c).unwrap_or_else(|| {
+                    crate::world::staff::junior_pay(w, Employer::Nfl(t), crate::world::coach::Post::QualityControl)
+                });
                 v.push(real_person(w, c, format!("{side} quality control"), pay));
             }
         }
@@ -373,7 +407,7 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
                     w,
                     c,
                     format!("{title}, {}", j.group.name()),
-                    crate::world::staff::junior_pay(w, e, j.post),
+                    junior_salary(w, c).unwrap_or_else(|| crate::world::staff::junior_pay(w, e, j.post)),
                 ));
             }
         }
@@ -406,7 +440,7 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
 /// Lets a coach go (takeover item 5, topic 11): his job ends, you owe the
 /// rest of his deal, and the room reacts by what it thought of him.
 pub fn fire(w: &mut World, c: usize, why: &'static str) -> String {
-    let Some(job) = w.coaches[c].job else { return String::new() };
+    let Some(job) = w.coaches[c].job else { return fire_junior(w, c) };
     let year = w.year;
     let owed = w.folk.staff.deal(c).map_or(0.0, |d| {
         d.salary * (d.through - year + 1).max(0) as f64 * if d.buyout > 0.0 { d.buyout as f64 } else { 0.25 }
@@ -461,6 +495,26 @@ pub fn fire(w: &mut World, c: usize, why: &'static str) -> String {
             String::new()
         },
         if hit >= 3 { format!(". {hit} of his players took it hard") } else { String::new() }
+    );
+    super::post_mine(w, w.today, Loudness::Small, false, "people: staff", &text);
+    text
+}
+
+/// Lets a graduate assistant, analyst or quality-control coach go (C36):
+/// his post is year to year, so nothing is owed; the post opens for you to
+/// fill, and the players close to him feel it as they do any coach's
+/// leaving (`bonds::coach_left`). He goes on the market like any man out of
+/// a junior post.
+fn fire_junior(w: &mut World, c: usize) -> String {
+    let Some(j) = w.coaches[c].junior_now() else { return String::new() };
+    let name = w.coaches[c].name.clone();
+    crate::world::staff::end_junior(w, c);
+    w.folk.staff.junior_pay.retain(|x| x.0 as usize != c);
+    w.folk.mine.set_trust(coach_key(c), 0.1);
+    let text = format!(
+        "{name} is out as your {} with the {}. The post was year to year, so nothing is owed, and it is open to fill.",
+        j.post.name(),
+        j.group.name()
     );
     super::post_mine(w, w.today, Loudness::Small, false, "people: staff", &text);
     text
@@ -600,10 +654,8 @@ pub fn candidates(w: &World, role: Role, f: &Filter) -> Search {
         if co.job.is_some_and(|j| Team::from_employer(j.employer) == team) {
             continue;
         }
-        // A junior at your own school is on your staff already.
-        if co.junior_now().is_some_and(|j| j.employer == emp) {
-            continue;
-        }
+        // Your own graduate assistants and analysts stay in the search: a
+        // full-time job is a promotion for them.
         // A man out of work with no coaching behind him isn't on the market.
         if co.job.is_none() && co.junior_now().is_none() && co.history.is_empty() {
             continue;
@@ -1019,10 +1071,28 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
 
 /// Gives an assistant a raise (keeps a promise of one).
 pub fn raise(w: &mut World, c: usize, share: f64) -> Result<String, String> {
+    if w.folk.staff.deal(c).is_none() && my_junior(w, c) {
+        return raise_junior(w, c, share);
+    }
     let d = w.folk.staff.deals.iter_mut().find(|d| d.coach == c).ok_or("He has no deal with you.")?;
     d.salary = (d.salary * (1.0 + share)).round();
     let s = d.salary;
     w.folk.staff.raises.push((c, w.today));
+    w.folk.mine.nudge(coach_key(c), 0.08);
+    Ok(format!("{} now makes ${} a year.", w.coaches[c].name, facts::thousands((s / 1000.0) as u32) + ",000"))
+}
+
+/// Raises a graduate assistant, analyst or quality-control coach above his
+/// post's pay (C36): he trusts you more, and a man paid over his post is
+/// less likely to move on at the year's turn (`staff::junior_year`).
+fn raise_junior(w: &mut World, c: usize, share: f64) -> Result<String, String> {
+    let j = w.coaches[c].junior_now().ok_or("He has no post with you.")?;
+    let now = junior_salary(w, c).unwrap_or(0.0);
+    let s = (now * (1.0 + share.max(0.0))).round();
+    let st = &mut w.folk.staff;
+    st.junior_pay.retain(|x| x.0 as usize != c);
+    st.junior_pay.push((c as u32, j.since, s));
+    st.raises.push((c, w.today));
     w.folk.mine.nudge(coach_key(c), 0.08);
     Ok(format!("{} now makes ${} a year.", w.coaches[c].name, facts::thousands((s / 1000.0) as u32) + ",000"))
 }
@@ -1034,7 +1104,8 @@ pub fn start_firing(w: &mut World, c: usize) -> Result<u32, String> {
         .coaches
         .get(c)
         .and_then(|x| x.job)
-        .is_some_and(|j| Team::from_employer(j.employer) == team && j.role != Role::HeadCoach);
+        .is_some_and(|j| Team::from_employer(j.employer) == team && j.role != Role::HeadCoach)
+        || my_junior(w, c);
     if !on {
         return Err("He isn't on your staff.".into());
     }
@@ -1069,6 +1140,15 @@ fn firing_open(w: &mut World, s: &mut Scene) {
             about += &format!(" {y}");
         }
     }
+    // A junior post has no unit of its own: his time with the room.
+    let junior = w.coaches[c].job.is_none().then(|| w.coaches[c].junior_now()).flatten();
+    if let Some(j) = junior {
+        about = match w.year - j.since {
+            0 => format!(" He started this season as your {} with the {}.", j.post.name(), j.group.name()),
+            1 => format!(" He has been your {} with the {} for a season.", j.post.name(), j.group.name()),
+            n => format!(" He has been your {} with the {} for {n} seasons.", j.post.name(), j.group.name()),
+        };
+    }
     s.narrate(format!(
         "{} knows why you called him in. {}{about}",
         coach_link(w, c),
@@ -1084,7 +1164,7 @@ fn firing_open(w: &mut World, s: &mut Scene) {
     let good = unit.as_ref().is_some_and(|u| u.form == Some(rooms::Form::Good));
     s.pick(
         70,
-        if good {
+        if good || junior.is_some() {
             "Tell him straight: it's not the results, it's the direction I'm taking"
         } else {
             "Tell him straight: it's the results"
@@ -1100,7 +1180,7 @@ fn firing_open(w: &mut World, s: &mut Scene) {
         "warm",
         "He leaves a friend; your network keeps him.",
     );
-    if !good {
+    if !good && junior.is_none() {
         s.pick(
             72,
             "Blame his unit in front of the staff",

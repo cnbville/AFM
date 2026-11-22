@@ -127,3 +127,80 @@ fn a_college_coach_finds_reads_and_offers_any_coach() {
     assert!(w["rows"].is_array() && w["rooms"].is_array(), "{w}");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// Graduate assistants and analysts (C36; GAPS "you can't see or fire your
+/// graduate assistants"): they are on the Staff page with their pay, a
+/// raise and Let go reach them, letting one go owes nothing and opens the
+/// post, and the open post is filled by a hire from the list or by a
+/// position coach bringing one in.
+#[test]
+fn a_college_coach_raises_lets_go_and_hires_graduate_assistants() {
+    let dir = std::env::temp_dir().join(format!("afm-hiring-ga-{}", std::process::id()));
+    let mut g = Game::new(dir.clone());
+    common::build_world(&mut g, json!({ "seed": 21, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
+    let job = jobs["jobs"][0]["ref"].clone();
+    ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));
+
+    let staff = ok(&mut g, "people_staff", json!({}));
+    let gas = |s: &Value| -> Vec<Value> {
+        s["juniors"].as_array().unwrap().iter().filter(|r| r["postKey"] == "ga").cloned().collect()
+    };
+    let open = |s: &Value| -> u64 {
+        s["juniorPosts"].as_array().unwrap().iter().find(|p| p["key"] == "ga").and_then(|p| p["open"].as_u64()).unwrap()
+    };
+    let before = gas(&staff);
+    assert!(!before.is_empty(), "graduate assistants on the Staff page: {}", staff["juniors"]);
+    let open0 = open(&staff);
+    // They aren't listed twice (support staff below).
+    let ga = before[0]["coach"].as_u64().unwrap();
+    assert!(!staff["support"].as_array().unwrap().iter().any(|d| d["link"] == before[0]["link"]));
+
+    // The coach page's moves: a raise and Let go.
+    let moves = ok(&mut g, "moves", json!({ "kind": "coach", "id": ga }));
+    let ks: Vec<&str> = moves.as_array().unwrap().iter().filter_map(|m| m["k"].as_str()).collect();
+    assert!(ks.contains(&"raise") && ks.contains(&"fire"), "{moves}");
+
+    // A raise lifts his pay above the post's.
+    let pay = before[0]["salary"].as_str().unwrap().to_string();
+    let r = ok(&mut g, "people_raise", json!({ "coach": ga, "share": 0.2 }));
+    let row = gas(&r["staff"]).into_iter().find(|x| x["coach"] == ga).unwrap();
+    assert_ne!(row["salary"].as_str().unwrap(), pay, "{}", r["text"]);
+
+    // Let go: nothing owed, the post opens.
+    let s = ok(&mut g, "people_fire", json!({ "coach": ga }));
+    hold(&mut g, s["scene"].as_u64().unwrap());
+    let staff = ok(&mut g, "people_staff", json!({}));
+    assert_eq!(gas(&staff).len(), before.len() - 1);
+    assert_eq!(open(&staff), open0 + 1);
+    assert!(staff["owed"].is_null(), "a junior post owes nothing: {}", staff["owed"]);
+
+    // Who could take it: former players and young coaches, with their ties.
+    let c = ok(&mut g, "people_junior_candidates", json!({ "post": "ga" }));
+    let rows = c["rows"].as_array().unwrap();
+    assert!(rows.len() >= 5, "{}", c);
+    assert!(rows.iter().all(|r| r["age"].as_u64().unwrap() <= 28), "{c}");
+    let pick = rows.iter().find(|r| r["takes"] == true).expect("someone takes it");
+    let mut a = json!({ "post": "ga" });
+    if pick["coach"].is_u64() {
+        a["coach"] = pick["coach"].clone();
+    } else {
+        a["former"] = pick["former"].clone();
+    }
+    let h = ok(&mut g, "people_junior_hire", a.clone());
+    assert_eq!(gas(&h["staff"]).len(), before.len(), "{}", h["text"]);
+    assert_eq!(open(&h["staff"]), open0);
+    // He is on your staff now: he can't be hired again.
+    assert!(g.call("people_junior_hire", &a).is_err());
+
+    // Let another go, and the linebackers coach brings one in.
+    let next = gas(&h["staff"])[0]["coach"].as_u64().unwrap();
+    let s = ok(&mut g, "people_fire", json!({ "coach": next }));
+    hold(&mut g, s["scene"].as_u64().unwrap());
+    let p = ok(&mut g, "people_junior_pick", json!({ "post": "ga", "group": "lb" }));
+    let rows = gas(&p["staff"]);
+    assert_eq!(open(&p["staff"]), open0, "{}", p["text"]);
+    assert!(rows.iter().any(|r| r["room"] == "Linebackers"), "{}", p["staff"]["juniors"]);
+
+    let _ = std::fs::remove_dir_all(dir);
+}
