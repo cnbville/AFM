@@ -17,7 +17,15 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
-    v: "0.2.683", date: "22 Nov", title: "Close the \"Still your call\" staff banners when the coach is settled and 2 more",
+    v: "0.2.683", date: "22 Nov", title: "Close the \"Still your call\" staff banners when the coach is settled",
+    notes: [
+      "The red \"Still your call\" banners on your staff screen now clear once you've let the coach go or decided on him.",
+      "A holdover, firing, interview or proposal you leave open no longer lingers after you settle it.",
+      "The banner names the coach as a link.",
+    ],
+  },
+  {
+    v: "0.2.682", date: "22 Nov", title: "Raise, let go and hire graduate assistants, analysts and QC coaches and 1 more",
     notes: [
       "Your recruiting board now counts the places that will really be open. Seniors finishing their eligibility, players about to declare for the draft and expected transfers free their spots, and so do the men you tell aren't in your plans.",
       "A new save on January 1 shows the class room your staff would really plan for.",
