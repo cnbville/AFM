@@ -410,6 +410,7 @@ fn sit(down: u8, togo: f64, yl: f64, college: bool) -> Situation {
         weather: 0.0,
         half_go: false,
         fourth: Default::default(),
+        trying: false,
     }
 }
 
@@ -451,7 +452,7 @@ fn box_spec(k: u8, college: bool, two_from: f64) -> (Vec<Situation>, usize) {
             (vec![a, b], 6)
         }
         sheet::SHOTS => (vec![s(2, 2.0, 50.0), s(1, 10.0, 45.0)], 4),
-        sheet::TWO_POINT => (vec![s(1, two_from, two_from)], 3),
+        sheet::TWO_POINT => (vec![Situation { trying: true, ..s(1, two_from, two_from) }], 3),
         _ => (vec![s(1, 10.0, 75.0), s(2, 8.0, 70.0), s(1, 10.0, 55.0)], 15),
     }
 }

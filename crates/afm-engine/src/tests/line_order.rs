@@ -15,9 +15,13 @@ use crate::positions::Position;
 const LINE: [ORole; 5] = [ORole::LT, ORole::LG, ORole::C, ORole::RG, ORole::RT];
 
 /// A scrimmage snap `side` ran on offense with every man's spot booked.
+/// A fake punt or field goal is left out: the kick unit lines up, and its
+/// long snapper snaps whatever the line order says.
 fn is_snap(r: &PlayRecord, side: usize) -> bool {
     r.offense == side
         && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+        && r.personnel != "punt"
+        && r.personnel != "field goal"
         && !r.on_field[0].is_empty()
         && r.roles[0].len() == r.on_field[0].len()
         && r.roles[1].len() == r.on_field[1].len()
