@@ -212,6 +212,7 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 
 ## UI
 
+- **You can't see or fire your graduate assistants, analysts or QC coaches** (medium). They are real people (`Coach::junior`, `world/staff.rs`) but `facts::assistants` lists only coordinators and position coaches, so the Staff tab's "Your assistants" table and its "Let go" button never show them, and `staffing::fire` returns nothing for a man with no `job`. Real head coaches let GAs go (and each year's two-year GA term ends on its own). Needs: list them with their read and pay, a Let go action that ends the post (small or no buyout, they are year to year) and opens the post. Found 2026-11-22 (thread "Check if graduate assistants can be fired").
 - **A call that rings looks like any other stop** (low). Continue now stops as a call comes in and opens its room, but the card only names it on its Now line: no ringing look and no answer or hand-on buttons on the card itself. Same thread.
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
 - **No pecking order for high school or NFL seats** (medium). Your seat (CS6) shows a school's or a club's rooms by themselves, but nothing ranks a district's or an owner's rooms against others. Found in the same thread as CS5.
