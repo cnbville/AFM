@@ -2912,6 +2912,8 @@ Tried and left out, each on NFL seed 1:
 - **Eyes downfield on the move** (no throw under 5 or 8 yards for 0.6 to 1.0 s, and a wider window on the move): throws on the move went deeper than real, 13.6 to 14.9 air yards against 9.5, and no later.
 - **The run held back on the move**: scrambles fell to 0.9 a team game.
 
+Speed: the same inside the noise. `match_check` against main, the two run in turn on seeds 1 and 2 and the order swapped between the seeds, the tool's own time on an otherwise quiet machine (4 cores, the same build settings): the NFL 2.1% faster (the two pairs 6.6% faster and 2.8% slower; 2,000 games 21.2 and 21.8 s against 22.7 and 21.2 s on main), FBS 3.7% slower (8.3% and 0.4% faster) and high school 2.0% slower (4.0% and 0.0%). His hot is read once a dropback; the feel, the drill and plaster add a check a tick.
+
 What is left is in `GAPS.md`: few passers out of the pocket (the escape, the boot's share) and few scrambles, with throws after 3.94 s and time to throw short (a passer still out inside 2.5 s on 68% of throws, real 50%, as receivers come open early, which also keeps NFL sacks a fifth short), throwaways, Cover 0's sacks, and the passer's throws on the move still easier than real.
 
 ## Debug tools
