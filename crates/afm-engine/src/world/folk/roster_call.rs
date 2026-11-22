@@ -422,8 +422,13 @@ fn years_left(w: &World, i: usize) -> Option<u32> {
     let next = next_season(w);
     let n = match p.stage {
         Stage::College => {
+            // The season in play counts until January 2 settles it (the
+            // portal's own check, `college::no_season_left`): on December 31
+            // a redshirt junior's season just played is already his.
             let div = w.programs.get(p.college?)?.division;
-            crate::world::eligibility::seasons_left(p, div, next)
+            let el = crate::world::eligibility::seasons_left(p, div, next);
+            let pending = (p.cal.count_pending && next > w.year) as u32;
+            el.saturating_sub(pending)
         }
         Stage::Pro => {
             let last = p.pro.as_ref()?.contract.as_ref().map_or(next - 1, |k| k.last_year());
@@ -1171,6 +1176,9 @@ pub(crate) fn told_for_window(w: &mut World) -> HashSet<usize> {
             (j, on, over)
         })
         .collect();
+    if std::env::var("AFM_URGENCY_TRACE").is_ok() {
+        trace(wr, &progs, &table, &marks);
+    }
     for (j, on, over) in found {
         for i in on {
             let p = &mut w.people[i];
@@ -1182,6 +1190,29 @@ pub(crate) fn told_for_window(w: &mut World) -> HashSet<usize> {
         }
     }
     told
+}
+
+/// The window's calls by level and reason, with the market's spread
+/// (`AFM_URGENCY_TRACE`, for `urgency_check`).
+fn trace(w: &World, progs: &[usize], table: &growth::Table, marks: &LevelMarks) {
+    let mut by: BTreeMap<(&'static str, String), usize> = BTreeMap::new();
+    let mut markets: BTreeMap<&'static str, Vec<f64>> = BTreeMap::new();
+    for &j in progs {
+        let d = match w.programs[j].division {
+            Division::FBS => "FBS",
+            Division::FCS => "FCS",
+            _ => "D2",
+        };
+        for c in ai_calls(w, j, table, marks) {
+            *by.entry((d, format!("{:?} {:?}", c.mv, c.why))).or_default() += 1;
+            markets.entry(d).or_default().push(c.market);
+        }
+    }
+    eprintln!("urgency trace {}: {by:?}", w.today);
+    for (d, mut v) in markets {
+        let q: Vec<String> = [0.1, 0.5, 0.9].iter().map(|&x| format!("{:.2}", growth::quantile(&mut v, x))).collect();
+        eprintln!("urgency trace {} {d} market p10/p50/p90: {}", w.today, q.join(" "));
+    }
 }
 
 /// The spots a program's staff wants a man over the one it has (an AI

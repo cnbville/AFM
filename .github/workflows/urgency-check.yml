@@ -5,7 +5,8 @@ name: Staff urgency check
 # portal's size and who leaves, by role and level, can be read before and
 # after. Each arm runs on its own machine (about an hour and a half); the
 # two outputs are in the run's summary and its artifacts. Runs on a push
-# that changes this file, or by hand.
+# that changes this file, or by hand. AFM_URGENCY_TRACE prints each
+# winter window's AI calls by level and reason, and the market's spread.
 on:
   push:
     paths:
@@ -40,6 +41,7 @@ jobs:
       - name: The world, staff urgency ${{ matrix.urgency }}
         env:
           AFM_URGENCY: ${{ matrix.urgency }}
+          AFM_URGENCY_TRACE: "1"
         run: |
           ./target/release/urgency_check "${{ inputs.scale || '0.25' }}" "${{ inputs.years || '6' }}" "${{ inputs.seed || '311' }}" | tee urgency-${{ matrix.urgency }}.txt
           { echo '```'; cat urgency-${{ matrix.urgency }}.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
