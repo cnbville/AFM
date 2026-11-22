@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.678", date: "22 Nov", title: "Staff urgency: coaches who know when to move on from a player",
+    notes: [
+      "Your coaches now know when it's time to move on from a player, and they tell you before the portal opens.",
+      "A coach's advice judges a player against the level, not just your room. He looks at where the player will be when his time runs out.",
+      "Coaches know the calendar: on New Year's Eve there is no waiting for winter workouts when the window opens on the 2nd.",
+      "Each coach gives one of three calls with his reason: move on now, bring a man in over him, or keep and develop. A loyal coach bends the line and says so.",
+      "Your staff brings its list to your first meetings and to a roster meeting before every window.",
+      "Other programs move on from players the same way, and the portal stays its real size.",
+    ],
+  },
+  {
     v: "0.2.677", date: "22 Nov", title: "EG6: the red zone",
     notes: [
       "Drives near the goal line now play like real football. Defenses tighten up in the red zone, touchdowns there are harder to come by and field goals matter more.",

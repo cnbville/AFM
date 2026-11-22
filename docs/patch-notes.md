@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.678 (22 Nov, shipped): staff urgency: coaches who know when to move on from a player (PR #611)
+**TLDR:** Your coaches now know when it's time to move on from a player, and they tell you before the portal opens.
+- A coach's advice judges a player against the level, not just your room. He looks at where the player will be when his time runs out. (PR #611)
+- Coaches know the calendar: on New Year's Eve there is no waiting for winter workouts when the window opens on the 2nd. (PR #611)
+- Each coach gives one of three calls with his reason: move on now, bring a man in over him, or keep and develop. A loyal coach bends the line and says so. (PR #611)
+- Your staff brings its list to your first meetings and to a roster meeting before every window. (PR #611)
+- Other programs move on from players the same way, and the portal stays its real size. (PR #611)
+- Look at: the roster meeting before the window, and asking a coach "should we cut him?" (PR #611)
+
 ## 0.2.677 (22 Nov, shipped): EG6: the red zone (PR #612)
 **TLDR:** Drives near the goal line now play like real football. Defenses tighten up in the red zone, touchdowns there are harder to come by and field goals matter more.
 - Man defenders play underneath and inside near the goal line, where there's no deep ball left to guard. (PR #612)
