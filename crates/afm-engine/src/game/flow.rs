@@ -4963,8 +4963,9 @@ impl<'a> Game<'a> {
         line(Position::IOL, &[ORole::LG, ORole::C, ORole::RG], &mut used, &mut off, gl);
         let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back() && *r != ORole::FB).collect();
         // The staff's back for this down (item 11), when no package of
-        // yours names the backs.
-        let rbs = match self.situational_back(self.poss, &self.situation()) {
+        // yours names the backs and the call is the staff's, not yours.
+        let staff_back = if self.mark.0 { None } else { self.situational_back(self.poss, &self.situation()) };
+        let rbs = match staff_back {
             Some(b) if gl.is_none() && !backs.is_empty() && !used.contains(&b) => {
                 used.push(b);
                 let mut v = vec![b];
@@ -6493,6 +6494,7 @@ impl<'a> Game<'a> {
         r.drop = res.drop;
         r.pressured = res.pressured;
         r.moving = res.moving;
+        r.out_of_pocket = res.out_of_pocket;
         r.out_of_bounds = res.out_of_bounds;
         r.laterals = res.notes.laterals;
         r.pbu = res.pbu;
@@ -7763,7 +7765,7 @@ impl<'a> Game<'a> {
         f
     }
 
-    /// The back an AI staff puts on for this down (scheme-fit item 11): on
+    /// The back a staff puts on for this down (scheme-fit item 11): on
     /// short yardage the back with whom the snap converts most often, on a
     /// passing down the one with whom those convert (`roster_fit::
     /// back_value`, as the engine pays them: on third and short a heavier
@@ -7771,10 +7773,13 @@ impl<'a> Game<'a> {
     /// back's hands or protection in conversions yet, so none comes on),
     /// among the backs fresh enough to go in, when he converts more often
     /// by `roster_fit::SIT_EDGE`. None when nobody beats the back the
-    /// depth chart plays by that much, on other downs, and for your own
-    /// team, which plays your depth chart and packages.
+    /// depth chart plays by that much, and on other downs. Your own staff
+    /// reads it too: on a snap it calls for you it puts him on as any
+    /// staff does, so a game you hand to your staff plays as the one-loop
+    /// game; on a snap you call yourself your depth chart and packages
+    /// play (`lineup`).
     fn situational_back(&self, o: usize, sit: &Situation) -> Option<usize> {
-        if !self.subs || self.user_is(o) {
+        if !self.subs {
             return None;
         }
         let short = calling::short_call(sit);

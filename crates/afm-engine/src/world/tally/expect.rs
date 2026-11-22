@@ -51,20 +51,20 @@ pub fn xrush_features(box_count: u8, outside: bool, to_goal: f64, togo: f64) -> 
 /// 2026-11-04 after lane NB5's passing changes, refitted 2026-11-07 after
 /// minor bugs batch 9, 2026-11-21 with scheme-fit lane SF10 once the
 /// physics lanes were in, the same day with lane SF9b, the open-field
-/// tackle, and with engine gaps lane EG6, the red zone: the NFL's 29,732
-/// designed runs went 4.36 yards a carry, the fit 4.36, the old weights
-/// 4.43).
+/// tackle, with engine gaps lane EG6, the red zone, and 2026-11-22 with
+/// lane EG7, the quarterback off script: the NFL's 29,919 designed runs
+/// went 4.45 yards a carry, the fit 4.44, the old weights 4.37).
 pub const XRUSH: [[f64; XRUSH_TERMS]; 5] = [
     // High school.
-    [5.1961, -0.0146, 0.6573, 0.3728, 2.6168, -3.3383, -0.3937, -0.9728],
+    [5.4887, -0.2792, 0.2143, -0.0833, 2.6578, -3.2435, -0.3996, -0.6814],
     // FBS.
-    [4.8770, -0.0029, -0.2808, -0.7392, 2.5193, -2.5370, -0.5276, -0.5124],
+    [4.9724, -0.1430, -0.3068, -0.8772, 2.4423, -2.5791, -0.5263, -0.5140],
     // FCS.
-    [5.6661, -0.4340, -0.5799, -1.0955, 2.4351, -2.8414, -0.6816, -0.5824],
+    [5.3419, -0.0637, -0.4151, -0.8992, 2.7428, -2.6919, -0.4978, -0.5468],
     // Small colleges.
-    [5.6258, -0.1892, -0.4442, -1.0380, 2.6363, -2.8369, -0.6697, -0.4518],
+    [5.5643, -0.0471, -0.2720, -0.9237, 2.5420, -2.8152, -0.6149, -0.6303],
     // NFL.
-    [4.2838, 0.2688, 0.0781, -0.1894, 1.9418, -2.5851, -0.4595, -0.7997],
+    [4.5538, 0.0766, -0.1716, -0.3989, 1.9924, -2.5862, -0.4160, -0.7418],
 ];
 
 /// Expected yards on a designed run, no more than the field left.
@@ -88,20 +88,21 @@ pub fn xyac_features(air: f64, sep: f64, man: bool, middle: bool) -> [f64; XYAC_
 }
 
 /// The YAC model's weights by level, from `xyards_fit -- 600` (2026-11-04,
-/// refitted 2026-11-07 after minor bugs batch 9 and 2026-11-21 with lanes
-/// SF10, SF9b and EG6; the NFL's 27,099 catches went 4.76 yards after the
-/// catch, the fit 4.76, the old weights 4.86).
+/// refitted 2026-11-07 after minor bugs batch 9, 2026-11-21 with lanes
+/// SF10, SF9b and EG6 and 2026-11-22 with lane EG7; the NFL's 27,115
+/// catches went 4.72 yards after the catch, the fit 4.72, the old weights
+/// 4.75).
 pub const XYAC: [[f64; XYAC_TERMS]; 5] = [
     // High school.
-    [0.7434, 2.2891, 0.6845, 1.9234, 1.5181, 0.7755, -0.5762],
+    [0.6297, 2.2000, 0.9722, 2.0228, 1.5221, 0.9600, -0.3743],
     // FBS.
-    [0.0605, 2.9867, 1.6038, 2.0873, 1.5173, 0.5219, -0.2913],
+    [0.3944, 3.2557, 1.1266, 2.1382, 1.4005, 0.6177, -0.0363],
     // FCS.
-    [0.3696, 3.0679, 1.4095, 2.1075, 1.5140, 0.8316, -0.2675],
+    [0.3658, 2.9984, 1.4237, 2.8096, 1.5039, 0.8571, -0.1768],
     // Small colleges.
-    [0.4742, 2.9469, 1.1835, 2.4375, 1.4854, 1.0687, -0.1739],
+    [0.5022, 2.9965, 0.9350, 1.4955, 1.5123, 0.7474, -0.1515],
     // NFL.
-    [-0.8879, 3.0725, 1.1991, 2.2445, 1.3732, 0.1440, 0.0948],
+    [-0.7871, 2.8934, 0.8570, 2.4328, 1.3547, 0.1777, 0.1066],
 ];
 
 /// Expected yards after the catch, never below zero.
@@ -208,21 +209,21 @@ pub fn xpass_features(
 /// colleges, NFL), from `xpass_fit -- 600 7` (2026-11-04, refitted
 /// 2026-11-07 after minor bugs batch 9, and 2026-11-21 with scheme-fit lane
 /// SF10, whose roster lean moves play calling, again the same day with
-/// lane SF9b's rebuilt tables, and with engine gaps lane EG6, the red zone,
-/// whose short field moves the call: every down-and-distance band within
-/// 3.1 points of the engine's own rate, the lead and deficit bands within
-/// 3.3).
+/// lane SF9b's rebuilt tables, with engine gaps lane EG6, the red zone,
+/// whose short field moves the call, and 2026-11-22 with lane EG7's rebuilt
+/// tables: every down-and-distance band within 2.4 points of the engine's
+/// own rate, the lead and deficit bands within 3.2).
 pub const XPASS: [[f64; XPASS_TERMS]; 5] = [
     // High school.
-    [-1.1000, 0.3132, 0.9314, 0.8840, 0.3328, -0.1443, -0.2479, -0.1896, -0.0412, -0.0172, 0.9762, -0.5326, -0.7120],
+    [-1.2819, 0.3507, 0.9969, 0.9887, 0.3691, -0.1479, -0.0934, -0.0788, 0.0088, -0.0536, 1.0578, -0.6844, -0.6705],
     // FBS.
-    [-0.7064, 0.2344, 0.9490, 0.8078, 0.2725, -0.1253, -0.2903, -0.1409, 0.2729, -0.3185, 1.1936, -0.9985, -0.8898],
+    [-0.7037, 0.2467, 0.9822, 0.8112, 0.2424, -0.1982, -0.1853, -0.1423, 0.2379, -0.2908, 1.2815, -0.8753, -0.8676],
     // FCS.
-    [-0.7644, 0.2330, 0.9938, 0.7799, 0.2678, -0.1095, -0.1973, -0.1900, 0.2526, -0.2909, 1.2158, -0.9669, -0.9735],
+    [-0.6418, 0.2325, 0.9608, 0.7498, 0.2336, -0.2515, -0.2669, -0.1930, 0.2582, -0.2634, 1.2476, -1.1126, -0.8485],
     // Small colleges.
-    [-0.7091, 0.2504, 0.9696, 0.7518, 0.2622, -0.1448, -0.3006, -0.2307, 0.2422, -0.2743, 1.2593, -1.0013, -0.9300],
+    [-0.6847, 0.2454, 0.9486, 0.7317, 0.2299, -0.1602, -0.2385, -0.1745, 0.2467, -0.2983, 1.2512, -0.9039, -0.9114],
     // NFL.
-    [-0.8198, 0.4721, 1.5595, 1.2206, 0.3734, -0.1983, -0.1595, -0.0410, 0.2668, -0.5716, 1.0286, -0.3998, -0.7236],
+    [-0.6934, 0.4203, 1.4434, 1.1299, 0.3270, -0.2474, -0.1547, -0.0825, 0.2402, -0.5595, 1.0346, -0.2706, -0.7296],
 ];
 
 /// The chance a snap is a dropback (a throw, a sack or a scramble) by the

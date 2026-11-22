@@ -114,16 +114,18 @@ fouls, units, rotation), `kicking.rs`.
 - **Defending:** man and zone coverage (zone with play recognition),
   press (the jam, the vise on punts), disguise (the shell before the snap,
   what motion shows), tackling (the tackle and wrap range), pursuit,
-  blitzing (beating the back's pickup), anticipation (jumping routes, the
-  quarterback's eyes, batted balls, the get-off and offside).
-- **Mental:** football IQ (assignments, blitz pickup, alignment fouls,
-  ineligible downfield), play recognition (the vision cone, motion reads),
-  communication (the caller's unit busts less: quarterback, center, the
-  green-dot defender), concentration (crowd noise, false starts, late-drive
-  lapses, the silent count), discipline (fouls, biting on fakes), composure
-  (pressure, kicks), toughness, motor (effort through the whistle, letting
-  go of a block), competitiveness (piles on short yardage), physicality
-  (finishing blocks and pancakes, committing to the hit).
+  blitzing (beating the back's pickup and the passer's read of his hot),
+  anticipation (jumping routes, the quarterback's eyes, batted balls, the
+  get-off and offside).
+- **Mental:** football IQ (assignments, blitz pickup, the passer's hot,
+  alignment fouls, ineligible downfield), play recognition (the vision cone,
+  motion reads, the passer's hot), communication (the caller's unit busts
+  less: quarterback, center, the green-dot defender), concentration (crowd
+  noise, false starts, late-drive lapses, the silent count), discipline
+  (fouls, biting on fakes), composure (pressure, kicks), toughness, motor
+  (effort through the whistle, letting go of a block), competitiveness
+  (piles on short yardage), physicality (finishing blocks and pancakes,
+  committing to the hit).
 - **Kicking and snapping:** kick power (distance), short and long kick
   accuracy, kick trajectory (blocked kicks), kickoff technique (hang and
   landing spot, onside kicks), punt power, punt placement (pinning at the
