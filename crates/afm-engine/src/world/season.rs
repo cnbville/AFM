@@ -1326,7 +1326,15 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // S11): every year on the roster counts, settled January 2.
         let five = p.stage == Stage::College
             && super::eligibility::five_in_five(year as i32, programs[p.college.unwrap_or(0)].division);
-        if p.stage == Stage::College && !academic_sit && !five {
+        if five {
+            // The season counts for him from today, as every reader of
+            // `count_pending` takes it (the class plan, the portal's
+            // seasons left, the staff's urgency calls). Left unset, every
+            // Division I player's season read as not played from fall camp
+            // to January 2 (minor bug 424), so in December the seniors
+            // read as having a year left.
+            p.cal.count_pending = true;
+        } else if p.stage == Stage::College && !academic_sit {
             if role == PlayingTime::Redshirt {
                 p.redshirt_used = true;
             } else if trouble.is_none() {
