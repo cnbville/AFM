@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.679 (22 Nov, shipped): quarterbacks under pressure (PR #613)
+**TLDR:** Blind-side rushers now get home, and quarterbacks read the blitzer their protection leaves free and get the ball out before he arrives. When a passer breaks out of the pocket, his receivers break off into the scramble drill with him.
+- A rusher who beats his block behind the quarterback's back now brings him down more often, so sacks come closer to real. (PR #613)
+- Quarterbacks with a sharp football mind know the free blitzer is coming from the snap; a disguise that fools them leaves them guessing. (PR #613)
+- When a passer runs out of reads with nobody open, he makes one call: break out of the pocket or stay for the check-down. (PR #613)
+- Out of the pocket his receivers work toward his side and defenders in zones pick up the nearest man. (PR #613)
+- On the snaps you hand to your staff in a live game, it sends in your short-yardage back on third and short, as other staffs do. (PR #613)
+- Look at: a blitz-heavy defense against your quarterback, and how often he finds his hot. (PR #613)
+
 ## 0.2.678 (22 Nov, shipped): staff urgency: coaches who know when to move on from a player (PR #611)
 **TLDR:** Your coaches now know when it's time to move on from a player, and they tell you before the portal opens.
 - A coach's advice judges a player against the level, not just your room. He looks at where the player will be when his time runs out. (PR #611)

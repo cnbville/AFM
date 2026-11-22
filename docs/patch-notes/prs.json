@@ -2736,5 +2736,20 @@
   "players": true,
   "title": "EG6: the red zone",
   "tldr": "Drives near the goal line now play like real football. Defenses tighten up in the red zone, touchdowns there are harder to come by and field goals matter more."
+ },
+ "613": {
+  "auto": false,
+  "bullets": [
+   "A rusher who beats his block behind the quarterback's back now brings him down more often, so sacks come closer to real.",
+   "Quarterbacks with a sharp football mind know the free blitzer is coming from the snap; a disguise that fools them leaves them guessing.",
+   "When a passer runs out of reads with nobody open, he makes one call: break out of the pocket or stay for the check-down.",
+   "Out of the pocket his receivers work toward his side and defenders in zones pick up the nearest man.",
+   "On the snaps you hand to your staff in a live game, it sends in your short-yardage back on third and short, as other staffs do."
+  ],
+  "h": "7d069ee0fac6",
+  "look": "a blitz-heavy defense against your quarterback, and how often he finds his hot.",
+  "players": true,
+  "title": "Quarterbacks under pressure",
+  "tldr": "Blind-side rushers now get home, and quarterbacks read the blitzer their protection leaves free and get the ball out before he arrives. When a passer breaks out of the pocket, his receivers break off into the scramble drill with him."
  }
 }
