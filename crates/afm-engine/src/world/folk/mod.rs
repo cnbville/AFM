@@ -38,6 +38,7 @@ pub mod future;
 pub mod gametalk;
 pub mod handoff;
 pub mod hiring;
+pub mod juniors;
 pub mod letters;
 pub mod life;
 pub mod network;

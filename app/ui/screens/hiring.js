@@ -103,7 +103,32 @@ const HR_JOBS = [["", "Any job"], ["hc", "Head coaches"], ["coord", "Coordinator
 const HR_GROUPS = [["", "Came up as anything"], ["qb", "Quarterbacks"], ["rb", "Running backs"], ["wr", "Receivers"], ["ol", "Offensive line"], ["dl", "Defensive line"], ["lb", "Linebackers"], ["db", "Defensive backs"], ["st", "Special teams"]];
 const HR_SORTS = [["", "Reputation"], ["read", "Your read"], ["potential", "Potential (your read)"], ["age", "Youngest"], ["asks", "Cheapest ask"]];
 
+// Graduate assistant, analyst and quality-control posts (C36): who could
+// take an open one, a hire at the post's pay, or the room's coach bringing
+// a young man he knows.
+async function hrJuniors(x) {
+  const posts = x.juniorPosts || [];
+  if (!posts.length) return "";
+  const J = keep("hrjunior", { post: "" });
+  const seg = `<div class="seg wrap">${posts.map((p) => `<button data-act="hrjpost" data-v="${p.key}" aria-pressed="${J.post === p.key}">${esc(p.name)} <small>${p.posts - p.open} of ${p.posts}${p.open ? ", " + p.open + " open" : ""}</small></button>`).join("")}</div>`;
+  const head = `<h2>${x.level === "nfl" ? "Quality control" : "Graduate assistants and analysts"} <small>pick a post to see who could take it</small></h2>`;
+  if (!J.post) return `<section class="panel hr">${head}${seg}</section>`;
+  let c;
+  try { c = await api("people_junior_candidates", { post: J.post }); } catch (e) { return `<section class="panel hr">${head}${seg}<div class="empty">${esc(e.message)}</div></section>`; }
+  const pick = c.open ? `<button class="st-btn small glass" data-act="hrjpick" data-post="${c.post}">Let a position coach bring one in</button>` : "";
+  const cols = [
+    { k: "link", t: "Name", l: true, f: (r) => `<span class="hr-two">${rich(r.link)}<small>${r.age}${r.tie ? ` · <span class="tag key">${esc(r.tie)}</span>` : ""}</small></span>`, v: (r) => plainText(r.link) },
+    { k: "now", t: "Now", l: true, wrap: true, f: (r) => `<span class="hr-two">${esc(r.now)}${r.played ? `<small>Played: ${esc(r.played)}</small>` : ""}</span>`, v: (r) => r.now },
+    { k: "room", t: "Room", l: true },
+    { k: "read", t: "Teaching", tip: "Your read on the hidden 1 to 20 scale", f: (r) => (r.read ? hrMini(r.read, "teaching") : '<span class="sub">Not a coach yet</span>'), v: (r) => (r.read ? r.read[0] + r.read[1] : -1) },
+    { k: "potential", t: "Potential", l: true, wrap: true },
+    { k: "act", t: "", f: (r) => (r.takes ? `<button class="st-btn small primary" data-act="hrjhire" data-post="${c.post}" ${r.coach != null ? `data-coach="${r.coach}"` : `data-former="${r.former}"`} data-name="${esc(plainText(r.link))}" ${c.open ? "" : 'disabled title="No post is open: let someone go first"'}>Hire</button>` : '<span class="sub">Would stay where he is</span>'), v: () => 0 },
+  ];
+  return `<section class="panel hr">${head}${seg}<p class="small">${esc(c.postName)}: ${c.open ? `${c.open} open` : "none open"}${c.pay ? ` · pays ${esc(c.pay)} a year` : ""} · a hire takes an hour, ${hrHours(c.hours)} left this week ${pick}</p>${table("hr-junior", cols, c.rows, { empty: "Nobody fits this post right now.", tools: false })}</section>`;
+}
+
 async function hrSearch(x) {
+  const juniors = await hrJuniors(x);
   const roles = [...x.openings.map((o) => [o.key, o.name, true]), ["oc", "Offensive coordinator"], ["dc", "Defensive coordinator"], ["qb", "Quarterbacks coach"], ["rb", "Running backs coach"], ["wr", "Wide receivers coach"], ["ol", "Offensive line coach"], ["dl", "Defensive line coach"], ["lb", "Linebackers coach"], ["db", "Defensive backs coach"], ["st", "Special teams coordinator"]].filter((r, i, arr) => arr.findIndex((y) => y[0] === r[0]) === i);
   const k = keep("pshire", { role: x.openings[0] ? x.openings[0].key : "oc" });
   const F = keep("hrfilter", { page: 0 });
@@ -128,7 +153,7 @@ async function hrSearch(x) {
     { k: "act", t: "", f: (r) => `<span class="hr-acts"><button class="st-btn small glass" data-act="ppinterview" data-id="${r.coach}" data-role="${c.role}">Interview</button><button class="st-btn small primary" data-act="hroffer" data-id="${r.coach}" data-role="${c.role}" ${open ? "" : 'disabled title="The job isn\'t open on your staff: let someone go first"'}>Offer</button></span>`, v: () => 0 },
   ];
   const pager = c.pages > 1 ? `<div class="hr-pager"><button class="st-btn small glass" data-act="hrpage" data-v="${c.page - 1}" ${c.page <= 0 ? "disabled" : ""}>Previous</button><span>Page ${c.page + 1} of ${c.pages}</span><button class="st-btn small glass" data-act="hrpage" data-v="${c.page + 1}" ${c.page + 1 >= c.pages ? "disabled" : ""}>Next</button></div>` : "";
-  return `<section class="panel hr"><h2>${esc(c.roleName)} <small>${Number(c.total).toLocaleString()} coaches · ${open ? "any of them can be offered the job" : "the job isn't open: let someone go first, or keep him in mind"} · ${hrHours(c.hours)} left this week</small></h2>${seg}${filters}${table("hr-cand", cols, c.rows, { empty: "Nobody matches these filters.", tools: false })}${pager}</section>`;
+  return `${juniors}<section class="panel hr"><h2>${esc(c.roleName)} <small>${Number(c.total).toLocaleString()} coaches · ${open ? "any of them can be offered the job" : "the job isn't open: let someone go first, or keep him in mind"} · ${hrHours(c.hours)} left this week</small></h2>${seg}${filters}${table("hr-cand", cols, c.rows, { empty: "Nobody matches these filters.", tools: false })}${pager}</section>`;
 }
 
 // Coaches to watch (C42).
@@ -178,7 +203,21 @@ async function hrHireMenu(el) {
   });
 }
 
+const HR_ROOMS = HR_GROUPS.filter((g) => g[0]);
 Object.assign(CORE_MORE, {
+  hrjpost: (el) => { const J = keep("hrjunior", { post: "" }); J.post = J.post === el.dataset.v ? "" : el.dataset.v; refresh(el); },
+  hrjhire: async (el) => {
+    if (!(await sure(`Hire ${el.dataset.name}?`, "He takes the post at its pay, and the call takes an hour of your week.", "Hire him"))) return;
+    const a = { post: el.dataset.post };
+    if (el.dataset.coach != null) a.coach = Number(el.dataset.coach); else a.former = Number(el.dataset.former);
+    try { const r = await api("people_junior_hire", a); toast(plainText(r.text)); refresh(el); } catch (e) { toast(e.message); }
+  },
+  hrjpick: (el, ev) => {
+    if (ev) ev.stopPropagation();
+    moveMenu(el, "Which room?", HR_ROOMS, async (g) => {
+      try { const r = await api("people_junior_pick", { post: el.dataset.post, group: g }); toast(plainText(r.text)); refresh(el); } catch (e) { toast(e.message); }
+    });
+  },
   hroffer: (el) => hrOffer(Number(el.dataset.id), el.dataset.role),
   hrfilm: (el) => hrLook(el, "hiring_film"),
   hraround: (el) => hrLook(el, "hiring_around"),
