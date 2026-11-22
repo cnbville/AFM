@@ -214,6 +214,9 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **Inside the winter window your board reads nobody else leaving** (low). Once the window opens (`RosterRead::today`, `window_ahead`), the plan counts only the men already in it, so a backup who enters on the window's last day keeps his place on the board until then. Real entries come mostly in the first days, so the gap is a few days and a few places. Same thread.
 - **Before 2026 the dates' winter window is always January 2** (low). `YearDates::portal_open` reads `january_window`, which gives January 2-16 for every season before 2026, while the December windows of 2023-25 live in the rule book (`calendar/rules.rs`). Only a read on today's date in those years (a history replay at your desk) uses it. Same thread.
 
+- **Taking over a job skips the holdover graduate assistants and analysts** (medium). The takeover meetings keep or let go each holdover assistant from `facts::assistants`, which lists only coordinators and position coaches, so a new head coach can't clear out the old staff's juniors at the start the way real ones do (they bring their own GAs and analysts). He can let them go one by one from the Staff page since PR #617. Found 2026-11-22 (thread "Let me fire and hire GAs and analysts").
+- **A talk with a graduate assistant can't raise him or let him go** (low). The talk's confirm runs (`persona/office/asks.rs`, `on_your_staff`; `deals.rs`, `own_agree`) read a full-time job and a deal, so a junior's talk offers neither; the Staff page and his move list do both. Found 2026-11-22 (same thread).
+
 ## UI
 
 - **A call that rings looks like any other stop** (low). Continue now stops as a call comes in and opens its room, but the card only names it on its Now line: no ringing look and no answer or hand-on buttons on the card itself. Same thread.
