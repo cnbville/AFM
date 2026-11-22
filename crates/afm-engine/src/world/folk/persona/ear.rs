@@ -437,6 +437,12 @@ pub enum Landing {
     Spent,
     /// A recruit: nothing of yours backs what the line named.
     Unbacked,
+    /// A recruit: a fresh point your case already holds as well or better
+    /// (a stronger point in its group, or a case as full as it gets), so it
+    /// adds nothing. Before, "it didn't move him" left the voice to guess
+    /// why, and it made up a reason (Cain 2026-11-22: "I'm a junior, so the
+    /// freshman talk doesn't fit me").
+    Covered,
 }
 
 impl Landing {
@@ -452,6 +458,7 @@ impl Landing {
             Landing::Missed => "it didn't land".into(),
             Landing::Spent => "you've made your case for today".into(),
             Landing::Unbacked => "nothing of yours backs that up".into(),
+            Landing::Covered => format!("your case already gave {object} that"),
         }
     }
 
@@ -474,6 +481,10 @@ pub struct Turn {
     pub reviewed: u8,
     /// One answer per question, in order.
     pub told: Vec<Told>,
+    /// Who told you what he wants this line (a question on his wants
+    /// answered, not deflected or lied about): a recruit's file takes it
+    /// as the chips' "tell me what you're looking for" does.
+    pub wants_told: Vec<Them>,
     /// Each claim and what checking it found.
     pub claims: Vec<(Stated, Truth)>,
     /// Each offer and how he took it.

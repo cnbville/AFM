@@ -306,12 +306,19 @@ fn verb(who: &str, one: &'static str, many: &'static str) -> &'static str {
 }
 
 /// The name on his side's lines.
+/// Who says his side's lines, by the name a typed talk gives the same
+/// person (`persona::talk::channels::name`): the opening read "Him: That
+/// ship has sailed", the typed talk's own replies came under his name, and
+/// the voice, seeing "Him" in the talk so far, took the opening for
+/// someone else's and greeted the coach as if they'd never spoken (Cain
+/// 2026-11-22).
 fn who(w: &World, t: &Talk) -> String {
+    use super::persona::{Them, talk::channels};
     let p = &w.people[t.i];
     if t.himself() || p.family.decider == Decider::Himself {
-        "Him".into()
+        p.name.clone()
     } else {
-        dialogue::decider_words(p).to_string()
+        channels::name(w, Them::Kin(t.id, 0))
     }
 }
 
@@ -1646,7 +1653,7 @@ fn why_left(w: &mut World, s: &mut Scene, t: &Talk) {
     if let Some(x) = role.and_then(|r| say(w, s, 55, &[format!("transfer.role.{r}")], &sp, &f)) {
         said.push(x);
     }
-    s.them("Him", said.join(" "), None);
+    s.them(&who(w, t), said.join(" "), None);
     if let Some(g) = g {
         note(w, t, g as u8, Ev::BroughtUp, None);
     }
@@ -2023,7 +2030,7 @@ fn promise(w: &mut World, s: &mut Scene, t: &Talk, st: St, kind: u8, picked: &Pi
         &sp,
         &f,
     ) {
-        s.them("Him", x, None);
+        s.them(&who(w, t), x, None);
     }
     s.outcome.push(
         match key {
@@ -2599,6 +2606,16 @@ pub fn land_typed(w: &mut World, s: &mut Scene, p: &Typed, lean: f32) -> f32 {
     let says = shown(w, &t, p.group, truth(p.care, lean, p.tier));
     note(w, &t, p.group as u8, words_ev(says), None);
     delta
+}
+
+/// What he told you he wants in a typed talk, on his file as the chips'
+/// "tell me what you're looking for" puts it (`tell`): the first group he
+/// named as what matters most, the next as what comes next.
+pub fn told_typed(w: &mut World, s: &Scene, groups: &[Group]) {
+    let Some(t) = talk(w, s) else { return };
+    for (g, ev) in groups.iter().zip([Ev::ToldFirst, Ev::ToldSecond]) {
+        note(w, &t, *g as u8, ev, None);
+    }
 }
 
 /// A typed straight answer on a group (the chip's "be straight"): no pull,

@@ -528,3 +528,113 @@ fn his_answer_to_a_visit_is_the_one_he_says() {
     assert!(locked, "a recruit far past your reach reads as locked in");
     assert!(way, "a recruit just past your reach gets a way in");
 }
+
+// ---------------------------------------------------------------------------
+// The recruit call of 2026-11-22: a senior who said he was a junior, an
+// opening under "Him", a file that disagreed with what he said, and a
+// pitch that "didn't move him" with no reason given.
+
+#[test]
+fn a_senior_in_the_fall_is_a_senior() {
+    use afm_engine::world::folk::facts;
+    let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
+    w.add_class_aged(17);
+    let i = (0..w.people.len()).find(|&i| w.people[i].stage == Stage::HighSchool).expect("a high school player");
+    // November: the class that graduates next spring are the seniors.
+    w.today = w.dates.hs_school_start.add(90);
+    w.people[i].class_of = w.year + 1;
+    assert_eq!(facts::class_words(&w, i), "senior");
+    assert!(facts::leaving(&w, i), "a senior leaves after this season");
+    w.people[i].class_of = w.year + 2;
+    assert_eq!(facts::class_words(&w, i), "junior");
+    assert!(!facts::leaving(&w, i));
+    // The spring before: the class graduating this spring are the seniors.
+    w.today = w.dates.hs_school_start.add(-90);
+    w.people[i].class_of = w.year;
+    assert_eq!(facts::class_words(&w, i), "senior");
+}
+
+#[test]
+fn his_opening_lines_are_under_his_own_name() {
+    let (g, _, sid, i, _, _) = recruit_talk("open-name", Kind::RecruitCall, Decider::Himself);
+    let w = g.world.as_ref().unwrap();
+    let name = w.people[i].name.clone();
+    let s = scene_of(&g, sid);
+    let his: Vec<_> = s.lines.iter().filter(|l| l.by > 1).collect();
+    assert!(!his.is_empty(), "he opens the call");
+    assert!(his.iter().all(|l| l.name == name), "every opening line is his, by name: {:?}", s.lines);
+}
+
+#[test]
+fn what_he_tells_you_he_wants_goes_on_his_file() {
+    use afm_engine::world::folk::persona::ear::Turn;
+    use afm_engine::world::folk::pulls::{Ev, Pull, Where};
+    let (mut g, _, sid, _, id, _) = recruit_talk("told", Kind::RecruitCall, Decider::Himself);
+    let w = g.world.as_mut().unwrap();
+    let wants = Parts::today().wanting.wants(w, Them::Player(id));
+    let mut said: Vec<_> = Vec::new();
+    for (k, _) in afm_engine::world::folk::persona::wanting::raw(w, Them::Player(id)).into_iter().take(3) {
+        if let Some(gr) = recruit::group_of(k)
+            && !said.contains(&gr)
+        {
+            said.push(gr);
+        }
+    }
+    assert!(said.len() >= 2, "he names two groups");
+    // He'd asked about his second group once before (the call's opening).
+    w.folk.pulls.forget(id);
+    let today = w.today;
+    w.folk.pulls.note(
+        today,
+        Pull {
+            who: id,
+            group: said[1] as u8,
+            ev: Ev::BroughtUp,
+            from: Where::Call,
+            on: today,
+            by: None,
+            decider: false,
+        },
+    );
+    let t = Turn { wants_told: vec![Them::Player(id)], ..Turn::default() };
+    recruit::apply(w, sid, &t, &[], &wants);
+    let order = w.folk.pulls.order(id, None);
+    assert_eq!(order[0].group, said[0], "what he said comes first comes first: {order:?}");
+    assert_eq!(order[1].group, said[1], "{order:?}");
+}
+
+#[test]
+fn a_point_his_case_already_holds_says_so() {
+    let (mut g, f, sid, i, id, mine) = recruit_talk("covered", Kind::HomeVisit, Decider::Parent);
+    let (tag, group) = {
+        let w = g.world.as_ref().unwrap();
+        let s = scene_of(&g, sid);
+        let wants = Parts::today().wanting.wants(w, Them::Player(id));
+        let k = (0..wants.len())
+            .find(|&k| {
+                recruit::group_of(wants[k].kind).and_then(|gr| pitch::typed_point(w, &s, None, Some(gr))).is_some()
+            })
+            .expect("a want your case speaks to");
+        (format!("c{}", k + 1), recruit::group_of(wants[k].kind).unwrap())
+    };
+    // Your case already holds the most a point can make in that group.
+    {
+        let w = g.world.as_mut().unwrap();
+        let today = w.today;
+        let cases = &mut w.people[i].cal.cases;
+        if !cases.iter().any(|c| c.prog as usize == mine) {
+            cases.push(case::Case::new(mine));
+        }
+        let c = cases.iter_mut().find(|c| c.prog as usize == mine).unwrap();
+        c.add(group, case::POINT_RANGE.1, 1.0, today);
+    }
+    let before = case_total(&g, i, mine);
+    let hit = json!({ "on": "", "item": tag, "how": "reassured" });
+    let v = say(&mut g, &f, sid, "You'd play right away here.", ear(vec![], vec![hit]));
+    assert_eq!(v["state"], "done", "{v}");
+    assert!((case_total(&g, i, mine) - before).abs() < 1e-6, "nothing moves");
+    let heard = v["heard"].as_str().unwrap_or_default();
+    assert!(heard.contains("your case already gave"), "{heard}");
+    let card = f.asked().into_iter().rev().find(|r| r.label == VOICE).map(|r| r.user).unwrap_or_default();
+    assert!(card.contains("adds nothing new for you"), "the voice is told why: {card}");
+}

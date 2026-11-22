@@ -497,6 +497,15 @@ impl Resolving for Conversation<'_> {
                             faded: false,
                         });
                     }
+                    // His wants, said: a recruit's file takes them (Cain
+                    // 2026-11-22: he said home came first, and "What pulls
+                    // him" still put playing time first from one question
+                    // he'd asked).
+                    if known.first().is_some_and(|k| k.topic == Topic::Wants)
+                        && matches!(told.answer, Answer::Straight | Answer::Partly)
+                    {
+                        t.wants_told.push(him);
+                    }
                     t.say.released.extend(told.released.iter().cloned());
                     t.say.holding_back |= told.holding_back;
                     if !told.tell.is_empty() {

@@ -197,12 +197,12 @@ impl Bloc {
             Bloc::Seniors => match p.stage {
                 Stage::Pro => p.pro.as_ref().is_some_and(|c| c.seasons.len() >= 4),
                 Stage::College => p.college_seasons >= 3,
-                _ => w.year - p.class_of + 12 >= 12,
+                _ => crate::world::front_office::school::grade(w, p.class_of) == 12,
             },
             Bloc::Newcomers => match p.stage {
                 Stage::Pro => p.pro.as_ref().is_none_or(|c| c.seasons.is_empty()),
                 Stage::College => p.college_seasons == 0,
-                _ => w.year - p.class_of + 12 <= 9,
+                _ => crate::world::front_office::school::grade(w, p.class_of) == 9,
             },
             Bloc::Offense => g.offense(),
             Bloc::Defense => matches!(g, Pos::DL | Pos::LB | Pos::DB),

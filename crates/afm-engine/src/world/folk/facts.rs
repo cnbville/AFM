@@ -487,8 +487,11 @@ pub fn class_words(w: &World, i: usize) -> String {
             };
             format!("{rs}{c}")
         }
+        // His grade in this school year: a senior in the fall is the class
+        // that graduates next spring (Cain 2026-11-22: a senior on a call
+        // in November said "I'm a junior").
         _ => {
-            let g = (w.year - p.class_of + 12).clamp(9, 12);
+            let g = crate::world::front_office::school::grade(w, p.class_of);
             match g {
                 9 => "freshman".into(),
                 10 => "sophomore".into(),
@@ -509,7 +512,7 @@ pub fn leaving(w: &World, i: usize) -> bool {
             .pro
             .as_ref()
             .is_some_and(|c| c.contract.as_ref().is_none_or(|k| k.years.last().is_none_or(|y| y.year <= w.year))),
-        _ => p.class_of <= w.year,
+        _ => crate::world::front_office::school::grade(w, p.class_of) == 12,
     }
 }
 
