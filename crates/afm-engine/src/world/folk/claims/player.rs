@@ -526,7 +526,7 @@ fn buried(r: &Reader, m: &Man) -> Option<Point> {
     let seasons = match p.stage {
         Stage::Pro => p.pro.as_ref().map_or(0, |c| c.seasons.len() as u32),
         Stage::College => p.college_seasons,
-        _ => (w.year - p.class_of + 12).clamp(9, 12) as u32 - 9,
+        _ => crate::world::front_office::school::grade(w, p.class_of) - 9,
     };
     if seasons < 2 || p.player.position.is_specialist() {
         return None;

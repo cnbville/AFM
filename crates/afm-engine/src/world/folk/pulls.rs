@@ -274,8 +274,15 @@ impl Pulls {
             out[k].under = said[k].1 && seen[k].0;
             out[k].conflict = out[k].over || out[k].under;
         }
+        // Even scores go to what he told you came first: "home comes first"
+        // beats a question he once asked about playing time plus "then
+        // playing time" (Cain 2026-11-22).
         out.sort_by(|a, b| {
-            (b.rows > 0).cmp(&(a.rows > 0)).then(b.score.total_cmp(&a.score)).then(a.group.cmp(&b.group))
+            (b.rows > 0)
+                .cmp(&(a.rows > 0))
+                .then(b.score.total_cmp(&a.score))
+                .then(told[b.group as usize % 7].total_cmp(&told[a.group as usize % 7]))
+                .then(a.group.cmp(&b.group))
         });
         out
     }

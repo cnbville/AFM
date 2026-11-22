@@ -362,6 +362,7 @@ fn landed(w: &World, him: Them, t: &Turn, wants: &[afm_engine::world::folk::pers
         Landing::Missed => "it doesn't sit well with you at all",
         Landing::Spent => "you've heard his pitch for today",
         Landing::Unbacked => "nothing he has backs that up, and you can tell",
+        Landing::Covered => "you've heard as much from his school already, so it adds nothing new for you",
     };
     if !sat.is_empty() {
         parts.push(sat.into());

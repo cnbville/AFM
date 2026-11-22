@@ -84,6 +84,10 @@ pub const LANDED_SHARE: f32 = 0.5;
 /// Less than this on your case, either way, is no move at all.
 const MOVED: f32 = 1e-5;
 
+/// The wants a man names when he tells you what he wants
+/// (`knowing::wants_known`: three for himself, his family or his agent).
+const TOLD_WANTS: usize = 3;
+
 /// Whether a scene is a recruit's talk.
 pub fn is_recruit(k: SceneKind) -> bool {
     KINDS.contains(&k)
@@ -342,7 +346,8 @@ pub fn best_now(w: &World, s: &Scene, wants: &[Want]) -> f32 {
 /// or cost your case, and cost you a little when it cost his trust less.
 /// A line that named a point and moved nothing says when the talk's
 /// exchanges are spent or nothing of yours backs it; said again in the
-/// same talk, it moved nothing. With no point, a straight answer or a warm
+/// same talk, it moved nothing; a fresh point his case already holds as
+/// well or better is covered. With no point, a straight answer or a warm
 /// word that lifts his trust helps a little. Read in `turn` after `cap`,
 /// before anything lands.
 pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Sized], wants: &[Want]) -> Landing {
@@ -384,7 +389,15 @@ pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Siz
             return Landing::Unbacked;
         }
     }
-    if trust > small { Landing::Little } else { Landing::Nothing }
+    if trust > small {
+        return Landing::Little;
+    }
+    // A fresh point that moved nothing: his case already holds as much.
+    let fresh = mine.iter().any(|h| h.mood > 0.0 && !h.faded);
+    if fresh && kept(w, s, hits, wants).is_some() {
+        return Landing::Covered;
+    }
+    Landing::Nothing
 }
 
 /// How he takes the point that landed, in words for the voice: his own
@@ -740,6 +753,21 @@ pub fn apply(w: &mut World, id: u32, t: &Turn, promises: &[PromiseRead], wants: 
             "{}: you were straight with him. No pull, and he believes your word a little more.",
             g.name()
         ));
+    }
+    // What he told you he wants goes on his file, the two he put first
+    // (the chips' own "tell me what you're looking for"), so "What pulls
+    // him" says what he said.
+    if t.wants_told.iter().any(|who| on_case(&x, *who)) {
+        let mut groups: Vec<Group> = Vec::new();
+        for (k, _) in super::super::wanting::raw(w, Them::Player(x.id)).into_iter().take(TOLD_WANTS) {
+            if let Some(g) = group_of(k)
+                && !groups.contains(&g)
+            {
+                groups.push(g);
+            }
+        }
+        groups.truncate(2);
+        pitch::told_typed(w, &s, &groups);
     }
     // Promises count as you say them; a claim about where he'll stand is
     // one too.
