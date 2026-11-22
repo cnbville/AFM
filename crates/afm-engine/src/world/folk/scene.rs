@@ -564,9 +564,24 @@ fn cal_text(s: &Scene) -> String {
     }
 }
 
+/// The coach a staff meeting is about, when it is about one (a holdover
+/// you meet, a firing, an interview, a coach's proposal to start a man).
+pub(crate) fn subject_coach(w: &World, s: &Scene) -> Option<usize> {
+    let one = match s.kind {
+        Kind::Holdover | Kind::Firing | Kind::Interview => true,
+        Kind::Proposal => s.c == 1,
+        _ => false,
+    };
+    (one && s.a < w.coaches.len() as u64).then_some(s.a as usize)
+}
+
 /// Clears the calendar's "waiting on you" mark for a scene once it is held
-/// or handed.
+/// or handed, and the "still your call" lines an earlier talk about the
+/// same coach left: this meeting decided him.
 fn clear_mark(w: &mut World, s: &Scene) {
+    if let Some(c) = subject_coach(w, s) {
+        super::settle_calls(w, c);
+    }
     let text = cal_text(s);
     // Its world day: a line posted after midnight Eastern is filed under
     // the next date.

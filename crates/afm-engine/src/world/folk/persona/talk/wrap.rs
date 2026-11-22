@@ -67,6 +67,7 @@ pub fn close(w: &mut World, id: u32) -> bool {
     if decides(s) && !s.picks.is_empty() {
         let kind = s.kind;
         let name = across_name(w, s).map(|n| crate::world::folk::plain(&n));
+        let about = scene::subject_coach(w, s);
         let (what, whr) = still_yours(kind);
         if kind == Kind::Interview {
             let c = s.a as usize;
@@ -88,7 +89,8 @@ pub fn close(w: &mut World, id: u32) -> bool {
             None => format!("Still your call: {}, {whr}.", lower(what)),
         };
         let today = w.today;
-        crate::world::folk::post_mine(w, today, crate::calendar::Loudness::Small, true, "people: decision", &text);
+        let rule = crate::world::folk::CALL_RULE;
+        crate::world::folk::post_mine_about(w, today, crate::calendar::Loudness::Small, true, rule, &text, about);
         return true;
     }
     scene::leave(w, id, |w, s| {
