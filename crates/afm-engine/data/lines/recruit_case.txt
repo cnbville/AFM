@@ -137,3 +137,76 @@ I put my name in {when}. It's been a lot of calls.
 I knew going in it'd be crazy. It's been crazy.
 I'm taking every call. I want to get this right.
 Lot of coaches calling since I went in. Good to hear from you.
+
+# A call from a school a clear step above every school that has offered
+# him, or the first college to show real interest (Cain 2026-11-22: "it's
+# arrogant and not at all how a 0 offer QB would talk to a SEC school").
+# Who says it: the kid himself on the phone (hs), a transfer (college), or
+# his family when they speak for him. `pitch::warmth`, "eager".
+@key recruit.open.call.eager
+Coach, thank you for calling. Really.
+Coach {you}? Wow. Thank you for calling.
+Yes sir, I've got all the time you need.
+Coach, this means a lot. Thank you.
+I'm glad you called, Coach. Go ahead, I'm listening.
+Thank you for reaching out, Coach. Honestly, it means a lot.
+Hello, Coach. Yes sir, this is a great time.
+Coach, I appreciate you taking the time.
+Yes sir, this is {name}. Thank you for calling, Coach. ~ hs
+Coach {you}! Yes sir, I can talk. ~ hs
+Hi, Coach. Sorry, I'm a little nervous. Thanks for calling me. ~ hs
+Hey, Coach. I honestly didn't think {team} knew who I was. ~ hs
+Yes sir. I'll be honest, I've been hoping for a call like this. ~ hs
+Coach, thank you. I'll take any time you've got. ~ hs
+Yes sir, I'm here. Whatever you need to know, just ask. ~ hs
+Hi, Coach. I'm all ears, sir. ~ hs
+Coach, thank you. I wasn't sure anybody would call. ~ college
+Yes sir. Thanks for calling, Coach. I'm all ears. ~ college
+Coach, I appreciate this. A call from {team} means a lot right now. ~ college
+Coach, hello. We're honored you called. ~ parent
+Hello, Coach. He's going to be so excited you called. ~ parent
+Coach, thank you. We never expected a call from {team}. ~ parent
+Hello, Coach. We've got all the time you need. ~ parent
+Coach, bless you for calling. My grandson works so hard. ~ grandparent
+Hello, Coach. We're grateful you'd call our boy. ~ grandparent
+Coach, thanks for calling. He's been hoping for a look like this. ~ handler
+Appreciate the call, Coach. He'll make time for {team}, any time. ~ handler
+
+@key recruit.open.visit.eager
+Coach, thank you for this. Really.
+Coach, it means a lot that you'd make the time.
+Thank you, Coach. We're glad you're here.
+Coach, welcome. Whatever you want to know, just ask.
+Coach {you}. Thank you for having this sit-down with me.
+I appreciate you, Coach. I know your time is worth a lot.
+Yes sir, Coach. Thank you for coming to see me. ~ hs
+Coach, thank you. I didn't think {team} would come see me. ~ hs
+Coach, I'll be honest, I'm a little nervous. Thank you for this. ~ hs
+Coach, thank you. I wasn't sure anybody would want me. ~ college
+Yes sir. Thanks for this, Coach. I'm ready to listen. ~ college
+Coach, welcome. We're honored to have you. ~ parent
+Coach, please, sit down. We're so glad you came. ~ parent
+Thank you for coming, Coach. He's been talking about this all week. ~ parent
+Come in, Coach. We're grateful you'd come see our boy. ~ grandparent
+Coach, thank you for making the time. He's been looking forward to this. ~ handler
+Yes sir, Coach. Thank you for coming to see me. ~ himself
+Coach, it means a lot that you'd come in person. ~ himself
+
+# The first talk, after an eager opening: the step up shows.
+@key recruit.history.first.eager
+I never thought I'd hear from {team}, honestly.
+I didn't know {team} even had my film.
+I'm just grateful for the look, Coach.
+Whatever you want to know about me, ask.
+I know I've got work to do, Coach. I want to hear what you see.
+I'll work for anything you give me, Coach.
+I've watched {team} play for as long as I can remember. ~ hs
+Nobody that big has called me before, Coach. ~ hs
+I'll be honest, nobody your size has reached out to me. ~ hs
+I'm hungry, Coach. I just need somebody to give me a shot. ~ hs
+I just want a real shot somewhere, Coach. ~ college
+I know what I need to prove, Coach. I'm listening. ~ college
+We never expected {team} to call, Coach. ~ parent
+A call from you is a big deal in this house. ~ parent
+Our boy has dreamed about this, Coach. ~ grandparent
+He's been hoping for a look like this, Coach. ~ handler

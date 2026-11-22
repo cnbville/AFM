@@ -214,6 +214,11 @@ fn player(w: &World, i: usize, v: Voice) -> Vec<String> {
                     if n == 1 { "" } else { "s" },
                     if v == Voice::You { "haven't" } else { "hasn't" }
                 ));
+            } else {
+                // No offers is a fact of his recruitment too: without it the
+                // voice played a quarterback nobody had offered as one with
+                // his pick of schools (Cain 2026-11-22).
+                out.push(format!("{} no college offers yet", v.have()));
             }
         }
         Road::College | Road::Deciding | Road::Returning | Road::LastSeason | Road::DraftBound => {

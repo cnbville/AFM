@@ -230,6 +230,7 @@ fn asked() -> Vec<String> {
         "want.unsure",
         "want.dealbreaker",
         "history.first",
+        "history.first.eager",
         "history.again",
         "history.silence",
         "team.good_year",
@@ -244,7 +245,7 @@ fn asked() -> Vec<String> {
         v.push(format!("recruit.{k}"));
     }
     for s in ["call", "visit"] {
-        for m in ["warm", "polite", "guarded"] {
+        for m in ["warm", "polite", "guarded", "eager"] {
             v.push(format!("recruit.open.{s}.{m}"));
         }
         for m in ["warm", "flat", "cool"] {

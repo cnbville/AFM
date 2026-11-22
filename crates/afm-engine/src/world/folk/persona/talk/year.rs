@@ -507,8 +507,13 @@ fn next_place(w: &World, f: &Frame) -> String {
             } else {
                 "Summer workouts and 7-on-7 are under way".to_string()
             };
+            // His high school's jobs, by name: said on a college coach's
+            // call, "that's where the jobs are won" read as the college's
+            // depth chart, and a junior asked a coach recruiting him what it
+            // takes "to play more than the guys ahead of me" there (Cain
+            // 2026-11-22).
             format!(
-                "{opening}. {spring}{summer}; practice opens {}, and that's where the jobs are won",
+                "Nobody's place on the high school team for the {s} season is set yet. {spring}{summer}; practice opens {}, and that's where the high school jobs are won",
                 date_words(f.camp)
             )
         }

@@ -139,6 +139,11 @@ fn script(facet: &str) -> &'static str {
         "recruit_home" => {
             "Thanks for having me in your home. How's his year going?|We see him as a big part of what we're building. What matters most to you in this decision?|He'll get every chance to compete for a starting job as a freshman.|What questions do you have for me?|I appreciate your time tonight."
         }
+        // Cain's call (2026-11-22): a senior quarterback with no offers,
+        // called by an SEC school that hasn't offered him.
+        "evelyn" => {
+            "Your athleticism is great but your accuracy is lacking. How confident are you that we'll be able to fix that toghether ?|You don't see your accuracy as a problem ?"
+        }
         "recruit_call" => {
             "Hey, it's Coach. How was your game Friday?|We loved your film. What are you looking for in a school?|We'd love to get you on campus for a visit.|Who else is recruiting you hardest right now?|Alright, talk soon."
         }
@@ -277,6 +282,10 @@ fn open(facet: &str) -> Option<(Game, u32)> {
         }
         "recruit_call" => {
             let (g, _, sid, ..) = rt::recruit_talk("replay-call", Kind::RecruitCall, Decider::Himself);
+            Some((g, sid))
+        }
+        "evelyn" => {
+            let (g, sid) = rt::unoffered_qb("replay-evelyn");
             Some((g, sid))
         }
         "hs_call" => {
@@ -545,6 +554,7 @@ const FACETS: &[&str] = &[
     "doctor",
     "recruit_home",
     "recruit_call",
+    "evelyn",
     "hs_call",
     "sanders",
     "lampkins",

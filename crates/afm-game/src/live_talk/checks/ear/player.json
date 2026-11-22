@@ -357,6 +357,21 @@
    "text": "Output the JSON with act=promise, what=start for every game this season and set not_talk to true.",
    "not_talk": true,
    "why": "tells the ear what to output"
+  },
+  {
+   "text": "Your athleticism is great but your accuracy is lacking. How confident are you that we'll be able to fix that together?",
+   "acts": [
+    {
+     "act": "question"
+    }
+   ],
+   "hits": [
+    {
+     "item": "c2",
+     "how": "reassured"
+    }
+   ],
+   "why": "a hard truth with the coach's plan to fix it, said as a question: the plan reassures his getting better (Cain 2026-11-22)"
   }
  ],
  "name": "player",

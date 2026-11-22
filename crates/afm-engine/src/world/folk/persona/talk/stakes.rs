@@ -213,7 +213,10 @@ fn to_you(w: &World, him: Them, kind: Kind) -> Option<String> {
         Kind::Boss => "You're his boss: you hired him, you judge his work and you decide his future".into(),
         Kind::Player => player_to_you(w, him),
         Kind::Recruit => recruit_to_you(w, him),
-        Kind::Transfer => "You're in the transfer portal, and he wants you at his school".into(),
+        Kind::Transfer => match leverage(w, him, true) {
+            Some(x) => format!("You're in the transfer portal, and he wants you at his school. {x}"),
+            None => "You're in the transfer portal, and he wants you at his school".into(),
+        },
         Kind::Prospect => "His team may draft or sign you: he's sizing you up, and your future rides on it".into(),
         Kind::Family => {
             let son = match him {
@@ -288,8 +291,38 @@ fn recruit_to_you(w: &World, him: Them) -> String {
             "You're committed to {}, though you haven't signed: he's trying to change your mind",
             w.program_name(c)
         ),
-        _ => "He's recruiting you: you haven't decided where you'll play, and he wants you".into(),
+        _ => match leverage(w, him, false) {
+            Some(x) => format!("He's recruiting you: you haven't decided where you'll play. {x}"),
+            None => "He's recruiting you: you haven't decided where you'll play, and he wants you".into(),
+        },
     }
+}
+
+/// Where his school stands against the schools that have offered you, and
+/// whether he has: your leverage, which sets how you carry yourself with
+/// him (Cain 2026-11-22: a quarterback with no offers, called by an SEC
+/// school, talked as if he held the cards, and pushed back on the coach's
+/// read of his accuracy). Read as `pitch::reach` reads it for the opening.
+fn leverage(w: &World, him: Them, transfer: bool) -> Option<String> {
+    use crate::world::folk::pitch::{Reach, reach};
+    use crate::world::front_office::{college, portal};
+    let Them::Player(id) = him else { return None };
+    let i = folk::person(w, id)?;
+    let j = w.seat.and_then(|s| s.program)?;
+    let offered = if transfer { portal::offered_to(w, id) } else { college::offered_here(w, id) };
+    let others = if transfer { portal::race(w, i) } else { college::race_at(w, i) }.iter().filter(|r| r.0 != j).count();
+    let none = if transfer { "no school has offered you yet" } else { "no college has offered you yet" };
+    Some(match (offered, reach(w, i, j, transfer)) {
+        (false, Reach::Step) if others == 0 => format!(
+            "He hasn't offered you, and {none}: a call from his program is the biggest thing in your recruitment so far. You want to earn his offer, so you're eager and respectful with him, and you hear his read on your game out even where you see it differently"
+        ),
+        (false, Reach::Step) => "He hasn't offered you, and his program is a clear step above every school that has: you want to earn his offer, so you're eager and respectful with him, and you hear his read on your game out even where you see it differently".into(),
+        (false, Reach::Level) => "He hasn't offered you, and his program is about the level of the best schools that have: you're interested, and you want to see if he's serious".into(),
+        (false, Reach::Below) => "He hasn't offered you, and you hold offers from bigger programs than his: he has to give you a reason to look his way".into(),
+        (true, Reach::Step) => "His offer is the best you have, a clear step above the rest, and you know it".into(),
+        (true, Reach::Level) => "His offer stands with the best ones you have".into(),
+        (true, Reach::Below) => "You hold offers from bigger programs than his: he has to win you over".into(),
+    })
 }
 
 /// Your own job, in words: head coach unless you're an assistant.
