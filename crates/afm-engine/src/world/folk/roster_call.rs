@@ -20,10 +20,12 @@
 //! - **The move**: move on now, bring a man in over him, or keep and
 //!   develop, each with its reason in words.
 //!
-//! The AI's staffs act on the same calls (`told_for_window`, `flow_factors`,
-//! `camp_trim`): the men they move on from are told before the winter
-//! window and most enter it, inside the world's portal total (the program's
-//! expected entrants stay the same; the told men take the place of draws).
+//! The AI's staffs act on the same calls (`told_for_window`, `within_flow`,
+//! `flow_factors`, `camp_trim`): the men they move on from are told before
+//! the winter window, at most a quarter of the program's expected entrants
+//! and the men furthest under their bar first, and most enter it, inside
+//! the world's portal total (the program's expected entrants stay the
+//! same; the told men take the place of draws).
 //!
 //! Sizes are proposed, not confirmed.
 
@@ -55,6 +57,11 @@ pub const CLEAR: f64 = 1.0;
 /// A man told he isn't in the plans enters the window; the rest stay and
 /// fight for a place (proposed, not confirmed).
 pub const TOLD_GO: f64 = 0.85;
+/// The most of a program's expected entrants its staff pushes out in a
+/// window: the men furthest under their bar first (proposed, not
+/// confirmed: reporting says some entrants are encouraged to leave, no
+/// study counts them).
+pub const TOLD_SHARE: f64 = 0.25;
 /// The AI staff's read error, for an average evaluator (points; proposed,
 /// not confirmed).
 pub const AI_READ_SD: f64 = 2.0;
@@ -187,6 +194,9 @@ impl Market {
 /// Each tier's starter and backup marks at every spot, read once.
 pub struct LevelMarks {
     marks: Vec<Option<[f64; 3]>>,
+    /// Each program's places taken next season: the men who return and
+    /// the recruits signed for it (`recruiting::counted_rosters`).
+    places: Vec<usize>,
 }
 
 impl LevelMarks {
@@ -199,7 +209,7 @@ impl LevelMarks {
                 );
             }
         }
-        LevelMarks { marks }
+        LevelMarks { marks, places: crate::world::recruiting::counted_rosters(w, next_season(w)) }
     }
 
     fn get(&self, tier: u8, pos: Position) -> Option<[f64; 3]> {
@@ -598,8 +608,13 @@ pub fn calls_by(
             let prog = &w.programs[j];
             let whole = crate::world::ncaa::whole_roster_limit(prog, next);
             let limit = crate::world::ncaa::roster_limits(prog, next).0;
-            let used =
-                roster.iter().filter(|&&i| crate::world::recruiting::takes_a_place(&w.people[i], whole, next)).count();
+            // The places next season as a staff counts them: the men who
+            // return and the class it signed (a December roster without
+            // its signees showed room it didn't have).
+            let used = match level_marks {
+                Some(lm) => lm.places.get(j).copied().unwrap_or(0),
+                None => crate::world::recruiting::counted_rosters(w, next).get(j).copied().unwrap_or(0),
+            };
             Some((limit.saturating_sub(used), whole))
         }
         _ => None,
@@ -654,7 +669,10 @@ pub fn calls_by(
                 Some(t) => {
                     let which = if job == Job::Starter { 0 } else { 1 };
                     match (w.folk.market.supply(t, pos, which), w.folk.market.share(t, fifth)) {
-                        (Some(s), Some(sh)) => s * sh,
+                        // A staff aims its landings at the spot it needs:
+                        // the program's rate on an average spot's men,
+                        // never more than all of them.
+                        (Some(s), Some(sh)) => s * (sh * POSITION_COUNT as f64).min(1.0),
                         _ => CLEAR,
                     }
                 }
@@ -1129,13 +1147,13 @@ fn acts(d: Division) -> bool {
 }
 
 /// A program's men told and the spots it wants a man over.
-type ProgramCalls = (usize, Vec<usize>, Vec<(u8, u8)>);
+type ProgramCalls = (usize, Vec<(usize, f64)>, Vec<(u8, u8)>);
 
 /// Before the winter window: the men each staff tells it is moving on
 /// from (the AI's own programs on their calls, and yours by your word in
 /// the roster meeting), and the spots its staff wants a man over the one
 /// it has (`Folk.over`, read by the portal market).
-pub(crate) fn told_for_window(w: &mut World) -> HashSet<usize> {
+pub(crate) fn told_for_window(w: &mut World) -> (HashSet<usize>, Vec<(usize, f64)>) {
     let mut told = HashSet::new();
     let seat = match Team::seat(w) {
         Some(Team::College(j)) => Some(j),
@@ -1154,7 +1172,7 @@ pub(crate) fn told_for_window(w: &mut World) -> HashSet<usize> {
     w.folk.told.clear();
     w.folk.over.clear();
     if !ai_on() {
-        return told;
+        return (told, Vec::new());
     }
     let table = growth::table(w);
     let marks = LevelMarks::of(w);
@@ -1167,7 +1185,8 @@ pub(crate) fn told_for_window(w: &mut World) -> HashSet<usize> {
         .par_iter()
         .map(|&j| {
             let cs = ai_calls(wr, j, &table, &marks);
-            let on: Vec<usize> = cs.iter().filter(|c| c.mv == Move::MoveOn).map(|c| c.i).collect();
+            let on: Vec<(usize, f64)> =
+                cs.iter().filter(|c| c.mv == Move::MoveOn).map(|c| (c.i, c.last - c.bar)).collect();
             let over: Vec<(u8, u8)> = cs
                 .iter()
                 .filter(|c| c.mv == Move::Over && c.job == Job::Starter)
@@ -1179,22 +1198,58 @@ pub(crate) fn told_for_window(w: &mut World) -> HashSet<usize> {
     if std::env::var("AFM_URGENCY_TRACE").is_ok() {
         trace(wr, &progs, &table, &marks);
     }
+    let mut cands = Vec::new();
     for (j, on, over) in found {
-        for i in on {
-            let p = &mut w.people[i];
-            p.cal.lean_events.push((today, "his coaches told him he isn't in the plans", 1.0));
-            told.insert(i);
-        }
+        cands.extend(on);
         for (k, n) in over {
             *w.folk.over.entry((j as u16, k)).or_insert(0) += n;
         }
     }
-    told
+    (told, cands)
+}
+
+/// The AI's men each staff tells, within its flow: at most `TOLD_SHARE` of
+/// the program's expected entrants (its lean draws, `eligible` saying who
+/// reaches them), the men furthest under their bar first. The rest stay on
+/// the list and fight for their place.
+pub(crate) fn within_flow(w: &World, cands: &[(usize, f64)], era: f64, eligible: &dyn Fn(usize) -> bool) -> Vec<usize> {
+    let pn = w.programs.len();
+    let mut flow = vec![0.0f64; pn];
+    for i in 0..w.people.len() {
+        let p = &w.people[i];
+        let Some(c) = p.college.filter(|_| p.stage == Stage::College) else { continue };
+        if eligible(i) {
+            flow[c] += (p.cal.lean * era).clamp(0.0, 1.0);
+        }
+    }
+    let mut by: Vec<Vec<(usize, f64)>> = vec![Vec::new(); pn];
+    for &(i, m) in cands {
+        if let Some(c) = w.people[i].college
+            && eligible(i)
+        {
+            by[c].push((i, m));
+        }
+    }
+    let mut out = Vec::new();
+    for (c, mut v) in by.into_iter().enumerate() {
+        v.sort_by(|a, b| a.1.total_cmp(&b.1));
+        let cap = (TOLD_SHARE * flow[c] / TOLD_GO).round() as usize;
+        out.extend(v.into_iter().take(cap).map(|x| x.0));
+    }
+    out
+}
+
+/// The men the AI's staffs told, as each hears it.
+pub(crate) fn mark_told(w: &mut World, told: &[usize]) {
+    let today = w.today;
+    for &i in told {
+        w.people[i].cal.lean_events.push((today, "his coaches told him he isn't in the plans", 1.0));
+    }
 }
 
 /// The window's calls by level and reason, with the market's spread
 /// (`AFM_URGENCY_TRACE`, for `urgency_check`).
-fn trace(w: &World, progs: &[usize], table: &growth::Table, marks: &LevelMarks) {
+pub fn trace(w: &World, progs: &[usize], table: &growth::Table, marks: &LevelMarks) {
     let mut by: BTreeMap<(&'static str, String), usize> = BTreeMap::new();
     let mut markets: BTreeMap<&'static str, Vec<f64>> = BTreeMap::new();
     for &j in progs {

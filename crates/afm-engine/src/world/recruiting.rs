@@ -8499,13 +8499,13 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     // The men each staff is moving on from are told before the winter
     // window (staff urgency): most enter it, in place of the program's
     // lean draws, so its expected entrants stay the same (spec 5).
-    let told: std::collections::HashSet<usize> =
+    let (mut told, cands): (std::collections::HashSet<usize>, Vec<(usize, f64)>) =
         if which == PortalWindow::Winter { super::folk::roster_call::told_for_window(w) } else { Default::default() };
-    let flow: Vec<f64> = if told.is_empty() {
-        vec![1.0; w.programs.len()]
+    let (flow, ai_told): (Vec<f64>, Vec<usize>) = if told.is_empty() && cands.is_empty() {
+        (vec![1.0; w.programs.len()], Vec::new())
     } else {
         let wr: &World = w;
-        super::folk::roster_call::flow_factors(wr, &told, era, &|i| {
+        let eligible = |i: usize| {
             let p = &wr.people[i];
             let Some(c) = p.college else { return false };
             let div = wr.programs[c].division;
@@ -8515,8 +8515,12 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
                 && p.cal.declare_plan != Some(true)
                 && wr.programs[c].plays(label + 1)
                 && !super::college::no_season_left(p, div, label)
-        })
+        };
+        let ai_told = super::folk::roster_call::within_flow(wr, &cands, era, &eligible);
+        told.extend(ai_told.iter().copied());
+        (super::folk::roster_call::flow_factors(wr, &told, era, &eligible), ai_told)
     };
+    super::folk::roster_call::mark_told(w, &ai_told);
     let mut entrants: Vec<(usize, Why)> = Vec::new();
     // The lean each lean-driven entrant must still be above on his day
     // (`Intent`): his draw over the window's rate.

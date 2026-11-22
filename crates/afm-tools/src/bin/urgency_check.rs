@@ -185,4 +185,13 @@ fn calls(w: &World) {
             t[2] as f64 / n
         );
     }
+    // The calls by reason, and the market's spread, as the window's trace
+    // prints them.
+    let all: Vec<usize> = (0..w.programs.len())
+        .filter(|&j| {
+            matches!(w.programs[j].division, Division::FBS | Division::FCS | Division::D2)
+                && w.programs[j].plays(w.year)
+        })
+        .collect();
+    roster_call::trace(w, &all, &table, &marks);
 }
