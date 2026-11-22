@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.683", date: "22 Nov", title: "Close the \"Still your call\" staff banners when the coach is settled and 2 more",
+    notes: [
+      "Your recruiting board now counts the places that will really be open. Seniors finishing their eligibility, players about to declare for the draft and expected transfers free their spots, and so do the men you tell aren't in your plans.",
+      "A new save on January 1 shows the class room your staff would really plan for.",
+      "Telling a player he isn't in the plans frees his place on the board right away.",
+      "Fifth-year seniors read as leaving through December and January.",
+      "Your graduate assistants, analysts and quality-control coaches are now fully yours: give them a raise, let them go, and hire the next one yourself.",
+      "Your staff page lists every graduate assistant, analyst and quality-control coach with his room, years and pay.",
+    ],
+  },
+  {
     v: "0.2.679", date: "22 Nov", title: "Quarterbacks under pressure",
     notes: [
       "Blind-side rushers now get home, and quarterbacks read the blitzer their protection leaves free and get the ball out before he arrives. When a passer breaks out of the pocket, his receivers break off into the scramble drill with him.",
