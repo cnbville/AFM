@@ -1454,10 +1454,12 @@ fn main() {
     row("  from inside the 5", g("ptd_5") / n, None);
     row("  from the 6 to the 20", g("ptd_20") / n, None);
     row("  from outside the 20", g("ptd_far") / n, None);
-    // Red zone passing, Claude's reading of recent NFL seasons: about 53%
-    // completed and a touchdown on about 19% of attempts.
-    row("red zone completion", g("rz_comp") / g("rz_att"), Some(0.53));
-    row("red zone TD per attempt", g("rz_ptd") / g("rz_att"), Some(0.19));
+    // Red zone passing without throwaways (lane EG6, nflverse play-by-play
+    // and FTN charting, regular seasons 2022-25): 60.4% completed and a
+    // touchdown on 24.6% of throws (with throwaways 56.7% and 23.2%; the
+    // audit's 53% and 19% were an older reading).
+    row("red zone completion", g("rz_comp") / g("rz_att"), Some(0.604));
+    row("red zone TD per attempt", g("rz_ptd") / g("rz_att"), Some(0.246));
     row("rush TD", g("rush_td") / n, f("rush_td"));
     row("scrambles", g("scrambles") / n, None);
     row("punts", g("punts") / n, None);
@@ -1911,6 +1913,7 @@ fn main() {
     if std::env::var("AFM_GAPS").is_ok() {
         gaps_counts(&results, &pos_of, level);
         foul_counts(&results, level);
+        red_zone_counts(&results, level);
     }
     if !burners.is_empty() {
         println!(
@@ -3020,6 +3023,387 @@ fn foul_counts(results: &[afm_engine::game::GameResult], level: Level) {
         gambits[2] / tg,
         gambits[3] / tg
     );
+}
+
+/// AFM_GAPS=1, lane EG6 (the red zone): throws, dropbacks and runs by how
+/// far the snap is from the goal line, beside real NFL regular seasons
+/// (nflverse play-by-play 2021-25; throws without throwaways and spikes,
+/// 2022-25 with FTN's throwaway flag; coverage, rushers, time to throw and
+/// pressure from Next Gen Stats participation 2023-25). The real column is
+/// the NFL's at every level.
+fn red_zone_counts(results: &[afm_engine::game::GameResult], level: Level) {
+    use afm_engine::game::stats::PlayType as PT;
+    let tg = results.len() as f64 * 2.0;
+    const BANDS: [(f64, &str); 5] = [(5.0, "1-5"), (10.0, "6-10"), (15.0, "11-15"), (20.0, "16-20"), (100.0, "21+")];
+    // Real per band: throws a team game, completion, TD a throw, INT a
+    // throw, air yards, share thrown at or past the goal line.
+    const REAL_T: [[f64; 6]; 5] = [
+        [0.865, 0.561, 0.480, 0.0255, 2.13, 0.725],
+        [0.961, 0.564, 0.295, 0.0239, 4.41, 0.463],
+        [1.111, 0.614, 0.165, 0.0232, 5.64, 0.292],
+        [1.174, 0.659, 0.111, 0.0266, 6.45, 0.195],
+        [27.399, 0.686, 0.015, 0.0233, 8.25, 0.015],
+    ];
+    // Real per band, dropbacks: sack rate, scramble rate, throwaway share
+    // of throws, man coverage, Cover 0, rushers, time to throw, pressure.
+    const REAL_D: [[f64; 8]; 5] = [
+        [0.0515, 0.0460, 0.0784, 0.751, 0.402, 4.72, 2.64, 0.335],
+        [0.0662, 0.0547, 0.0756, 0.554, 0.142, 4.27, 2.70, 0.333],
+        [0.0596, 0.0571, 0.0541, 0.473, 0.073, 4.26, 2.61, 0.298],
+        [0.0582, 0.0562, 0.0481, 0.435, 0.041, 4.24, 2.52, 0.301],
+        [0.0654, 0.0485, 0.0364, 0.379, 0.019, 4.26, 2.66, 0.298],
+    ];
+    // Real per band, designed runs: yards a carry, TD a carry, and the
+    // dropback share of snaps.
+    // On first down too (2021-25), and Cover 0's rushers and sacks (2023-25).
+    const REAL_R: [[f64; 6]; 5] = [
+        [1.06, 0.410, 0.451, 0.311, 5.26, 0.042],
+        [2.85, 0.117, 0.561, 0.384, 5.15, 0.069],
+        [3.58, 0.056, 0.565, 0.436, 5.22, 0.050],
+        [3.96, 0.035, 0.583, 0.455, 5.49, 0.011],
+        [4.62, 0.006, 0.618, 0.519, 5.60, 0.076],
+    ];
+    // Per band: throws, completions, TDs, INTs, air yards, end zone throws,
+    // throwaways, dropbacks, sacks, scrambles, man, Cover 0, rushers (and
+    // dropbacks with a count), time to throw (and throws with one),
+    // pressured, runs, run yards, run TDs, contested throws and their
+    // catches, separation, drops, breakups, Cover 0's rushers (and dropbacks
+    // with a count), sacks and dropbacks, first-down dropbacks and snaps.
+    let mut b = [[0.0f64; 31]; 5];
+    // Inside the 20: [man, zone] x [inside the 10, 11-20] x [throws, comp, TD];
+    // end zone throws and short of it: [throws, comp, TD].
+    let mut mz = [[0.0f64; 3]; 6];
+    let mut ez = [[0.0f64; 3]; 2];
+    // Targets by the target's route inside the 10 and from 11 to 20:
+    // throws, completions, TDs, air yards.
+    let mut routes: [std::collections::BTreeMap<&str, [f64; 4]>; 3] = Default::default();
+    // Goal-line snaps: third and fourth and goal from the 1 and from the 2
+    // (garbage time and overtime out, as `decide_fit` reads them), and
+    // two-point tries: [snaps, scores, dropbacks, their scores, Cover 0 and
+    // man of the dropbacks, runs against Cover 0, their scores, runs
+    // against man, their scores].
+    let mut gl = [[0.0f64; 10]; 3];
+    for r in results {
+        for p in &r.stats.plays {
+            if p.nullified {
+                continue;
+            }
+            let row = if p.kind == PT::TwoPoint {
+                Some(2)
+            } else if matches!(p.kind, PT::Run | PT::Pass | PT::Sack | PT::Scramble)
+                && matches!(p.down, 3 | 4)
+                && p.quarter <= 4
+                && p.garbage == [0, 0]
+                && p.togo >= p.yardline_100 - 0.01
+                && p.togo <= 2.0
+            {
+                Some(usize::from(p.togo > 1.0))
+            } else {
+                None
+            };
+            if let Some(row) = row {
+                let g = &mut gl[row];
+                let one = |v: bool| f64::from(u8::from(v));
+                let score = p.touchdown && !p.defense_td && !p.turnover;
+                let dropback = p.passer.is_some() || !p.sackers.is_empty() || p.scramble;
+                let zero = p.defense_call.split(',').next() == Some("Cover 0");
+                g[0] += 1.0;
+                g[1] += one(score);
+                if dropback {
+                    g[2] += 1.0;
+                    g[3] += one(score);
+                    g[4] += one(zero);
+                    g[5] += one(p.coverage_man);
+                } else if zero {
+                    g[6] += 1.0;
+                    g[7] += one(score);
+                } else if p.coverage_man {
+                    g[8] += 1.0;
+                    g[9] += one(score);
+                }
+            }
+            let k = BANDS.iter().position(|x| p.yardline_100 <= x.0).unwrap_or(4);
+            let x = &mut b[k];
+            let one = |v: bool| f64::from(u8::from(v));
+            match p.kind {
+                PT::Pass | PT::Sack | PT::Scramble => {
+                    x[7] += 1.0;
+                    x[8] += one(p.kind == PT::Sack);
+                    x[9] += one(p.kind == PT::Scramble);
+                    x[10] += one(p.coverage_man);
+                    let zero = p.defense_call.split(',').next() == Some("Cover 0");
+                    x[11] += one(zero);
+                    if zero {
+                        x[27] += one(p.kind == PT::Sack);
+                        x[28] += 1.0;
+                        if p.rushed != 0 {
+                            x[25] += f64::from(p.rushed.count_ones());
+                            x[26] += 1.0;
+                        }
+                    }
+                    if p.down == 1 {
+                        x[29] += 1.0;
+                        x[30] += 1.0;
+                    }
+                    if p.rushed != 0 {
+                        x[12] += f64::from(p.rushed.count_ones());
+                        x[13] += 1.0;
+                    }
+                    x[16] += one(p.pressured);
+                    if p.kind == PT::Pass {
+                        x[6] += one(p.throw_away);
+                        if p.time_to_throw > 0.0 {
+                            x[14] += p.time_to_throw;
+                            x[15] += 1.0;
+                        }
+                        if !p.throw_away {
+                            x[0] += 1.0;
+                            x[1] += one(p.complete);
+                            x[2] += one(p.complete && p.touchdown);
+                            x[3] += one(p.interception);
+                            // Contested (under a yard of separation at the
+                            // throw's end) and its catches; separation summed.
+                            let tight = p.separation < 1.0;
+                            x[20] += one(tight);
+                            x[21] += one(tight && p.complete);
+                            x[22] += p.separation;
+                            x[23] += one(p.drop);
+                            x[24] += one(p.pbu.is_some());
+                            // nflverse measures air yards to the goal line at most.
+                            x[4] += p.air_yards.min(p.yardline_100);
+                            let at_goal = p.air_yards >= p.yardline_100;
+                            x[5] += one(at_goal);
+                            if p.yardline_100 > 20.0 {
+                                let m = &mut mz[4 + usize::from(!p.coverage_man)];
+                                m[0] += 1.0;
+                                m[1] += one(p.complete);
+                                m[2] += one(p.complete && p.touchdown);
+                            } else {
+                                let m = &mut mz[usize::from(!p.coverage_man) * 2 + usize::from(p.yardline_100 > 10.0)];
+                                let e = &mut ez[usize::from(!at_goal)];
+                                for t in [m, e] {
+                                    t[0] += 1.0;
+                                    t[1] += one(p.complete);
+                                    t[2] += one(p.complete && p.touchdown);
+                                }
+                                let name: &str = p.route;
+                                let name = if name == "out" && p.air_yards >= 8.0 { "out 8+" } else { name };
+                                let ks: &[usize] = if p.yardline_100 <= 10.0 && p.coverage_man {
+                                    &[0, 2]
+                                } else if p.yardline_100 <= 10.0 {
+                                    &[0]
+                                } else {
+                                    &[1]
+                                };
+                                for &k in ks {
+                                    let t = routes[k].entry(name).or_default();
+                                    t[0] += 1.0;
+                                    t[1] += one(p.complete);
+                                    t[2] += one(p.complete && p.touchdown);
+                                    t[3] += p.air_yards.min(p.yardline_100);
+                                }
+                            }
+                        }
+                    }
+                }
+                PT::Run => {
+                    x[17] += 1.0;
+                    x[30] += one(p.down == 1);
+                    x[18] += p.yards;
+                    x[19] += one(p.touchdown);
+                }
+                _ => {}
+            }
+        }
+    }
+    let d = |a: f64, b: f64| a / b.max(1.0);
+    println!(
+        "\nThe red zone (AFM_GAPS, lane EG6) by yards to the goal, engine (real NFL 2021-25){}",
+        if level == Level::NFL { "" } else { "; the real column is the NFL's" }
+    );
+    println!(
+        "  throws (no throwaways): a team game, completion, TD a throw, INT a throw, air yards, at or past the goal line"
+    );
+    for (k, (_, name)) in BANDS.iter().enumerate() {
+        let (x, r) = (&b[k], &REAL_T[k]);
+        println!(
+            "    {name:>5}: {:.3} ({:.3})  {:.3} ({:.3})  {:.3} ({:.3})  {:.4} ({:.4})  {:.2} ({:.2})  {:.3} ({:.3})",
+            x[0] / tg,
+            r[0],
+            d(x[1], x[0]),
+            r[1],
+            d(x[2], x[0]),
+            r[2],
+            d(x[3], x[0]),
+            r[3],
+            d(x[4], x[0]),
+            r[4],
+            d(x[5], x[0]),
+            r[5]
+        );
+    }
+    // Real contested share of throws (FTN charting 2022-25): 22.7%, 20.0%,
+    // 17.1%, 15.7%, 13.4%.
+    const REAL_C: [f64; 5] = [0.227, 0.200, 0.171, 0.157, 0.134];
+    println!(
+        "  throws under a yard of separation (FTN's contested share), their catch rate, the rest's, mean separation, drops, breakups"
+    );
+    for (k, (_, name)) in BANDS.iter().enumerate() {
+        let x = &b[k];
+        println!(
+            "    {name:>5}: {:.3} ({:.3})  {:.3}  {:.3}  {:.2}  {:.3}  {:.3}",
+            d(x[20], x[0]),
+            REAL_C[k],
+            d(x[21], x[20]),
+            d(x[1] - x[21], x[0] - x[20]),
+            d(x[22], x[0]),
+            d(x[23], x[0]),
+            d(x[24], x[0])
+        );
+    }
+    println!("  dropbacks: sacks, scrambles, throwaways of throws, man, Cover 0, rushers, time to throw, pressured");
+    for (k, (_, name)) in BANDS.iter().enumerate() {
+        let (x, r) = (&b[k], &REAL_D[k]);
+        println!(
+            "    {name:>5}: {:.4} ({:.4})  {:.4} ({:.4})  {:.4} ({:.4})  {:.3} ({:.3})  {:.3} ({:.3})  {:.2} ({:.2})  {:.2} ({:.2})  {:.3} ({:.3})",
+            d(x[8], x[7]),
+            r[0],
+            d(x[9], x[7]),
+            r[1],
+            d(x[6], x[0] + x[6]),
+            r[2],
+            d(x[10], x[7]),
+            r[3],
+            d(x[11], x[7]),
+            r[4],
+            d(x[12], x[13]),
+            r[5],
+            d(x[14], x[15]),
+            r[6],
+            d(x[16], x[7]),
+            r[7]
+        );
+    }
+    println!(
+        "  designed runs: yards a carry, TD a carry; dropbacks of snaps, on first down; Cover 0's rushers and sacks"
+    );
+    for (k, (_, name)) in BANDS.iter().enumerate() {
+        let (x, r) = (&b[k], &REAL_R[k]);
+        println!(
+            "    {name:>5}: {:.2} ({:.2})  {:.3} ({:.3})  {:.3} ({:.3})  {:.3} ({:.3})  {:.2} ({:.2})  {:.3} ({:.3})",
+            d(x[18], x[17]),
+            r[0],
+            d(x[19], x[17]),
+            r[1],
+            d(x[7], x[7] + x[17]),
+            r[2],
+            d(x[29], x[30]),
+            r[3],
+            d(x[25], x[26]),
+            r[4],
+            d(x[27], x[28]),
+            r[5]
+        );
+    }
+    // Real inside the 20 (no throwaways, 2023-25 for coverage, 2022-25 for
+    // the end zone): [man, zone] x [inside the 10, 11-20] completion and TD
+    // a throw; at or past the goal line and short of it.
+    const REAL_MZ: [[f64; 2]; 6] =
+        [[0.540, 0.409], [0.602, 0.160], [0.613, 0.347], [0.682, 0.124], [0.619, 0.020], [0.729, 0.013]];
+    const REAL_EZ: [[f64; 2]; 2] = [[0.418, 0.418], [0.725, 0.134]];
+    println!("  by coverage, completion and TD a throw:");
+    for (k, name) in ["man, inside the 10", "man, 11-20", "zone, inside the 10", "zone, 11-20", "man, 21+", "zone, 21+"]
+        .iter()
+        .enumerate()
+    {
+        let (x, r) = (&mz[k], &REAL_MZ[k]);
+        println!(
+            "    {name:>19}: {:.3} ({:.3})  {:.3} ({:.3})  n {:.0}",
+            d(x[1], x[0]),
+            r[0],
+            d(x[2], x[0]),
+            r[1],
+            x[0]
+        );
+    }
+    // Real targets by route (NGS, 2023-25, no throwaways): inside the 10
+    // quick out 23.7% (65.6% caught, 40.0% TDs), corner 10.9% (41.5%,
+    // 41.2%), drag 10.5% (62.4%, 37.0%), slant 9.8% (58.3%, 45.2%), hitch
+    // and curl 8.5% (58.6%, 37.8%), in and dig 7.4% (49.8%, 44.7%), go 6.8%
+    // (31.5%, 31.5%), screen 6.1% (85.0%, 22.8%), deep out 5.9% (42.5%,
+    // 40.8%), post 5.1% (50.7%, 50.0%), swing 2.3%; from 11 to 20 quick out
+    // 18.2% (78.5%), screen 13.9% (90.2%), hitch and curl 11.7% (73.1%), go
+    // 10.1% (32.5%), drag 7.5% (71.7%), slant 6.6% (68.0%), dig 6.3%
+    // (54.9%), corner 6.2% (37.9%), post 6.0% (48.0%), deep out 4.7%
+    // (40.1%), swing 4.1% (86.4%).
+    for (k, name) in ["inside the 10", "11-20", "inside the 10 in man"].iter().enumerate() {
+        let n: f64 = routes[k].values().map(|x| x[0]).sum();
+        let mut v: Vec<_> = routes[k].iter().collect();
+        v.sort_by(|a, b| b.1[0].total_cmp(&a.1[0]));
+        let line: Vec<String> = v
+            .iter()
+            .take(12)
+            .map(|(r, x)| {
+                format!(
+                    "{r} {:.1}% ({:.1}%, {:.1}%, air {:.1})",
+                    100.0 * x[0] / n,
+                    100.0 * d(x[1], x[0]),
+                    100.0 * d(x[2], x[0]),
+                    d(x[3], x[0])
+                )
+            })
+            .collect();
+        println!("  targets by route {name} (share, caught, TDs): {}", line.join("; "));
+    }
+    let all = ez[0][0] + ez[1][0];
+    for (k, name) in ["at the goal line or past", "short of the goal line"].iter().enumerate() {
+        let (x, r) = (&ez[k], &REAL_EZ[k]);
+        println!(
+            "    {name:>24}: {:.3} ({:.3})  {:.3} ({:.3})  {:.3} of red zone throws",
+            d(x[1], x[0]),
+            r[0],
+            d(x[2], x[0]),
+            r[1],
+            d(x[0], all)
+        );
+    }
+    // Real (2021-25, garbage time and overtime out for the downs): scored,
+    // dropbacks of snaps, their scores, the runs' scores; Cover 0 and man of
+    // the dropbacks (2023-25; from the 1 and the 2 together).
+    const REAL_GL: [[f64; 6]; 3] = [
+        [0.556, 0.347, 0.533, 0.567, 0.500, 0.795],
+        [0.445, 0.744, 0.418, 0.525, 0.500, 0.795],
+        [0.475, 0.716, 0.440, 0.564, 0.348, 0.678],
+    ];
+    println!(
+        "  goal line: scored, dropbacks of snaps, their scores, the runs' scores; Cover 0 and man of the dropbacks; runs against Cover 0 and against man (share of runs, scored)"
+    );
+    for (k, name) in
+        ["3rd/4th and goal from the 1", "3rd/4th and goal from the 2", "two-point tries"].iter().enumerate()
+    {
+        let (x, r) = (&gl[k], &REAL_GL[k]);
+        let runs = x[0] - x[2];
+        println!(
+            "    {name:>27}: n {:.0}  {:.3} ({:.3})  {:.3} ({:.3})  {:.3} ({:.3})  {:.3} ({:.3})  {:.3} ({:.3})  {:.3} ({:.3})  v Cover 0 {:.3} {:.3}  v man {:.3} {:.3}",
+            x[0],
+            d(x[1], x[0]),
+            r[0],
+            d(x[2], x[0]),
+            r[1],
+            d(x[3], x[2]),
+            r[2],
+            d(x[1] - x[3], runs),
+            r[3],
+            d(x[4], x[2]),
+            r[4],
+            d(x[5], x[2]),
+            r[5],
+            d(x[6], runs),
+            d(x[7], x[6]),
+            d(x[8], runs),
+            d(x[9], x[8])
+        );
+    }
 }
 
 /// AFM_RUNDIAG=1, scheme-fit lane SF9: the backs' designed runs by how far

@@ -503,7 +503,15 @@ pub fn def_call(
     let (coverage, pressure) = pick?;
     let mut c = *own;
     c.coverage = coverage;
-    c.pressure = if coverage == Coverage::Cover0 { Pressure::DoubleA } else { pressure };
+    // Cover 0 brings the call's own rush (`calling::cover0_rush`, lane EG6):
+    // the coordinator's when his call was Cover 0 too.
+    c.pressure = if coverage != Coverage::Cover0 {
+        pressure
+    } else if own.coverage == Coverage::Cover0 {
+        own.pressure
+    } else {
+        super::calling::cover0_rush(rng)
+    };
     if c.personnel == DefPersonnel::Dime && c.pressure == Pressure::DoubleA {
         c.pressure = Pressure::DbBlitz;
     }

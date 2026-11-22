@@ -470,6 +470,11 @@ pub struct Situation {
     /// the level (engine gaps item 20); the default on every other down.
     #[serde(default)]
     pub fourth: FourthRead,
+    /// A try after a touchdown, played from scrimmage. It is no down: it
+    /// calls from the real tries' mix (`TRY_PASS`), and the short field's
+    /// lean by down (`RED_ZONE_PASS`) passes it by (lane EG6).
+    #[serde(default)]
+    pub trying: bool,
 }
 
 /// The two teams and the level in a fourth-down sum (engine gaps item 20):
@@ -737,7 +742,27 @@ pub fn call_offense_memo(
     let c = &staff.offense;
     let scheme = staff.off_scheme;
     let year = staff.year;
-    let mut p_pass = tables::real_pass_rate(sit.down, sit.togo, sit.score_diff, sit.clock(), sit.college);
+    // A try from scrimmage is no down: it calls from the real tries' mix
+    // (`TRY_PASS`, lane EG6), not from first and goal.
+    let mut p_pass = if sit.trying {
+        TRY_PASS
+    } else {
+        tables::real_pass_rate(sit.down, sit.togo, sit.score_diff, sit.clock(), sit.college)
+    };
+    // The short field (lane EG6): inside the 20 real offenses run more than
+    // the table's down, distance, score and clock say, most on first down.
+    if sit.yardline_100 <= 20.0 && !sit.trying {
+        let z = if sit.yardline_100 <= 5.0 {
+            0
+        } else if sit.yardline_100 <= 10.0 {
+            1
+        } else if sit.yardline_100 <= 15.0 {
+            2
+        } else {
+            3
+        };
+        p_pass = lean_odds(p_pass, RED_ZONE_PASS[z][usize::from(sit.down.clamp(1, 3) - 1)]);
+    }
     // Pressure changes coaches (topic 6.5): behind late a gambler throws
     // more, a tight one sticks to the run.
     let agg = c.aggressiveness + 4.0 * c.nerve * sit.pressure();
@@ -1915,9 +1940,10 @@ fn concept_weights(
 /// coverage and pressure; runs by front.
 const CALL_VALUES_CSV: &str = include_str!("../../data/call_values.csv");
 
-/// Column of a coverage and pressure in the table: Cover 0 with the
-/// double-A blitz, then each other coverage with four rushers and with a
-/// linebacker blitz.
+/// Column of a coverage and pressure in the table: Cover 0 with its own
+/// rush (`cover0_pressure`'s mix; the column keeps its old name,
+/// `Cover0/DoubleA`), then each other coverage with four rushers and with
+/// a linebacker blitz.
 pub(crate) fn col(cov: Coverage, blitz: bool) -> usize {
     match cov {
         Coverage::Cover0 => 0,
@@ -2314,14 +2340,30 @@ pub fn call_defense_memo(
             // 10 lb of safety on the field, as real.
             let k = 0.15 * ctx.hitter;
             w *= if cov.high() == 2 { (-k).exp() } else { k.exp() };
+            // The red zone (lane EG6): man and Cover 0 lean in as the goal
+            // comes nearer, from nothing at the 20 to `RED_ZONE_MAN` and
+            // `RED_ZONE_ZERO` on the log-odds at the goal line.
+            let near = clamp((20.0 - sit.yardline_100) / 20.0, 0.0, 1.0);
             if cov == Coverage::Cover0 {
-                w *= if short || sit.yardline_100 <= 10.0 {
-                    2.5
+                // Short yardage calls Cover 0 more, long yardage less. At
+                // the goal line the red zone's lean already holds it, so
+                // the short step fades as the goal nears: real Cover 0 on
+                // third and fourth and goal from the 1 or 2 is 50.0% of
+                // dropbacks, as on every snap inside the 3 (50.5%; nflverse
+                // participation data, 2023-25).
+                w *= if short {
+                    COVER0_SHORT.powf(1.0 - near)
                 } else if long {
                     0.3
                 } else {
                     1.0
                 };
+            }
+            if cov.is_man() {
+                w *= (RED_ZONE_MAN * near).exp();
+            }
+            if cov == Coverage::Cover0 {
+                w *= (RED_ZONE_ZERO * near).exp();
             }
             if sit.hurry() && cov.high() == 2 {
                 w *= 1.6;
@@ -2445,7 +2487,7 @@ pub fn call_defense_memo(
         clamp(lean_odds(p_blitz, trust(c.creativity) * gain as f64), 0.05, 0.7)
     };
     let pressure = if coverage == Coverage::Cover0 {
-        Pressure::DoubleA
+        cover0_rush(rng)
     } else if rng.chance(p_blitz) {
         weigh(
             rng,
@@ -2492,6 +2534,74 @@ pub fn call_defense_memo(
         && !coverage.is_man()
         && rng.chance(0.25 + 0.02 * c.reading);
     DefCall { personnel, coverage, pressure, disguise, front, stunt, spy }
+}
+
+/// The short field (engine gaps lane EG6, item 8): how much less real NFL
+/// offenses throw inside the 20 than the pass table's down, distance, score
+/// and clock say, on the log-odds, by yards to the goal (1-5, 6-10, 11-15,
+/// 16-20) and down (first, second, and third and fourth; tries keep their
+/// own mix, `TRY_PASS`): nflverse play-by-play, regular seasons 2021-25,
+/// outside the last two minutes of a half and close late games, each down
+/// and distance read against the same down, distance and score outside the
+/// 20. First and goal from the 8 is thrown 30% of the time, first and 10
+/// from the 15 36%, both against 46% at midfield. The same at every level
+/// (proposed, not confirmed).
+const RED_ZONE_PASS: [[f64; 3]; 4] =
+    [[-0.708, 0.276, -0.020], [-0.512, 0.093, -0.330], [-0.378, -0.216, 0.068], [-0.230, 0.044, -0.150]];
+
+/// The defense's red zone calls (engine gaps lane EG6, item 8): man coverage
+/// and Cover 0 more often as the goal comes nearer, on the log-odds, from
+/// nothing at the 20 to these at the goal line. Real NFL dropbacks
+/// (nflverse participation data, 2023-25) see man 75% of the time inside
+/// the 5, 55% from 6 to 10, 47% and 44% from 11 to 20 and 38% outside it;
+/// Cover 0 40%, 14%, 7%, 4% and 2%. On main 46%, 35%, 32%, 31% and 32%
+/// man, Cover 0 11%, 8%, 4%, 3% and 3%, from one step (Cover 0 two and a
+/// half times as often inside the 10). Proposed, not confirmed.
+const RED_ZONE_MAN: f64 = 1.15;
+const RED_ZONE_ZERO: f64 = 3.0;
+
+/// Cover 0 on 2 yards or less to go, as a weight: two and a half times as
+/// often at midfield, fading to nothing at the goal line, where the red
+/// zone's lean already holds it (lane EG6). Proposed, not confirmed.
+const COVER0_SHORT: f64 = 2.5;
+
+/// How often a try from scrimmage is a dropback: real NFL two-point tries
+/// 71.6% (nflverse play-by-play 2021-25, 663 tries; 44.0% of the dropbacks
+/// made and 56.4% of the runs). A try is no down, so it doesn't call from
+/// the pass table's first and goal from the 2 (engine gaps lane EG6). The
+/// same at every level; proposed, not confirmed.
+const TRY_PASS: f64 = 0.716;
+
+/// Cover 0's rush (engine gaps lane EG6): man on every receiver with no deep
+/// safety, and as real Cover 0 brings it, six or more on 45% of dropbacks
+/// (the double-A pair), five on 30% (one linebacker or, a time in three, a
+/// defensive back) and four on the rest, a man left over robbing the middle
+/// (nflverse participation data, 2023-25: inside the 5 44%, 28% and 28%,
+/// 5.26 rushers; 5.2 to 5.6 at every distance). It always sent seven: the
+/// double-A pair, the Mike again and the free safety. Proposed, not
+/// confirmed.
+const COVER0_SIX: f64 = 0.45;
+const COVER0_FIVE: f64 = 0.30;
+
+/// Cover 0's rush for one snap (`COVER0_SIX`, `COVER0_FIVE`).
+pub(crate) fn cover0_rush(rng: &mut Rng) -> Pressure {
+    cover0_pressure(rng.next())
+}
+
+/// Cover 0's rush at a point `u` in [0, 1) of its mix: the double-A pair,
+/// a linebacker, a defensive back, then four. The game draws `u`; the call
+/// table and the roster table (`call_values` in afm-tools) measure Cover 0
+/// on the same mix, so what a coach knows of it is what he calls.
+pub fn cover0_pressure(u: f64) -> Pressure {
+    if u < COVER0_SIX {
+        Pressure::DoubleA
+    } else if u < COVER0_SIX + COVER0_FIVE * 2.0 / 3.0 {
+        Pressure::LbBlitz
+    } else if u < COVER0_SIX + COVER0_FIVE {
+        Pressure::DbBlitz
+    } else {
+        Pressure::Four
+    }
 }
 
 /// A chance moved on its odds by `x` (the lean the weights use: a choice

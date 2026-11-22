@@ -25,7 +25,7 @@
 //! and kept only past the noise (`shrink`).
 
 use afm_engine::attributes::Attr;
-use afm_engine::game::calling::shell_mix;
+use afm_engine::game::calling::{cover0_pressure, shell_mix};
 use afm_engine::game::flow::{trace_snap_at, trace_snap_opt};
 use afm_engine::game::playbook::*;
 use afm_engine::game::roster::GameTeam;
@@ -121,6 +121,12 @@ fn teams(seed: u32) -> Teams {
 
 /// The play's value in the table's unit: yards to 40, less 45 for a
 /// turnover.
+/// Cover 0's rush on a cell's snap `s`: its mix walked evenly over every
+/// 20 snaps, so each cell sees the mix's exact shares.
+fn cover0_at(s: u64) -> Pressure {
+    cover0_pressure(((s % 20) as f64 + 0.5) / 20.0)
+}
+
 fn value(r: &afm_engine::game::stats::PlayRecord) -> f64 {
     r.yards.min(40.0) - if r.turnover { 45.0 } else { 0.0 }
 }
@@ -155,8 +161,10 @@ fn main() {
     let n: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(400);
     let t = teams(11);
     let (a, b, b34) = (&t.off, &t.def, &t.def34);
-    // Each coverage with four rushers and with a linebacker blitz (Cover 0
-    // always sends the double-A pressure).
+    // Each coverage with four rushers and with a linebacker blitz, and
+    // Cover 0 with its own rush: each cell's snaps walk its mix
+    // (`cover0_pressure`, lane EG6), so the column is Cover 0 as it is
+    // called. The column keeps its name, `Cover0/DoubleA`.
     let mut looks = Vec::new();
     for c in Coverage::ALL {
         if c == Coverage::Cover0 {
@@ -236,9 +244,10 @@ fn main() {
             let cells: Vec<String> = looks
                 .iter()
                 .map(|&(coverage, pressure)| {
-                    let dcall = DefCall::new(DefPersonnel::Nickel, coverage, pressure);
                     let mut v = 0.0;
                     for s in 0..n {
+                        let pressure = if coverage == Coverage::Cover0 { cover0_at(s) } else { pressure };
+                        let dcall = DefCall::new(DefPersonnel::Nickel, coverage, pressure);
                         v += value(&trace_snap_opt(a, b, LEVEL, call, dcall, 35.0, 1 + s, false));
                     }
                     format!("{:.2}", v / n as f64)
@@ -478,7 +487,7 @@ impl Looks {
     fn dcall(&self, r: &mut Draw, personnel: DefPersonnel) -> DefCall {
         let cov = Coverage::ALL[r.weighted(&self.cov)];
         let pressure = if cov == Coverage::Cover0 {
-            Pressure::DoubleA
+            cover0_pressure(r.u())
         } else if r.chance(BLITZ) {
             Pressure::LbBlitz
         } else {
@@ -589,7 +598,9 @@ fn def_snap(cell: Cell, def: &GameTeam, def34: &GameTeam, t: &Teams, lk: &Looks,
         Cell::DPers(nickel, _) => (if nickel { DefPersonnel::Nickel } else { DefPersonnel::Base }, None),
         _ => unreachable!("an offense's cell"),
     };
+    // Cover 0's look plays its own rush (`cover0_pressure`, lane EG6).
     let mut dcall = match look {
+        Some((Coverage::Cover0, _)) => DefCall::new(personnel, Coverage::Cover0, cover0_pressure(r.u())),
         Some((cov, p)) => DefCall::new(personnel, cov, p),
         None => lk.dcall(r, personnel),
     };

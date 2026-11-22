@@ -1982,6 +1982,7 @@ impl<'a> Game<'a> {
             weather: self.weather_lean(),
             half_go: self.quarter == 2 && self.half_left() <= 120.0 && self.half_go(),
             fourth: if self.down >= self.rules().downs() { self.fourth_read(o) } else { Default::default() },
+            trying: self.trying,
         }
     }
 
@@ -3302,9 +3303,11 @@ impl<'a> Game<'a> {
                     self.x = goal() - self.rules().two_point_from;
                     self.down = 1;
                     self.togo = self.rules().two_point_from;
+                    self.trying = true;
                     let mut p = self.pending(Ask::Pat);
                     p.staff_two = false;
                     p.off_options = self.go_options();
+                    self.trying = false;
                     self.hold(p);
                     return;
                 }
