@@ -1,6 +1,6 @@
 # Staff urgency: when to move on from a player
 
-Designed 2026-11-21 with Cain (thread "Give staff urgency to cut underperformers"). Not built.
+Designed 2026-11-21 with Cain (thread "Give staff urgency to cut underperformers"). Built 2026-11-21/22 in PR #611 (thread "Build staff urgency to move on"): `world/folk/roster_call.rs` and `world/growth.rs`; how it works in `docs/reference/how-it-works/people.md`, "Staff urgency: the roster calls", and `recruiting.md`, "Told he isn't in the plans". The world measure is at the end.
 
 ## Cain's words
 
@@ -83,3 +83,39 @@ The answer to "should we cut him?" in a talk uses the same read and the same wor
 - The sizes in 2 (4 points under for the most loyal, 2 over for the most ruthless, the average at the mark).
 - The good-case band used for the late bloomer (the growth table's upper band).
 - Which makeup traits weigh how much toward ruthless or patient.
+- The market as a staff aims at a spot (the program's landing rate on an average spot's men, capped at all of them), half a man a window for thin and one for clear.
+- The AI tells at most a quarter of a program's expected entrants (`TOLD_SHARE`), the men furthest under their bar first, and 85% of told men enter (`TOLD_GO`).
+- The AI read's error (2 points for an average evaluator) and the divisions that act (FBS, FCS, Division II).
+
+## World measure (2026-11-22)
+
+`urgency_check` on one small world (scale 0.25, 6 years of history, stand-in games, seed 311), built twice on GitHub (`.github/workflows/urgency-check.yml`): `AFM_URGENCY=off` (no staff ever moves on from anyone) and on. `AFM_URGENCY_TRACE=1` prints every winter window's AI calls by reason and the market's spread. Four runs; the first three each found a fault, fixed in the same PR.
+
+1. **Run 1.** The total held, but December calls counted the season just played as still to come (his seasons settle on January 2), so every December staff saw a year more than the man had. Fixed: `years_left` counts the season in play (`count_pending`), as the portal's own check does. This is Cain's own case: on December 31 a redshirt junior's season is already his.
+2. **Run 2** (with the trace). "The portal rarely has better" decided about 45% of FBS calls (4,000 to 6,000 a year), the coaches' old fear in a new form: the market spread a program's landings evenly over every spot, a median of 0.1 to 0.24 men a spot. Fixed: a staff aims its landings at the spot it needs.
+3. **Run 3.** The thin market was gone (FBS median 1.7 to 3.8 men a spot; under 5% of calls thin). But the room under the limit counted only the returners and the signed class. In December the seniors' places read as open, so almost nobody was moved on, and programs cut 550 men at camp instead. Fixed: the room is the limit less the larger of the roster now and the returners with their class.
+4. **Run 4, the result.**
+
+FBS entrants a program by cycle (the season just played; 2019 is a part cycle):
+
+| Cycle | Off | On | Told (FBS) | Told (FCS) | Told (D2) |
+|---|---|---|---|---|---|
+| 2019 | 6.1 | 7.7 | 0.8 | 0.8 | 0.8 |
+| 2020 | 16.6 | 18.2 | 1.6 | 1.9 | 1.2 |
+| 2021 | 19.1 | 19.8 | 2.8 | 2.4 | 2.5 |
+| 2022 | 18.3 | 20.2 | 1.9 | 1.7 | 1.8 |
+| 2023 | 18.8 | 19.9 | 2.4 | 2.0 | 1.7 |
+| 2024 | 24.4 | 24.4 | 0.0 | 1.2 | 1.4 |
+| 2025 | 19.6 | 19.5 | 1.1 | 1.1 | 0.2 |
+
+- **The total stays real.** Real FBS is about 17 to 21 scholarship entrants a program in the December 2024 window, and about 20 to 25 a cycle with spring and walk-ons. The world is 18 to 24 a full cycle in both arms. With urgency on it is about 1 a program higher a cycle (about 5%). The told men take the place of lean draws (the per-program factor holds), so the rise is the camp trims, which add to the flow: real cuts to the limit go to the portal too.
+- **Why men leave (FBS, all cycles):** playing time 50.3% → 39.5%, not in the plans 0 → 8.2%, cut to the limit 0 → 8.3%, coaching change 18.0% → 14.9%, spring depth chart 22.0% → 19.9%, dismissed 5.3% → 5.0%. About one entrant in six is now a man his staff moved on from, where before none were.
+- **Who is told** (all cycles): FBS 1,449 (908 backups, 525 who didn't play, 16 rotation or starters), FCS 1,440, D2 1,525. 56% of FBS told men landed, 48% a level down; FCS 51% landed; D2 17%. These are men under their level's backup mark with no time left, so many drop a level or don't land, as in real life.
+- **2024's zero (FBS):** the 2025 season is the House limit's first. Walk-ons on a 2024-25 roster never count against the 105 (the designated athletes, real), so every FBS program had room. Its staffs brought men in over their depth (4,873 "over him" calls) instead of telling anyone. FCS and D2 kept telling.
+- **2025's January window:** 4,273 FBS move-on calls, but the quarter-of-the-flow cap told 1.1 a program. The first five-season year (2026) gives every man a year more, so the calls that remain are the men a year more can't save.
+- **The market** (run 4, FBS): a median of 2.5 men a spot a window; the 10th percentile 0.2 to 0.5 (low-prestige programs at scarce spots). "The portal rarely has better" is now 5 to 8% of FBS calls and almost none at FCS and D2.
+- **Starters among FBS entrants** rose from about 2% to 4 to 7% in the early cycles. The told men are almost all backups, so the scaled draws fall more on backups.
+- **Rosters:** 429 men cut to reach the limit before camp over all years (none with urgency off); the FBS median roster on February 9, 2026 was 112 in both arms.
+- **On February 9, 2026** (the world's last day, the next window eleven months away), the FBS staffs would move on from 12.3 men a program (18.9 with urgency off, where nobody was told in January). That is the list a staff carries to its camp trim.
+
+Not measured here: your own seat's talks and meetings (unit tests and the persona evaluate test cover the words and the call), the spring window of 2022-24 (the AI tells only before winter, `GAPS.md`), and a full-scale world.

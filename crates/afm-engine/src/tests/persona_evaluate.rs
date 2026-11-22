@@ -9,10 +9,11 @@ use crate::world::coach::Role;
 use crate::world::folk::Team;
 use crate::world::folk::persona::Them;
 use crate::world::folk::persona::ear::{Act, Reading, Resolving};
-use crate::world::folk::persona::evaluate::{self, Lean};
+use crate::world::folk::persona::evaluate;
 use crate::world::folk::persona::office::{self, asks, sit};
 use crate::world::folk::persona::talk::{Conversation, Said, store};
 use crate::world::folk::persona::terms::Request;
+use crate::world::folk::roster_call::Move;
 use crate::world::folk::scene;
 use crate::world::{Stage, World};
 
@@ -60,20 +61,34 @@ fn a_coach_asked_for_his_read_gives_it_in_words_and_nothing_is_decided() {
     let (place, of) = r.place.expect("he is on your roster");
     assert_eq!(of, 8);
     assert!((1..=8).contains(&place));
-    assert!(r.lean.is_some());
-    // A starter or a two-deep man is kept; only a man behind it can be let go.
-    let two = 2 * crate::game::roster::starters(Position::WR);
-    if place <= two {
-        assert!(matches!(r.lean, Some(Lean::Starter | Lean::TwoDeep)));
-    } else {
-        assert!(matches!(r.lean, Some(Lean::Develop | Lean::LetGo)));
-    }
-    // Words only: the place is the one number, never a rating.
+    // His call (staff urgency): one of the three moves, judged against the
+    // level, never by his place in your room alone.
+    let call = r.call.as_ref().expect("a man with seasons left gets a call");
+    assert!(matches!(call.mv, Move::MoveOn | Move::Over | Move::Keep));
+    assert!(call.years >= 1);
+    // Words only: the place and a date are the only numbers, never a rating.
     let words = evaluate::words(&w, him, id);
     assert!(words.len() >= 3);
     let digits: Vec<&String> = words.iter().filter(|s| s.chars().any(|ch| ch.is_ascii_digit())).collect();
-    assert_eq!(digits.len(), 1, "{words:?}");
-    assert!(digits[0].contains(&format!("of your {of}")));
+    assert!(digits.iter().any(|d| d.contains(&format!("of your {of}"))), "{words:?}");
+    const MONTHS: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+    for d in &digits {
+        let dated = d.contains("window") || MONTHS.iter().any(|m| d.contains(m));
+        assert!(d.contains(&format!("of your {of}")) || dated, "a number that isn't a place or a date: {d}");
+    }
     // Only a coach on your staff takes it on.
     let boss = crate::world::folk::persona::office::cast_them(
         &w,

@@ -1,0 +1,52 @@
+name: Staff urgency check
+# The staff urgency lane's world measure (docs/design/staff-urgency.md,
+# section 5): one small world on the stand-in, built twice on one seed,
+# AFM_URGENCY=off (the AI's staffs never move on from anyone) and on, so the
+# portal's size and who leaves, by role and level, can be read before and
+# after. Each arm runs on its own machine (about an hour and a half); the
+# two outputs are in the run's summary and its artifacts. Runs on a push
+# that changes this file, or by hand. AFM_URGENCY_TRACE prints each
+# winter window's AI calls by level and reason, and the market's spread.
+on:
+  push:
+    paths:
+      - .github/workflows/urgency-check.yml
+  workflow_dispatch:
+    inputs:
+      scale:
+        description: "World scale"
+        default: "0.25"
+      years:
+        description: "Years of history"
+        default: "6"
+      seed:
+        description: "Seed"
+        default: "311"
+jobs:
+  arm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        urgency: ["off", "on"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile
+        run: cargo build --release --bin urgency_check
+      - name: The world, staff urgency ${{ matrix.urgency }}
+        env:
+          AFM_URGENCY: ${{ matrix.urgency }}
+          AFM_URGENCY_TRACE: "1"
+        run: |
+          ./target/release/urgency_check "${{ inputs.scale || '0.25' }}" "${{ inputs.years || '6' }}" "${{ inputs.seed || '311' }}" | tee urgency-${{ matrix.urgency }}.txt
+          { echo '```'; cat urgency-${{ matrix.urgency }}.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: urgency-${{ matrix.urgency }}
+          path: urgency-${{ matrix.urgency }}.txt
+          retention-days: 14

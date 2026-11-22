@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.677 (22 Nov, shipped): EG6: the red zone (PR #612)
+**TLDR:** Drives near the goal line now play like real football. Defenses tighten up in the red zone, touchdowns there are harder to come by and field goals matter more.
+- Man defenders play underneath and inside near the goal line, where there's no deep ball left to guard. (PR #612)
+- Defenses call more man coverage and Cover 0 near their own goal, and Cover 0 sends four to six rushers instead of seven. (PR #612)
+- Quarterbacks throw into tighter windows near the goal, so more balls are broken up or picked. (PR #612)
+- Offenses run more on first down inside the 20, and two-point tries are mostly passes, as in real games. (PR #612)
+- Look at: red zone touchdown rates, field goals and two-point tries in box scores and team stats. (PR #612)
+- Docs and tooling merged too, no game change: Design: staff urgency, when to move on from a player (PR #610).
+
 ## 0.2.676 (22 Nov, shipped): scheme fit lane SF11: fit scores from what wins in the engine, job by job (PR #609)
 **TLDR:** Coaching staffs now judge which offense, front and coverage suit their players, and which recruits suit their systems, by what each skill really wins on the field. Safeties, linebackers and corners are judged for their own jobs.
 - What each skill is worth in each system now comes from how games actually play out, system by system. (PR #609)
