@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.676", date: "22 Nov", title: "Scheme fit lane SF11: fit scores from what wins in the engine, job by job",
+    notes: [
+      "Coaching staffs now judge which offense, front and coverage suit their players, and which recruits suit their systems, by what each skill really wins on the field. Safeties, linebackers and corners are judged for their own jobs.",
+      "What each skill is worth in each system now comes from how games actually play out, system by system.",
+      "Free and strong safeties, the three linebackers, and outside and slot corners are each judged for their own job.",
+      "In spring a staff reads its best starters at the jobs they'd play before it picks its systems.",
+      "A recruit's or prospect's scheme fit reads the same way, so the fit you see is the one staffs weigh.",
+    ],
+  },
+  {
     v: "0.2.675", date: "21 Nov", title: "Scheme fit lane SF9b: the open-field tackle for runs, the catch and returns",
     notes: [
       "Long runs now break like real ones: a back who gets to the second level can go the distance, and a fast back's speed finally shows on the big runs.",
