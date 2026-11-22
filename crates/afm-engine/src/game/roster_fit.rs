@@ -274,8 +274,9 @@ impl Cell {
 }
 
 /// A look column's coverage and pressure (`calling::col`): Cover 0 with
-/// the double-A blitz, then each other coverage with four rushers and with
-/// a linebacker blitz.
+/// the double-A blitz (the column's name; the tables measure it on Cover
+/// 0's own rush, `calling::cover0_pressure`), then each other coverage
+/// with four rushers and with a linebacker blitz.
 pub fn look_of(c: usize) -> (Coverage, Pressure) {
     if c == 0 {
         return (Coverage::Cover0, Pressure::DoubleA);

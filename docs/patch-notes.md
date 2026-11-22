@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.676 (22 Nov, shipped): scheme fit lane SF11: fit scores from what wins in the engine, job by job (PR #609)
+**TLDR:** Coaching staffs now judge which offense, front and coverage suit their players, and which recruits suit their systems, by what each skill really wins on the field. Safeties, linebackers and corners are judged for their own jobs.
+- What each skill is worth in each system now comes from how games actually play out, system by system. (PR #609)
+- Free and strong safeties, the three linebackers, and outside and slot corners are each judged for their own job. (PR #609)
+- In spring a staff reads its best starters at the jobs they'd play before it picks its systems. (PR #609)
+- A recruit's or prospect's scheme fit reads the same way, so the fit you see is the one staffs weigh. (PR #609)
+- Look at: your Identity tab's roster fit, and a recruit's scheme fit on Find recruits. (PR #609)
+
 ## 0.2.675 (21 Nov, shipped): scheme fit lane SF9b: the open-field tackle for runs, the catch and returns (PR #608)
 **TLDR:** Long runs now break like real ones: a back who gets to the second level can go the distance, and a fast back's speed finally shows on the big runs.
 - Runs of 20 yards or more come as often as in real football, with fewer runaway 60-yard sprints. (PR #608)

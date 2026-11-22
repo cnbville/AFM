@@ -3054,10 +3054,11 @@ fn assign_defense(
     {
         blitzers[k] = me;
     }
-    if cov == Coverage::Cover0 {
-        blitzers.push(DSlot::FS);
-        blitzers.push(DSlot::Mike);
-    }
+    // Cover 0 is man on every receiver with no deep safety, and the rush is
+    // the call's own (`calling::cover0_rush`, lane EG6); a man left over
+    // robs the middle. It used to send the free safety and the Mike on top
+    // of the double-A pair, seven rushers a snap (real Cover 0 brings 5.2
+    // to 5.6).
     blitzers.retain(|b| slots.contains(&Some(*b)));
     // In simulated pressure the weak end drops into the flat; the end you
     // promised to rush every down never does (the other end drops).
@@ -5017,6 +5018,32 @@ const READ_NEED: f64 = 0.3;
 /// sacks a third short; proposed, not confirmed).
 const READ_START: f64 = 0.1;
 
+/// The end line takes the deep ball away (engine gaps lane EG6, item 8): a
+/// man defender keeps his cushion and stays over the top of his man for the
+/// deep ball, but with the end line close behind the receiver there is little
+/// deep ball left. From `END_LINE_ROOM` yards between the receiver and the end
+/// line in, he gives up the cushion and plays from underneath and inside and
+/// sits on the break, and at the end line itself he has no cushion, plays
+/// `END_LINE_UNDER` yards underneath, with his inside shade `END_LINE_INSIDE`
+/// times larger again and his read of the break `END_LINE_SIT` seconds
+/// sooner. Real NFL man coverage (nflverse participation data 2023-25, no
+/// throwaways) is completed 54.0% of the time inside the 10, 60.2% from 11 to 20 and 61.9% outside
+/// the 20; on main it was 67.1%, 69.9% and 70.8%. Proposed, not confirmed.
+const END_LINE_ROOM: f64 = 20.0;
+const END_LINE_UNDER: f64 = 1.5;
+const END_LINE_INSIDE: f64 = 2.0;
+const END_LINE_SIT: f64 = 0.4;
+
+/// Tighter windows near the goal (lane EG6, item 8): the yards of window
+/// the passer gives up for a catch point in the end zone, and at the goal
+/// line for any throw (from nothing at the 20). Real passers throw a
+/// contested ball on 22.7% of throws inside the 5, 20.0% from 6 to 10 and
+/// 13.4% outside the 20 (FTN charting 2022-25); the engine's, a catch point
+/// with under a yard of separation, was 13.5%, 13.1% and 12.1% on main.
+/// Proposed, not confirmed.
+const END_ZONE_TRUST: f64 = 0.8;
+const RED_ZONE_TRUST: f64 = 0.8;
+
 /// The hot read: a free blitzer this early, seconds from the snap, makes
 /// the hot man his first read (on play action as much later as the fake
 /// takes, `PA_TIME`: the fake's first read came at 2.05 s on a five-step
@@ -5935,11 +5962,17 @@ fn quarterback(
         } else {
             0.0
         };
+        // Near the goal he takes a tighter window (lane EG6): a catch in the
+        // end zone is a touchdown and a miss only a down, and the short
+        // field leaves no open grass to wait for (`END_ZONE_TRUST`,
+        // `RED_ZONE_TRUST`).
         let need = thresh
             - run_under
             - over_line
             - big
             - (0.05 * (depth - 12.0).max(0.0)).min(1.2)
+            - if s.los + depth >= goal() { END_ZONE_TRUST } else { 0.0 }
+            - RED_ZONE_TRUST * clamp((20.0 - (goal() - s.los)) / 20.0, 0.0, 1.0)
             - 1.0 * sling
             - if depth > 12.0 { 0.4 * sling } else { 0.0 }
             + if over { 0.0 } else { 0.5 * hold + if depth < 10.0 { 0.9 * hold } else { 0.0 } };
@@ -7677,6 +7710,12 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
     let t = sim.t;
     match *job {
         Job::Man { target, cushion, lag } => {
+            // The end line behind his man (lane EG6): how much deep ball is
+            // left, all of it `END_LINE_ROOM` yards off it and none at it.
+            // As it goes he sits on the break sooner.
+            let open = clamp((end_line() - sim.agents[target].pos.x - 1.0) / END_LINE_ROOM, 0.0, 1.0);
+            let shut = 1.0 - open;
+            let lag = lag - END_LINE_SIT * shut;
             // He mirrors where he last saw his man going (topic 2): when the
             // receiver breaks, he is late by his reaction time.
             let now = sim.agents[target].vel.len();
@@ -7702,6 +7741,9 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
             };
             let me = sim.agents[i].pos;
             let inside = if est.y > s.ball_y { -0.6 } else { 0.6 };
+            // The quick throws inside are what the end line leaves, so he
+            // takes the inside away (lane EG6).
+            let inside = inside * (1.0 + END_LINE_INSIDE * shut);
             let deep = est.x - s.los > 8.0;
             // Off coverage keeps a cushion until the receiver eats it up.
             // Before he has read the play, a man whose receiver isn't
@@ -7713,7 +7755,10 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
             } else {
                 (cushion - (t * 2.2)).max(if deep { 0.6 } else { 0.0 })
             };
-            let spot = v2(est.x + cush - if deep { 0.3 } else { 0.0 }, est.y + inside);
+            // Over the top has nowhere to land with the end line behind his
+            // man, so he gives up the cushion and plays from underneath
+            // (lane EG6).
+            let spot = v2(est.x + cush * open - if deep { 0.3 } else { 0.0 } - END_LINE_UNDER * shut, est.y + inside);
             // A bust has already taken a teammate's man or area
             // (`assign_defense`, scheme-fit item 19).
             // He runs with his man's (lagged) velocity and closes the gap to

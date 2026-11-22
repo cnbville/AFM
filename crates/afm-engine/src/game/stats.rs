@@ -781,21 +781,23 @@ pub fn fg_band(d: f64) -> usize {
 /// PFR's count, so the pressured term moved; the old weights read CPOE
 /// -0.5 to +0.3), 2026-11-21 with scheme-fit lane SF10, once the
 /// physics lanes were in (scheme-fit SF1-SF9, engine gaps EG1-EG5; the old
-/// weights read CPOE +1.5 to +3.0), and the same day with lane SF9b, the
-/// open-field tackle (the old weights read CPOE +0.0 to +0.5).
+/// weights read CPOE +1.5 to +3.0), the same day with lane SF9b, the
+/// open-field tackle (the old weights read CPOE +0.0 to +0.5), and with
+/// engine gaps lane EG6, the red zone (the old weights read CPOE -0.6 to
+/// -0.1).
 // Fitted weights: a refit can land one near a named constant.
 #[allow(clippy::approx_constant)]
 pub const XCOMP: [[f64; XCOMP_TERMS]; 5] = [
-    // High school: 24,673 throws, 60.4% complete.
-    [0.9909, -0.0945, -0.3161, -0.8249, -1.2411, -1.8005, -2.2330, -3.1943, -0.7217, 0.0037, 0.0199, -0.3597],
-    // FBS: 38,617 throws, 64.0%.
-    [1.2653, -0.1811, -0.2612, -0.8697, -1.1995, -1.7351, -2.3998, -3.6167, -1.2702, -0.3102, 0.0025, -0.2796],
-    // FCS: 36,530 throws, 63.3%.
-    [1.2297, -0.1721, -0.3422, -0.9035, -1.1946, -1.7008, -2.3352, -3.6862, -1.0579, -0.1629, 0.0149, -0.3201],
-    // Small colleges: 35,726 throws, 63.2%.
-    [1.1672, -0.0938, -0.3020, -0.8498, -1.2702, -1.7599, -2.2532, -3.8527, -1.0778, -0.2044, 0.0753, -0.3279],
-    // NFL: 40,266 throws, 67.9%.
-    [1.6006, -0.2701, -0.3068, -1.0057, -1.2300, -1.5988, -2.1164, -3.4064, -1.8197, -0.7080, -0.3529, -0.1329],
+    // High school: 24,192 throws, 60.3% complete.
+    [0.9541, -0.0335, -0.3322, -0.8043, -1.1612, -1.6953, -2.2721, -3.4505, -0.9337, 0.0837, 0.1006, -0.3287],
+    // FBS: 37,883 throws, 63.2%.
+    [1.2417, -0.1605, -0.3028, -0.9105, -1.1613, -1.6812, -2.3051, -3.7840, -1.2636, -0.2056, 0.0103, -0.3118],
+    // FCS: 36,785 throws, 62.7%.
+    [1.1959, -0.1613, -0.3060, -0.8347, -1.2285, -1.7673, -2.3551, -3.7370, -0.9770, -0.1061, 0.0078, -0.3511],
+    // Small colleges: 36,057 throws, 62.7%.
+    [1.1889, -0.1854, -0.3102, -0.9020, -1.2919, -1.8352, -2.1427, -3.7163, -1.0125, -0.2352, 0.0763, -0.3357],
+    // NFL: 40,233 throws, 67.4%.
+    [1.6519, -0.3361, -0.4031, -1.0780, -1.3524, -1.5851, -2.1355, -3.4071, -1.7381, -0.6566, -0.4486, -0.2055],
 ];
 
 /// How many terms the expected-completion model reads.
