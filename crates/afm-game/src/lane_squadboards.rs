@@ -788,72 +788,14 @@ pub(crate) fn pair_json(p: [u8; 2]) -> Value {
     if p == [0, 0] { Value::Null } else { json!(p) }
 }
 
-/// A quantile of a list (sorted in place; 0 when empty).
-pub(crate) fn quantile(v: &mut [f64], q: f64) -> f64 {
-    if v.is_empty() {
-        return 0.0;
-    }
-    v.sort_by(|a, b| a.total_cmp(b));
-    let x = q.clamp(0.0, 1.0) * (v.len() - 1) as f64;
-    let (lo, hi) = (x.floor() as usize, x.ceil() as usize);
-    v[lo] + (v[hi] - v[lo]) * (x - lo as f64)
-}
+/// The world's growth carry lives in the engine (staff urgency, item 7):
+/// the Needs map and the staff's roster calls read the same numbers.
+pub(crate) use afm_engine::world::growth::{at as growth_at, quantile, tier_of};
 
 /// How much players grow in a year at each age, at each level, from the
-/// world's own records (everyone still in football): the 10th, 25th,
-/// 50th, 75th and 90th percentile of a year's change in overall. Kept for
-/// the season.
+/// world's own records (`afm_engine::world::growth`), kept for the season.
 pub(crate) fn growth_table(w: &World) -> std::sync::Arc<HashMap<(u32, u8), [f64; 5]>> {
-    type G = std::sync::Arc<HashMap<(u32, u8), [f64; 5]>>;
-    static CACHE: Mutex<Option<((u32, i32), G)>> = Mutex::new(None);
-    let key = (w.options.seed, w.year);
-    let mut g = CACHE.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some((k, v)) = g.as_ref()
-        && *k == key
-    {
-        return v.clone();
-    }
-    let mut by: HashMap<(u32, u8), Vec<f64>> = HashMap::new();
-    for p in w.people.iter().step_by(3) {
-        for h in &p.player.history {
-            if h.age >= 14 && h.age <= 38 {
-                by.entry((h.age, tier_of(h.level))).or_default().push(h.overall - h.overall_start);
-            }
-        }
-    }
-    let table: HashMap<(u32, u8), [f64; 5]> = by
-        .into_iter()
-        .filter(|(_, v)| v.len() >= 20)
-        .map(|(k, mut v)| {
-            let q = [0.1, 0.25, 0.5, 0.75, 0.9].map(|x| quantile(&mut v, x));
-            (k, q)
-        })
-        .collect();
-    let table = std::sync::Arc::new(table);
-    *g = Some((key, table.clone()));
-    table
-}
-
-/// 0 high school, 1 college, 2 the NFL.
-pub(crate) fn tier_of(l: afm_engine::player::Level) -> u8 {
-    use afm_engine::player::Level;
-    match l {
-        Level::HS => 0,
-        Level::NFL => 2,
-        _ => 1,
-    }
-}
-
-/// A year's growth quantiles at an age and level (the nearest age kept).
-pub(crate) fn growth_at(table: &HashMap<(u32, u8), [f64; 5]>, age: u32, tier: u8) -> [f64; 5] {
-    for d in 0..6 {
-        for a in [age + d, age.saturating_sub(d)] {
-            if let Some(q) = table.get(&(a, tier)) {
-                return *q;
-            }
-        }
-    }
-    [0.0; 5]
+    afm_engine::world::growth::cached(w)
 }
 
 #[cfg(test)]
@@ -874,13 +816,5 @@ mod tests {
             assert_eq!(f.len(), 8);
             assert!(f.iter().all(|x| !x.1.is_empty()));
         }
-    }
-
-    #[test]
-    fn quantiles_read_a_sorted_list() {
-        let mut v = vec![5.0, 1.0, 3.0, 2.0, 4.0];
-        assert_eq!(quantile(&mut v, 0.5), 3.0);
-        assert_eq!(quantile(&mut v, 0.0), 1.0);
-        assert_eq!(quantile(&mut v, 1.0), 5.0);
     }
 }

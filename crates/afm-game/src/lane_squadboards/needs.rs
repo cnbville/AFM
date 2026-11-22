@@ -19,7 +19,7 @@ use afm_engine::world::norms::{Marks, Rated};
 use afm_engine::world::{Person, Stage, World};
 use serde_json::{Value, json};
 
-use super::{first_last, growth_at, growth_table, level_name, marks, mid, my_team, ordinal, own_read};
+use super::{first_last, growth_table, level_name, marks, mid, my_team, ordinal, own_read};
 use crate::Reply;
 use crate::reads::{self, Read};
 use crate::views::{self, TeamRef};
@@ -460,15 +460,10 @@ pub(super) fn is_commit(w: &World, i: usize) -> bool {
         && (p.cal.signed.is_some_and(|s| s.program == c) || p.cal.commit.is_some_and(|x| x.0 == c))
 }
 
-/// Carries a read forward by the median growth at his age and level.
+/// Carries a read forward by the median growth at his age and level
+/// (the engine's carry, the one the staff's roster calls read).
 fn carry(table: &HashMap<(u32, u8), [f64; 5]>, start: f64, age: u32, tiers: &[u8]) -> Vec<f64> {
-    let mut v = vec![start];
-    let mut x = start;
-    for (k, &tier) in tiers.iter().enumerate() {
-        x = (x + growth_at(table, age + k as u32, tier)[2]).clamp(1.0, 99.0);
-        v.push(x);
-    }
-    v
+    afm_engine::world::growth::carry(table, start, age, tiers, afm_engine::world::growth::MID)
 }
 
 pub(crate) fn view(w: &World, args: &Value) -> Reply {

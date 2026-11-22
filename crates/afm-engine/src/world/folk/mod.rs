@@ -48,6 +48,7 @@ pub mod press;
 pub mod promise;
 pub mod pulls;
 pub mod reach;
+pub mod roster_call;
 pub mod rules;
 pub mod scene;
 pub mod seen;
@@ -521,6 +522,18 @@ pub struct Folk {
     /// with each coach who works with him, and the moments that built it.
     #[serde(skip_serializing_if = "bonds::Bonds::is_empty")]
     pub bonds: bonds::Bonds,
+    /// The portal's market over the last windows (staff urgency,
+    /// `roster_call::Market`): what the staffs' calls read of it.
+    #[serde(default, skip_serializing_if = "roster_call::Market::is_empty")]
+    pub market: roster_call::Market,
+    /// The men you told in the roster meeting they aren't in the plans,
+    /// with the day (staff urgency): their word for the coming window.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub told: roster_call::Told,
+    /// The spots the AI's staffs want a man over the one they have, by
+    /// program and spot, for the cycle's portal market.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub over: roster_call::Over,
 }
 
 /// Fills what a world built before this build lacks (an old world or save
@@ -577,6 +590,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             if w.seat.is_some() {
                 backers::day(w, d);
                 takeover::day(w, d);
+                roster_call::day(w, d);
                 scene::day(w, d);
             }
         }
