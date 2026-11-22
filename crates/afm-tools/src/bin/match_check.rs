@@ -1914,6 +1914,7 @@ fn main() {
         gaps_counts(&results, &pos_of, level);
         foul_counts(&results, level);
         red_zone_counts(&results, level);
+        off_script_counts(&results);
     }
     if !burners.is_empty() {
         println!(
@@ -3023,6 +3024,197 @@ fn foul_counts(results: &[afm_engine::game::GameResult], level: Level) {
         gambits[2] / tg,
         gambits[3] / tg
     );
+}
+
+/// AFM_GAPS=1, lane EG7 (the quarterback off script): dropbacks in and out
+/// of the pocket, as FTN charts it (`PlayRecord::out_of_pocket`: outside the
+/// tackle box at the throw or the sack, on the scramble drill, or
+/// scrambling), beside real NFL regular seasons 2023-25 (nflverse
+/// play-by-play with FTN charting, time to throw from Next Gen Stats
+/// participation; `afm/engine-gaps/tools/real_off_script.py.txt`). Real
+/// pressure is Next Gen Stats' flag (30% of dropbacks), wider than the
+/// engine's (PFR's, 22%), so its rows compare in shape only. The real
+/// column is the NFL's at every level.
+fn off_script_counts(results: &[afm_engine::game::GameResult]) {
+    use afm_engine::game::stats::PlayType as PT;
+    let tg = results.len() as f64 * 2.0;
+    // Real: share of dropbacks, sack, scramble, throws, throwaways of
+    // throws, completion of aimed throws, yards an attempt, air yards of
+    // aimed throws, yards a dropback, EPA a dropback; time to throw mean,
+    // p10, p50, p90 and the share after 3.94 s.
+    const ROWS: [(&str, [f64; 15]); 5] = [
+        ("all", [1.0, 0.066, 0.052, 0.882, 0.041, 0.674, 7.05, 7.80, 6.18, 0.035, 2.65, 1.6, 2.5, 3.9, 0.096]),
+        (
+            "in the pocket",
+            [0.812, 0.061, 0.005, 0.933, 0.019, 0.682, 7.18, 7.57, 6.31, 0.039, 2.40, 1.5, 2.3, 3.4, 0.029],
+        ),
+        (
+            "out of the pocket",
+            [0.188, 0.087, 0.256, 0.658, 0.175, 0.610, 6.26, 9.47, 5.61, 0.016, 4.18, 2.5, 4.0, 6.1, 0.505],
+        ),
+        (
+            "pressured, in",
+            [0.193, 0.257, 0.011, 0.732, 0.062, 0.548, 6.01, 8.31, 2.66, -0.435, 2.75, 1.8, 2.6, 3.7, 0.071],
+        ),
+        (
+            "pressured, out",
+            [0.107, 0.152, 0.194, 0.654, 0.262, 0.524, 4.95, 9.83, 3.90, -0.227, 4.58, 2.8, 4.4, 6.5, 0.626],
+        ),
+    ];
+    #[derive(Default)]
+    struct Acc {
+        db: f64,
+        sack: f64,
+        scr: f64,
+        att: f64,
+        away: f64,
+        aim: f64,
+        comp_aim: f64,
+        yds: f64,
+        air: f64,
+        ydb: f64,
+        epa: f64,
+        boot: f64,
+        ttt: Vec<f64>,
+    }
+    let mut acc: Vec<Acc> = (0..ROWS.len()).map(|_| Acc::default()).collect();
+    for r in results {
+        for p in &r.stats.plays {
+            if p.nullified || !matches!(p.kind, PT::Pass | PT::Sack | PT::Scramble) {
+                continue;
+            }
+            let out = p.out_of_pocket;
+            let mut rows = vec![0, if out { 2 } else { 1 }];
+            if p.pressured {
+                rows.push(if out { 4 } else { 3 });
+            }
+            for k in rows {
+                let a = &mut acc[k];
+                a.db += 1.0;
+                a.sack += (p.kind == PT::Sack) as u8 as f64;
+                a.scr += (p.kind == PT::Scramble) as u8 as f64;
+                a.ydb += p.yards;
+                a.epa += p.epa;
+                a.boot += p.call.contains("boot") as u8 as f64;
+                if p.kind == PT::Pass {
+                    a.att += 1.0;
+                    a.away += p.throw_away as u8 as f64;
+                    a.yds += if p.complete { p.yards } else { 0.0 };
+                    if !p.throw_away {
+                        a.aim += 1.0;
+                        a.comp_aim += p.complete as u8 as f64;
+                        a.air += p.air_yards;
+                    }
+                    a.ttt.push(p.time_to_throw);
+                }
+            }
+        }
+    }
+    // Sacks: when they come (seconds after the snap) and the passers who
+    // slipped a rusher's try (a missed tackle on him) on a throw or a sack.
+    let mut sacks: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
+    let mut slipped = [0.0f64; 2];
+    for r in results {
+        for p in &r.stats.plays {
+            if p.nullified || !matches!(p.kind, PT::Pass | PT::Sack) {
+                continue;
+            }
+            let k = p.out_of_pocket as usize;
+            if p.kind == PT::Sack {
+                sacks[k].push(p.time_to_throw);
+            }
+            if p.passer.is_some_and(|q| p.missed_tackles.iter().any(|&(_, by)| by == q)) {
+                slipped[k] += 1.0;
+            }
+        }
+    }
+    // When the pressure comes (Next Gen Stats: on average 2.9 s after the
+    // snap; a quick one inside 2.5 s).
+    let mut prs: Vec<f64> = Vec::new();
+    for r in results {
+        for p in &r.stats.plays {
+            if !p.nullified && p.pressured && matches!(p.kind, PT::Pass | PT::Sack | PT::Scramble) {
+                prs.push(p.pressure_at as f64);
+            }
+        }
+    }
+    prs.sort_by(f64::total_cmp);
+    let pq = |x: f64| prs.get(((prs.len().max(1) - 1) as f64 * x) as usize).copied().unwrap_or(0.0);
+    println!(
+        "  pressure at {:.2} s (real 2.9), p10 {:.2}, p50 {:.2}, p90 {:.2}; inside 2.5 s {:.3}",
+        prs.iter().sum::<f64>() / prs.len().max(1) as f64,
+        pq(0.1),
+        pq(0.5),
+        pq(0.9),
+        prs.iter().filter(|&&x| x <= 2.5).count() as f64 / prs.len().max(1) as f64
+    );
+    for (k, name) in ["in the pocket", "out of the pocket"].iter().enumerate() {
+        let v = &mut sacks[k];
+        v.sort_by(f64::total_cmp);
+        let q = |x: f64| v.get(((v.len().max(1) - 1) as f64 * x) as usize).copied().unwrap_or(0.0);
+        println!(
+            "  sacks {name}: {:.3} a team game, at {:.2} s (p10 {:.2}, p50 {:.2}, p90 {:.2}); passers who slipped a rusher on a throw or sack {:.3} a team game",
+            v.len() as f64 / tg,
+            v.iter().sum::<f64>() / v.len().max(1) as f64,
+            q(0.1),
+            q(0.5),
+            q(0.9),
+            slipped[k] / tg
+        );
+    }
+    let all = acc[0].db.max(1.0);
+    println!(
+        "\nThe quarterback off script (AFM_GAPS, lane EG7), engine (real NFL 2023-25): {:.2} dropbacks a team game ({:.2}), out of the pocket {:.2} ({:.2})",
+        acc[0].db / tg,
+        37.27,
+        acc[2].db / tg,
+        7.00
+    );
+    println!(
+        "  {:>18} {:>13} {:>13} {:>13} {:>13} {:>13} {:>13} {:>11} {:>11} {:>11} {:>13}",
+        "", "share", "sack", "scramble", "throws", "throwaways", "comp aimed", "Y/A", "air aimed", "yds/db", "EPA/db"
+    );
+    for (k, (name, real)) in ROWS.iter().enumerate() {
+        let a = &mut acc[k];
+        let n = a.db.max(1.0);
+        let v = [
+            a.db / all,
+            a.sack / n,
+            a.scr / n,
+            a.att / n,
+            a.away / a.att.max(1.0),
+            a.comp_aim / a.aim.max(1.0),
+            a.yds / a.att.max(1.0),
+            a.air / a.aim.max(1.0),
+            a.ydb / n,
+            a.epa / n,
+        ];
+        let mut line = format!("  {name:>18}");
+        for (j, x) in v.iter().enumerate() {
+            let w = if (6..9).contains(&j) { 5 } else { 6 };
+            line += &format!(" {:>w$.3} ({:>w$.3})", x, real[j], w = w);
+        }
+        println!("{line}");
+        a.ttt.sort_by(f64::total_cmp);
+        let q = |x: f64| a.ttt.get(((a.ttt.len().max(1) - 1) as f64 * x) as usize).copied().unwrap_or(0.0);
+        let mean = a.ttt.iter().sum::<f64>() / a.ttt.len().max(1) as f64;
+        let late = a.ttt.iter().filter(|&&x| x > 3.94).count() as f64 / a.ttt.len().max(1) as f64;
+        println!(
+            "  {:>18} time to throw {:.2} ({:.2}), p10 {:.2} ({:.2}), p50 {:.2} ({:.2}), p90 {:.2} ({:.2}), after 3.94 s {:.3} ({:.3}); boots {:.3} of these dropbacks",
+            "",
+            mean,
+            real[10],
+            q(0.1),
+            real[11],
+            q(0.5),
+            real[12],
+            q(0.9),
+            real[13],
+            late,
+            real[14],
+            a.boot / n
+        );
+    }
 }
 
 /// AFM_GAPS=1, lane EG6 (the red zone): throws, dropbacks and runs by how

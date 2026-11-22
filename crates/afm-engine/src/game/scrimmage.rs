@@ -359,6 +359,10 @@ pub struct SnapResult {
     /// He threw on the move (rolling out, off his spot): the throw his
     /// throw-on-the-move rating places (growth from results reads it).
     pub moving: bool,
+    /// Out of the pocket when the dropback ended (FTN's charting flag,
+    /// lane EG7): outside the tackle box at the throw or the sack, broken
+    /// out on the scramble drill, or scrambling.
+    pub out_of_pocket: bool,
     pub hit: bool,
     pub blitz: bool,
     pub play_action: bool,
@@ -396,6 +400,9 @@ struct Pass {
     scramble: bool,
     concept: &'static PassConcept,
     hot: bool,
+    /// The men the protection leaves free at the snap that he knows are
+    /// coming, his hot (lane EG7, `hot_men`), a bit an agent.
+    hot_men: u32,
     look_off: f64,
     /// The receiver he has decided on and when the ball comes out: seeing
     /// it and letting it go takes a beat, shorter for a quick mind.
@@ -420,6 +427,12 @@ struct Pass {
     /// Out of the pocket with his eyes still downfield (the scramble
     /// drill): the side he broke to and when (minor bug 138).
     extend: Option<(f64, f64)>,
+    /// Outside the tackle box (or broken out) on his last tick with the
+    /// ball as a passer: the play's out-of-the-pocket flag (lane EG7).
+    out: bool,
+    /// He has made his one call, at the end of his reads, between breaking
+    /// out of the pocket and staying in it (lane EG7).
+    bail: bool,
     /// In his throwing motion this tick (`quarterback`): a hit now can
     /// knock the ball out as he throws (engine gaps item 6).
     motion: bool,
@@ -677,6 +690,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         drop: false,
         pressured: false,
         moving: false,
+        out_of_pocket: false,
         hit: false,
         blitz: s.dcall.pressure.extra() > 0,
         play_action: false,
@@ -1049,6 +1063,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 scramble: false,
                 concept: c,
                 hot: false,
+                hot_men: 0,
                 look_off: 0.0,
                 commit: None,
                 why: 0,
@@ -1059,6 +1074,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 ball_h: 0.0,
                 give_up: false,
                 extend: None,
+                out: false,
+                bail: false,
                 motion: false,
                 motion_at: None,
                 broken: false,
@@ -1138,6 +1155,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let fake_block =
                 pass.as_ref().and_then(|ps| ps.fake.as_ref()).filter(|fk| fk.route == Route::Block).map(|fk| fk.man);
             chart_rush(&mut sim, off_n, &slot_of, by, fake_block);
+            // His hot (lane EG7): the men the protection leaves free at the
+            // snap, who he knows are coming when he read them.
+            let hot = if pass.is_some() { hot_men(&mut sim, s, off_n, qb, &slot_of, fake_block.flatten()) } else { 0 };
+            if let Some(ps) = pass.as_mut() {
+                ps.hot_men = hot;
+            }
             res.rushed = (off_n..sim.agents.len())
                 .filter(|&i| matches!(sim.agents[i].job, Job::Rush { .. }))
                 .map(|i| sim.agents[i].p)
@@ -1687,6 +1710,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     scramble: false,
                                     concept: c,
                                     hot: false,
+                                    hot_men: 0,
                                     look_off: 0.0,
                                     commit: None,
                                     why: 0,
@@ -1697,6 +1721,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     ball_h: 0.0,
                                     give_up: false,
                                     extend: None,
+                                    out: false,
+                                    bail: false,
                                     motion: false,
                                     motion_at: None,
                                     broken: false,
@@ -2391,6 +2417,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         res.time_to_throw = ps.thrown.unwrap_or(sim.loose.map_or(sim.t, |l| l.since));
         res.pressured = ps.pressured_at.is_some();
         res.moving = ps.moving && ps.thrown.is_some();
+        res.out_of_pocket = ps.out || ps.scramble;
         res.hit = ps.hit;
         // A strip sack is a sack whoever came up with the ball.
         let sacked = !sim.notes.sackers.is_empty();
@@ -4218,7 +4245,13 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap) 
     // they see it. Not on a timer in a clean pocket: a vertical stays a
     // vertical until the quarterback moves.
     let broken = pass.as_ref().is_some_and(|p| (p.scramble || t > 4.6) && p.thrown.is_none());
-    if broken && freelance_ok(sim, i, s.strictness[0], s.trust[0][sim.agents[i].p]) {
+    // The drill starts when he breaks out of the pocket to throw (lane
+    // EG7), and every receiver works it then: scramble rules are coached,
+    // not a freelance. Past 4.6 s or once he takes off, a receiver who may
+    // freelance breaks off his route too. It started only then, so a
+    // passer on the move threw to men still running the play's routes.
+    let drill = pass.as_ref().is_some_and(|p| p.extend.is_some() && p.thrown.is_none());
+    if drill || broken && freelance_ok(sim, i, s.strictness[0], s.trust[0][sim.agents[i].p]) {
         let q = sim.agents[qb].pos;
         let me = sim.agents[i].pos;
         let mut best = (f64::NEG_INFINITY, me);
@@ -4228,10 +4261,13 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap) 
         // The same for every spot: worked out once.
         let shallow = (s.los + 2.0).min(deep);
         let wide = width() - 2.0;
+        // On the drill he works toward the side the passer broke to, as the
+        // scramble rules have it (`DRILL_DRIFT`, lane EG7).
+        let drift = pass.as_ref().and_then(|p| p.extend).map_or(0.0, |(side, _)| side * DRILL_DRIFT);
         for k in 0..8 {
             let cand = v2(
                 clamp(me.x + 3.0 * ((k % 3) as f64 - 1.0), shallow, deep),
-                clamp(me.y + 4.0 * ((k / 3) as f64 - 1.0) + (q.y - me.y) * 0.2, 2.0, wide),
+                clamp(me.y + 4.0 * ((k / 3) as f64 - 1.0) + (q.y - me.y) * 0.2 + drift, 2.0, wide),
             );
             // The nearest defender: the root of the least square, the same
             // number as the least root (the root is monotone, and `min`
@@ -5632,6 +5668,9 @@ fn quarterback(
     let los = s.los;
     let me = sim.agents[qb].pos;
     ps.motion = false;
+    // Out of the pocket as FTN charts it (lane EG7): outside the tackle box
+    // (the same 4 yards as the grounding rule's) or broken out.
+    ps.out = ps.extend.is_some() || (me.y - s.ball_y).abs() > 4.0;
     // Pressure he can see or feel.
     let mut pressure = 0.0f64;
     let mut nearest = f64::INFINITY;
@@ -5649,6 +5688,7 @@ fn quarterback(
     let feel = sim.agents[qb].a(Attr::PocketPresence)
         + if ps.pressured_at.is_some() { sim.craft_at(qb, crate::craft::Craft::EyesDown) } else { 0.0 };
     let aw = sim.agents[qb].a(Attr::FootballIq);
+    let ts_feel = super::synthetic::typical_starter(sim.level, Position::QB, Attr::PocketPresence);
     for d in 0..sim.agents.len() {
         let a = &sim.agents[d];
         if a.side != 1 || !a.up(t) {
@@ -5671,7 +5711,16 @@ fn quarterback(
             causing.push(d);
         }
         if free && dist < 7.0 {
-            let seen = sim.sees(qb, a.pos) || sim.rng.chance(0.15 + 0.005 * feel);
+            // A free man outside his eyes he feels at `FEEL_UNSEEN` a tenth
+            // of a second for his level's typical starter, `FEEL_SLOPE` of it
+            // more a 10 points of Pocket Presence over his (lane EG7). It was
+            // 0.15 + 0.005 of a point, about 0.5 a tenth for the NFL's
+            // typical starter: he felt nearly every blind-side rusher within
+            // two tenths and got rid of it, and NFL sacks ran a third short.
+            // His hot (`hot_men`) he knows of from the snap.
+            let seen = sim.sees(qb, a.pos)
+                || (d < 32 && (ps.hot_men >> d) & 1 == 1)
+                || sim.rng.chance(FEEL_UNSEEN * (1.0 + FEEL_SLOPE * (feel - ts_feel) / 10.0));
             if seen && dist < 4.5 {
                 pressure += (4.5 - dist) / 4.5;
                 threat = threat + (me - a.pos).norm().scale((4.5 - dist) / 4.5);
@@ -6017,15 +6066,42 @@ fn quarterback(
             }
         }
     }
+    // The call at the end of his reads (lane EG7): the first time they run
+    // out (or his clock does) with nobody open, a passer with a way out
+    // breaks out of the pocket to extend the play at `BAIL` for one of the
+    // middle lean, as much more as he leaves the pocket (tendencies), or
+    // stays for the checkdown. Once a play: a passer who stays has made it.
+    if !ps.bail
+        && best.is_none()
+        && ps.extend.is_none()
+        && ps.commit.is_none()
+        && !screen
+        && !early
+        && (ps.read >= ps.reads.len() || late)
+        && t > 1.6
+    {
+        ps.bail = true;
+        let (free_l, free_r) = (free_near(sim, me, 1.0), free_near(sim, me, -1.0));
+        let lean = sim.lean(qb, Tend::Scramble);
+        if nearest > 1.2 && (!free_l || !free_r) && sim.rng.chance(clamp(BAIL * (1.0 + lean), 0.0, 1.0)) {
+            let side = if !free_l && (free_r || sim.rng.chance(0.5)) { 1.0 } else { -1.0 };
+            ps.extend = Some((side, t));
+            return None;
+        }
+    }
+    // Out of the pocket his clock starts again (lane EG7): he gives the
+    // drill `DRILL_CLOCK` from when he broke out before the checkdown and
+    // the forced ball, so his receivers have time to come open on it.
+    let clock_out = ps.extend.map_or(clock, |(_, at)| clock.max(at + DRILL_CLOCK));
     // The checkdown (topic 1): past his clock with nobody open, he takes
     // the short throw in front of him, the back or a short route, whoever
     // has the most room; a beat later he forces it to whoever is least
     // covered, as real quarterbacks do far more often than they throw it
     // away. The catch point then decides: a contested catch, a breakup or
     // a pick.
-    let ck_at = clock + 0.7 * sling.min(0.0);
+    let ck_at = clock_out + 0.7 * sling.min(0.0);
     if best.is_none() && (t > ck_at || urgent) && !screen && !early {
-        let force = t > clock + 0.5 - 0.4 * sling.max(0.0) || urgent && soon < 0.5;
+        let force = t > clock_out + 0.5 - 0.4 * sling.max(0.0) || urgent && soon < 0.5;
         let mut ck: Option<(usize, f64, V2, f64)> = None;
         for (k, &r) in cand.iter().enumerate() {
             if !sim.agents[r].up(t) || !matches!(sim.agents[r].job, Job::Route { .. }) {
@@ -6157,29 +6233,7 @@ fn quarterback(
     // yards, and nobody has hold of him. Rushers locked on blockers are
     // what he slides around (it used to need an empty box straight ahead,
     // which a pocket never has: scrambles ran at a tenth of the real 4.9%).
-    let free_near = |side: f64| {
-        (0..sim.agents.len()).any(|d| {
-            let a = &sim.agents[d];
-            // Rushes upfield or keeps contain (tendencies): an edge on the
-            // wide arc often runs past the quarterback's depth and can't
-            // stop him stepping up and out; a contain man shuts his side
-            // from a yard further off (proposed, not confirmed).
-            let up = if matches!(a.job, Job::Rush { contain, .. } if contain != 0.0) {
-                sim.lean(d, Tend::Upfield)
-            } else {
-                0.0
-            };
-            let overran = up > 0.0 && play_draw(sim, d, 3) < 0.6 * up;
-            let range = 3.0 + (-up).max(0.0) * 0.8;
-            a.side == 1
-                && a.up(t)
-                && a.engaged.is_none()
-                && !overran
-                && a.pos.dist(me) < range
-                && (a.pos.y - me.y) * side > -0.5
-        })
-    };
-    let (free_l, free_r) = (free_near(1.0), free_near(-1.0));
+    let (free_l, free_r) = (free_near(sim, me, 1.0), free_near(sim, me, -1.0));
     let lane = nearest > 1.2 && (!free_l || !free_r);
     // Scrambles (tendencies): how readily he leaves the pocket; his speed
     // decides what it gains. Out of the pocket a while with nothing come
@@ -6234,7 +6288,7 @@ fn quarterback(
     let away = ps.give_up && (outside || !flicked)
         || (over || pressure > 0.6)
             && (outside || !flicked)
-            && (imminent || t > clock + 0.5)
+            && (imminent || t > clock_out + 0.5 || ps.extend.is_some_and(|(_, at)| t - at > DRILL_AWAY))
             && sim.rng.chance(
                 0.06 + 0.003 * pro(ts(Attr::Decisions))
                     + THROW_AWAY_DECIDE * (pro(sim.agents[qb].a(Attr::Decisions)) - pro(ts(Attr::Decisions)))
@@ -6293,6 +6347,31 @@ fn quarterback(
         return Some((to, qb, 0.0, 0.0, 0.0));
     }
     None
+}
+
+/// A free defender within three yards on that side of the quarterback (a
+/// way out is a side with none): rushers locked on blockers are what he
+/// slides around (it used to need an empty box straight ahead, which a
+/// pocket never has: scrambles ran at a tenth of the real 4.9%).
+fn free_near(sim: &Sim, me: V2, side: f64) -> bool {
+    let t = sim.t;
+    (0..sim.agents.len()).any(|d| {
+        let a = &sim.agents[d];
+        // Rushes upfield or keeps contain (tendencies): an edge on the
+        // wide arc often runs past the quarterback's depth and can't
+        // stop him stepping up and out; a contain man shuts his side
+        // from a yard further off (proposed, not confirmed).
+        let up =
+            if matches!(a.job, Job::Rush { contain, .. } if contain != 0.0) { sim.lean(d, Tend::Upfield) } else { 0.0 };
+        let overran = up > 0.0 && play_draw(sim, d, 3) < 0.6 * up;
+        let range = 3.0 + (-up).max(0.0) * 0.8;
+        a.side == 1
+            && a.up(t)
+            && a.engaged.is_none()
+            && !overran
+            && a.pos.dist(me) < range
+            && (a.pos.y - me.y) * side > -0.5
+    })
 }
 
 /// How open a receiver will be when the ball gets there: the gap the
@@ -6904,6 +6983,35 @@ const GIVE_UP: f64 = 0.8;
 /// readily (minor bug 138).
 const EXTEND: f64 = 0.15;
 const EXTEND_RUN: f64 = 1.2;
+/// The quarterback off script (lane EG7; every size proposed, not
+/// confirmed). The scramble drill's own clock: out of the pocket he gives
+/// his receivers this long from when he broke out before the checkdown and
+/// the forced ball, seconds.
+const DRILL_CLOCK: f64 = 1.5;
+/// On the move with nobody there, he can throw it away once he has been
+/// out this long, seconds (it waited for the checkdown's clock).
+const DRILL_AWAY: f64 = 1.0;
+/// Yards across a receiver on the drill works toward the side the passer
+/// broke to.
+const DRILL_DRIFT: f64 = 3.0;
+/// Seconds after the passer breaks out before the level's typical starting
+/// zone defender plasters to the nearest receiver.
+const PLASTER_READ: f64 = 0.4;
+/// The chance, when his reads first run out with nobody open and a way
+/// out, that a passer of the middle lean breaks out to extend the play.
+const BAIL: f64 = 0.8;
+/// His feel for a free rusher outside his eyes, a tenth of a second, for his
+/// level's typical starter, and the share more a 10 points of Pocket
+/// Presence over his.
+const FEEL_UNSEEN: f64 = 0.18;
+const FEEL_SLOPE: f64 = 0.1;
+/// His read of his hot (`hot_men`): the chance he knows a man the
+/// protection leaves free for his level's typical starter, and its slopes a
+/// 10 points of his read and of the blitzer's Blitzing, the sizes of the
+/// back's read of the same blitzer (`picks_up`). Proposed, not confirmed.
+const KNOW_HOT: f64 = 0.85;
+const KNOW_READ: f64 = 0.1;
+const KNOW_LOOK: f64 = 0.08;
 
 /// The base chance a lineman square in the lane bats the ball.
 const BAT: f64 = 0.17;
@@ -7037,6 +7145,51 @@ const WEIGHT_REACH: f64 = 0.07;
 /// share halves a man's count, as the stat line keeps it. Proposed, not
 /// confirmed.
 const SHARE_RADIUS: f64 = 2.25;
+
+/// The rushers the protection leaves free at the snap that the passer knows
+/// are coming, a bit an agent (lane EG7). A man nobody is set to block is
+/// the one the protection call gives the passer, his hot: real passers count
+/// the rush against the protection before the snap and throw hot or slide
+/// away from him. He reads each one at `KNOW_HOT` for his level's typical
+/// starter, `KNOW_READ` more a 10 points of his Football IQ and Play
+/// Recognition over his (0.6 and 0.4, as he sees the blitz coming,
+/// `BLITZ_ID`) and `KNOW_LOOK` less a 10 of a blitzer's Blitzing (his timing
+/// and disguise) over his own position's typical starter's, between 0.4 and
+/// 0.98. A man lined up on the line is read on the passer's side alone. A
+/// disguise that fooled him (`Tactics::fooled`) or a blocker who busted
+/// leaves him knowing none of them. He felt them outside his eyes at the
+/// unseen man's rate, and once that came down to real, 44% of the sacks
+/// against Cover 0 and 31% of the rest came from his hot (a sack on 15.8% of
+/// Cover 0's dropbacks; real 7.6% outside the 20).
+fn hot_men(sim: &mut Sim, s: &Snap, off_n: usize, qb: usize, slots: &[Option<DSlot>], fake_man: Option<usize>) -> u32 {
+    if s.tac.fooled || (0..off_n).any(|b| sim.agents[b].bust && matches!(sim.agents[b].job, Job::PassBlock { .. })) {
+        return 0;
+    }
+    let lv = sim.level;
+    let ts = |a: Attr| super::synthetic::typical_starter(lv, Position::QB, a);
+    let q = &sim.agents[qb];
+    let read = (1.0 - BLITZ_ID_LOOK) * (q.a(Attr::FootballIq) - ts(Attr::FootballIq))
+        + BLITZ_ID_LOOK * (q.a(Attr::PlayRecognition) - ts(Attr::PlayRecognition));
+    let mut m = 0u32;
+    for i in off_n..sim.agents.len().min(32) {
+        if !matches!(sim.agents[i].job, Job::Rush { .. })
+            || fake_man == Some(i)
+            || (0..off_n).any(|b| matches!(sim.agents[b].job, Job::PassBlock { target: Some(t) } if t == i))
+        {
+            continue;
+        }
+        let look = if slots.get(i).copied().flatten().is_some_and(|d| d.is_line()) {
+            0.0
+        } else {
+            let pos = sim.player(i).position;
+            sim.agents[i].a(Attr::Blitzing) - super::synthetic::typical_starter(lv, pos, Attr::Blitzing)
+        };
+        if sim.rng.chance(clamp(KNOW_HOT + KNOW_READ * read / 10.0 - KNOW_LOOK * look / 10.0, 0.4, 0.98)) {
+            m |= 1 << i;
+        }
+    }
+    m
+}
 
 fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let t = sim.t;
@@ -7284,6 +7437,43 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
         if sim.agents[i].smell {
             sim.pursue(i, r);
             return;
+        }
+    }
+    // Plaster (lane EG7): once the passer has broken the pocket to throw
+    // (the scramble drill) and a zone defender has read it (`PLASTER_READ`,
+    // 0.1 s sooner a 10 points of Play Recognition over his level's typical
+    // starter's), he takes the nearest receiver nobody has as his man, as
+    // zone defenders are coached to when the play breaks down.
+    if matches!(job, Job::Zone { .. })
+        && let Some(ps) = pass.as_ref()
+        && ps.thrown.is_none()
+        && !ps.scramble
+        && let Some((_, at)) = ps.extend
+    {
+        let pos_i = sim.player(i).position;
+        let typ = super::synthetic::typical_starter(sim.level, pos_i, Attr::PlayRecognition);
+        let read = clamp(PLASTER_READ - 0.01 * (sim.agents[i].a(Attr::PlayRecognition) - typ), 0.1, 1.0);
+        if t >= at + read {
+            let me = sim.agents[i].pos;
+            let mut pick: Option<(usize, f64)> = None;
+            for r in 0..sim.agents.len() {
+                let a = &sim.agents[r];
+                if a.side != 0 || !matches!(a.job, Job::Route { .. }) {
+                    continue;
+                }
+                let taken =
+                    sim.agents.iter().any(|d| d.side == 1 && matches!(d.job, Job::Man { target, .. } if target == r));
+                let d = a.pos.dist(me) + if taken { 8.0 } else { 0.0 };
+                if d < 15.0 && pick.is_none_or(|p| d < p.1) {
+                    pick = Some((r, d));
+                }
+            }
+            if let Some((r, _)) = pick {
+                sim.agents[i].job = man_job(sim, i, r);
+                let job = sim.agents[i].job.clone();
+                cover(sim, i, &job, s, qb, pass, trail);
+                return;
+            }
         }
     }
     if in_air

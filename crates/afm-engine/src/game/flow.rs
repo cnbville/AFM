@@ -6493,6 +6493,7 @@ impl<'a> Game<'a> {
         r.drop = res.drop;
         r.pressured = res.pressured;
         r.moving = res.moving;
+        r.out_of_pocket = res.out_of_pocket;
         r.out_of_bounds = res.out_of_bounds;
         r.laterals = res.notes.laterals;
         r.pbu = res.pbu;

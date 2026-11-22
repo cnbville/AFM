@@ -219,6 +219,11 @@ pub struct PlayRecord {
     /// from results reads it for his throw-on-the-move rating.
     #[serde(default)]
     pub moving: bool,
+    /// The passer was out of the pocket when the dropback ended (FTN's
+    /// charting flag, lane EG7): outside the tackle box at the throw or the
+    /// sack, on the scramble drill, or scrambling.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub out_of_pocket: bool,
     /// What fire did on the play (coach fire): the big hit, the spark, the
     /// men it carried, footsteps and ejections. Empty on most plays.
     #[serde(default, skip_serializing_if = "super::sim::FireNotes::is_empty")]
@@ -338,6 +343,7 @@ impl PlayRecord {
             rushed: 0,
             contact: Vec::new(),
             moving: false,
+            out_of_pocket: false,
             fire: Default::default(),
             fumble: None,
             recovered: None,
@@ -782,22 +788,23 @@ pub fn fg_band(d: f64) -> usize {
 /// -0.5 to +0.3), 2026-11-21 with scheme-fit lane SF10, once the
 /// physics lanes were in (scheme-fit SF1-SF9, engine gaps EG1-EG5; the old
 /// weights read CPOE +1.5 to +3.0), the same day with lane SF9b, the
-/// open-field tackle (the old weights read CPOE +0.0 to +0.5), and with
+/// open-field tackle (the old weights read CPOE +0.0 to +0.5), with
 /// engine gaps lane EG6, the red zone (the old weights read CPOE -0.6 to
-/// -0.1).
+/// -0.1), and 2026-11-22 with lane EG7, the quarterback off script (the old
+/// weights read CPOE -0.5 to +0.3).
 // Fitted weights: a refit can land one near a named constant.
 #[allow(clippy::approx_constant)]
 pub const XCOMP: [[f64; XCOMP_TERMS]; 5] = [
-    // High school: 24,192 throws, 60.3% complete.
-    [0.9541, -0.0335, -0.3322, -0.8043, -1.1612, -1.6953, -2.2721, -3.4505, -0.9337, 0.0837, 0.1006, -0.3287],
-    // FBS: 37,883 throws, 63.2%.
-    [1.2417, -0.1605, -0.3028, -0.9105, -1.1613, -1.6812, -2.3051, -3.7840, -1.2636, -0.2056, 0.0103, -0.3118],
-    // FCS: 36,785 throws, 62.7%.
-    [1.1959, -0.1613, -0.3060, -0.8347, -1.2285, -1.7673, -2.3551, -3.7370, -0.9770, -0.1061, 0.0078, -0.3511],
-    // Small colleges: 36,057 throws, 62.7%.
-    [1.1889, -0.1854, -0.3102, -0.9020, -1.2919, -1.8352, -2.1427, -3.7163, -1.0125, -0.2352, 0.0763, -0.3357],
-    // NFL: 40,233 throws, 67.4%.
-    [1.6519, -0.3361, -0.4031, -1.0780, -1.3524, -1.5851, -2.1355, -3.4071, -1.7381, -0.6566, -0.4486, -0.2055],
+    // High school: 24,916 throws, 59.9% complete.
+    [0.8965, -0.0428, -0.2978, -0.7869, -1.1506, -1.6385, -1.9722, -3.4555, -0.8178, 0.0755, 0.2410, -0.2882],
+    // FBS: 38,647 throws, 63.1%.
+    [1.3114, -0.2374, -0.3457, -0.9650, -1.2876, -1.7977, -2.4180, -4.0311, -1.2899, -0.2285, -0.0424, -0.3089],
+    // FCS: 37,099 throws, 62.3%.
+    [1.1313, -0.1109, -0.2421, -0.8474, -1.1868, -1.7498, -2.3435, -4.0699, -1.0933, -0.0934, 0.0207, -0.2920],
+    // Small colleges: 36,468 throws, 63.0%.
+    [1.1483, -0.1332, -0.2955, -0.8139, -1.1935, -1.7926, -2.1503, -3.8197, -1.0646, -0.0348, 0.1695, -0.3388],
+    // NFL: 40,472 throws, 67.0%.
+    [1.6114, -0.3445, -0.3508, -1.0922, -1.2710, -1.5818, -2.1566, -3.3291, -1.7878, -0.6792, -0.3290, -0.1509],
 ];
 
 /// How many terms the expected-completion model reads.
