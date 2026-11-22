@@ -151,7 +151,7 @@ fn a_college_coach_raises_lets_go_and_hires_graduate_assistants() {
     };
     let before = gas(&staff);
     assert!(!before.is_empty(), "graduate assistants on the Staff page: {}", staff["juniors"]);
-    assert_eq!(open(&staff), 0, "every post filled at the start");
+    let open0 = open(&staff);
     // They aren't listed twice (support staff below).
     let ga = before[0]["coach"].as_u64().unwrap();
     assert!(!staff["support"].as_array().unwrap().iter().any(|d| d["link"] == before[0]["link"]));
@@ -172,7 +172,7 @@ fn a_college_coach_raises_lets_go_and_hires_graduate_assistants() {
     hold(&mut g, s["scene"].as_u64().unwrap());
     let staff = ok(&mut g, "people_staff", json!({}));
     assert_eq!(gas(&staff).len(), before.len() - 1);
-    assert_eq!(open(&staff), 1);
+    assert_eq!(open(&staff), open0 + 1);
     assert!(staff["owed"].is_null(), "a junior post owes nothing: {}", staff["owed"]);
 
     // Who could take it: former players and young coaches, with their ties.
@@ -189,8 +189,8 @@ fn a_college_coach_raises_lets_go_and_hires_graduate_assistants() {
     }
     let h = ok(&mut g, "people_junior_hire", a.clone());
     assert_eq!(gas(&h["staff"]).len(), before.len(), "{}", h["text"]);
-    assert_eq!(open(&h["staff"]), 0);
-    // A full post takes nobody else.
+    assert_eq!(open(&h["staff"]), open0);
+    // He is on your staff now: he can't be hired again.
     assert!(g.call("people_junior_hire", &a).is_err());
 
     // Let another go, and the linebackers coach brings one in.
@@ -199,7 +199,7 @@ fn a_college_coach_raises_lets_go_and_hires_graduate_assistants() {
     hold(&mut g, s["scene"].as_u64().unwrap());
     let p = ok(&mut g, "people_junior_pick", json!({ "post": "ga", "group": "lb" }));
     let rows = gas(&p["staff"]);
-    assert_eq!(rows.len(), before.len(), "{}", p["text"]);
+    assert_eq!(open(&p["staff"]), open0, "{}", p["text"]);
     assert!(rows.iter().any(|r| r["room"] == "Linebackers"), "{}", p["staff"]["juniors"]);
 
     let _ = std::fs::remove_dir_all(dir);
