@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.685 (23 Nov, shipped): make a recruit sound like his standing, and read an honest call fairly (PR #622)
+**TLDR:** Recruits now sound like where they really stand: a kid with no offers is thrilled when a big program calls, and an honest read of his game with a plan to fix it counts as the pitch it is.
+- A recruit's opening on a call or visit now fits his leverage: a kid with no offers, or none near your program's level, is eager and respectful instead of playing hard to get. (PR #622)
+- A recruit speaking for himself no longer says lines meant for his parents. (PR #622)
+- Telling a recruit what he needs to fix, with how you'll fix it together, now counts as a development pitch, and an eager kid takes the honest part in stride. (PR #622)
+- A follow-up question no longer reads "it didn't move him". (PR #622)
+- His replies know whether you've offered and that he has no other offers, and don't mix his high school depth chart up with yours. (PR #622)
+- Look at: call a recruit with no offers from a big program, and tell him straight what he needs to work on. (PR #622)
+
 ## 0.2.684 (23 Nov, shipped): fix a recruit call's contradictions at their causes (PR #621)
 **TLDR:** Recruit calls now hold together: a senior knows he's a senior, his opening and his replies are one voice, and what he tells you shows up in your read of him.
 - High school seniors no longer call themselves juniors in the fall. (PR #621)

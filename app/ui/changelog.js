@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.685", date: "23 Nov", title: "Make a recruit sound like his standing, and read an honest call fairly",
+    notes: [
+      "Recruits now sound like where they really stand: a kid with no offers is thrilled when a big program calls, and an honest read of his game with a plan to fix it counts as the pitch it is.",
+      "A recruit's opening on a call or visit now fits his leverage: a kid with no offers, or none near your program's level, is eager and respectful instead of playing hard to get.",
+      "A recruit speaking for himself no longer says lines meant for his parents.",
+      "Telling a recruit what he needs to fix, with how you'll fix it together, now counts as a development pitch, and an eager kid takes the honest part in stride.",
+      "A follow-up question no longer reads \"it didn't move him\".",
+      "His replies know whether you've offered and that he has no other offers, and don't mix his high school depth chart up with yours.",
+    ],
+  },
+  {
     v: "0.2.684", date: "23 Nov", title: "Fix a recruit call's contradictions at their causes",
     notes: [
       "Recruit calls now hold together: a senior knows he's a senior, his opening and his replies are one voice, and what he tells you shows up in your read of him.",
