@@ -2827,5 +2827,19 @@
   "players": true,
   "title": "GAPS: the takeover and talks skip graduate assistants and analysts",
   "tldr": "Two gaps found while building PR #617 (junior posts as staff moves), added to GAPS.md under Logic: the takeover meetings don't cover holdover juniors, and a talk with a junior can't raise him or let him go."
+ },
+ "621": {
+  "auto": false,
+  "bullets": [
+   "High school seniors no longer call themselves juniors in the fall.",
+   "A recruit's opening lines and his replies come from the same person, so he remembers what he just said.",
+   "When a recruit tells you what matters to him, \"What pulls him\" follows what he said.",
+   "A pitch he's already heard from you now says so under your line instead of a bare \"it didn't move him\"."
+  ],
+  "h": "c752d4191831",
+  "look": "a call to a committed senior recruit in the fall.",
+  "players": true,
+  "title": "Fix a recruit call's contradictions at their causes",
+  "tldr": "Recruit calls now hold together: a senior knows he's a senior, his opening and his replies are one voice, and what he tells you shows up in your read of him."
  }
 }

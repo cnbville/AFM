@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.684 (23 Nov, shipped): fix a recruit call's contradictions at their causes (PR #621)
+**TLDR:** Recruit calls now hold together: a senior knows he's a senior, his opening and his replies are one voice, and what he tells you shows up in your read of him.
+- High school seniors no longer call themselves juniors in the fall. (PR #621)
+- A recruit's opening lines and his replies come from the same person, so he remembers what he just said. (PR #621)
+- When a recruit tells you what matters to him, "What pulls him" follows what he said. (PR #621)
+- A pitch he's already heard from you now says so under your line instead of a bare "it didn't move him". (PR #621)
+- Look at: a call to a committed senior recruit in the fall. (PR #621)
+
 ## 0.2.683 (22 Nov, shipped): close the "Still your call" staff banners when the coach is settled (PR #619)
 **TLDR:** The red "Still your call" banners on your staff screen now clear once you've let the coach go or decided on him.
 - A holdover, firing, interview or proposal you leave open no longer lingers after you settle it. (PR #619)

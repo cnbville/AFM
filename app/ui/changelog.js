@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.684", date: "23 Nov", title: "Fix a recruit call's contradictions at their causes",
+    notes: [
+      "Recruit calls now hold together: a senior knows he's a senior, his opening and his replies are one voice, and what he tells you shows up in your read of him.",
+      "High school seniors no longer call themselves juniors in the fall.",
+      "A recruit's opening lines and his replies come from the same person, so he remembers what he just said.",
+      "When a recruit tells you what matters to him, \"What pulls him\" follows what he said.",
+      "A pitch he's already heard from you now says so under your line instead of a bare \"it didn't move him\".",
+    ],
+  },
+  {
     v: "0.2.683", date: "22 Nov", title: "Close the \"Still your call\" staff banners when the coach is settled",
     notes: [
       "The red \"Still your call\" banners on your staff screen now clear once you've let the coach go or decided on him.",
