@@ -157,7 +157,7 @@ Impact is for the player's seat: high (he sees it every season), medium (he sees
 
 **21. Draft picks come from too many colleges.** 118 colleges with a pick a year (real 97), 8.2% of picks from FCS (real 6%). Status: new.
 
-**22. Too few in-season NFL trades.** 9.2 a year (real 17.6). Trades in all are near (85, real 91). Status: trial 7 finding 8, parked.
+**22. Too few in-season NFL trades.** 9.2 a year (real 17.6). Trades in all are near (85, real 91). Status: trial 7 finding 8, parked. Measured 2026-11-24 (thread "Fix in-season NFL trades"): the world was at real and the book read the wrong count. Its check read `deadline_trades`, the trades of deadline week alone (the two calls four days before the deadline and on the day), against the real count from September to November. The world's own count of every trade from kickoff to the deadline (`season_trades`) is 16.4 a year in 2021-2025 (12, 15, 18, 17, 20; real 15, 19, 15, 18, 21, mean 17.6), and 11.5 in 2002-2020 (real 11.1). The check and the trades chart now read `season_trades`, and the chart's "Trades" line counts draft-day trades too, as the real figure does (`crates/afm-reader/src/defs_nfl.rs`, `N9.season_trades`). No game change. Status: fixed (the measure).
 
 **23. History plays one era.** FBS teams throw 29.6 passes a game in 1996-99 and 31.2 in 2020-24, and complete 58.8% then and 60.3% now. Real football changed more. History only. Status: new.
 
