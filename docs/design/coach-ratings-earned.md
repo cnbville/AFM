@@ -115,6 +115,17 @@ Cain's point, checked in the code. A live game stops for you and records what th
 
 So a hands-on player's game-day ratings do nothing, and a player who sims never sees them work. A skill that pays in only one way of playing is wrong. Section 2 below is the fix.
 
+
+## Playing a game yourself and simming it (the code today)
+
+Cain's point, checked in the code. A live game stops for you and records what the staff would do (`game/live.rs`, `LiveGame`; `docs/match-engine.md`, "Live games, officials and the toss"). "A call you pick replaces the staff's." So:
+
+- When you call a snap yourself, your play calling, adaptation and game management read nothing on that snap. Your pick is the call.
+- When a snap doesn't stop for you, when you watch, or when you let the staff coach it, the side you call is called by your own ratings (`season.rs`, `coach_caller`, `your_calls`) and the other side by its coordinator.
+- Your fourth-down and two-point charts decide the snaps that don't stop for you.
+
+So a hands-on player's game-day ratings do nothing, and a player who sims never sees them work. A skill that pays in only one way of playing is wrong. Section 2 below is the fix.
+
 ## The loop
 
 Every number in this part is a starting value for the measure (section 12), except the pace.
