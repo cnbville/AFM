@@ -497,27 +497,35 @@ fn main() {
         }
     }
     if pbp {
-        for p in &results[0].stats.plays {
-            println!(
-                "Q{} {:>5.0} {:?} {} {}&{:.0} at {:.0} | {:?} {} | {} | {:+.1} yds air {:.0} ttt {:.1} EPA {:+.2} | {}",
-                p.quarter,
-                p.clock,
-                p.score,
-                p.offense,
-                p.down,
-                p.togo,
-                p.yardline_100,
-                p.kind,
-                p.call,
-                p.defense_call,
-                p.yards,
-                p.air_yards,
-                p.time_to_throw,
-                p.epa,
-                p.why
-            );
+        // AFM_PBP_GAMES=n prints the first n games' play-by-play, each under
+        // its own "Game" line (the scheme sequencing research reads them).
+        let shown: usize = std::env::var("AFM_PBP_GAMES").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
+        for (g, r) in results.iter().take(shown.max(1)).enumerate() {
+            if shown > 1 {
+                println!("Game {g}");
+            }
+            for p in &r.stats.plays {
+                println!(
+                    "Q{} {:>5.0} {:?} {} {}&{:.0} at {:.0} | {:?} {} | {} | {:+.1} yds air {:.0} ttt {:.1} EPA {:+.2} | {}",
+                    p.quarter,
+                    p.clock,
+                    p.score,
+                    p.offense,
+                    p.down,
+                    p.togo,
+                    p.yardline_100,
+                    p.kind,
+                    p.call,
+                    p.defense_call,
+                    p.yards,
+                    p.air_yards,
+                    p.time_to_throw,
+                    p.epa,
+                    p.why
+                );
+            }
+            println!("Final {:?}", r.stats.score);
         }
-        println!("Final {:?}", results[0].stats.score);
     }
     let n = (games * 2) as f64;
     let mut m = std::collections::BTreeMap::<&str, f64>::new();
