@@ -27,10 +27,102 @@ fn main() {
     college_report(&w);
     hs_report(&w);
     lines_report(&w);
+    pay_report(&w);
+}
+
+/// Coach pay by conference against the department's earned money (realism
+/// audit item 9 on the seed 321 world): the mean of each rung's pay a year
+/// now, in today's dollars.
+fn pay_report(w: &World) {
+    use afm_engine::world::coach::{Employer, Role};
+    use afm_engine::world::folk::hiring::pay_now;
+    println!(
+        "\n== Coach pay by conference (real 2024 head coaches, USA Today, partly from memory: SEC 7.5, Big Ten 6.9, Big 12 5.0, ACC 5.0, American 2.3, Mountain West 1.6, Sun Belt 1.0, Conference USA 0.9, MAC 0.8 millions)"
+    );
+    let idx = afm_engine::world::finance::data::college_index(w.year);
+    let mut rows: std::collections::BTreeMap<String, Vec<[f64; 6]>> = Default::default();
+    for (p, prog) in w.programs.iter().enumerate() {
+        if !prog.plays(w.year) {
+            continue;
+        }
+        let d = &w.finance.college[p];
+        let earned = college::earned(&d.budget, d) / idx;
+        let mut r = [earned, 0.0, 0.0, 0.0, 0.0, college::Dept::costs(&d.budget) / idx];
+        let (mut nc, mut np) = (0.0, 0.0);
+        for (c, co) in w.coaches.iter().enumerate() {
+            let Some(j) = co.job else { continue };
+            if j.employer != Employer::College(p) {
+                continue;
+            }
+            match j.role {
+                Role::HeadCoach => r[1] = pay_now(w, c),
+                Role::OffensiveCoordinator | Role::DefensiveCoordinator => {
+                    r[2] += pay_now(w, c);
+                    nc += 1.0;
+                }
+                Role::PositionCoach(_) => {
+                    r[3] += pay_now(w, c);
+                    np += 1.0;
+                }
+            }
+        }
+        r[2] /= f64::max(nc, 1.0);
+        r[3] /= f64::max(np, 1.0);
+        r[4] = prog.prestige;
+        let key =
+            if prog.division == Division::FBS { prog.conference.clone() } else { format!("({:?})", prog.division) };
+        rows.entry(key).or_default().push(r);
+    }
+    // Each level's earned money (today's dollars): where its jobs sit.
+    for dv in [Division::FBS, Division::FCS, Division::D2, Division::NAIA, Division::D3, Division::JUCO] {
+        let mut v: Vec<f64> = (0..w.programs.len())
+            .filter(|&p| w.programs[p].division == dv && w.programs[p].plays(w.year))
+            .map(|p| college::earned(&w.finance.college[p].budget, &w.finance.college[p]) / idx)
+            .collect();
+        if v.is_empty() {
+            continue;
+        }
+        v.sort_by(f64::total_cmp);
+        let q = |f: f64| m2(v[((v.len() as f64 - 1.0) * f) as usize]);
+        println!(
+            "{dv:?} earned: n {} | min {} | p10 {} | median {} | p90 {} | max {}",
+            v.len(),
+            q(0.0),
+            q(0.1),
+            q(0.5),
+            q(0.9),
+            q(1.0)
+        );
+    }
+    println!(
+        "conference            n  budget  earned/school  head coach  min-max          coordinator  position  prestige"
+    );
+    for (k, v) in &rows {
+        let n = v.len() as f64;
+        let avg = |i: usize| v.iter().map(|r| r[i]).sum::<f64>() / n;
+        let lo = v.iter().map(|r| r[1]).fold(f64::MAX, f64::min);
+        let hi = v.iter().map(|r| r[1]).fold(0.0, f64::max);
+        println!(
+            "{k:<20} {:>3}  {:>6}  {:>13}  {:>10}  {:>6}-{:<8}  {:>11}  {:>8}  {:>8.2}",
+            v.len(),
+            m2(avg(5)),
+            m2(avg(0)),
+            m2(avg(1)),
+            m2(lo),
+            m2(hi),
+            m2(avg(2)),
+            m2(avg(3)),
+            avg(4)
+        );
+    }
 }
 
 fn m(x: f64) -> String {
     format!("{:.0}M", x / 1.0e6)
+}
+
+fn m2(x: f64) -> String {
+    format!("{:.2}M", x / 1.0e6)
 }
 
 fn nfl_report(w: &World) {
