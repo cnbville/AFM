@@ -64,7 +64,7 @@ pub const REF_TOPICS: [(Topic, &str); 6] = [
 pub fn can_sit(w: &World, who: Them) -> bool {
     let Some(team) = Team::seat(w) else { return false };
     match who {
-        Them::Coach(c) => asks::on_your_staff(w, c),
+        Them::Coach(c) => asks::yours(w, c),
         Them::Cast(r, _) => {
             r.team == team
                 && matches!(

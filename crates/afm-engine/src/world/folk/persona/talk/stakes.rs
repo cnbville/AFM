@@ -471,6 +471,31 @@ pub fn case_facts(w: &World, c: usize) -> Vec<String> {
     if let Some(d) = w.folk.staff.deal(c) {
         out.push(format!("his deal runs through the {} season", d.through));
     }
+    out.extend(junior_facts(w, c, false));
+    out
+}
+
+/// A junior's post as he can point to it: how long he has held it, and
+/// that it is year to year at the pay it carries. Nothing for a coach in a
+/// full-time job.
+fn junior_facts(w: &World, c: usize, you: bool) -> Vec<String> {
+    let Some(j) = w.coaches.get(c).filter(|x| x.job.is_none()).and_then(|x| x.junior_now()) else {
+        return Vec::new();
+    };
+    let (subject, own) = if you { ("you've been", "your") } else { ("he has been", "his") };
+    let post = j.post.name();
+    let post = format!("{} {post}", if post.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" });
+    let mut out = vec![match w.year - j.since {
+        0 => format!("{subject} {post} with the {} since this season began", j.group.name()),
+        1 => format!("{subject} {post} with the {} for a season", j.group.name()),
+        n => format!("{subject} {post} with the {} for {n} seasons", j.group.name()),
+    }];
+    if let Some(pay) = crate::world::folk::staffing::junior_salary(w, c) {
+        out.push(format!(
+            "{own} post is year to year and pays ${} a year",
+            facts::thousands((pay / 1000.0) as u32) + ",000"
+        ));
+    }
     out
 }
 
@@ -506,6 +531,10 @@ fn his_case(w: &World, c: usize, on_trial: bool) -> Vec<String> {
             _ => "a part of what's left on it",
         };
         out.push(format!("Your deal runs through the {} season; if he lets you go, he owes you {owed}", d.through));
+    }
+    let post = junior_facts(w, c, true);
+    if !post.is_empty() {
+        out.push(format!("What you can point to: {}", post.join("; ")));
     }
     out
 }

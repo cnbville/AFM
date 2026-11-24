@@ -139,7 +139,7 @@ pub fn weigh(w: &World, him: Them, o: &Offer) -> Option<Weighed> {
     let team = Team::seat(w)?;
     match him {
         Them::Coach(c) if c < w.coaches.len() && staff_deal(o) => {
-            if super::asks::on_your_staff(w, c) {
+            if super::asks::yours(w, c) {
                 return Some(own(w, c, o));
             }
             let role = role_for(w, c)?;
@@ -200,7 +200,7 @@ pub fn weigh(w: &World, him: Them, o: &Offer) -> Option<Weighed> {
 /// 15): his counter's number on your terms, from the turn's weighing.
 pub fn haggled(w: &mut World, him: Them, o: &Offer, wd: &Weighed) {
     let (Them::Coach(c), Weighed::Counter(k)) = (him, wd) else { return };
-    if c >= w.coaches.len() || super::asks::on_your_staff(w, c) || !staff_deal(o) {
+    if c >= w.coaches.len() || super::asks::yours(w, c) || !staff_deal(o) {
         return;
     }
     let Some(role) = role_for(w, c) else { return };
@@ -275,7 +275,19 @@ pub fn refused(w: &mut World, team: Team, o: &Offer, she: bool) -> String {
 /// One of your own assistants takes a raise, more years, a title or the
 /// play-calling; a pay cut is a no.
 fn own(w: &World, c: usize, o: &Offer) -> Weighed {
-    let salary = w.folk.staff.deals.iter().find(|d| d.coach == c).map(|d| d.salary);
+    let junior = junior_post(w, c);
+    let salary = if junior {
+        crate::world::folk::staffing::junior_salary(w, c)
+    } else {
+        w.folk.staff.deals.iter().find(|d| d.coach == c).map(|d| d.salary)
+    };
+    // A graduate assistant, analyst or quality-control coach has a post
+    // year to year, not a deal: more money is all that can be given him
+    // (a title or the play-calling is a full-time job's, his years the
+    // post's own).
+    if junior && o.gives.iter().any(|g| matches!(g, Give::Years(_) | Give::Title | Give::Calling)) {
+        return Weighed::No;
+    }
     for g in &o.gives {
         if let (Give::Money(x), Some(s)) = (g, salary)
             && *x > 0.0
@@ -305,7 +317,7 @@ pub fn agree(w: &mut World, _id: u32, him: Them, o: &Offer) -> Option<Vec<String
     let team = Team::seat(w)?;
     match him {
         Them::Coach(c) if c < w.coaches.len() && staff_deal(o) => {
-            if super::asks::on_your_staff(w, c) {
+            if super::asks::yours(w, c) {
                 return Some(own_agree(w, c, o));
             }
             let role = role_for(w, c)?;
@@ -331,16 +343,31 @@ pub fn agree(w: &mut World, _id: u32, him: Them, o: &Offer) -> Option<Vec<String
     }
 }
 
+/// Whether he is in one of your junior posts (a graduate assistant,
+/// analyst or quality-control coach), not a full-time job.
+fn junior_post(w: &World, c: usize) -> bool {
+    !super::asks::on_your_staff(w, c) && crate::world::folk::staffing::my_junior(w, c)
+}
+
 fn own_agree(w: &mut World, c: usize, o: &Offer) -> Vec<String> {
     let mut out = Vec::new();
-    if let Some(s) = w.folk.staff.deals.iter().find(|d| d.coach == c).map(|d| d.salary) {
+    let junior = junior_post(w, c);
+    // His pay now: the deal's, or a junior post's (`staffing::junior_salary`).
+    let pay = |w: &World| {
+        if junior {
+            crate::world::folk::staffing::junior_salary(w, c)
+        } else {
+            w.folk.staff.deals.iter().find(|d| d.coach == c).map(|d| d.salary)
+        }
+    };
+    if !junior && let Some(s) = pay(w) {
         out.extend(add_goals(w, c, o, s));
     }
     let name = w.coaches[c].name.clone();
     for g in &o.gives {
         match g {
             Give::Money(x) => {
-                let Some(s) = w.folk.staff.deals.iter().find(|d| d.coach == c).map(|d| d.salary) else { continue };
+                let Some(s) = pay(w) else { continue };
                 if *x > s {
                     match staffing::raise(w, c, *x / s - 1.0) {
                         Ok(t) => out.push(t),
