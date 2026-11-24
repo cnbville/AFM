@@ -33,9 +33,9 @@ fn main() {
     while w.year < end {
         w.advance_day();
         // An expansion club joins with its first GM.
-        for t in gm.len()..w.clubs.len() {
-            gm.push(w.clubs[t].office.gm.name.clone());
-            since.push(w.clubs[t].office.gm.since);
+        for c in w.clubs.iter().skip(gm.len()) {
+            gm.push(c.office.gm.name.clone());
+            since.push(c.office.gm.since);
         }
         for t in 0..w.clubs.len() {
             let o = &w.clubs[t].office;
