@@ -8,7 +8,8 @@
 //! `check <id>`, `odd`, `issues`, `knobs`, `coverage`, `tables`,
 //! `table <name>`, `dist <metric>`, `record <table> <row>`,
 //! `<kind> <id>` (person, alumnus, coach, program, school, club),
-//! `search <text>` and `sql <query>`.
+//! `program_check` (lane P0, the rise and fall of programs), `search <text>`
+//! and `sql <query>`.
 
 use std::fmt::Write;
 
@@ -273,6 +274,7 @@ impl Book {
             "state" => panel_page(self, "state", Some(("state", &arg.to_ascii_uppercase())), f),
             "conference" => panel_page(self, "conference", Some(("conference", &arg)), f),
             "search" => search(self, &arg, f),
+            "program_check" | "fortunes" => crate::program_check::view(self, f),
             "sql" => {
                 let mut v = View { page: "sql".into(), title: "SQL".into(), ..Default::default() };
                 v.sections.push(query(self, &arg, "table", &arg, f.limit(200)));
@@ -285,7 +287,7 @@ impl Book {
                     "Pages: overview, ".to_string()
                         + &PAGES.iter().skip(1).map(|p| p.id).collect::<Vec<_>>().join(", "),
                 );
-                v.verdict.push("Also: area <code>, panel <id>, class <year>, state <XX>, conference <name>, checks, check <id>, odd, issues, knobs, coverage, tables, table <name>, dist <metric>, record <table> <row>, person|alumnus|coach|program|school|club <id>, search <text>, sql <query>".into());
+                v.verdict.push("Also: area <code>, panel <id>, class <year>, state <XX>, conference <name>, program_check, checks, check <id>, odd, issues, knobs, coverage, tables, table <name>, dist <metric>, record <table> <row>, person|alumnus|coach|program|school|club <id>, search <text>, sql <query>".into());
                 v
             }
         }

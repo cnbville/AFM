@@ -68,7 +68,7 @@ A book always builds from a world file alone. Checks that need a log show "no da
 ## afm_read
 
 - `afm_read build <world> [log folder] [book]` builds the book. The log defaults to `name.afmlog` beside the world (`-` for none) and the book to `name.afmbook`.
-- `afm_read <book> [page] [key=value ...]` prints a page as short text, the same text the app's "Copy for Claude" gives. Pages: `overview`, the topic pages (`people`, `recruiting`, `programs`, `high-school`, `coaches`, `games`, `nfl`, `money`, `world`, `career`, `tools`), `checks`, `check <id>`, `odd`, `issues`, `knobs`, `coverage`, `tables`, `table <name>`, `dist <metric>`, `record <table> <row>`, `person|alumnus|coach|program|school|club <id>`, `search <text>` and `sql <query>`.
+- `afm_read <book> [page] [key=value ...]` prints a page as short text, the same text the app's "Copy for Claude" gives. Pages: `overview`, the topic pages (`people`, `recruiting`, `programs`, `high-school`, `coaches`, `games`, `nfl`, `money`, `world`, `career`, `tools`), `checks`, `check <id>`, `odd`, `issues`, `knobs`, `coverage`, `tables`, `table <name>`, `dist <metric>`, `record <table> <row>`, `program_check` (the rise and fall of programs), `person|alumnus|coach|program|school|club <id>`, `search <text>` and `sql <query>`.
 - Filters: `year=`, `from=`, `to=`, `level=`, `division=`, `conference=`, `pos=`, `stars=`, `state=`, `limit=`, `debug` (shows true potential and ceilings), and on table pages any column, `where=<sql>` and `order=<sql>`.
 
 The library gives the same pages to the app: `Book::open`, `book.text(page, &Filters)` and `book.page(page, &Filters)` (JSON).
