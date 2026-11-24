@@ -101,7 +101,7 @@ Impact is for the player's seat: high (he sees it every season), medium (he sees
 - World: MAC head coaches average $3.86M, Conference USA $3.73M, the Sun Belt $3.55M, the Mountain West $4.33M, the American $5.10M (real about $0.8M, $0.9M, $1.0M, $1.6M and $2.3M, USA Today's database from memory). The SEC ($7.15M) and Big Ten ($6.65M) are near real.
 - Likely cause: the job's line is `lo × (hi / lo) ^ prestige` with $0.6M to $12M at FBS (`world/staff.rs`, `salary`), so a prestige of 0.5 already pays $2.7M, and item 11 pushes every prestige up.
 - Touches: coach contracts and buyouts, college budgets (a Group of 5 school has $48M in all), the carousel (why leave for a small raise).
-- Status: new.
+- Status: built 2026-11-24 (thread "Fix Group of Five coach pay"). The cause was the line's place by prestige and a cap of 7% of a budget also read by prestige, which the market's renewals reached. The line now reads what the department earns on its books and the cap is the line stretched (`money_place`, `PAY_MONEY`, `pay::COLLEGE_STRETCH`). Seed 331 (12 years, stand-in games) in 2025, head coaches: MAC $1.23M, Conference USA $1.13M, the Sun Belt $1.19M, the Mountain West $1.34M, the American $1.49M, the Big 12 $5.04M, the ACC $5.76M, the Big Ten $7.45M, the SEC $8.03M (before: $3-5M across the Group of 5). The Group of 5 average $1.28M (real about $1.3M); the American is low and the MAC high because the books' Group of 5 money is bunched (`GAPS.md`). Sizes proposed, not confirmed.
 
 **10. Prestige drifts up and bunches.**
 - World: FBS prestige averages 0.51 in 1995 and 0.60 in 2024. The spread shrinks from 0.19 to 0.14 and the lowest rises from 0.1 to 0.3.

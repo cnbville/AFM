@@ -653,10 +653,12 @@ fn hs_buzz(w: &World, c: usize) -> bool {
 
 /// What a job pays a year, in today's dollars (11.13). Claude's reading of
 /// 2024-25 pay (USA Today's college salary database, NFL reporting), proposed,
-/// not confirmed: each level's range runs from its smallest program to its
-/// biggest, by prestige. NFL teams pay by owner, and the NFL paid about twice
-/// what college did in the 1990s, until top college pay caught up by the
-/// mid-2010s.
+/// not confirmed: each level's range runs from its poorest program to its
+/// richest, by what the athletic department earns (realism audit item 9 on
+/// the seed 321 world: placed by prestige, a Group of 5 school paid its head
+/// coach 2.5 to 4 times real). NFL teams pay by owner, and the NFL paid about
+/// twice what college did in the 1990s, until top college pay caught up by
+/// the mid-2010s.
 pub(crate) fn salary(w: &World, e: Employer, role: Role) -> f64 {
     let pick = |r: [(f64, f64); 3]| match role {
         Role::HeadCoach => r[0],
@@ -675,7 +677,7 @@ pub(crate) fn salary(w: &World, e: Employer, role: Role) -> f64 {
                 Division::D3 => [(0.05e6, 0.13e6), (0.035e6, 0.06e6), (0.02e6, 0.04e6)],
                 Division::JUCO => [(0.05e6, 0.12e6), (0.04e6, 0.07e6), (0.03e6, 0.05e6)],
             };
-            (pick(range), w.programs[p].prestige, 1.0)
+            (pick(range), money_place(w, p), 1.0)
         }
         Employer::Nfl(t) => {
             let owner = (w.nfl[t].owner - 1.0) / 19.0;
@@ -689,6 +691,32 @@ pub(crate) fn salary(w: &World, e: Employer, role: Role) -> f64 {
     };
     lo * (hi / lo).powf(clamp(x, 0.0, 1.0)) * era
 }
+
+/// Where a college sits on its level's pay line, 0-1: what its athletic
+/// department earns a year in today's dollars (its books' income less the
+/// university's support, `finance::college::earned`), on a log scale from
+/// the level's poorest program to its richest (`PAY_MONEY`). Real pay
+/// follows the money: a MAC school earns about a sixth of what an SEC
+/// school does and pays its head coach about a ninth. Before the books
+/// first open (a new world's first staffs) the program's prestige stands in.
+fn money_place(w: &World, p: usize) -> f64 {
+    let Some(d) = w.finance.college.get(p).filter(|d| d.budget.year != 0) else {
+        return w.programs[p].prestige;
+    };
+    let earned = super::finance::college::earned(&d.budget, d) / super::finance::data::college_index(d.budget.year);
+    let (lo, hi) = PAY_MONEY[w.programs[p].division as usize];
+    (earned.max(1.0) / lo).ln() / (hi / lo).ln()
+}
+
+/// Each level's two ends of its pay line in earned money a year, today's
+/// dollars (FBS, FCS, Division II, NAIA, Division III, junior colleges, in
+/// `Division` order), fitted on the seed 331 world's books (2025) so its
+/// conferences' head coaches land on real 2024 pay: at FBS pay grows a
+/// little faster than the money (USA Today: the SEC's $7.5M on about $175M
+/// earned, the MAC's $0.8M and the Sun Belt's $1.0M on about $27M).
+/// Proposed, not confirmed.
+const PAY_MONEY: [(f64, f64); 6] =
+    [(19.0e6, 290.0e6), (5.0e6, 25.0e6), (0.7e6, 7.0e6), (0.3e6, 3.0e6), (0.4e6, 5.0e6), (0.8e6, 15.0e6)];
 
 /// How hot a name is (11.11): what a search committee and the press can see.
 /// His reputation with recency bias, and how far his last three seasons beat
