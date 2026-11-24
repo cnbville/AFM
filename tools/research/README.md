@@ -1,0 +1,7 @@
+# Research tools: scheme sequencing (section 12)
+
+Research only, never decisions (`docs/research/sequencing.md`, decisions section 35). The API jobs use the project's key in `AFM_LINEBANK_KEY` and print what they spend; each has a cap.
+
+- `real_sequencing.py <nflverse folder> <out.json> [years]`: free. Real direction set-ups, play action against the run share, the box after run streaks, serial correlation, upsets by spread, EPA by coverage and by route and coverage. Needs `pbp_Y.parquet`, `part_Y.parquet` and `ftn_Y.parquet` from the nflverse-data GitHub releases. Writes `data/real-world/sequencing.json`.
+- `series_library.py run [--only ids] [--cap 35] [--workers 6]`: the series and counters library, one Sonnet 5.5 request with web search a topic (`series_topics.json`), about $0.28 a topic. `series_library.py merge --cap 6`: one Opus 5.5 pass that maps every entry to the engine. Writes to `/mnt/project-files/afm/scheme-sequencing/library/`. Web fetch is refused from thread machines, so it reads search results only.
+- `coach_review.py review <pbp> <out> --games 40 --cap 5 [--fbs-from n]`: Opus 5.5 reads engine games as a coach (Batches API, about $0.12 a game). `coach_review.py blind <pbp> <nflverse folder> <out> --pairs 500 --cap 15`: the blind drive test, about $0.025 a pair; the share Opus gets right is the realism score (0.5 means it can't tell). `coach_review.py collect <out>` fetches a finished batch. The pbp is `AFM_PBP_GAMES=n match_check <level> <games> <seed> pbp`.

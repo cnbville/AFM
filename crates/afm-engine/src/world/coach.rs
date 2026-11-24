@@ -947,12 +947,23 @@ impl Coach {
     }
 
     /// A title's boost, when it is won.
+    ///
+    /// His standing gains by how far his team beat what its roster should
+    /// have won that season (program fortunes item 7, Cain 2026-11-24): the
+    /// season's result against expectation, already in `recent` when the
+    /// title comes (the regular season is judged first). A title with the
+    /// most talented roster, won about as expected, gains half the full
+    /// boost; one won 1.5 wins a 12-game season above the roster gains it
+    /// all, 3 wins above half as much again (proposed, not confirmed:
+    /// 0.5 + 4 times the share, 0.25 to 1.5). The size of the stage moves
+    /// his name, not his standing.
     pub fn title_reputation(&mut self, title: TitleKind, head: bool, stage: f64) {
         let speed = if head { 1.0 } else { 0.5 };
         let headroom = ((20.0 - self.reputation) / 8.0).min(1.0);
+        let above = self.recent.last().copied().unwrap_or(0.0);
         self.reputation += speed
             * headroom
-            * (0.5 + 0.5 * stage.clamp(0.0, 1.0))
+            * title_above(above)
             * match title {
                 TitleKind::None => 0.0,
                 TitleKind::Conference => 3.0,
@@ -972,6 +983,13 @@ impl Coach {
         self.renown = clamp(name + speed * room * (0.5 + 0.5 * stage.clamp(0.0, 1.0)) * boost, 1.0, 20.0);
     }
 
+    /// His results against expectation over his last three seasons, summed
+    /// (program fortunes item 6): +1 is a season's worth of wins above what
+    /// his rosters should have won.
+    pub fn above_three(&self) -> f64 {
+        self.recent.iter().rev().take(3).sum()
+    }
+
     /// What a hiring committee sees: reputation, bent by recency bias. The last
     /// season counts double and the one before it once; anything older is forgotten.
     pub fn hiring_buzz(&self) -> f64 {
@@ -987,6 +1005,13 @@ impl Coach {
         let base = (1.0 - name) * self.reputation + name * self.name_value();
         base + 10.0 * last + 4.0 * before + self.stat_buzz
     }
+}
+
+/// A title's share of its full boost to a coach's standing, from the
+/// season's result against expectation (program fortunes item 7; proposed,
+/// not confirmed: 0.5 at expectation, 4 per share, 0.25 to 1.5).
+pub fn title_above(vs_expectation: f64) -> f64 {
+    clamp(0.5 + 4.0 * vs_expectation, 0.25, 1.5)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
