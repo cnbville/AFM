@@ -15,6 +15,13 @@ fi
 "${cap[@]}" "$PWD/target/release/afm_read" build "$f"
 b="${f%.afmworld}.afmbook"
 { echo '```'; target/release/afm_read "$b" overview limit=20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+# The future run (future-run.yml) also wants these pages as text.
+if [ -n "${AFM_BOOK_PAGES:-}" ]; then
+  for p in tables checks odd issues money nfl programs; do
+    echo "=== $p"
+    target/release/afm_read "$b" "$p" limit=400 || true
+  done > "$AFM_BOOK_PAGES" 2>&1 || true
+fi
 zstd -T0 -9 --rm "$b" -o "$b.zst"
 ls -la out/
 df -h / /mnt
