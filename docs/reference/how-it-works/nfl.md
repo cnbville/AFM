@@ -269,6 +269,7 @@ Paths are in `world/pro/cfl.rs` unless named. Cain agreed to the design and the 
 - Stories (minor bug 151): about 4 new NFL nicknames a year (`world/stories/nick.rs`, `level_chance` 0.04), a starting quarterback +6 in the jersey sales (`world/stories/media.rs`, `jersey_lists`), fines 0.019 a rostered defender a regular-season week x (1 + 0.6 x temper) (`world/folk/rules.rs`, `league_week`; real 250-350 a season), a title parade drawing about 780,000 (`world/stories/traditions.rs`; parades.csv averages 853,000).
 - A flex story pairs each game with the stored game of the same meeting, so a division rival's second game no longer reads as a flex every day (B4, minor bug 57; `world/stories/nfl.rs`, `season_day`).
 - The trial reads the world's trades and comp picks year by year against the real counts: 40-102 trades a year in 2002-2025 (86-96 since 2021) and 29-38 comp picks (minor bug 48; `afm-tools` `world_trial.rs`, `real_trades_and_comp`).
+- The book's in-season count is `season_trades`, every trade from kickoff to the deadline, against the real September-November count (17.6 a year in 2021-2025); `deadline_trades` is deadline week alone, about half of them (realism audit item 22, 2026-11-24: the seed 321 world makes 16.4; `crates/afm-reader/src/defs_nfl.rs`, `N9.season_trades`).
 
 ### Placing a player at cutdown (update 3, lane 5)
 
