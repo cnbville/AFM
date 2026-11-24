@@ -110,7 +110,7 @@ pub fn pipeline(w: &World, j: usize, year: i32) -> f64 {
         .rev()
         .map(|draft| {
             let here = picks_in(w, j, draft);
-            if draft - 1 >= first {
+            if draft > first {
                 return here;
             }
             match elsewhere.next() {
