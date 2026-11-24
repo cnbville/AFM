@@ -127,10 +127,11 @@ Impact is for the player's seat: high (he sees it every season), medium (he sees
 - Status: new.
 
 **14. NIL is spread too evenly across a power roster.**
-- World: 24% of Power 4 players earn under $10,000 a year (real 66.5%, Opendorse 2025) and 44% of SEC and Big Ten players earn $100,000 or more (real about 10%). A power program pays $27M to $31M in all; the Power 4 total of $1.94B matches Opendorse's $1.9B for 2025, but that figure is every sport.
+- World: 24% of Power 4 players earn under $10,000 a year and 44% of SEC and Big Ten players earn $100,000 or more. A power program pays $27M to $31M in all; the Power 4 total of $1.94B sits beside Opendorse's $1.9B for 2025.
+- Corrected 2026-11-24 (`docs/research/nil-split-by-sport.md`, Cain's "sure" to its item 1): the "real 66.5% and about 10%" are Opendorse's Power 4 football figures for July 2024 to August 2025, before revenue sharing began, not the 2025-26 year the world's payday is in. Against the College Sports Commission's 2025-26 pay, real is about 25-30% under $10,000 and about 35-45% at $100,000 or more (Claude's arithmetic, not published figures), so the world's 24% and 44% are at real. Opendorse's $1.9B is its projection for college football players, not every sport, so the totals compare football with football. The gap that stays is the low end of the paid set (real 10th percentile among the paid $17,500-$25,000).
 - Likely cause: not traced; the paid set and its floors (`world/ncaa.rs`, `nil_market`; `world/program.rs`, `third_party`).
 - Touches: NIL, recruiting pulls, the portal, your budget.
-- Status: new. The real split by sport needs research first.
+- Status: researched 2026-11-24, `docs/research/nil-split-by-sport.md` (the real figures here are 2024-25, before revenue sharing; the narrower gap is the low end of the paid set; proposals wait for Cain).
 
 **15. NFL games missed read at a quarter of real.**
 - World: 0.28 to 0.34 games missed a player-season (real 1.2).
