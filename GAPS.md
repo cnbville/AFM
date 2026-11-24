@@ -263,6 +263,10 @@ Found by the multi-season realism audit of the seed 321 world, 2026-11-24 (`docs
 - **Too few in-season NFL trades** (low). 9.2 a year (real 17.6). Trial 7 finding 8, parked. Audit item 22.
 - **The reader's checks have four wrong reads** (low, tools). Odd-28 still shows open though the code is fixed; "Different FBS champions in 15 years" counts FCS titles of programs that moved up; "Median peak age of quarterbacks" counts every camp quarterback (established ones peak at 28.0); "FBS roster size" reads 1 January, before the trim. Audit item 24.
 
+- **GMs are never judged on their drafts** (medium). Section 7 says front offices review their drafts years later and GMs are fired over them; the owner's trust reads only wins, the fans and the head coaches the GM hired (`world/pro/office.rs`, `gm_review`). Found with audit item 12.
+- **A GM has no age, so none retires** (low). His retirement and being hired away are one flat 3% a year; Ozzie Newsome and Kevin Colbert stepped down in their sixties. Found with audit item 12.
+- **NFL clubs never change owners** (low). A new owner often brings his own GM and coach (the Broncos 2022, the Commanders 2023), so the world misses those sweeps. Found with audit item 12.
+
 ## UI
 
 - **Your ratings never show what they did** (high). Your profile lists 19 bare numbers with no growth history and no line saying what any rating changed this week or season; your effect on your assistants' growth (`legacy/tree.rs`) shows nowhere. Proposal: `docs/design/coach-ratings-earned.md`, section 13 (2026-11-24).

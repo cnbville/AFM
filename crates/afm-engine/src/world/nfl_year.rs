@@ -2775,6 +2775,8 @@ fn black_monday(w: &mut World, d: Date) {
         "Black Monday: the day after the regular season, when head coaches are fired.",
     );
     staff::carousel(w, staff::Scope::NflFirings);
+    // The owners' call on their GMs reads the coaches they just fired.
+    super::pro::office::gm_review(w);
 }
 
 /// A playoff round: 1 wild card, 2 divisional, 3 conference title games, 4
