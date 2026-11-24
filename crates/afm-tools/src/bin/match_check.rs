@@ -2,7 +2,13 @@
 //! synthetic teams at a level and compare the averages to real football.
 //! Usage: match_check [nfl|fbs|hs] [games] [seed] [pbp]
 //! With `pbp`, prints the first game's play-by-play with its whys.
-//! AFM_AB_WORLD=<world file> (NFL only) plays a world's 32 clubs instead.
+//! AFM_AB_WORLD=<world file> plays a world's 32 NFL clubs instead, or at FBS
+//! its FBS programs on its own season's schedule (AFM_CONF=1: conference
+//! games; AFM_TEAMS=<file> keeps the teams, a world file takes a minute to
+//! read). On any teams: AFM_STARTERS=<points> prints the starters against
+//! the level's typical starter, AFM_TYPICAL=<spec> moves groups to him, and
+//! AFM_SEASONS=<games> reads the games as seasons (thousand-yard backs and
+//! receivers, the leaders, the Heisman voters' read).
 
 extern crate afm_tools;
 use afm_engine::game::stats::PlayType;
@@ -96,20 +102,48 @@ fn world_rosters(path: &str, level: Level, seed: u32) -> (Vec<afm_engine::game::
         teams.push(team_from_ratings(t["name"].as_str().unwrap_or("?"), level, &list, schemes[k % schemes.len()], s));
         conf.push(t["conf"].as_str().unwrap_or("").to_string());
     }
+    let sched = conference_games(&conf, seed);
+    (teams, sched)
+}
+
+/// Every conference game, home and away, in a shuffled order (so a short
+/// run still spreads over every conference).
+fn conference_games(conf: &[String], seed: u32) -> Vec<(usize, usize)> {
     let mut sched = Vec::new();
-    for h in 0..teams.len() {
-        for a in 0..teams.len() {
+    for h in 0..conf.len() {
+        for a in 0..conf.len() {
             if h != a && conf[h] == conf[a] && !conf[h].is_empty() && !conf[h].starts_with("Indep") {
                 sched.push((h, a));
             }
         }
     }
-    // Interleave so a short run still spreads over every conference.
     let mut r = afm_engine::rng::Rng::new(seed ^ 0x5EED);
     for i in (1..sched.len()).rev() {
         let j = (r.next() * (i + 1) as f64) as usize;
         sched.swap(i, j.min(i));
     }
+    sched
+}
+
+/// AFM_AB_WORLD=<world file> at FBS: the world's FBS programs as its
+/// season's games played them, on its own schedule's games between two of
+/// them (AFM_CONF=1: conference games, home and away, instead).
+/// AFM_TEAMS=<file> keeps them: read from it when it exists, else written
+/// to it after the world is read (a world file takes a minute to read).
+fn world_fbs(path: &str, seed: u32) -> (Vec<afm_engine::game::GameTeam>, Vec<(usize, usize)>) {
+    let keep = std::env::var("AFM_TEAMS").ok();
+    let cached: Option<afm_tools::ab::CollegeTeams> =
+        keep.as_ref().and_then(|k| std::fs::read(k).ok()).map(|b| serde_json::from_slice(&b).expect("the teams file"));
+    let (teams, conf, games) = cached.unwrap_or_else(|| {
+        let t = afm_tools::ab::world_college(path, "FBS");
+        if let Some(k) = &keep {
+            std::fs::write(k, serde_json::to_vec(&t).unwrap()).expect("write the teams file");
+        }
+        t
+    });
+    eprintln!("{} FBS programs from the world, {} games between them", teams.len(), games.len());
+    let sched =
+        if std::env::var("AFM_CONF").is_ok() || games.is_empty() { conference_games(&conf, seed) } else { games };
     (teams, sched)
 }
 
@@ -181,6 +215,7 @@ fn main() {
     // `ab_check` and `fit_check` read it).
     let (mut teams, sched) = match (std::env::var("AFM_ROSTERS"), std::env::var("AFM_AB_WORLD")) {
         (Ok(path), _) => world_rosters(&path, level, seed),
+        (_, Ok(path)) if level == Level::FBS => world_fbs(&path, seed),
         (_, Ok(path)) if level == Level::NFL => {
             let w = afm_tools::ab::world_nfl(&path);
             assert_eq!(w.len(), 32, "a world with 32 NFL clubs");
@@ -214,6 +249,98 @@ fn main() {
             .collect();
         std::fs::write(&out, serde_json::json!({"teams": ts}).to_string()).expect("write the rosters file");
         return;
+    }
+    // AFM_STARTERS=1.5: the teams' starters (each depth chart's) against the
+    // level's typical starter, every rating that many points or more apart,
+    // and their weight (audit item 1: are a world's rosters the test
+    // league's?).
+    if let Some(gap) = std::env::var("AFM_STARTERS").ok().map(|v| v.parse::<f64>().unwrap_or(1.5)) {
+        use afm_engine::attributes::Attr;
+        use afm_engine::game::roster::{depth_chart, starters};
+        use afm_engine::game::synthetic::{typical_body, typical_starter};
+        let charts: Vec<_> = teams.iter().map(|t| depth_chart(t, 99.0)).collect();
+        for pos in afm_engine::positions::Position::ALL {
+            let men: Vec<_> = teams
+                .iter()
+                .zip(&charts)
+                .flat_map(|(t, d)| d.list(pos).iter().take(starters(pos)).map(move |&i| &t.players[i]))
+                .collect();
+            if men.is_empty() {
+                continue;
+            }
+            let n = men.len() as f64;
+            let wt = men.iter().map(|p| p.weight).sum::<f64>() / n;
+            let ovr = men.iter().map(|p| afm_engine::positions::overall_for(pos, &p.attrs)).sum::<f64>() / n;
+            let mut typ = afm_engine::attributes::Attributes::default();
+            for a in Attr::ALL {
+                typ.set(a, typical_starter(level, pos, a));
+            }
+            let mut line = format!(
+                "starters {pos:?} n {} overall {ovr:.1} ({:.1}) weight {wt:.0} ({:.0})",
+                men.len(),
+                afm_engine::positions::overall_for(pos, &typ),
+                typical_body(level, pos).1
+            );
+            for a in Attr::ALL {
+                let m = men.iter().map(|p| p.a(a)).sum::<f64>() / n;
+                let t = typical_starter(level, pos, a);
+                if (m - t).abs() >= gap {
+                    line += &format!(" | {a:?} {m:.1} ({:+.1})", m - t);
+                }
+            }
+            println!("{line}");
+        }
+    }
+    // AFM_TYPICAL="OT,IOL;RB:Speed,Acceleration;LB:weight": every player at
+    // those positions moved by the gap between the teams' starters there and
+    // the level's typical starter, in those ratings (all of them when none
+    // is named; `weight` his weight), so his group's starters average the
+    // typical starter's (which part of a world's rosters plays off the test
+    // league's?).
+    if let Ok(spec) = std::env::var("AFM_TYPICAL") {
+        use afm_engine::attributes::Attr;
+        use afm_engine::game::roster::{depth_chart, starters};
+        use afm_engine::game::synthetic::{typical_body, typical_starter};
+        let charts: Vec<_> = teams.iter().map(|t| depth_chart(t, 99.0)).collect();
+        for part in spec.split(';').filter(|p| !p.is_empty()) {
+            let (who, what) = part.split_once(':').unwrap_or((part, ""));
+            let names: Vec<&str> = what.split(',').filter(|w| !w.is_empty()).collect();
+            let all = afm_engine::positions::Position::ALL;
+            for pos in all.into_iter().filter(|p| who == "ALL" || who.split(',').any(|n| format!("{p:?}") == n)) {
+                let men: Vec<_> = teams
+                    .iter()
+                    .zip(&charts)
+                    .flat_map(|(t, d)| d.list(pos).iter().take(starters(pos)).map(move |&i| &t.players[i]))
+                    .collect();
+                if men.is_empty() {
+                    continue;
+                }
+                let n = men.len() as f64;
+                let attrs: Vec<Attr> = Attr::ALL
+                    .into_iter()
+                    .filter(|a| names.is_empty() || names.contains(&format!("{a:?}").as_str()))
+                    .collect();
+                let gap: Vec<f64> = attrs
+                    .iter()
+                    .map(|&a| men.iter().map(|p| p.a(a)).sum::<f64>() / n - typical_starter(level, pos, a))
+                    .collect();
+                let wgap = if names.is_empty() || names.contains(&"weight") {
+                    men.iter().map(|p| p.weight).sum::<f64>() / n - typical_body(level, pos).1
+                } else {
+                    0.0
+                };
+                for t in teams.iter_mut() {
+                    for p in t.players.iter_mut().filter(|p| p.position == pos) {
+                        for (&a, g) in attrs.iter().zip(&gap) {
+                            p.attrs.set(a, (p.attrs.get(a) - g).clamp(1.0, 99.0));
+                        }
+                        p.weight -= wgap;
+                        p.spot_r = afm_engine::spots::spot_ratings(&p.attrs, p.weight, p.height);
+                    }
+                }
+                eprintln!("typical {pos:?}: {} ratings moved, weight {:+.1}", attrs.len(), -wgap);
+            }
+        }
     }
     // AFM_STAR=RB:15 makes each team's best player at a position that many
     // points better at everything, to see how a star shares the load.
@@ -385,6 +512,142 @@ fn main() {
         })
         .collect();
     let secs = t0.elapsed().as_secs_f64();
+    // AFM_SEASONS=13: each team's games in seasons of that many, in order,
+    // and the season lines they give, a year being one season of every
+    // team (audit items 1, 5 and 8: the world's thousand-yard backs and
+    // receivers, its rushing leader).
+    if let Some(len) = std::env::var("AFM_SEASONS").ok().and_then(|v| v.parse::<usize>().ok()) {
+        use afm_engine::positions::Position as P;
+        use std::collections::HashMap;
+        let pos: HashMap<u32, P> = teams.iter().flat_map(|t| t.players.iter().map(|p| (p.id, p.position))).collect();
+        // Each team's games this season, its seasons done and its lines:
+        // [rushing yards, carries, receiving yards, catches, passing yards,
+        // passing touchdowns, interceptions thrown, rushing and receiving
+        // touchdowns, tackles, sacks, tackles for loss, interceptions].
+        type Lines = HashMap<u32, [f64; 13]>;
+        let mut cur: HashMap<usize, (usize, usize, Lines)> = HashMap::new();
+        let mut done: Vec<(usize, Lines)> = Vec::new();
+        for (g, r) in results.iter().enumerate() {
+            let (h, a) = pair(g);
+            for (k, ti) in [h, a].into_iter().enumerate() {
+                let e = cur.entry(ti).or_default();
+                for (id, l) in r.stats.players[k].iter() {
+                    let v = e.2.entry(*id).or_default();
+                    v[0] += l.rush_yds;
+                    v[1] += l.rush as f64;
+                    v[2] += l.rec_yds;
+                    v[3] += l.rec as f64;
+                    v[4] += l.pass_yds;
+                    v[5] += l.pass_td as f64;
+                    v[6] += l.int as f64;
+                    v[7] += l.rush_td as f64;
+                    v[8] += l.rec_td as f64;
+                    v[9] += (l.tackles + l.assists) as f64;
+                    v[10] += l.sacks;
+                    v[11] += l.tfl;
+                    v[12] += l.ints as f64;
+                }
+                e.0 += 1;
+                if e.0 == len {
+                    done.push((e.1, std::mem::take(&mut e.2)));
+                    e.0 = 0;
+                    e.1 += 1;
+                }
+            }
+        }
+        let years = done.iter().map(|d| d.0 + 1).max().unwrap_or(0);
+        // Only years every team finished.
+        let full: Vec<usize> =
+            (0..years).filter(|&y| done.iter().filter(|d| d.0 == y).count() == teams.len()).collect();
+        let lines = |y: usize| done.iter().filter(move |d| d.0 == y).flat_map(|d| d.1.iter());
+        let ny = full.len().max(1) as f64;
+        let count = |f: &dyn Fn(&u32, &[f64; 13]) -> bool| {
+            full.iter().map(|&y| lines(y).filter(|(id, v)| f(id, v)).count()).sum::<usize>() as f64 / ny
+        };
+        let is = |id: &u32, p: P| pos.get(id) == Some(&p);
+        let lead_rush = full.iter().map(|&y| lines(y).map(|(_, v)| v[0]).fold(0.0, f64::max)).sum::<f64>() / ny;
+        let lead_rec = full.iter().map(|&y| lines(y).map(|(_, v)| v[2]).fold(0.0, f64::max)).sum::<f64>() / ny;
+        let pct = |mut v: Vec<f64>, q: f64| {
+            v.sort_by(|a, b| a.total_cmp(b));
+            if v.is_empty() { 0.0 } else { v[((v.len() - 1) as f64 * q).round() as usize] }
+        };
+        let backs: Vec<f64> = full
+            .iter()
+            .flat_map(|&y| lines(y).filter(|(id, v)| is(id, P::RB) && v[1] >= 100.0).map(|(_, v)| v[0] / v[1]))
+            .collect();
+        let recv: Vec<f64> = full
+            .iter()
+            .flat_map(|&y| {
+                lines(y).filter(|(id, v)| (is(id, P::WR) || is(id, P::TE)) && v[3] >= 25.0).map(|(_, v)| v[2])
+            })
+            .collect();
+        println!(
+            "seasons of {len} games: {} years of {} teams | 1,000-yard rushers a year {:.1} (backs {:.1}), 2,000-yard {:.2}, the rushing leader {:.0} | backs with 100+ carries: median {:.2} a carry, 10th percentile {:.2} | 1,000-yard receivers a year {:.1}; with 25+ catches 90th percentile {:.0}, 99th {:.0}; the receiving leader {:.0}",
+            full.len(),
+            teams.len(),
+            count(&|_, v| v[0] >= 1000.0),
+            count(&|id, v| is(id, P::RB) && v[0] >= 1000.0),
+            count(&|_, v| v[0] >= 2000.0),
+            lead_rush,
+            pct(backs.clone(), 0.5),
+            pct(backs, 0.1),
+            count(&|_, v| v[2] >= 1000.0),
+            pct(recv.clone(), 0.9),
+            pct(recv, 0.99),
+            lead_rec,
+        );
+        // The Heisman voters' read of each line alone (item 5; no team,
+        // hype or region): production as `world::college::production` reads
+        // it, each kind's against its own top ten, weighed as
+        // `heisman_kind` weighs it; the kinds of each year's top read and
+        // top five.
+        let kind = |p: P| match p {
+            P::QB => Some((0, 1.0)),
+            P::RB => Some((1, 0.84)),
+            P::WR | P::TE => Some((2, 0.78)),
+            P::K | P::P | P::LS => None,
+            _ => Some((3, 0.75)),
+        };
+        let (mut top, mut five) = ([0.0f64; 4], [0.0f64; 4]);
+        for &y in &full {
+            let prods: Vec<(usize, f64, f64)> = lines(y)
+                .filter_map(|(id, v)| {
+                    let (k, wt) = kind(*pos.get(id)?)?;
+                    let scrim = (v[0] + v[2]) / 10.0 + 6.0 * (v[7] + v[8]);
+                    let pass = v[4] / 20.0 + 4.0 * v[5] - 3.0 * v[6];
+                    let def = v[9] + 6.0 * v[10] + 4.0 * v[11] + 10.0 * v[12];
+                    Some((k, wt, if k == 3 { 0.6 * def } else { pass + scrim }))
+                })
+                .collect();
+            let bar: Vec<f64> = (0..4)
+                .map(|k| {
+                    let mut v: Vec<f64> = prods.iter().filter(|x| x.0 == k).map(|x| x.2).collect();
+                    v.sort_by(|a, b| b.total_cmp(a));
+                    let t = &v[..v.len().min(10)];
+                    (t.iter().sum::<f64>() / t.len().max(1) as f64).max(1.0)
+                })
+                .collect();
+            let mut reads: Vec<(usize, f64)> = prods.iter().map(|x| (x.0, x.1 * x.2 / bar[x.0])).collect();
+            reads.sort_by(|a, b| b.1.total_cmp(&a.1));
+            for (i, r) in reads.iter().take(5).enumerate() {
+                five[r.0] += 1.0 / (5.0 * ny);
+                if i == 0 {
+                    top[r.0] += 1.0 / ny;
+                }
+            }
+        }
+        println!(
+            "the Heisman voters' read alone: the top read QB {:.0}%, back {:.0}%, receiver {:.0}%, defender {:.0}% | the top five QB {:.0}%, back {:.0}%, receiver {:.0}%, defender {:.0}%",
+            100.0 * top[0],
+            100.0 * top[1],
+            100.0 * top[2],
+            100.0 * top[3],
+            100.0 * five[0],
+            100.0 * five[1],
+            100.0 * five[2],
+            100.0 * five[3],
+        );
+    }
     // Snap shares (topic: depth and rotation): starters' share of their
     // side's snaps by position, and the lead back's share of the backs'
     // carries, against real bands (proposed, not confirmed; see

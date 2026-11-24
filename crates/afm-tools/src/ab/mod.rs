@@ -57,6 +57,32 @@ pub fn world_nfl(path: &str) -> Vec<Squad> {
     (0..w.nfl.len()).filter_map(|t| w.debug_nfl_team(t)).map(|(team, people)| Squad { team, people }).collect()
 }
 
+/// A world's college programs in one division (`FBS`, `FCS`, ...) as its
+/// season's games played them, each with its conference, and the season's
+/// regular-season games between two of them, (home, away) as indexes into
+/// the teams (a world file).
+pub type CollegeTeams = (Vec<GameTeam>, Vec<String>, Vec<(usize, usize)>);
+
+pub fn world_college(path: &str, division: &str) -> CollegeTeams {
+    let w = afm_engine::save::read_world(std::path::Path::new(path)).expect("read the world file");
+    let mut at = HashMap::new();
+    let (mut teams, mut conf) = (Vec::new(), Vec::new());
+    for p in (0..w.programs.len()).filter(|&p| w.programs[p].division.name() == division) {
+        if let Some(t) = w.debug_season_team(p) {
+            at.insert(p, teams.len());
+            teams.push(t);
+            conf.push(w.programs[p].conference.clone());
+        }
+    }
+    let games = w
+        .debug_college_games()
+        .into_iter()
+        .filter(|g| g.3)
+        .filter_map(|(h, a, _, _)| Some((*at.get(&h)?, *at.get(&a)?)))
+        .collect();
+    (teams, conf, games)
+}
+
 // ------------------------------------------------------------------ changes
 
 /// A body number or a drill a test moves.
