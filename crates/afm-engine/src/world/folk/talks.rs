@@ -2548,7 +2548,7 @@ pub(crate) fn expect_parts(w: &World, s: &Scene, code: u32) -> Option<Expected> 
     // The man who reads him is the one at his position coach's seat today.
     let adviser = position_coach_now(w, i);
     let rel = adviser.map_or(9.0, |c| w.coaches[c].ability().relationships) as f32;
-    let you = w.career.as_ref().map_or(10.0, |c| c.you.relationships) as f32;
+    let you = w.your_ability().map_or(10.0, |a| a.relationships) as f32;
     let known = w.folk.mine.since.map_or(0, |d| d.days_to(w.today)) as f32 / 180.0;
     let q = (0.45 * rel / 20.0 + 0.35 * you / 20.0 + 0.2 * known.min(1.0)).clamp(0.1, 1.0);
     // Their error: steady for this move in this talk, bigger for a weak staff.
@@ -2920,7 +2920,7 @@ pub(crate) fn read_tell(w: &World, i: usize, sign: i32) -> Option<String> {
 /// How sharp your read of people is: your relationships rating and how
 /// long you've known them (0 to about 1.2; under 0.45 is a weak read).
 pub(crate) fn sharpness(w: &World) -> f64 {
-    let you = w.career.as_ref().map_or(10.0, |c| c.you.relationships);
+    let you = w.your_ability().map_or(10.0, |a| a.relationships);
     let known = w.folk.mine.since.map_or(0, |d| d.days_to(w.today)) as f64 / 120.0;
     you / 20.0 + 0.2 * known.min(1.0)
 }

@@ -2904,7 +2904,7 @@ fn recruiting_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
 /// called and how good a recruiter you are. Returns how many were called.
 fn recruiting_calls(w: &mut World, team: Team, all_you: bool) -> usize {
     let Team::College(p) = team else { return 0 };
-    let rec = w.career.as_ref().map_or(10.0, |c| c.you.recruiting);
+    let rec = w.your_ability().map_or(10.0, |a| a.recruiting);
     let today = w.today;
     let mut n = 0;
     let mut list: Vec<usize> = (0..w.people.len())
@@ -3115,7 +3115,7 @@ fn signee_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
             super::talks::charge(w, 3.0);
             let tie = crate::world::recruiting::signee_tie(&w.people[i], p, w.today) as f32;
             let fit = w.folk.takeover.as_ref().map_or(0.0, |t| t.fit);
-            let rec = w.career.as_ref().map_or(10.0, |c| c.you.recruiting) as f32;
+            let rec = w.your_ability().map_or(10.0, |a| a.recruiting) as f32;
             let stars = crate::world::recruiting::recruiting_stars(&w.people[i]) as f32;
             let stay =
                 (0.42 + 0.2 * fit + 0.02 * (rec - 10.0) - 0.35 * tie - 0.05 * (stars - 3.0)).clamp(0.08, 0.8) as f64;

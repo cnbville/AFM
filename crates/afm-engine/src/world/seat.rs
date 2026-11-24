@@ -1018,6 +1018,148 @@ impl You {
     }
 }
 
+/// Who you are in a career: the facts about you that no season changes.
+///
+/// Your ratings, reputation, name and style are **not** here. They live on
+/// your coach record (`World::coaches[career.coach]`) and nowhere else, so
+/// what you earn and what you lose reaches everything that reads you
+/// (coach ratings lane RE-bug). Read them with `World::your_ability`,
+/// `World::your_extra` and `World::your_coach`.
+///
+/// On disk this is still the setup form (`You`), so files from before the
+/// one store load unchanged.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(from = "You", into = "You")]
+pub struct Me {
+    pub name: String,
+    /// Your date of birth (A1), from the setup page.
+    pub born: crate::calendar::Date,
+    pub ethnicity: super::ethnicity::Ethnicity,
+    pub home_state: usize,
+    pub ex_pro: bool,
+    /// Your road into coaching, in words.
+    pub road: String,
+    /// Who you are away from the ratings.
+    pub profile: Profile,
+    /// Aura (final build F15): hidden, 1-20, never 0 in a career.
+    pub aura: f64,
+    /// The position you played or the group you came up coaching (C5).
+    pub came_up: Option<super::coach::Group>,
+    /// How good a player you were (C11).
+    pub played: Option<u8>,
+    /// She (true) or he (false).
+    pub she: bool,
+    /// The numbers on the setup page, kept as a record.
+    setup: Setup,
+}
+
+/// The numbers you started with, as the setup page had them: a record of
+/// day one and nothing more. Nothing the world works out may read it; today's
+/// numbers are on your coach record. In a file from before the one store
+/// it also holds the lesson points placed before that file was last saved.
+#[derive(Clone, Debug)]
+pub struct Setup {
+    pub age: u32,
+    pub reputation: f64,
+    pub renown: f64,
+    pub teaching: [f64; super::coach::GROUP_COUNT],
+    pub scheme: f64,
+    pub game_management: f64,
+    pub motivation: f64,
+    pub discipline: f64,
+    pub recruiting: f64,
+    pub network: f64,
+    pub relationships: f64,
+    pub style: crate::tendencies::Style,
+    pub yours: super::coach::Yours,
+}
+
+impl Me {
+    /// Your Aura, hidden from your own screens like every person's.
+    pub fn aura(&self) -> f64 {
+        self.aura
+    }
+
+    /// Your age on a day, from your date of birth (A1).
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        crate::calendar::born::age_or(self.born, d, self.setup.age)
+    }
+
+    /// Where you started: the setup page's numbers, for your own page's
+    /// "your road" line. Never for anything the world works out today.
+    pub fn at_setup(&self) -> &Setup {
+        &self.setup
+    }
+}
+
+impl From<You> for Me {
+    fn from(y: You) -> Me {
+        // A file from before Aura drew it from the road on every read:
+        // draw it once here, from the same numbers.
+        let aura = y.aura();
+        Me {
+            name: y.name,
+            born: y.born,
+            ethnicity: y.ethnicity,
+            home_state: y.home_state,
+            ex_pro: y.ex_pro,
+            road: y.road,
+            profile: y.profile,
+            aura,
+            came_up: y.came_up,
+            played: y.played,
+            she: y.she,
+            setup: Setup {
+                age: y.age,
+                reputation: y.reputation,
+                renown: y.renown,
+                teaching: y.teaching,
+                scheme: y.scheme,
+                game_management: y.game_management,
+                motivation: y.motivation,
+                discipline: y.discipline,
+                recruiting: y.recruiting,
+                network: y.network,
+                relationships: y.relationships,
+                style: y.style,
+                yours: y.yours,
+            },
+        }
+    }
+}
+
+impl From<Me> for You {
+    fn from(m: Me) -> You {
+        let s = m.setup;
+        You {
+            name: m.name,
+            age: s.age,
+            born: m.born,
+            ethnicity: m.ethnicity,
+            home_state: m.home_state,
+            ex_pro: m.ex_pro,
+            reputation: s.reputation,
+            teaching: s.teaching,
+            scheme: s.scheme,
+            game_management: s.game_management,
+            motivation: s.motivation,
+            discipline: s.discipline,
+            recruiting: s.recruiting,
+            network: s.network,
+            relationships: s.relationships,
+            style: s.style,
+            road: m.road,
+            yours: s.yours,
+            profile: m.profile,
+            aura: m.aura,
+            came_up: m.came_up,
+            renown: s.renown,
+            played: m.played,
+            she: m.she,
+        }
+    }
+}
+
 /// Your profile (people topics 13 and 15). Kept and shown on your page; the
 /// world reads your home state, and your high school and how you grew up
 /// for what you share with a player (coach and player bonds).
@@ -1135,13 +1277,9 @@ impl World {
                 super::Seat { level, nfl_team: None, program: None, other: None }
             }
         });
-        let mut you = you.clone();
-        if you.aura <= 0.0 {
-            you.aura = you.aura();
-        }
         let today = self.today;
         self.career = Some(Career {
-            you,
+            you: Me::from(you.clone()),
             coach: id,
             job,
             started: today,
@@ -1205,7 +1343,8 @@ impl World {
 /// change nothing in the world and follow the person through his career).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Career {
-    pub you: You,
+    /// Who you are. Your ratings are on your coach record (`coach`).
+    pub you: Me,
     pub coach: usize,
     pub job: Job,
     pub started: Date,
@@ -1584,6 +1723,12 @@ impl World {
 }
 
 impl World {
+    /// Your coach record: the one place your ratings, reputation, name and
+    /// style live (coach ratings lane RE-bug).
+    pub fn your_coach(&self) -> Option<&super::coach::Coach> {
+        self.coaches.get(self.career.as_ref()?.coach)
+    }
+
     /// Your own ratings: you see them (people topic 15); nobody else's.
     pub fn your_ability(&self) -> Option<&super::coach::Ability> {
         let c = self.career.as_ref()?;
@@ -1770,7 +1915,12 @@ impl World {
         if let Some(career) = self.career.as_mut() {
             let you = &mut career.you;
             if you.born == born::UNKNOWN {
-                you.born = born::birth_date(seed as u64 ^ 0x70_0B0E, you.age, year);
+                // Your coach record's birthday, filled just above: one date
+                // for the age every screen shows.
+                you.born = match self.coaches.get(career.coach) {
+                    Some(c) => c.born,
+                    None => born::birth_date(seed as u64 ^ 0x70_0B0E, you.setup.age, year),
+                };
             }
             for a in career.hs_staff.iter_mut().filter(|a| a.born == born::UNKNOWN) {
                 a.born = born::birth_date(assistant_born_key(&a.name, a.since), a.age, a.since.max(year - 40));
