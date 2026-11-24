@@ -55,6 +55,7 @@ fn main() {
     }
     formers(&w);
     fbs_turnover(&w);
+    holdovers(&w);
     who(&w);
     overlaps(&w);
     champions(&w);
@@ -71,6 +72,61 @@ fn division(w: &World, p: usize, year: i32) -> Option<Division> {
 
 fn pct(x: usize, of: usize) -> f64 {
     100.0 * x as f64 / of.max(1) as f64
+}
+
+/// Holdovers (program fortunes item 5): after an FBS head coaching change,
+/// how many of the old staff's assistants are still on the new staff, by
+/// seat, for changes since 2005. Real: about two of nine or ten (of 20
+/// staffs whose head coach left for a Power 5 job since 2010, five followed
+/// him, two were kept; FootballScoop), fewer after a firing.
+fn holdovers(w: &World) {
+    let mut by: HashMap<(usize, i32), usize> = HashMap::new();
+    for (p, prog) in w.programs.iter().enumerate() {
+        for s in &prog.seasons {
+            if let Some(c) = s.coach
+                && division(w, p, s.year) == Some(Division::FBS)
+            {
+                by.insert((p, s.year), c);
+            }
+        }
+    }
+    // Every assistant stint at a college: (program, coordinator?, from, to).
+    let now = w.year;
+    let mut stints: HashMap<usize, Vec<(bool, i32, i32)>> = HashMap::new();
+    for c in &w.coaches {
+        let past = c.history.iter().map(|s| (s.employer, s.role, s.from, s.to));
+        let cur = c.job.map(|j| (j.employer, j.role, j.since, now));
+        for (e, r, from, to) in past.chain(cur) {
+            if let Employer::College(p) = e
+                && r != Role::HeadCoach
+            {
+                let coord = matches!(r, Role::OffensiveCoordinator | Role::DefensiveCoordinator);
+                stints.entry(p).or_default().push((coord, from, to));
+            }
+        }
+    }
+    let (mut changes, mut coord, mut pos) = (0usize, 0usize, 0usize);
+    for (&(p, y), &c) in &by {
+        if y < 2005 || y >= now {
+            continue;
+        }
+        let Some(&b) = by.get(&(p, y - 1)) else { continue };
+        if b == c {
+            continue;
+        }
+        changes += 1;
+        for &(k, from, to) in stints.get(&p).map_or(&[][..], |v| &v[..]) {
+            if from <= y - 2 && to >= y {
+                if k { coord += 1 } else { pos += 1 }
+            }
+        }
+    }
+    let per = |n: usize| n as f64 / changes.max(1) as f64;
+    println!(
+        "\nholdovers after an FBS head change since 2005: {changes} changes, {:.2} coordinators and {:.2} position coaches kept a change (real about 2 of 9-10 in all)",
+        per(coord),
+        per(pos)
+    );
 }
 
 fn fbs_turnover(w: &World) {

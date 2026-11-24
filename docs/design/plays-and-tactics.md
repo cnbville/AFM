@@ -21,7 +21,7 @@ What exists today (2026-10-14): `crates/afm-engine/src/game/playbook.rs` has 16 
 So:
 - A good call wins and a bad call loses **through the battles** (box numbers, leverage, matchups), never through a flat bonus.
 - The same rules apply to the user's calls and the coordinator's calls.
-- The size of the reward is checked against real data (topic 6), big enough to matter, never so big that calls beat talent.
+- The size of the reward is checked against real data (topic 6), big enough to matter, and outscheming can beat a more talented team sometimes, only through what happens on the field (Cain, 2026-11-24, replacing "never so big that calls beat talent"). Its size comes from real upset rates (`docs/research/sequencing.md`).
 
 **Ultra realism first.** Raichel asked twice for more realism on the first proposals. Every rule below is the full-realism version.
 
@@ -92,7 +92,7 @@ Raichel added the reward rule here (see section 0).
 
 1. **Who calls.** The user can take any snap. Otherwise the play-caller does: the coordinator, or the head coach himself if he calls plays (like Sean McVay). The user sees the proposed call and accepts or rejects it (section 3, 9.1).
 2. **Coach quality is several skills.** Reading the defense, situational knowledge, game management, creativity (designing plays that fit his players) and in-game adjustment. Aggressiveness is a style, not a quality, and data shows most coaches are too cautious.
-3. **The reward is checked against reality.** Research the real gap between the best and worst play-callers in points per game. A development check plays the same two teams with a good plan against a bad plan, and the swing must land in that real band: big enough to matter, never so big that calls beat talent. (The band itself is still to be researched.)
+3. **The reward is checked against reality.** Research the real gap between the best and worst play-callers in points per game. A development check plays the same two teams with a good plan against a bad plan, and the swing must land in that real band: big enough to matter, and outscheming can beat a more talented team sometimes, only through what happens on the field (Cain, 2026-11-24, replacing "never so big that calls beat talent").
 4. **The user and the coordinator play by the same rules.** A smart call by the user gets the same reward as a smart call by an elite coordinator. A bad call costs the same.
 5. **Pressure changes coaches.** Some get conservative when behind or on the hot seat, others gamble. That comes from personality.
 6. **The game teaches why.** The user can ask the coordinator why he proposes a call ("they're in a light box, so we run"). After the game, a breakdown shows why calls worked or failed: box count, coverage, the matchup. Learning real football is the way to get better.

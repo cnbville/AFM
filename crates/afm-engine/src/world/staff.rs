@@ -691,38 +691,22 @@ pub(crate) fn salary(w: &World, e: Employer, role: Role) -> f64 {
 }
 
 /// How hot a name is (11.11): what a search committee and the press can see.
-/// His reputation with recency bias, the size of his stage, titles in his
-/// last three seasons there, and a program rising under him (proposed, not
-/// confirmed: +3 for the biggest stage, +2 a conference title, +4 a national
-/// title, +1 per 0.01 of prestige gained in three years, -1 to +3).
+/// His reputation with recency bias, and how far his last three seasons beat
+/// what his rosters should have won (program fortunes item 6, Cain
+/// 2026-11-24): a Group of 5 coach going 11-2 with a 7-5 roster tops the
+/// list, the champion's coordinator with an average record of his own
+/// doesn't. Before, the employer's prestige and its titles made the heat,
+/// so the dynasty's own staff led every big search. A title counts through
+/// what it does to his standing (item 7). Proposed, not confirmed: 6 points
+/// a season's worth of wins above the roster.
+const HOT_ABOVE: f64 = 6.0;
+
 fn hotness(w: &World, c: usize) -> f64 {
     let coach = &w.coaches[c];
     let mut h = coach.hiring_buzz();
     let Some(job) = coach.job else { return h };
-    h += 3.0 * employer_prestige(w, job.employer);
     match job.employer {
-        Employer::College(p) => {
-            let prog = &w.programs[p];
-            for s in prog.seasons.iter().rev().take(3).filter(|s| s.year > job.since) {
-                if s.national_title {
-                    h += 4.0;
-                } else if s.conference_title {
-                    h += 2.0;
-                }
-            }
-            let hist = &prog.prestige_history;
-            if hist.len() >= 4 && hist[hist.len() - 4].0 >= job.since {
-                let rise = hist[hist.len() - 1].1 - hist[hist.len() - 4].1;
-                h += clamp(100.0 * rise, -1.0, 3.0);
-            }
-        }
-        Employer::Nfl(t) => {
-            // A coordinator on a winning team, or one who reached the Super Bowl.
-            h += 6.0 * (w.nfl[t].win_share.last().copied().unwrap_or(0.5) - 0.5);
-            if coach.titles > 0 {
-                h += 2.0;
-            }
-        }
+        Employer::College(_) | Employer::Nfl(_) => h += HOT_ABOVE * coach.above_three(),
         // A winner in another league is a name (Marc Trestman's Grey Cups).
         Employer::Other(f) => {
             let ws = w.others.teams.get(f).and_then(|t| t.win_share.last().copied()).unwrap_or(0.5) as f64;
@@ -1476,6 +1460,12 @@ pub(crate) fn college_searches_day(w: &mut World, force: bool) {
 /// One opening filled: the search's list, each name weighing the offer,
 /// the promotion or young assistant when nobody says yes, the news. A new
 /// college head coach then picks his staff.
+/// A coordinator search's weight on his play calling, per point above the
+/// middle, read with noise (program fortunes item 8): a 16 caller against an
+/// 11 is worth 3 points, about what a teaching gap of six points on his side
+/// is (proposed, not confirmed).
+const CALL_WEIGHT: f64 = 0.6;
+
 fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[usize], queue: &mut Vec<Opening>) {
     let year = w.year;
     // One of your own high school assistants can be the school's pick
@@ -1549,6 +1539,19 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         None => 6.0 + 10.0 * needs_prestige,
     };
     let read_sd = clamp(3.5 - 0.15 * (net - 10.0), 1.5, 5.0);
+    // A coordinator's play calling is read through the hiring head coach's
+    // eye (program fortunes item 8, Cain 2026-11-24): his eye for players
+    // and his own feel for calling a game, so a good one hires the 16 play
+    // caller over the 11 with the bigger network and a poor one still
+    // misses sometimes. With no head coach the search reads like its
+    // network (proposed, not confirmed: half his eye, half his calling).
+    let call_sd = match hiring_hc {
+        Some(h) => {
+            let eye = 0.5 * w.coaches[h].evaluation() + 0.5 * w.coaches[h].calling();
+            clamp(3.5 - 0.15 * (eye - 10.0), 1.5, 5.0)
+        }
+        None => read_sd,
+    };
     let fbs_assistant = o.role != Role::HeadCoach
         && matches!(o.employer, Employer::College(p) if w.programs[p].division == Division::FBS);
     let mut scored: Vec<(usize, f64)> = candidates
@@ -1585,6 +1588,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                         .sum::<f64>()
                         / 4.0;
                     s += 0.5 * side;
+                    s += CALL_WEIGHT * (coach.calling() + rng.normal(0.0, call_sd) - 10.0);
                     if coach.came_up.offense() != off {
                         s -= 1.0;
                     }
@@ -1947,31 +1951,96 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         // it, the man in it here making way; a step down in program draws
         // fewer (proposed, not confirmed: 55% and 35%).
         let followed = bring_his_staff(w, c, p, moved, queue);
+        // He keeps a man only when he rates him above the best man he could
+        // bring (program fortunes item 5, Cain 2026-11-24). Before, 40% of
+        // coordinators and 50% of position coaches stayed whoever they
+        // were, so a staff the program paid for outlasted every head coach.
+        // He sees each holdover work in person, so his read is close (his
+        // eye for players and his own feel for a game); the man he could
+        // bring is the best one a program like this can draw: the top of
+        // the men in that seat at his level's programs no bigger than this
+        // one (proposed, not confirmed: the 85th percentile, his read's
+        // spread 1 to 3.5 points). A head coach promoted from the staff
+        // values that the man already knows his players and his system
+        // (proposed, not confirmed: 1.5 points).
+        let eye = 0.5 * w.coaches[c].evaluation() + 0.5 * w.coaches[c].calling();
+        let sd = if promoted { 1.0 } else { clamp(2.25 - 0.125 * (eye - 10.0), 1.0, 3.5) };
+        let known = if promoted { KEEP_KNOWN } else { 0.0 };
         for role in college_roles().skip(1) {
             if followed.contains(&role) {
                 continue;
             }
-            let keep: f64 = match (promoted, role) {
-                (true, _) => 0.75,
-                (false, Role::PositionCoach(_)) => 0.5,
-                _ => 0.4,
+            let Some(a) = slot(&w.programs[p], role) else { continue };
+            if a == c {
+                continue;
+            }
+            let keep = if Some(a) == me {
+                // You: kept as before, more when he coached you or worked with you.
+                let base: f64 = match (promoted, role) {
+                    (true, _) => 0.75,
+                    (false, Role::PositionCoach(_)) => 0.5,
+                    _ => 0.4,
+                };
+                let chance = base.max(market::known_by(w, c).map_or(0.0, |k| 0.45 + 0.5 * k));
+                w.rng.chance(chance)
+            } else {
+                let read = staff_worth(&w.coaches[a], role) + known + w.rng.normal(0.0, sd);
+                read > could_bring(w, p, role)
             };
-            // He keeps a man he knows: you, when he coached you or worked with you.
-            let keep: f64 = match slot(&w.programs[p], role) {
-                Some(a) if Some(a) == me => keep.max(market::known_by(w, c).map_or(0.0, |k| 0.45 + 0.5 * k)),
-                _ => keep,
-            };
-            if let Some(a) = slot(&w.programs[p], role)
-                && a != c
-                && !w.rng.chance(keep)
-                && !market::spared(w, a, "let go by the new staff")
-            {
+            if !keep && !market::spared(w, a, "let go by the new staff") {
                 leave(w, a, "let go by the new staff");
                 let prestige = employer_prestige(w, o.employer);
                 queue.push(Opening { employer: o.employer, role, prestige });
             }
         }
     }
+}
+
+/// What a promoted head coach adds to his read of a holdover who already
+/// knows his players and system (program fortunes item 5; proposed, not
+/// confirmed).
+const KEEP_KNOWN: f64 = 1.5;
+
+/// Where in the men a program like this can draw the best one a new head
+/// coach could bring sits (program fortunes item 5; proposed, not confirmed).
+const BRING_SHARE: f64 = 0.85;
+
+/// What a man is worth to a head coach in a seat, 1-20 (program fortunes
+/// item 5): a coordinator his side's teaching and scheme with his play
+/// calling, a position coach his teaching of the room with his recruiting
+/// (proposed, not confirmed: 60/40 and 75/25).
+pub(crate) fn staff_worth(c: &Coach, role: Role) -> f64 {
+    let a = c.ability();
+    match role {
+        Role::OffensiveCoordinator => 0.6 * side_quality(c, true) + 0.4 * c.calling(),
+        Role::DefensiveCoordinator => 0.6 * side_quality(c, false) + 0.4 * c.calling(),
+        Role::PositionCoach(g) => 0.75 * a.teaching[g as usize] + 0.25 * a.recruiting,
+        Role::HeadCoach => a.head_coach_value(),
+    }
+}
+
+/// The best man a new head coach at `p` could bring to a seat (program
+/// fortunes item 5): the `BRING_SHARE` point of the men in that seat at his
+/// division's other programs no bigger than this one, for whom the job is a
+/// step up or sideways. The smallest programs draw little better than they
+/// have.
+fn could_bring(w: &World, p: usize, role: Role) -> f64 {
+    let div = w.programs[p].division;
+    let here = w.programs[p].prestige + 0.02;
+    let mut worth: Vec<f64> = w
+        .programs
+        .iter()
+        .enumerate()
+        .filter(|&(q, prog)| q != p && prog.division == div && prog.prestige <= here)
+        .filter_map(|(_, prog)| slot(prog, role))
+        .map(|a| staff_worth(&w.coaches[a], role))
+        .collect();
+    if worth.is_empty() {
+        return 0.0;
+    }
+    let k = ((worth.len() - 1) as f64 * BRING_SHARE).round() as usize;
+    let (_, v, _) = worth.select_nth_unstable_by(k, |a, b| a.total_cmp(b));
+    *v
 }
 
 /// A high school's principal and boosters judge the coach on his record
@@ -3474,23 +3543,33 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             Division::D3 => 0.15,
             Division::JUCO => 0.15,
         };
-        let season_score = scale
-            * (0.2
-                + 0.8 * win
-                + if t.conference_title { 0.15 } else { 0.0 }
-                + if t.national_title { 0.3 } else { 0.0 });
+        let season_score = program::season_score(p.division, win, t.conference_title, t.national_title);
         if w.recording {
             // Recent results build slowly and don't max out (11.10): a season
             // counts for a quarter, so the last four carry about two-thirds
             // (a recruit's high school years), and a title season counts more
             // than a plain 12-1 one (proposed, not confirmed).
             p.recent = 0.75 * p.recent + 0.25 * season_score;
-            // Tradition is built by titles; recent form only seeps in slowly (note 15C).
-            p.tradition = clamp(
-                0.995 * p.tradition
+            // The all-time part is built by titles; recent form only seeps
+            // in slowly (note 15C). An older file's starts from its name.
+            if p.legacy <= 0.0 {
+                p.legacy = p.tradition;
+            }
+            p.legacy = clamp(
+                0.995 * p.legacy
                     + 0.005 * p.recent
                     + if t.national_title { 0.03 } else { 0.0 }
                     + if t.conference_title { 0.004 } else { 0.0 },
+                0.0,
+                1.0,
+            );
+            // The name a recruit reads is half that and half the results
+            // he has lived through (program fortunes item 1, Cain
+            // 2026-11-24): Nebraska's 1990s fade from a 2026 recruit's
+            // read, and an Oregon run without a title builds a name.
+            let now = (t.games() > 0).then_some(season_score);
+            p.tradition = clamp(
+                (1.0 - program::LIVED_SHARE) * p.legacy + program::LIVED_SHARE * program::lived(p, year, now),
                 0.0,
                 1.0,
             );
@@ -3548,17 +3627,12 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let t = &results[i];
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
         let hc_rep = w.programs[i].head_coach.map_or(8.0, |c| w.coaches[c].reputation);
+        // The head coach's own record counts in his school's pitch
+        // (program fortunes item 2, Cain 2026-11-24): the picks his staffs
+        // developed and his wins above his rosters, wherever he coached.
+        let picks = super::fortunes::pipeline(w, i, year);
+        let head_record = w.programs[i].head_coach.map_or(0.0, |c| super::fortunes::head_record(w, c, year));
         let p = &mut w.programs[i];
-        let picks: f64 = p
-            .draft_picks
-            .iter()
-            .filter(|(y, _)| year - y < 4)
-            .map(|&(_, round)| match round {
-                1 => 3.0,
-                2 | 3 => 2.0,
-                _ => 1.0,
-            })
-            .sum();
         let academics = match p.academic_tier {
             AcademicTier::Aau => 0.9,
             AcademicTier::R1 => 0.7,
@@ -3573,7 +3647,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         raw[i][GradeCat::ProPipeline as usize] = picks * pitch;
         raw[i][GradeCat::PlayingTime as usize] = open[i];
         raw[i][GradeCat::Tradition as usize] = p.tradition * pitch;
-        raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength + (0.6 * titles_recent + win) * conf_strength(p);
+        raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength
+            + (0.6 * titles_recent + win + super::fortunes::HEAD_RECORD * head_record) * conf_strength(p);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;
         raw[i][GradeCat::Facilities as usize] = fac_reads[i];
         // Before NIL the grade reads the booster base, the money that becomes NIL.

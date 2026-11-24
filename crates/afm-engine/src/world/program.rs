@@ -274,8 +274,16 @@ pub struct Program {
     pub enrollment: u32,
     pub academic_tier: AcademicTier,
     pub stadium: u32,
-    /// Prestige parts, each 0-1.
+    /// Prestige parts, each 0-1. Tradition is the name a recruit reads:
+    /// half `legacy`, half the results of the last 20 seasons (program
+    /// fortunes item 1, [`lived`]).
     pub tradition: f64,
+    /// The slow all-time part of the name: the titles and history it held
+    /// when the world began, moved by titles and a little by form. 0 in a
+    /// file written before program fortunes item 1: it starts from
+    /// `tradition` at the next year-end book.
+    #[serde(default)]
+    pub legacy: f64,
     pub recent: f64,
     pub facilities: f64,
     /// Its rooms and campus (Capital lane C2): the facilities number above
@@ -569,6 +577,48 @@ pub(crate) fn division_scale(d: Division) -> f64 {
     }
 }
 
+/// A season's mark on a program's name, 0 to about 1.45: its level's scale
+/// times 0.2 + 0.8 × its win share, + 0.15 a conference title, + 0.3 a
+/// national title. The same score moves `recent` and the lived half of
+/// `tradition`.
+pub(crate) fn season_score(d: Division, win: f64, conference_title: bool, national_title: bool) -> f64 {
+    division_scale(d)
+        * (0.2 + 0.8 * win + if conference_title { 0.15 } else { 0.0 } + if national_title { 0.3 } else { 0.0 })
+}
+
+/// Seasons the lived half of the name reads (program fortunes item 1).
+pub const LIVED_SEASONS: i32 = 20;
+/// A season's weight in the lived half halves in this many seasons.
+pub const LIVED_HALF_LIFE: f64 = 7.0;
+/// The lived half's share of the name.
+pub const LIVED_SHARE: f64 = 0.5;
+
+/// The lived half of a program's name in `year` (program fortunes item 1,
+/// Cain 2026-11-24): the season scores of its last 20 seasons, `year`'s
+/// first, each weighing half as much seven seasons on. `now` is `year`'s
+/// own score when its book isn't closed yet. A season with no record (the
+/// spin-up years, a season with no team) reads the program's all-time
+/// part, so the name doesn't jump when recorded history begins.
+pub fn lived(p: &Program, year: i32, now: Option<f64>) -> f64 {
+    let (mut sum, mut weights) = (0.0, 0.0);
+    for k in 0..LIVED_SEASONS {
+        let y = year - k;
+        let weight = 0.5f64.powf(k as f64 / LIVED_HALF_LIFE);
+        let score = match now.filter(|_| k == 0) {
+            Some(s) => s,
+            None => {
+                p.seasons.iter().rev().find(|s| s.year == y).filter(|s| s.wins + s.losses > 0).map_or(p.legacy, |s| {
+                    let win = s.wins as f64 / (s.wins + s.losses) as f64;
+                    season_score(s.division.unwrap_or(p.division), win, s.conference_title, s.national_title)
+                })
+            }
+        };
+        sum += weight * score;
+        weights += weight;
+    }
+    sum / weights
+}
+
 /// Builds a program from its real row as it stood in `season`. Prestige
 /// parts are seeded from real history: the titles won before that season
 /// at every level, its record in the five seasons before, its seats that
@@ -638,6 +688,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
         academic_tier: row.academic_tier,
         stadium: seats,
         tradition,
+        legacy: tradition,
         recent,
         facilities,
         campus: Default::default(),
