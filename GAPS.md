@@ -234,7 +234,7 @@ Found by the multi-season realism audit of the seed 321 world, 2026-11-24 (`docs
 
 Found by the multi-season realism audit of the seed 321 world, 2026-11-24 (`docs/trials/realism-audit-seed321.md`):
 
-- **Program fortunes are frozen for 30 years** (high). FBS strength correlates 0.76 with itself 25 years on; Texas .896 and Georgia .859 over 30 seasons (real best about .83); ten long-time FBS programs at .300 or under; Michigan State with no winning season in 30 years; 1.13 unbeaten teams a year (real 0.6). Talent follows the program, not the coach (`afm/dynasty-layers/diagnosis.md`). Audit item 2.
+- **Program fortunes are frozen for 30 years** (high). FBS strength correlates 0.76 with itself 25 years on; Texas .896 and Georgia .859 over 30 seasons (real best about .83); ten long-time FBS programs at .300 or under; Michigan State with no winning season in 30 years; 1.13 unbeaten teams a year (real 0.6). Talent follows the program, not the coach (`afm/dynasty-layers/diagnosis.md`). Audit item 2. Design proposal with the real 2001-2025 figures: `docs/design/program-fortunes.md` (waiting on Cain).
 - **Quarterbacks go first overall less than half as often as real** (high). 31% of first picks (real 73.1%), 11.3% of the top 10 (19.1%). A quarterback is 2 to 3 points behind at draft age and the board prices today's grade (`draft_value`). Audit item 4.
 - **The Heisman and the MVP go to quarterbacks half as often as real** (high). 38% (real 80%) and 24% (84%). Placeholder voter weights (`heisman_kind`) on inflated box scores. Audit item 5.
 - **Group of 5 head coaches are paid 2.5 to 4 times real** (medium). MAC $3.86M, Sun Belt $3.55M (real about $0.8M to $1.0M, from memory). The job line's curve (`world/staff.rs`, `salary`). Audit item 9.
