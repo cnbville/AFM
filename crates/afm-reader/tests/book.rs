@@ -72,6 +72,11 @@ fn a_book_from_a_logged_world() {
         assert!(text.starts_with("# "), "{}: {text}", p.id);
         assert!(b.page(p.id, &f)["sections"].as_array().is_some_and(|s| !s.is_empty()), "{}", p.id);
     }
+    // The program check's SQL reads the engine's own names (a failure says so on the page).
+    let pc = b.text("program_check", &f);
+    assert!(pc.starts_with("# Program check") && !pc.contains("SQL failed"), "{pc}");
+    afm_reader::program_check::hauls(&b, 1990, 2100).expect("the class haul SQL");
+    afm_reader::program_check::load(&b, 1990, 2100).expect("the program season SQL");
     for p in [
         "checks",
         "odd",

@@ -542,7 +542,7 @@ pub fn view(b: &Book, f: &Filters) -> View {
             return v;
         }
         Err(e) => {
-            v.verdict.push(format!("This book has no program seasons to read ({e})."));
+            v.verdict.push(format!("The program seasons could not be read (SQL failed: {e})."));
             return v;
         }
     };
@@ -736,13 +736,11 @@ pub fn view(b: &Book, f: &Filters) -> View {
     };
     hc.columns = ["measure", "world", "real"].map(String::from).to_vec();
     let coaches: HashMap<(i64, i32), Option<i64>> = seasons.iter().map(|s| ((s.pid, s.year), s.coach)).collect();
-    let haul_share = hauls(b, hfrom, to).ok().and_then(|h| {
-        let cells = big_cells(&h, &coaches);
-        share(&cells, SHUFFLES)
-    });
+    let haul_rows = hauls(b, hfrom, to);
+    let big_cells_read = haul_rows.as_ref().map(|h| big_cells(h, &coaches)).unwrap_or_default();
+    let haul_share = share(&big_cells_read, SHUFFLES);
     let margin_cells: Vec<Cell> = {
-        let haul_programs: Option<Vec<Cell>> = hauls(b, hfrom, to).ok().map(|h| big_cells(&h, &coaches));
-        let big: std::collections::HashSet<i64> = haul_programs.unwrap_or_default().iter().map(|c| c.program).collect();
+        let big: std::collections::HashSet<i64> = big_cells_read.iter().map(|c| c.program).collect();
         seasons
             .iter()
             .filter(|s| s.year >= hfrom && big.contains(&s.pid))
@@ -788,7 +786,11 @@ pub fn view(b: &Book, f: &Filters) -> View {
     }
     hc.notes.push(format!(
         "Hauls are blue-chip points (3 a 5-star, 1 a 4-star) per 1,000 of the year's total, from the classes the book holds{}. {}",
-        if haul_share.is_none() { "; none were read from this book" } else { "" },
+        match (&haul_rows, &haul_share) {
+            (Err(e), _) => format!("; the haul SQL failed: {e}"),
+            (_, None) => "; too few were read from this book".to_string(),
+            _ => String::new(),
+        },
         haul_share.as_ref().map_or(String::new(), |s| format!("{} class-years, {} coach stints.", s.n, s.stints))
     ));
     hc.notes.push("The coach's share is (program and coach, minus the floor) over (1 minus the program's share), as in the diagnosis (afm/dynasty-layers/diagnosis.md). Part of the real 29% is drift, not coaches.".into());
@@ -1062,7 +1064,7 @@ mod tests {
         ] {
             assert!(text.contains(want), "{want}: {text}");
         }
-        assert!(!text.contains("none were read"), "{text}");
+        assert!(!text.contains("too few") && !text.contains("SQL failed"), "{text}");
         assert_eq!(b.text("fortunes", &Filters::default()), text);
         // A window with no seasons says so instead of failing.
         let none = b.text("program_check", &Filters::parse(&["from=1900".into(), "to=1901".into()]));
