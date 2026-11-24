@@ -1,27 +1,25 @@
-# Your coach, earned: the coaching career (version 3, 2026-11-24)
+# Your coach, earned: the coaching career (version 4, 2026-11-24)
 
-Cain, 2026-11-24: "i want you overhaul/propasal a ratings overhaul, right now ratings i as a coach have feel useless"; "i want more of earn to receive type of system, similar to EA College footballs"; on version 1: "read through the code, give me a better overhaul"; on version 2: "not gamified enough".
+Cain, 2026-11-24: "i want you overhaul/propasal a ratings overhaul, right now ratings i as a coach have feel useless"; "i want more of earn to receive type of system, similar to EA College footballs"; on version 1: "read through the code, give me a better overhaul"; on version 2: "not gamified enough"; on version 3: "i meant not gamified as a system it doesn't feel like grind/reward"; on the first pace: "too slow for a game of this realism and needing of time"; then: "use logic, certain stuff like clock manager is only used when simulating, the ratings need to make sense for both manual play and simmign games".
 
-Version 3 keeps version 2's reading of the code (main `d5a75d5`) and turns the overhaul into a game loop: XP, a coach level, skill trees, goals and trophies. It replaces version 2's five bars. Everything below is **proposed, not confirmed**. Nothing is built until Cain answers the questions at the end.
+Version 4 keeps the reading of the code (main `d5a75d5`) and replaces version 3's XP, points and trees with one loop: **use it to level it.** Everything below is **proposed, not confirmed**, except the pace, which Cain chose on 2026-11-24: one skill reaches level 10 in one season of doing it. Nothing is built until Cain answers the questions at the end.
 
-Mock-up of the Career screen: https://claude.ai/artifact/FyZoAghjYaBqiQR49RRgRN (click the six trees).
+Mock-up of the Career screen: https://claude.ai/artifact/FyZoAghjYaBqiQR49RRgRN (click the six groups).
 
-Decided already, so not asked again: Q20 "your ratings grow" (`docs/handoff/decisions.md`); `docs/design/people.md`, topic 15 (ratings grow from doing the job, the people around you, study, age and use; your negotiating "reads tells and bluffs, senses floors and spots traps"); roads C3-C7 (locked strengths, the rest at the road's last job level); flaws and tools for players (`docs/design/individual-practice.md`); the game-day rule that your own ratings call the snaps you don't take (`docs/design/game-day.md`).
+Decided already, so not asked again: Q20 "your ratings grow" (`docs/handoff/decisions.md`); `docs/design/people.md`, topic 15 (ratings grow from doing the job, the people around you, study, age and use); roads C3-C7 (locked strengths, the rest at the road's last job level); flaws and tools for players (`docs/design/individual-practice.md`); the game-day rule that your own ratings call the snaps you don't take (`docs/design/game-day.md`).
 
 ## What it does
 
-- **You earn XP for everything you do as a coach, and you see it land.** After every game a card lists it: "Beat the line by 10 points, +240. Touchdowns on 4 of 5 red zone trips you called, +90."
-- **XP raises your coach level, 1 to 100.** Every level pays a skill point. Levels 10, 25, 50, 75 and 100 pay three and a new name ("Up-and-comer", "Established").
-- **Points go into six skill trees:** Tactician, Recruiter, Developer, Motivator, Scout, Program Builder. Your road opens the first. You open the others by a feat, such as signing 10 players you pitched yourself.
-- **A tree holds rating steps and abilities.** An ability works in one situation: Red Zone Caller, Living Room, Halftime Adjuster, Flaw Fixer. Each has bronze, silver and gold.
-- **You can't buy what you haven't done.** A tree's higher tiers open by XP earned in that tree. Silver and gold need the work itself: gold Red Zone Caller needs 400 red zone snaps you called.
-- **A career fills about a sixth of everything.** About 110 points against about 660 to buy it all. Each tree ends in a capstone, and you may hold two.
-- **Goals every week.** Three weekly goals drawn from your real week, season goals from your boss and your own ambitions, and about 120 trophies. A trophy shows how many of the world's coaches hold it.
-- **You start with two blind spots from your road** and work them off.
-- **Every coach in the world is on the same rules.** You hire a coordinator because he is a level 41 Tactician with gold Third-Down Caller.
-- **It stays football.** An ability moves one rating's read in one situation by up to 3 points. The battle on the field still decides, and a good call never beats talent.
+- **Every coaching skill has its own level, 0 to 10, and levels only by doing that exact work.** 45 skills: Red Zone, Third Down, Adjustments, Living Room, Official Visits, Flaw Fixing, One-on-Ones, Film, and so on. Every rep fills that skill's bar.
+- **Every level pays the moment you reach it.** No points to save or place.
+- **Every skill pays three ways, so it works however you play.** Your team is better prepared in that situation, always. Your screen shows you more there when you play it yourself. Your coach decides better there when you sim.
+- **The pace is weeks, not seasons.** Something levels almost every week. One skill gets its first perk inside two weeks, its second by midseason and level 10 after one season of doing it.
+- **The long game is breadth.** About a dozen skills fit in your week and there are 45. What you keep doing is who you are; what you drop goes rusty.
+- **Your ratings are the sum of it.** A rating rises because its skills did: Play Calling goes 15 to 17 because you called a season of red zones and third downs.
+- **Weekly goals pay bonus reps** in a named skill.
+- **Every coach in the world is on the same rules.**
 
-Example. Season 4, week 9, head coach at Toledo, calling your own offense. You are level 23 with 2 points to spend. You win 31-27 at Miami (Ohio) as a 6-point underdog: +910 XP, which takes you to 1,540 of the 2,380 for level 24. Your Red Zone Caller is silver and has the 400 snaps for gold, but gold costs 3 points, so you wait a level or put 2 into Halftime Adjuster's silver now. Recruiter is at tier 2 from your own visits. Scout is still closed: 6 of the 10 proved reads it needs.
+Example. Season 1, week 9, head coach at Toledo, calling your own offense. This week Third Down reached level 7, Living Room level 5 and Calls and Texts level 6, which opened a perk: you now see when each rival school last reached a recruit. Your Play Calling reads 17, 15 from your road and 2 earned. End of Half sits at level 2: it is one of your road's two cold skills and levels at half speed until level 3. You handed the defense's calls to your coordinator, so those reps are his.
 
 ## What the code does today
 
@@ -94,197 +92,242 @@ You earn XP from games, goals and recruiting; levels pay coach points; points bu
 
 Sources: [Destructoid, CFB 26 coach abilities](https://www.destructoid.com/best-college-football-26-coach-upgrade-abilities-in-dynasty-mode/); [CBS Sports, CFB 26 dynasty deep dive](https://www.cbssports.com/college-football/news/ea-sports-college-football-26-dynasty-mode-deep-dive-exploring-the-biggest-changes-and-updates); [EA, CFB 26 dynasty](https://www.ea.com/games/ea-sports-college-football/college-football-26/features/cfb26-dynasty).
 
+
+## Playing a game yourself and simming it (the code today)
+
+Cain's point, checked in the code. A live game stops for you and records what the staff would do (`game/live.rs`, `LiveGame`; `docs/match-engine.md`, "Live games, officials and the toss"). "A call you pick replaces the staff's." So:
+
+- When you call a snap yourself, your play calling, adaptation and game management read nothing on that snap. Your pick is the call.
+- When a snap doesn't stop for you, when you watch, or when you let the staff coach it, the side you call is called by your own ratings (`season.rs`, `coach_caller`, `your_calls`) and the other side by its coordinator.
+- Your fourth-down and two-point charts decide the snaps that don't stop for you.
+
+So a hands-on player's game-day ratings do nothing, and a player who sims never sees them work. A skill that pays in only one way of playing is wrong. Section 2 below is the fix.
+
 ## The loop
 
-Every number in this part is a starting value for the measure (item 14).
+Every number in this part is a starting value for the measure (section 12), except the pace.
 
-### 1. XP
+### 1. Skills level by doing the work
 
-XP comes from events the world already records. Each event pays your level. Most also pay one tree.
+- 45 skills in six groups (section 5). Each has a level from 0 to 10 and a bar.
+- A rep is one piece of that exact work: a red zone snap, an in-home visit, a one-on-one, a game of film.
+- A rep done well fills more. Your own call is graded against the numbers the game already has (the call table, the fourth-down model, his file, his market): a good one counts up to double, a poor one half. Reps against a better opponent count more.
+- There are no points, no trees to buy and no refunds. The only way to Red Zone 10 is red zone work.
 
-| Event | XP | Tree |
+### 2. Every skill pays three ways
+
+| | When | What your level does |
 |---|---|---|
-| Coaching a game | 100 | Level only |
-| A win | 150 | Level only |
-| Each point better than the line, up to 20 | 24 | Level only |
-| A call or decision of yours that beat the table: a red zone trip, a fourth down, a two-minute drive, a second half won after trailing | 40 to 110 | Tactician |
-| A game plan you built yourself | 60 | Tactician |
-| A visit you hosted, a pitch of yours that landed | 20 to 60 | Recruiter |
-| A signing you pitched yourself, by his rank against your program's usual class | 40 to 300 | Recruiter |
-| A practice you ran with a group | 10 | Developer |
-| A flaw fixed or a tool built on your focus, a breakout, an all-conference player, a draft pick | 50 to 400 | Developer |
-| A talk that landed, a one-on-one, a promise kept, a story handled well (today's lesson points) | 15 to 250 | Motivator |
-| A read of yours that proved right at a look-back | 80 | Scout |
-| A hire who works out, a deal under his market, a drive closed, an assistant hired as a head coach | 60 to 500 | Program Builder |
-| A weekly goal | 80 to 200 | Its tree |
-| A season goal or an ambition's step | 400 to 1,500 | Its tree, or level only |
-| A trophy | 200 to 2,000 | Level only |
+| Your team (or the person in front of you) | Always | How well your players are prepared for that situation, or how well your work lands on that person. The same whether you play, watch or sim |
+| Your screen | When you do it yourself | What your coach knows and shows you there: tendencies, odds, his file, more choices, less time spent |
+| Your coach | When you sim or hand the snap off | How well he decides there without you |
 
-- Game XP reads the line, so an upset pays most. A win by 10 as a 10-point favorite pays 250. A win by 3 as a 14-point underdog pays 658. A loss as a 14-point favorite pays 100.
-- Work your staff does pays your staff, not you. A head coach who hands recruiting to his assistants earns no Recruiter XP.
-- An average FBS season where you do most jobs yourself pays about 10,000 XP: about 4,300 from 13 games, 2,500 from weekly goals, 1,300 from recruiting, 1,000 from development, 600 from people and 1,000 from season goals. A title season pays about 16,000.
-- The yearly age growth (`coach.rs`, `age_one_year`) stops for your coach. Decline from about 59 stays as built.
-- The lesson-point letter (+1.0 in any rating) goes. A story handled well pays XP in the tree it tested.
+Game-day examples:
 
-### 2. Coach level
-
-- The next level costs 1,000 + 60 × your level. Level 2 costs 1,060 XP, level 50 costs 3,940, level 100 costs 6,940.
-- Pace: about 8 levels in your first season, about 3 a season by year ten (about level 43), about level 85 after 30 average seasons. Level 100 takes 25 to 30 strong seasons.
-- Each level pays one skill point. Levels 10, 25, 50, 75 and 100 pay three and a name: Up-and-comer, Established, Proven, Elite, Legend. About 110 points in a full career.
-- A level-up is a moment on the Big moments screen, with the point to spend.
-
-### 3. What points buy
-
-| Buy | Cost | Needs |
-|---|---|---|
-| A rating step to 11-14 | 1 | The tree open |
-| A rating step to 15-17 | 2 | Tier 2 of its tree |
-| A rating step to 18 or 19 | 3 | Tier 3 of its tree |
-| A rating step to 20 | 4 | Tier 3 of its tree |
-| An ability at bronze | 1 | Its tier open |
-| Bronze to silver | 2 | The work done (its counter) |
-| Silver to gold | 3 | More of the work done |
-| A capstone | 6 | Its tree XP and its feat |
-
-Everything in the game costs about 660 points: about 290 for the 48 abilities, 36 for six capstones and about 340 to take all 19 ratings to 20. No refunds.
-
-### 4. The six trees
-
-| Tree | Its ratings | Its XP comes from | Opens by (one of) |
+| Skill | Your team (always) | Your screen (you play) | Your coach (you sim) |
 |---|---|---|---|
-| Tactician | Play calling, scheme, adaptation, game management | Snaps you call, game plans, fourth downs, the clock, halftime | Calling a side for a season; 3 wins as an underdog of 7 or more |
-| Recruiter | Recruiting | Your own calls, visits, pitches and signings | 10 signings you pitched yourself |
-| Developer | The 8 teaching groups | Practice time with a group, focus points, players who grow | 3 of your players gaining 4 or more overall in one year; a player of yours drafted |
-| Motivator | Motivation, discipline, relationships | Talks that land, one-on-ones, rulings, promises kept | 25 one-on-ones that landed; a win after trailing by 14 |
-| Scout | Evaluation | Film you watch yourself, reads that prove right | 10 reads proved right at a look-back |
-| Program Builder | Network, negotiating | Hires, deals, boosters, your boss, assistants who move up | Two seasons as a head coach; 5 hires |
+| Red Zone | Fewer busted assignments inside the 20; more red zone plays known cold | Their red zone tendencies; a sharper suggested call | Calls the red zone better |
+| End of Half | Faster to the line; fewer procedure flags in hurry-up | How many plays the clock still holds; when to spend a timeout | Manages the clock better |
+| Short Yardage and Fourth Down | Your short-yardage package runs cleaner | The odds of each choice, tighter the higher your level | Decides better |
+| Adjustments | More of an adjustment reaches your players | A clearer report of what hurt you; a second adjustment to pick | Picks the right adjustment |
 
-- Your road opens one tree on day one and gives two of its tier 1 abilities at bronze.
-- Tier 2 opens at 2,000 XP earned in that tree, tier 3 at 6,000, the capstone at 15,000 with its feat. A coach who works one tree hard reaches tier 2 in his first season, tier 3 in his third and the capstone in about his sixth.
+Off the field the first two columns do the work. A pitch lands by your Living Room level whether you type the lines or pick from your staff's options, and the screen shows you more of his file. When you hand a job to an assistant, his own levels do it and he earns the reps.
 
-### 5. The abilities
+A skill that can't fill all its columns is cut or merged. Version 3's Clock Manager and Two-Minute Drill are one skill now (End of Half). Replay challenges are no skill: the replay assistant does that work.
 
-Each ability moves one rating's read in one situation: +1 at bronze, +2 at silver, +3 at gold, on the 1-20 scale. It is the coach's version of a player's tool (`craft.rs`). Each sits on a moment the code already has.
+### 3. What a level pays
 
-| Tree | Tier 1 | Tier 2 | Tier 3 |
+- **Power, every level.** Half a point of the skill's rating in its own situation, so 5 points at level 10, the top size of a player's tool (`craft.rs`, `FULL`). It reads on your team's preparation always and on your coach's choices when you sim.
+- **A screen perk at levels 3, 6 and 10.** Something new to see or do when you do that work yourself (section 5 has one example per skill; the full list of 135 is its own round with Cain).
+- **Your rating.** Each of the 19 ratings is your road's start plus what its skills earned. All of a rating's skills at level 10 lift it by 6, to 20 at most. A season doing about half of a rating's work lifts it 2 to 3.
+
+### 4. The pace (decided: one season)
+
+Cain chose on 2026-11-24: one skill reaches level 10 in one season of doing it every week.
+
+- Each skill has a season's worth of reps: about 150 red zone snaps for a play caller, about 25 in-home visits, about 120 one-on-ones, 13 halves.
+- Level 3 comes at a tenth of that (inside two weeks), level 6 at four tenths (midseason), level 10 at all of it.
+- Good work is up to twice as fast, so a sharp caller reaches Red Zone 10 by November. A sim levels at the normal pace.
+- About a dozen skills fit in your week, so in your first season 3 to 5 skills level in a normal week.
+- Everything at 10 would take about four seasons of rotating your work, and rust (section 7) means you won't hold it all.
+
+### 5. The 45 skills
+
+Each row: what counts as a rep, the rating it lifts, and one example of a screen perk.
+
+**Game day (9).** On the side of the ball you call. Reps come from game snaps in both ways of playing, and from that situation's period in practice and that part of the week's plan, so a head coach whose coordinator calls still earns them at a slower pace.
+
+| Skill | A rep | Rating | Screen perk (example) |
 |---|---|---|---|
-| Tactician | Opening Script (your first 15 plays); Red Zone Caller (inside the 20); Clock Manager (the last two minutes of a half) | Third-Down Caller; Halftime Adjuster (the second half); Film Room (the week's film on the opponent) | Two-Minute Drill (trailing, under two minutes); Fourth-Down Nerve (fourth-down decisions) |
-| Recruiter | Living Room (in-home visits); Official Visit (his weekend on campus); Home State (the state you have signed the most from) | Closer (signing week); Flipper (a recruit committed elsewhere); Portal Pitch (transfers) | Pipeline (high schools you have signed from); Family Man (his parents in the room) |
-| Developer | Position Room (the group you run yourself); Flaw Fixer (a flaw you set as a focus); Freshman Ready (first-year players learning the playbook) | Tool Builder (a tool you set as a focus); Position Change (a player learning a new spot); Practice Planner (practice load against growth) | Late Bloomer (players of 21 and older with room left); Pro Ready (seniors in their last year) |
-| Motivator | Bounce Back (the week after a loss); Open Door (one-on-ones); Underdog Talk (pregame as an underdog) | Halftime Speech; Big Game (rivals, title games, bowls); Standards (rules for your stars) | Veterans' Coach (juniors and seniors); Keeper (a player thinking about the portal) |
-| Scout | Position Eye (one group you pick); Tape Grinder (hours of film in a week); Character Read (his makeup) | Projection (frames and late growth); Medical Read (his injury file); Second Eye (a second group) | Gem Finder (players with few looks on them); Transfer Eye (tape from another level) |
-| Program Builder | Staff Builder (your read of a coach you interview); Booster Room (asking a donor); Press Room (press conferences) | Dealmaker (reading his lowest number); Coaching Tree (assistants learning from you); Boss's Ear (an ask to your boss) | Bluff Reader ("another school offered more"); Coaches' Coach (high school coaches and NFL scouts) |
+| Opening Script | A scripted play run in a game | Play calling | 3: their tendencies on the first two series |
+| Red Zone | A snap inside the 20 | Play calling | 3: their red zone tendencies on the call screen |
+| Third Down | A third-down snap | Play calling | 6: a plan for each of their third-down fronts on your sheet |
+| Pressure | A snap against their blitz (offense) or your own blitz call (defense) | Play calling | 6: tag a hot route on any pass call |
+| End of Half | A snap inside two minutes of a half | Game management | 3: how many plays the clock still holds |
+| Short Yardage and Fourth Down | A snap with 2 or fewer to go, or a fourth-down choice | Game management | 3: the odds of each choice (a high school has no analyst today) |
+| Adjustments | A drive after one that hurt you; a halftime | Adaptation | 6: pick two adjustments at the half |
+| Game Planning | A game plan you built | Scheme | 10: their likely answer to each of your top five calls |
+| Install | A week of install you ran | Scheme | 6: one more concept a week in camp |
 
-- Silver and gold need a counter of that exact work. Red Zone Caller: silver at 120 red zone snaps you called, gold at 400. Living Room: silver at 15 in-home visits, gold at 60. The counters are set so gold takes about four seasons of doing that job yourself.
-- Tactician abilities that read play calling work only on the side you call. For the side you don't call, see the capstone.
-- A defensive coach's Tactician tree carries the defense's versions (third-down pressure, red zone defense, disguise) in the same slots.
+**Recruiting (8).** Reps only from contacts you make yourself.
 
-### 6. Capstones
-
-One a tree, 6 points, at most two in a career.
-
-| Tree | Capstone | What it does | Its feat |
+| Skill | A rep | Rating | Screen perk (example) |
 |---|---|---|---|
-| Tactician | The System | Your coordinators call with your Tactician abilities at half strength | A conference title won while calling a side |
-| Recruiter | Blue-Chip Magnet | Your proof is graded one step stronger against his other schools (`folk/claims/`) | A class in the top tenth of your division |
-| Developer | Master Teacher | Pick one position group; every Developer ability reads one rank higher there | 5 drafted players who signed as three-stars or lower |
-| Motivator | Culture | Your team leaders carry a talk to the players it missed | 5 wins in one season after trailing at the half |
-| Scout | The Eye | Your first look at a player is as sharp as a third look | 3 all-conference starters you signed as two-stars or walk-ons |
-| Program Builder | The Program | When an assistant leaves, his room keeps half of what it learned under him | 3 of your assistants hired as head coaches |
+| Living Room | An in-home visit | Recruiting | 6: a visit takes less of your week |
+| Official Visits | A weekend you hosted | Recruiting | 6: one more stop on his weekend |
+| Calls and Texts | A call or message | Recruiting | 6: when each rival school last reached him |
+| Closing | A talk in his last two weeks before signing | Recruiting | 3: which school he leans to, as a range |
+| Flipping | A talk with a recruit committed elsewhere | Recruiting | 3: how firm his commitment is |
+| The Portal | A talk with a transfer | Recruiting | 3: why he is leaving |
+| High School Coaches | A visit to a coach's office | Network | 6: he calls you first about a late riser |
+| Parents | A talk with his parents in the room | Relationships | 6: what each parent wants, apart from him |
 
-### 7. Blind spots
+**Teaching (8).** Reps from practice periods you run and focus points you set.
 
-A blind spot is a red node: it costs 2 points of a rating in one situation. Your road starts you with two. You work one off by doing that work (a counter) and paying 2 points; it pays 300 XP when it goes. Proposed by road:
+| Skill | A rep | Rating | Screen perk (example) |
+|---|---|---|---|
+| Your Room | A practice period with the group you run | That group's teaching | 6: run a second group one day a week |
+| Flaw Fixing | A week on a flaw you set as a focus | That group's teaching | 6: two flaws in one man at once |
+| Tool Building | A week on a tool you set as a focus | That group's teaching | 3: how many weeks a tool still needs |
+| Freshmen | A week of a first-year player's install | That group's teaching | 6: a freshman carries one more package |
+| Position Changes | A week of a player at a new spot | That group's teaching | 3: his fit at the new spot before you move him |
+| Practice Planning | A week's plan you set | All teaching, a little | 6: one more full-speed period at the same load |
+| Late Bloomers | A week with a player of 21 or older who still grew | That group's teaching | 3: who still has room, in words |
+| Pro Prep | A week with a draft-eligible player | That group's teaching | 3: what NFL scouts mark against him |
 
-| Road | Blind spots |
+**People (8).**
+
+| Skill | A rep | Rating | Screen perk (example) |
+|---|---|---|---|
+| Pregame Talks | A pregame talk | Motivation | 6: aim a talk at one position group |
+| Halftime Talks | A halftime talk | Motivation | 6: a word to one player on top of the room |
+| After a Loss | A week after a loss | Motivation | 3: who took the loss hardest |
+| One-on-Ones | A one-on-one in your office | Relationships | 10: players come to you before a problem grows |
+| Standards | A ruling on a team rule | Discipline | 6: your captains report what the staff missed |
+| Veterans | A talk with a junior or senior | Relationships | 3: which veterans the room follows |
+| Keeping Players | A talk with a player thinking of leaving | Relationships | 3: who is thinking of leaving, a week sooner |
+| Staff Room | A staff meeting | Relationships | 6: one coach takes a second job without dropping his first |
+
+**Scouting (6).**
+
+| Skill | A rep | Rating | Screen perk (example) |
+|---|---|---|---|
+| Film | A game of film you watched | Evaluation | 6: a game of film in two thirds of the time |
+| Character | A read of a player's makeup | Evaluation | 3: one makeup trait as a word on every file |
+| Medical | A read of an injury file | Evaluation | 3: which injuries tend to come back |
+| Projection | A read of a player 19 or younger | Evaluation | 6: a tighter range on his body at 21 |
+| Gems | A look at a player no other staff has watched | Evaluation | 3: a flag on players nobody has watched |
+| Transfer Tape | A read of tape from another level | Evaluation | 3: his numbers set to your level |
+
+**Program (6).**
+
+| Skill | A rep | Rating | Screen perk (example) |
+|---|---|---|---|
+| Hiring | An interview | Network | 6: one more of a candidate's skills shown |
+| Boosters | An ask to a donor | Network | 3: what a donor wants his name on |
+| Press | A press conference | Relationships | 6: steer one question a week |
+| Deals | An offer made in a negotiation | Negotiating | 3: his ask as a tighter range |
+| Bluffs | A claim by his side that you judged | Negotiating | 3: a flag when his story doesn't match the market |
+| Your Boss | A meeting with your boss | Network | 3: what your boss is judged on this year |
+
+### 6. Coach level and names
+
+Your coach level is your skill levels added up and shown out of 100 (450 skill levels = level 100). It buys nothing. It is the one number for how much coach you are, on your page and on every coach's page. Names come at 20, 40, 60 and 80: Up-and-comer, Established, Proven, Elite.
+
+### 7. Rust
+
+A skill you don't use for a full season drops 2 levels a season, never below 5, and never loses a perk it reached at 3. It comes back at double speed. Your ratings move with it. Since only about a dozen skills fit in your week, most coaches hold a dozen sharp skills and the rest somewhere above 5.
+
+### 8. Where you start: your road
+
+- Your road's ratings are your start, as today (`setup.rs`, `BACKGROUNDS`).
+- Your road gives starting levels in its own skills. A college offensive coordinator starts with Opening Script, Red Zone, Third Down and Game Planning at 4 or 5. Those levels are already in his road's ratings, so they lift nothing; only levels earned in play do.
+- Your road gives two cold skills (version 2's blind spots). A cold skill reads 2 points low in its situation and levels at half speed until level 3. Proposed by road:
+
+| Road | Cold skills |
 |---|---|
-| Former NFL star, Pro Bowler | Slow to trust a scheme he never ran; impatient with slow learners |
-| Former NFL starter, journeyman | The clock before the half; the booster room |
-| Former college player | NFL scouts don't know him; fourth downs |
-| Never played past high school | Veterans test him; the living room of a star |
-| High school coach | The portal; agents |
-| College position coach or coordinator | Game management as the man in charge; the press |
-| NFL assistant or coordinator | The living room; high school coaches don't know him |
-| Scout or personnel man | Halftime; the team talk |
-| Analytics | Cold in living rooms; veterans test him |
+| Former NFL star, Pro Bowler | Install; Flaw Fixing |
+| Former NFL starter, journeyman | End of Half; Boosters |
+| Former college player | Pro Prep; Short Yardage and Fourth Down |
+| Never played past high school | Veterans; Living Room |
+| High school coach | The Portal; Deals |
+| College position coach or coordinator | End of Half; Press |
+| NFL assistant or coordinator | Living Room; High School Coaches |
+| Scout or personnel man | Adjustments; Pregame Talks |
+| Analytics | Living Room; Veterans |
 
-### 8. Goals
+### 9. Weekly goals
 
-- **Weekly goals.** Three a week, drawn from your real week: the opponent's strengths, your roster's problems, your recruiting board. "Score touchdowns on 3 of your first 4 red zone trips" against the league's 3rd best red zone defense. "Sit down with the three seniors who lost their jobs." 80 to 200 XP each, harder ones more. One swap a week. Goals are about a quarter of a season's XP.
-- **Season goals.** Your boss's goals and your own ambitions (`legacy/ambitions.rs`) pay XP in place of today's lesson points.
-- **Career milestones.** 50 wins, a first draft pick, a first conference title.
+Three a week, drawn from your real week: the opponent's strengths, your roster's problems, your board. Each pays bonus reps in a named skill, about a week's worth. "Score touchdowns on 3 of your first 4 red zone trips: +10 Red Zone reps", against the league's 3rd best red zone defense. One swap a week. Season goals from your boss and your own ambitions (`legacy/ambitions.rs`) pay bonus reps in place of today's lesson points.
 
-### 9. Trophies
+### 10. Every coach in the world
 
-About 120, from the world's own records. Each pays XP once. Rarity is the share of the world's head coaches at your level who hold it, counted from the world, so it is true for this save. Examples: Giant Killer (beat a ranked team as an underdog of 10 or more), First Sunday (a player you coached is drafted), Sunday Pipeline (ten drafted), The Rebuild (3 wins or fewer to a bowl inside two seasons), Diamond (a two-star you signed goes in the first three rounds), Tree (three assistants hired as head coaches).
+Every coach has the same 45 skills. At world build his levels are drawn from his jobs and years, so the world starts in balance: a 50-year-old coordinator already holds his dozen sharp skills. Each year his job gives him reps by the same curve and rust. His page shows his skills as your read of him does: vague for a stranger, clear for your own staff. Hiring reads them: you hire a coordinator for Third Down 9. When a coordinator calls a side, his levels call it and he earns the reps. AI coaches' ratings keep today's yearly growth (`Coach::pace`) until the measure says whether skills can carry them too.
 
-### 10. Rust
+### 11. What goes
 
-An ability unused for two seasons reads at half strength until you do that work again: 10 in-home visits bring Living Room back. Nothing is lost for good. Ratings don't fade.
+- The yearly age growth for your coach (`coach.rs`, `age_one_year`). Decline from about 59 stays as built.
+- The lesson-point letter (+1.0 in any rating). A story handled well pays bonus reps in the skill it tested.
+- Version 3's XP, coach points, six trees, capstones and trophies.
 
-### 11. Every coach in the world
+### 12. Kept from version 2
 
-Every coach gets a level, trees, abilities and blind spots. At world build they are drawn from his own career record (games, results against the line, signings, draft picks, jobs held). Each year his job pays XP by the same table from his season's totals, and his road and job decide where his points go. His page shows them as your read of him does: vague for a stranger, clear for your own staff. Hiring reads them. AI coaches' ratings keep today's yearly growth (`Coach::pace`) until the measure says whether XP can carry them too.
-
-### 12. Where you start
-
-Level 1, whatever your road. Your road's head start is its ratings (as today, `setup.rs`, `BACKGROUNDS`), one open tree, two bronze abilities and two blind spots. The other choice is a starting level by road (a former NFL coordinator at about 25); question 11.
+- **One store for your ratings** (the bug above). Ships first, on its own.
+- **`coach_check`.** Plays your coach with a skill at 0 and at 10, everything else the same, on the same seeds, per seat and in both ways of playing: wins, points, signings, growth. It sets every size before anything ships.
+- **Negotiating below the NFL**, the way it reads there (`front_office/nfl.rs`, `market_read`): Deals is how wide your read of his lowest number is, Bluffs how often you read a bluff right.
+- The head coach whose coordinator calls is no longer dead on game day: his game-day skills still prepare the team (section 2, the first column), and he earns their reps from practice periods and the plan.
 
 ### 13. What you see
 
-- **The Career tab** on your page (the mock-up): level, XP bar, points, the six trees with every node's rank and counter, this week's goals, last game's XP, season goals, trophies, blind spots.
-- **The post-game XP card**: every line of XP and which of your abilities read on how many snaps.
-- **The level-up moment** on Big moments.
-- **A season page**: what each ability did, in counts. "Red Zone Caller: 31 trips, 21 touchdowns; the table expected 18."
-- **A coach's page** anywhere in the world: his level, trees and abilities, as far as you know him.
+- **The Career tab** (the mock-up): coach level, this week's level-ups with what each paid, the 45 skills by group with level, bar, reps to the next level and the next perk, your ratings as road plus earned, this week's goals, your week's hours, cold and rusty skills.
+- **A level-up line the moment it happens**, in the game feed or the week's card: "Red Zone reached level 6. New: a sharper suggested call inside the 20."
+- **A season page**: what each skill did, in counts. "Red Zone: 31 trips, 21 touchdowns; the table expected 18."
+- **A coach's page** anywhere in the world: his skills, as far as you know him.
 
-### 14. Kept from version 2
+## Where the loop bends real life
 
-- **One store for your ratings** (the bug above). Every reader takes the coach record; `career.you` stays as the setup record. Ships first, on its own.
-- **`coach_check`.** A tool that plays your coach at 5 and at 18 in one rating, and with and without each ability, on the same seeds, per seat: wins, points, signings, growth. It sets every size before anything ships.
-- **The dead ratings get work.** As a head coach who doesn't call: your scheme shares the week's film study and the spring install with the coordinator on the side you came up on, half each; your adaptation is half of the second half's adjustments. Negotiating reads below the NFL the way it does there (`front_office/nfl.rs`, `market_read`): how wide your read of his lowest number is, and how often you read a bluff right.
-- **The mentor rule.** A coordinator or position coach better than you still lifts you: his work on your staff pays you a share of XP in his tree.
-
-## Where the game loop bends real life
-
-- A real coach doesn't choose where his skill grows. Here you place points. The gates (tree XP, counters, feats) keep the choice inside the work you really did.
-- Weekly goals and trophies are a game layer. They pay XP and change nothing on the field.
-- Levels are a readout of XP. No rule reads your level except the points it pays.
+- A skill mastered in one season is faster than a real career. Cain chose the pace for a game where a season takes many real hours. Your road carries your past years, and AI coaches start already levelled, so the world stays in balance.
+- Screen perks give you information a real coach would have in his head. Hidden numbers stay hidden: a perk shows ranges, words and tendencies, never a true rating or potential.
 
 ## Lanes (proposed, not confirmed)
 
 | Lane | What | Files | Waits for |
 |---|---|---|---|
 | RE-bug | One store for your ratings | `folk/talks.rs`, `pitch.rs`, `takeover.rs`, `handoff.rs`, `front_office/preview.rs`, `legacy/guys.rs` | Nothing |
-| RE0 | `coach_check` | `afm-tools` | RE-bug |
-| RE1 | XP, the level, points, the XP book; age growth and lesson points out (items 1-3) | `world/coach.rs`, a new `world/folk/career_xp.rs`, `storylines/credit.rs`, `legacy/` | P2 staff hiring (`coach.rs`) |
-| RE2 | Trees, tiers, counters, the abilities' store, blind spots, rust, the start (items 4-7, 10, 12) | a new `world/coach_craft.rs`, `setup.rs` | RE1 |
-| RE3 | Tactician abilities, the head coach's plan and halftime (an engine lane) | `game/calling.rs`, `game/flow.rs`, `world/season.rs` | The FBS rushing lane, RE0 |
-| RE4 | Recruiter, Developer, Motivator and Scout abilities | `folk/case.rs`, `game/talk.rs`, `scouting/film/`, `craft_work.rs` | P1 recruiting (`recruiting.rs`) |
-| RE5 | Program Builder abilities, negotiating below the NFL | `folk/persona/negotiate/`, `haggle.rs` | G5 coach pay |
-| RE6 | Every coach in the world: levels and abilities from his record, hiring (item 11) | `world/staff.rs`, `folk/hiring.rs`, `coach_look.rs` | P2 staff hiring |
-| RE7 | Goals and trophies with rarity (items 8, 9) | `legacy/ambitions.rs`, `storylines/`, a new `world/folk/trophies.rs` | RE1 |
-| RE8 | Screens (item 13), from the mock-up | `app/ui` | RE1, RE2 |
+| RE0 | `coach_check`, both ways of playing | `afm-tools` | RE-bug |
+| RE1 | The skills' store, reps, levels, the pace, rust, the road's start, ratings as road plus earned; age growth and lesson points out | `world/coach.rs`, a new `world/coach_skills.rs`, `setup.rs`, `storylines/credit.rs`, `legacy/` | P2 staff hiring (`coach.rs`) |
+| RE2 | The full perk list with Cain (135), then the perk gates on the screens | design round, `afm-game` | RE1 |
+| RE3 | Game-day skills in the engine, all three columns (an engine lane) | `game/calling.rs`, `game/flow.rs`, `game/live.rs`, `world/season.rs` | The FBS rushing lane, RE0 |
+| RE4 | Recruiting, Teaching, People and Scouting skills | `folk/case.rs`, `game/talk.rs`, `scouting/film/`, `craft_work.rs` | P1 recruiting (`recruiting.rs`) |
+| RE5 | Program skills, negotiating below the NFL | `folk/persona/negotiate/`, `haggle.rs` | G5 coach pay |
+| RE6 | Every coach in the world: skills from his record, hiring | `world/staff.rs`, `folk/hiring.rs`, `coach_look.rs` | P2 staff hiring |
+| RE7 | Weekly and season goals paying reps | `legacy/ambitions.rs`, `storylines/` | RE1 |
+| RE8 | Screens, from the mock-up | `app/ui` | RE1 |
 
 ## Not measured
 
 - How many lesson points a season pays today.
 - What any rating but play calling is worth in wins, signings or growth. RE0 measures it.
-- The XP a real season of play pays. The table's sizes and the 10,000 a season are estimates; RE1 counts them on a small world before the level curve is fixed.
+- A season's worth of reps for each skill. The counts above are estimates; RE1 counts them on a small world before the curve is fixed.
+- What "better prepared in a situation" is worth on the field. RE0 measures it before RE3 sets its size.
 
-## 12 questions for Cain
+## Decided
 
-This list replaces version 2's 12. All proposed, not confirmed. Each has a name, since typed lists get renumbered.
+- **The pace**: one skill reaches level 10 in one season of doing it (Cain's card, 2026-11-24).
+- **Both ways of playing**: every rating must make sense when you play a game yourself and when you sim it (Cain, 2026-11-24). Section 2 is the proposed way to do it.
 
-1. **Six trees: your road opens one, the others open by a feat?** Example: a college offensive coordinator starts with Tactician; Recruiter opens once he has signed 10 players he pitched himself. In games: nothing by itself; it sets what you can build first. My pick: yes.
-2. **Levels: 1 to 100, one point a level, three at 10, 25, 50, 75 and 100?** Example: about 8 levels in your first season, about 3 a season by year ten, level 100 after 25 to 30 strong seasons. About 110 points against 660, so a career fills about a sixth. In games: two coaches with 20 seasons each are built differently. My pick: yes.
-3. **Earn before you buy: tiers open by XP in that tree, silver and gold by the work itself?** Example: ten wins don't open Recruiter tier 2, 2,000 XP from your own visits and pitches does; gold Red Zone Caller needs 400 red zone snaps you called (about four seasons) and 3 points. In games: your build follows what you really did. My pick: yes.
-4. **Upset XP: game XP reads the line?** Example: a win by 10 as a 10-point favorite pays 250; a win by 3 as a 14-point underdog pays 658; a loss as a 14-point favorite pays 100. In games: nothing on the field; a small school's coach levels as fast as a blue blood's. My pick: yes.
-5. **Ability size: up to 3 points of its rating in its own situation?** Example: gold Red Zone Caller reads your play calling 14 as 17 inside the 20 and as 14 everywhere else. Players' tools go to 5. In games: a few more red zone touchdowns a season on trips you call; `coach_check` measures it before it ships. My pick: 3, raised only if the measure shows you can't feel it.
-6. **Capstones: one a tree, two in a career?** Example: The System: your coordinators call with your Tactician abilities at half strength; it needs 15,000 Tactician XP and a conference title won while calling a side. In games: your red zone edge reaches the side you don't call. My pick: yes.
-7. **Weekly goals: three from your real week, one swap?** Example: "score touchdowns on 3 of your first 4 red zone trips, 180 XP", against the league's 3rd best red zone defense. In games: nothing directly; one part of each game matters more to you. My pick: yes.
-8. **Trophies: about 120, rarity counted from this world's coaches?** Example: "Giant Killer: beat a ranked team as an underdog of 10 or more. 11% of FBS head coaches hold it." In games: nothing; XP and something to chase. My pick: yes.
-9. **The whole world: every coach has a level, trees and abilities?** Example: two coordinator candidates read "level 41 Tactician, gold Third-Down Caller" and "level 33, silver Film Room, silver Living Room". In games: your hire changes third downs or recruiting, not everything at once. My pick: yes.
-10. **Rust: an unused ability reads at half strength after two seasons, and nothing is ever lost or refunded?** Example: six NFL seasons leave your gold Living Room reading +1.5; your first 10 in-home visits back bring it to +3. In games: your first class back lags a little. My pick: yes.
-11. **The start: level 1 for every road?** Example: a former NFL coordinator starts at level 1 with his road's ratings, Tactician open, two bronze abilities and two blind spots. The other way he starts at about level 25 with points already placed, and his first season pays 3 levels and not 8. In games: the same ratings either way. My pick: level 1.
-12. **The dead ratings get work, the same rules at every level (kept from version 2)?** Example: a defensive head coach with scheme 17 and a coordinator at 13 plans the week at 15; your adaptation 16 with a coordinator at 10 plays the second half at 13; in a portal deal negotiating 18 reads a bluff right 69% of the time against 45% at 10. In games: your defense reads film better, your side adjusts faster after the half, you overpay less. My pick: yes.
+## 11 questions for Cain
+
+This list replaces version 3's 12. All proposed, not confirmed. Each has a name, since typed lists get renumbered.
+
+1. **Use it to level it: skills level only by reps, with no points to spend?** Example: about 150 red zone snaps make Red Zone 10; nothing else can. In games: your coach is built by how you spend your weeks. My pick: yes.
+2. **Three ways: your team always, your screen when you play, your coach when you sim?** Example: Red Zone 8 means fewer busted assignments inside the 20 in every game, their red zone tendencies on your call screen when you call, and better calls when you sim. In games: a hands-on player and a simmer both feel the same skill. My pick: yes.
+3. **Reps both ways: a sim levels at the normal pace, your own calls up to twice or down to half?** Example: a sharp caller reaches Red Zone 10 by November, a simmer by the bowl game, a careless caller next season. In games: nothing directly. My pick: yes.
+4. **Power: half a point a level, 5 at level 10, in its own situation?** Example: Red Zone 10 on Play Calling 14 reads 19 inside the 20 and 14 everywhere else. In games: clearly more red zone touchdowns; the measure gives the number before it ships. My pick: yes.
+5. **Ratings: road plus earned, up to 6 when all of a rating's skills are at 10?** Example: your Play Calling 14 reaches 20 with Opening Script, Red Zone, Third Down and Pressure all at 10; a season of half that work lifts it 2 to 3. In games: your whole offense is called better on snaps you don't take. My pick: yes.
+6. **Screen perks at levels 3, 6 and 10?** Example: Living Room 3 would show one more thing his family cares about; Calls and Texts 6 shows when each rival last reached him. In games: nothing on the field; you decide with more in front of you. My pick: yes, with the full list as its own round.
+7. **Rust: a skill unused for a season drops 2 levels a season, never below 5, and comes back at double speed?** Example: three NFL seasons take Living Room from 10 to 5; half a season of visits brings it back. In games: your first class back lags a little. My pick: yes.
+8. **Your road: starting levels in its skills and two cold skills?** Example: a college coordinator starts with Red Zone and Third Down at 4 or 5 and with End of Half and Press cold: 2 points low, half speed until level 3. In games: your first weeks have a real weakness. My pick: yes.
+9. **Weekly goals: three from your real week, each paying about a week of bonus reps in one skill?** Example: "score touchdowns on 3 of your first 4 red zone trips: +10 Red Zone reps". In games: nothing directly. My pick: yes.
+10. **The whole world: every coach has the 45 skills?** Example: two coordinator candidates read "Third Down 9, Pressure 8" and "Game Planning 8, Living Room 7". In games: your hire changes third downs or recruiting, not everything at once. My pick: yes.
+11. **Order: the bug first, then the measure, then the skills, with the engine side after the FBS rushing lane?** Example: the bug fix ships this week on its own; nothing else changes your game until the measure has set the sizes. My pick: yes.
