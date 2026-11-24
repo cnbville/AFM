@@ -335,6 +335,17 @@ pub fn roles_around(team: Team) -> Vec<Role> {
     }
 }
 
+/// The holdover juniors' meeting, a holdover scene about the whole room of
+/// graduate assistants, analysts and quality-control coaches left from the
+/// last staff (`u64::MAX` is the position coaches' room).
+pub const JUNIORS: u64 = u64::MAX - 1;
+
+/// Whether the staff you take over has juniors to meet: the posts a new head
+/// coach clears out at the start, with their own men coming in.
+fn has_juniors(w: &World) -> bool {
+    !super::staffing::my_juniors(w).is_empty()
+}
+
 /// The two weeks' meetings: (day offset, kind, its subject, title, place).
 fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, String)> {
     let mut v: Vec<(i32, Kind, u64, String, String)> = Vec::new();
@@ -393,6 +404,15 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
                 "The holdover position coaches".into(),
                 format!("{building}, the staff room"),
             ));
+            if has_juniors(w) {
+                v.push((
+                    3,
+                    Kind::Holdover,
+                    JUNIORS,
+                    "The holdover juniors".into(),
+                    format!("{building}, the staff room"),
+                ));
+            }
             v.push((
                 3,
                 Kind::StaffReport,
@@ -433,6 +453,15 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
             let staff = facts::assistants(w, team);
             for (c, role) in &staff {
                 v.push((2, Kind::Holdover, *c as u64, format!("Meeting the {}", role.name()), "Your office".into()));
+            }
+            if has_juniors(w) {
+                v.push((
+                    2,
+                    Kind::Holdover,
+                    JUNIORS,
+                    "The holdover quality-control coaches".into(),
+                    "Your office".into(),
+                ));
             }
             v.push((
                 3,
@@ -622,6 +651,16 @@ fn rush_schedule(w: &World, team: Team, first: Date) -> Vec<(i32, u16, Kind, u64
                 "The holdover position coaches".into(),
                 format!("{building}, the staff room"),
             ));
+            if has_juniors(w) {
+                v.push((
+                    0,
+                    at + 60,
+                    Kind::Holdover,
+                    JUNIORS,
+                    "The holdover juniors".into(),
+                    format!("{building}, the staff room"),
+                ));
+            }
             v.push((
                 0,
                 h(14, 0),
@@ -730,6 +769,16 @@ fn rush_schedule(w: &World, team: Team, first: Date) -> Vec<(i32, u16, Kind, u64
                     "Your office".into(),
                 ));
                 at += 60;
+            }
+            if has_juniors(w) {
+                v.push((
+                    0,
+                    at,
+                    Kind::Holdover,
+                    JUNIORS,
+                    "The holdover quality-control coaches".into(),
+                    "Your office".into(),
+                ));
             }
             v.push((
                 0,
@@ -1575,6 +1624,9 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
     if s.a == u64::MAX {
         return holdover_room(w, s, team);
     }
+    if s.a == JUNIORS {
+        return juniors_room(w, s);
+    }
     let c = s.a as usize;
     let Some(coach) = w.coaches.get(c) else {
         s.narrate("He'd already cleaned out his office.");
@@ -1827,6 +1879,105 @@ fn oversell(w: &World, team: Team, c: usize) -> Option<(usize, String)> {
     Some((best, text))
 }
 
+/// The meeting with the juniors held over from the last staff: graduate
+/// assistants, analysts and (at an NFL club) quality-control coaches. A new
+/// head coach usually brings his own, so the room asks who stays.
+fn juniors_room(w: &mut World, s: &mut Scene) {
+    let juniors = super::staffing::my_juniors(w);
+    if juniors.is_empty() {
+        s.narrate("The last staff's juniors had already cleared out their desks.");
+        s.end();
+        return;
+    }
+    let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach);
+    let mut doc = Doc {
+        title: "The holdover juniors".into(),
+        note: "The young men still on staff from the last year: who brought them, what they make, and what the building says about each."
+            .into(),
+        cols: vec![
+            "Coach".into(),
+            "Post".into(),
+            "Room".into(),
+            "Here since".into(),
+            "His pay".into(),
+            "His tree".into(),
+            "The word".into(),
+        ],
+        rows: Vec::new(),
+    };
+    for &c in &juniors {
+        let co = &w.coaches[c];
+        let Some(j) = co.junior_now() else { continue };
+        let tree = if old.is_some_and(|o| co.mentor == Some(o)) {
+            "the old coach's"
+        } else if junior_boss_stays(w, c) {
+            "a position coach's"
+        } else {
+            "his own"
+        };
+        let pay = super::staffing::junior_salary(w, c)
+            .map_or(String::new(), |p| format!("${}", facts::thousands((p / 1000.0) as u32) + ",000"));
+        doc.rows.push(DocRow {
+            pid: None,
+            cells: vec![
+                coach_link(w, c),
+                j.post.name().into(),
+                j.group.name().into(),
+                j.since.to_string(),
+                pay,
+                tree.into(),
+                staff_word(w, c),
+            ],
+        });
+    }
+    s.who.push(Who::Group("The holdover juniors".into()));
+    s.narrate(format!(
+        "{} {} still on the staff from the last year. Real head coaches bring their own graduate assistants and analysts, and these posts run year to year: letting one go owes nothing, and the post opens for you to fill from the staff screen.",
+        juniors.len(),
+        if juniors.len() == 1 { "junior is" } else { "juniors are" }
+    ));
+    s.docs.push(doc);
+    s.pick(
+        35,
+        "Keep them all through spring. Decide after.",
+        "Listen",
+        "calm",
+        "Nobody's post changes; you see who works, and you can still let anyone go from the staff screen.",
+    );
+    s.pick(
+        36,
+        "Keep the ones a staying position coach or a recruiting tie vouches for; let the rest go.",
+        "Tell him straight",
+        "firm",
+        "The old staff's men go and the rest stay; each post that opens is yours to fill.",
+    );
+    s.pick(
+        37,
+        "Clean house. You're bringing your own graduate assistants and analysts.",
+        "Tell him straight",
+        "fiery",
+        "Every junior goes. Their position coaches and the players who like them feel it.",
+    );
+}
+
+/// Whether the position coach who brought a junior is still on your staff
+/// and not yet let go.
+fn junior_boss_stays(w: &World, c: usize) -> bool {
+    let Some(team) = Team::seat(w) else { return false };
+    let Some(m) = w.coaches[c].mentor else { return false };
+    let gone = w.folk.takeover.as_ref().is_some_and(|t| t.let_go.contains(&m));
+    !gone && facts::assistants(w, team).iter().any(|x| x.0 == m)
+}
+
+/// Who among the juniors the staff would keep when you ask for the ones
+/// they vouch for: a position coach who stays vouches for his own man, and
+/// a man with three real ties to the area's high school coaches earns his
+/// place by himself.
+fn vouched(w: &World, c: usize) -> bool {
+    let ties = w.coaches[c].ties.values().filter(|&&v| v > 0.4).count();
+    ties >= 3 || junior_boss_stays(w, c)
+}
+
 fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
     let staff = facts::assistants(w, team);
     let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach);
@@ -2006,6 +2157,50 @@ fn holdover_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
             }
             w.folk.mine.hard = (w.folk.mine.hard + 0.1).min(1.0);
             s.outcome.push("You told the staff every stipend is open again in May.".into());
+        }
+        35 => {
+            let all = super::staffing::my_juniors(w);
+            let n = all.len();
+            if let Some(t) = w.folk.takeover.as_mut() {
+                t.kept.extend(all);
+            }
+            s.you(&scene::your_name(w), "Everyone stays through spring. I'll see who works.");
+            s.outcome.push(format!("You kept your {n} juniors through spring."));
+        }
+        36 | 37 => {
+            let mut gone = Vec::new();
+            let mut stay = 0usize;
+            for c in super::staffing::my_juniors(w) {
+                if code == 36 && vouched(w, c) {
+                    stay += 1;
+                    if let Some(t) = w.folk.takeover.as_mut() {
+                        t.kept.push(c);
+                    }
+                    continue;
+                }
+                gone.push(w.coaches[c].name.clone());
+                super::staffing::fire(w, c, "let go by the new head coach");
+                if let Some(t) = w.folk.takeover.as_mut() {
+                    t.let_go.push(c);
+                }
+            }
+            s.you(
+                &scene::your_name(w),
+                if code == 36 {
+                    "The ones who are vouched for stay. The rest, I'm bringing my own."
+                } else {
+                    "I'm bringing my own graduate assistants and analysts. Thank you for what you've done."
+                },
+            );
+            s.outcome.push(if gone.is_empty() {
+                "Everyone stays: each was vouched for.".into()
+            } else {
+                format!(
+                    "You let go {}{}. The posts are year to year, so nothing is owed. Fill them from the staff screen.",
+                    gone.join(", "),
+                    if stay > 0 { format!(", and kept {stay}") } else { String::new() }
+                )
+            });
         }
         33 | 34 => {
             let staff: Vec<usize> = facts::assistants(w, team)

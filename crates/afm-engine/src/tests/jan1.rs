@@ -206,3 +206,55 @@ fn an_nfl_assistant_on_jan1_works_under_the_head_coach_who_has_the_games() {
     assert!(w.seat_interim().is_none());
     assert_eq!(w.nfl_head(t), head);
 }
+
+/// Taking over a job meets the juniors left from the last staff (GAPS "Taking
+/// over a job skips the holdover graduate assistants and analysts"): a
+/// meeting after the position coaches' room, and Clean house lets every one
+/// go at no cost and opens the posts, while the vouched-for pick keeps the
+/// men a staying position coach brought.
+#[test]
+fn a_new_head_coach_meets_the_juniors_and_can_clear_them_out() {
+    use crate::world::coach::Employer;
+    use crate::world::folk::takeover::JUNIORS;
+    let mut w = fresh();
+    let p = (0..w.programs.len())
+        .find(|&p| crate::world::staff::juniors_of(&w, Employer::College(p)).len() >= 2)
+        .expect("a program with graduate assistants or analysts");
+    let had = crate::world::staff::juniors_of(&w, Employer::College(p)).len();
+    w.start_career_as(&you(), Start::Head(Job::College(p)), 5);
+    let v = scenes_of(&w);
+    let room = v.iter().find(|s| s.kind == Kind::Holdover && s.a == JUNIORS).expect("the juniors' meeting");
+    let coaches = v.iter().find(|s| s.kind == Kind::Holdover && s.a == u64::MAX).unwrap();
+    let press = v.iter().find(|s| s.kind == Kind::PressIntro).unwrap();
+    assert!(at(room) > at(coaches) && at(room) < at(press), "after the position coaches, before the press");
+    let id = room.id;
+    let opened = scene::open(&mut w, id).unwrap();
+    assert!(opened.docs.iter().any(|d| d.rows.len() == had), "every junior on the table");
+    assert!(opened.picks.iter().any(|x| x.code == 37));
+    let owed = w.folk.staff.owed.clone();
+    let done = scene::answer(&mut w, id, 37).unwrap();
+    assert!(done.done, "{:?}", done.picks);
+    assert!(crate::world::folk::staffing::my_juniors(&w).is_empty(), "every junior let go");
+    assert_eq!(w.folk.staff.owed, owed, "a junior post owes nothing");
+    let open = crate::world::staff::junior_openings(&w, Employer::College(p));
+    assert!(open.iter().map(|x| x.1).sum::<usize>() >= had, "the posts are open to fill");
+}
+
+#[test]
+fn keeping_the_vouched_juniors_lets_go_the_old_coachs_men() {
+    use crate::world::coach::Employer;
+    use crate::world::folk::takeover::JUNIORS;
+    let mut w = fresh();
+    let p = (0..w.programs.len())
+        .find(|&p| crate::world::staff::juniors_of(&w, Employer::College(p)).len() >= 2)
+        .expect("a program with graduate assistants or analysts");
+    w.start_career_as(&you(), Start::Head(Job::College(p)), 5);
+    let id = scenes_of(&w).iter().find(|s| s.kind == Kind::Holdover && s.a == JUNIORS).unwrap().id;
+    scene::open(&mut w, id).unwrap();
+    let before = crate::world::folk::staffing::my_juniors(&w);
+    let old = w.folk.takeover.as_ref().unwrap().old_coach;
+    scene::answer(&mut w, id, 36).unwrap();
+    let after = crate::world::folk::staffing::my_juniors(&w);
+    assert!(after.iter().all(|c| before.contains(c)));
+    assert!(after.iter().all(|&c| w.coaches[c].mentor != old || w.coaches[c].ties.values().any(|&v| v > 0.4)));
+}
