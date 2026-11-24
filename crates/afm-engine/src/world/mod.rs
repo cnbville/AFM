@@ -1978,6 +1978,28 @@ impl World {
         season::game_team(self, &self.programs[prog])
     }
 
+    /// A program's team as this college season's games played it (built
+    /// when the season started), else as the engine sees it today (trial
+    /// tooling only: `match_check` plays a world's own college teams).
+    #[cfg(feature = "debug")]
+    pub fn debug_season_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
+        self.college.as_ref().and_then(|c| c.teams.get(prog).cloned().flatten()).or_else(|| self.debug_game_team(prog))
+    }
+
+    /// This college season's games, played or to come and not called off:
+    /// (home, away, at a neutral site, a regular-season game) (trial
+    /// tooling only).
+    #[cfg(feature = "debug")]
+    pub fn debug_college_games(&self) -> Vec<(usize, usize, bool, bool)> {
+        self.college.as_ref().map_or_else(Vec::new, |c| {
+            c.games
+                .iter()
+                .filter(|g| !g.played.is_some_and(|p| p.cancelled))
+                .map(|g| (g.home, g.away, g.site.is_some(), g.kind == schedule::GameKind::Regular))
+                .collect()
+        })
+    }
+
     /// An NFL club's game-day team as the match engine sees it today, each
     /// player with his whole person (trial tooling only: `ab_check` changes
     /// bodies on the world's own rosters).

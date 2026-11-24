@@ -30,6 +30,7 @@ pub mod marks;
 pub mod odd;
 pub mod pages;
 pub mod panels;
+pub mod program_check;
 pub mod real_in;
 pub mod search;
 pub mod sink;

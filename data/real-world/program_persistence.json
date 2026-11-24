@@ -1,0 +1,153 @@
+{
+ "source": "sportsdataverse cfb_schedules 2001-2025, FBS team seasons with 8+ games (scripts/program_persistence.py)",
+ "seasons": 25,
+ "team_seasons": 3079,
+ "lags": {
+  "1": {
+   "srs": 0.736,
+   "srs_n": 2895,
+   "win_share": 0.542,
+   "win_share_n": 2895,
+   "margin": 0.619,
+   "margin_n": 2895
+  },
+  "2": {
+   "srs": 0.625,
+   "srs_n": 2759,
+   "win_share": 0.37,
+   "win_share_n": 2759,
+   "margin": 0.447,
+   "margin_n": 2759
+  },
+  "5": {
+   "srs": 0.547,
+   "srs_n": 2362,
+   "win_share": 0.276,
+   "win_share_n": 2362,
+   "margin": 0.319,
+   "margin_n": 2362
+  },
+  "10": {
+   "srs": 0.49,
+   "srs_n": 1759,
+   "win_share": 0.207,
+   "win_share_n": 1759,
+   "margin": 0.222,
+   "margin_n": 1759
+  },
+  "15": {
+   "srs": 0.482,
+   "srs_n": 1135,
+   "win_share": 0.177,
+   "win_share_n": 1135,
+   "margin": 0.22,
+   "margin_n": 1135
+  },
+  "20": {
+   "srs": 0.493,
+   "srs_n": 583,
+   "win_share": 0.199,
+   "win_share_n": 583,
+   "margin": 0.283,
+   "margin_n": 583
+  },
+  "24": {
+   "srs": 0.506,
+   "srs_n": 116,
+   "win_share": 0.101,
+   "win_share_n": 116,
+   "margin": 0.235,
+   "margin_n": 116
+  }
+ },
+ "records": {
+  "programs_22_plus": 117,
+  "best": [
+   [
+    "Ohio State",
+    277,
+    50,
+    0.847
+   ],
+   [
+    "Boise State",
+    255,
+    63,
+    0.802
+   ],
+   [
+    "Alabama",
+    269,
+    69,
+    0.796
+   ]
+  ],
+  "worst": [
+   [
+    "New Mexico State",
+    89,
+    206,
+    0.302
+   ],
+   [
+    "UTEP",
+    97,
+    202,
+    0.324
+   ],
+   [
+    "Eastern Michigan",
+    95,
+    196,
+    0.326
+   ]
+  ],
+  "at_300_or_under": 0,
+  "under_350": 7,
+  "over_750": 5,
+  "no_winning_season": 0,
+  "two_or_fewer_winning": 1,
+  "longest_drought": 15,
+  "longest_drought_team": "Eastern Michigan",
+  "unbeaten_a_year": 0.84,
+  "longest_win_streak": 34,
+  "longest_win_streak_team": "USC"
+ },
+ "top10_first_to_last_five_years": {
+  "srs": {
+   "still_top10": 4,
+   "still_top25": 9,
+   "moved_30_places": 0.22,
+   "n": 118
+  },
+  "margin": {
+   "still_top10": 2,
+   "still_top25": 5,
+   "moved_30_places": 0.297,
+   "n": 118
+  }
+ },
+ "blocks": {
+  "next_block_r": 0.525,
+  "moved_150_plus": 0.361,
+  "moved_250_plus": 0.123,
+  "n": 488,
+  "bottom_and_top_quarter": 27,
+  "of": 118
+ },
+ "coach_share": {
+  "source": "afm/dynasty-layers/real_coach_share.py: 20 biggest programs, classes 2003-2025 (460 classes, 88 coach stints)",
+  "haul": {
+   "program": 0.31,
+   "program_and_coach": 0.61,
+   "noise_floor": 0.41,
+   "coach_share_of_rest": 0.29
+  },
+  "margin": {
+   "program": 0.23,
+   "program_and_coach": 0.54,
+   "noise_floor": 0.36,
+   "coach_share_of_rest": 0.23
+  }
+ }
+}

@@ -2917,9 +2917,68 @@ Speed: the same inside the noise. `match_check` against main, the two run in tur
 
 What is left is in `GAPS.md`: few passers out of the pocket (the escape, the boot's share) and few scrambles, with throws after 3.94 s and time to throw short (a passer still out inside 2.5 s on 68% of throws, real 50%, as receivers come open early, which also keeps NFL sacks a fifth short), throwaways, Cover 0's sacks, and the passer's throws on the move still easier than real.
 
+## The even run block (realism audit item 1, 2026-11-24)
+
+The target (`docs/trials/realism-audit-seed321.md`, item 1): FBS backs gain 5.79 yards a carry in the seed 321 world (real 5.12, cfbfastR 2022-24), 90 a year reach 1,000 yards (real 45 to 51). Built over main bbd4a30. The weights are proposed, not confirmed.
+
+How it was measured. `match_check fbs` with `AFM_AB_WORLD=<world file>` now plays a world's own FBS teams, as its season's games played them, on its own schedule's games between two FBS programs (cfbfastR's real numbers are FBS against FBS, sacks as passes; the book's 5.79 counts games against FCS teams too). World seed 321's FBS teams gain 5.71 a carry there, its NFL clubs 4.62 (real 4.50), the FBS test league 4.85.
+
+What was wrong:
+
+- **All of it is in the ratings.** With every position's starters moved to the test league's typical starter (`AFM_TYPICAL=ALL`) the world's teams gain 4.85, the test league's number. A world draws its men as athletes first, so its FBS starters carry 5 to 21 points more Speed, Acceleration, Balance, Strength and Lower Body than the FBS test league's typical men, who are the NFL's scaled down in every rating, and its linemen 1 to 9 points less of their technique (Run Blocking, Block Shedding, Hand Use, Anchor; `AFM_STARTERS`).
+- **A run block read the blocker's body and not the defender's.** Block power is 0.6 technique (Run Blocking, Hand Use) and 0.4 body (0.14 Lower Body, 0.06 Strength, 0.1 Balance, 0.1 Acceleration; `block_base`). Shed power was 0.4 Block Shedding, 0.2 Hand Use, 0.15 Anchor, 0.15 Play Recognition and 0.1 Strength: a tenth of it body. Two men who were each other's equals were even only on rosters whose bodies and technique rate alike, as the test leagues' do. On the world's FBS teams the typical lineman's block stood 5.5 points ahead (the test league's typical men 1.0 behind), on its NFL clubs 3.5 ahead (even).
+- **Lane SF3 made that tilt count double.** Since SF3 the shed to make the play is scaled by e^(edge / 9) (`SHED_EDGE`), measured on the test league and on a world's NFL clubs only. A 6.5-point tilt is half the sheds: the world's FBS defenders came off 0.84 run blocks a run (the FBS test league 1.75), linemen off linemen 0.44 times.
+- **The same on the edge.** The world's receivers block corners 21 points ahead on that shed (the test league's typical men 1), so its wide runs gained 7.19 a carry.
+
+What's built (`game/sim.rs`, `shed_power`): the defender's body counts as the blocker's does. Shed power = 0.27 Block Shedding + 0.13 Hand Use + 0.1 Anchor + 0.1 Play Recognition (his technique and read, 0.6, in the old mix) + 0.14 Lower Body + 0.06 Strength + 0.1 Balance + 0.1 Acceleration (his body, 0.4, the blocker's own terms) + 0.08 × (weight - 280). Nothing else changed: no level was retuned.
+
+Measured (seed 1; the world's FBS teams 3,000 games, 12,000 for the season lines; 2,000 games elsewhere):
+
+| | main | built | real |
+|---|---|---|---|
+| World 321 FBS, yards a carry | 5.71 | 5.36 | 5.12 |
+| rushing yards a team game | 192.9 | 178.0 | 171.8 |
+| points a team game | 27.9 | 26.6 | 27.0 |
+| explosive run rate (cfbfastR's) | 0.164 | 0.147 | 0.145 |
+| rushing touchdowns a team game | 1.58 | 1.37 | 1.58 |
+| run blocks shed a run | 0.84 | 1.25 | |
+| a lineman starts the tackle | 33.7% | 37.3% | |
+| inside the tackles / outside | 4.73 / 7.19 | 4.36 / 6.80 | |
+| World 321 NFL clubs, yards a carry | 4.62 | 4.47 | 4.50 |
+| inside the tackles / outside | 3.72 / 6.45 | 3.55 / 6.34 | 4.05 / 5.06 |
+| NFL test league | 4.48 | 4.48 | 4.50 |
+| FBS test league | 4.85 | 4.87 | 5.12 |
+| high school test league | 5.82 | 5.83 | |
+
+Season lines on the world's FBS teams (`AFM_SEASONS=13`: seasons of 13 games, the same starters every week, 11 seasons):
+
+| a year | main | built | real |
+|---|---|---|---|
+| thousand-yard backs | 106.5 | 85.1 | 45 to 51 |
+| 2,000-yard backs | 1.09 | 0.18 | about 0.5 |
+| the rushing leader | 2,091 | 1,926 | 1,809 |
+| backs with 100+ carries, median a carry | 5.61 | 5.28 | 4.9 |
+| 10th percentile | 4.61 | 4.26 | 3.5 |
+| thousand-yard receivers (audit item 8) | 29.7 | 30.7 | 28 to 33 |
+| receivers with 25+ catches, 90th / 99th percentile | 922 / 1,211 | 917 / 1,215 | 922 / 1,353 |
+| the Heisman voters' top read: QB / back / defender (item 5) | 55 / 18 / 27% | 55 / 9 / 36% | |
+| their top five reads: QB / back / defender | 67 / 18 / 15% | 71 / 15 / 15% | |
+
+The thousand-yard counts are above the book's (90 a year on main) because nobody is hurt or rested here. The voters' read is `production` weighed by `heisman_kind` alone, without the team, the hype or the region.
+
+What is left in the line. The typical world lineman's block now stands 1.3 points ahead at FBS (the typical men 0.4 behind) and 1.6 at the NFL (0.7 ahead): what is left is the defenders' lower technique. Moving the world's FBS linemen to the typical starter changes 0.14 a carry (0.41 on main).
+
+What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
+
+- **0.24 a carry is left at FBS.** It sits outside the line: the world's backs are worth +0.46 a carry over the typical back and its receivers and tight ends +0.47, its back seven -0.53.
+- **The roster's run lean.** The play callers read each man against the test league's typical man (`roster_fit::reference`), so every world staff leans to wide runs: 32% of backs' runs are called outside (26% with the lean off, the FBS test league 18%). With the lean off the world's FBS teams gain 0.20 less a carry and its NFL clubs 0.09 less. It needs the league's own typical men.
+- **Receivers' blocks on corners.** They still stand 8 points ahead at FBS and 16 on the NFL clubs, where the test leagues' typical men now stand 5 behind, so wide runs pay 2.4 yards more than inside ones at FBS and 2.8 on the NFL clubs (real NFL 1.0).
+- **Thousand-yard backs.** Near real yards a carry the count would still be high in these seasons (two test arms at 5.07 and 5.11 a carry gave 64 and 77 a year over two seasons each): the lead back takes 54% of his team's backs' carries every week.
+- **The tables.** The roster lean's weights, the fit scores, the call table and the analysts' models were measured before this; the test leagues' totals did not move.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
-- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).
+- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs, or at `fbs` its FBS programs as its season played them on its own schedule (`AFM_CONF=1`: conference games; `AFM_TEAMS=<file>` keeps the teams, a world file takes a minute to read), `AFM_STARTERS=<points>` prints the teams' starters against the level's typical starter in every rating that far apart, `AFM_TYPICAL="OT,IOL;RB:Speed,weight"` moves those positions' men so their starters average him (`ALL` for every position), `AFM_SEASONS=13` reads the games as seasons of that many (thousand-yard backs and receivers, the leaders, the Heisman voters' read), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin fit_check -- run <fbs|nfl|hs> [games] [seed] [out] [arms]`: the scheme-fit check (`docs/design/scheme-fit.md`, lane SF0): does a man's skill pay inside his team's scheme? Team 0 is the level's typical team; each arm changes one thing on it (a rating, a body number, a drawn man, the scheme) and replays the same games as its context's typical arm. `fit_check read <dir>` writes the tables (each job's measures, the items' measures against real, as recruited, personnel, where men lined up, ratings nothing reads, the world's fit weights against what +15 moved); `fit_check repeat` compares runs on the claims behind the items.
 - `cargo run --release --bin fire_check -- hits <nfl|fbs|fcs|hs> [games] [seed]`, `talks <level> [seed]`, `run [games] [seed] [stakes]`: coach fire ("Coach fire" above): the big hit's line and the fire counts a team game; the AI coaches' pregame picks against main's; each prototype room's landing on a Branch-type safety and a calm pocket passer, then the two men under each room, A/B on the same seeds against their coach's own read (stakes 0.8 for playoff games).
