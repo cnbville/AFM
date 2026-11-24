@@ -10,6 +10,7 @@ Research done on the old Claude account in its last week (from 2026-10-14), so t
 | 4. Development and injuries | [development-and-injuries.md](development-and-injuries.md) | Section 6b, player model, in-game injuries | Done 2026-10-14 |
 | 5. High school playoff formats and practice limits | [hs-playoff-formats.md](hs-playoff-formats.md) | Open question Q2, high school world, section 6b | Done 2026-10-14 (a few gaps listed) |
 | 6. Media, social media and fans (NFL, college, high school) | [media-and-social.md](media-and-social.md) | Section 6 topic "media, social media and fans" | Done 2026-10-18 (gaps listed) |
+| 7. Scheme sequencing | [sequencing.md](sequencing.md) | Section 12: direction set-ups, play action and the run game, predictability, upsets by spread, coverages, Big Data Bowl terms, the series library | Done 2026-11-24 |
 
 Each figure is labelled **[published]** (someone else's study or official source, linked), **[computed]** (Claude's arithmetic on raw real data, dataset named, script in `data/real-world/scripts/`) or **[estimated]** (Claude's judgment or model, such as an upper limit). Engine targets and proposals are Claude's reading, not data.
 

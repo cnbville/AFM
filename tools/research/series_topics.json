@@ -1,0 +1,527 @@
+[
+ [
+  "O01",
+  "offense",
+  "Outside zone, then the boot or naked when the backside end crashes"
+ ],
+ [
+  "O02",
+  "offense",
+  "Outside zone, then the cutback and split zone when the backside linebacker overflows"
+ ],
+ [
+  "O03",
+  "offense",
+  "Directional running: run one way two or three times, then the same run or a stretch the other way after the defense slants, shades or rotates toward the first side"
+ ],
+ [
+  "O04",
+  "offense",
+  "Inside zone, then the zone read keep when the backside end squeezes"
+ ],
+ [
+  "O05",
+  "offense",
+  "Inside zone RPOs: the bubble, glance or slant when the overhang or linebacker triggers on the run"
+ ],
+ [
+  "O06",
+  "offense",
+  "Inside zone, then split zone and arc blocks"
+ ],
+ [
+  "O07",
+  "offense",
+  "Gap scheme power, then counter when linebackers follow the pulling guard"
+ ],
+ [
+  "O08",
+  "offense",
+  "Power, then the power pass (play action off the pull) against linebackers keying guards"
+ ],
+ [
+  "O09",
+  "offense",
+  "Power read, QB power and bash against a defense that keys the back"
+ ],
+ [
+  "O10",
+  "offense",
+  "Counter, then counter bootleg and counter play action"
+ ],
+ [
+  "O11",
+  "offense",
+  "Duo, then play action off duo when safeties fill the run"
+ ],
+ [
+  "O12",
+  "offense",
+  "Toss and sweep, then crack toss and the toss pass"
+ ],
+ [
+  "O13",
+  "offense",
+  "Wing-T buck sweep, then trap and waggle"
+ ],
+ [
+  "O14",
+  "offense",
+  "Jet sweep, then the jet fake with an inside run or a play-action throw"
+ ],
+ [
+  "O15",
+  "offense",
+  "Trap against upfield, penetrating defensive tackles"
+ ],
+ [
+  "O16",
+  "offense",
+  "Draws against upfield pass rushers and light boxes"
+ ],
+ [
+  "O17",
+  "offense",
+  "Iso, then iso play action"
+ ],
+ [
+  "O18",
+  "offense",
+  "Option series: speed option and triple option (dive, keep, pitch) and how the defense's assignment choice decides it"
+ ],
+ [
+  "O19",
+  "offense",
+  "Short yardage: the sneak and heavy run looks, then play action on third or fourth and short"
+ ],
+ [
+  "O20",
+  "offense",
+  "Screens against heavy pressure: RB screen, tunnel screen, and the screen fake"
+ ],
+ [
+  "O21",
+  "offense",
+  "Slant-flat, then slant-and-go and sluggo after corners jump the slant"
+ ],
+ [
+  "O22",
+  "offense",
+  "Hitches, then hitch-and-go and stop-and-go"
+ ],
+ [
+  "O23",
+  "offense",
+  "Stick, then stick-nod and the out-and-up off stick"
+ ],
+ [
+  "O24",
+  "offense",
+  "Smash against Cover 2, then its answers when the corner squats or sinks"
+ ],
+ [
+  "O25",
+  "offense",
+  "Mesh, then mesh rail and the wheel against man coverage"
+ ],
+ [
+  "O26",
+  "offense",
+  "Four verticals and seam reads, then curls and checkdowns when safeties bail"
+ ],
+ [
+  "O27",
+  "offense",
+  "Y-cross, alone and off play action and the boot"
+ ],
+ [
+  "O28",
+  "offense",
+  "Dagger against quarters and its tags"
+ ],
+ [
+  "O29",
+  "offense",
+  "Flood and sail, from dropback and from the boot"
+ ],
+ [
+  "O30",
+  "offense",
+  "Drive and shallow cross, then the dig and the sit behind it when the linebacker widens"
+ ],
+ [
+  "O31",
+  "offense",
+  "Speed outs, then the out-and-up"
+ ],
+ [
+  "O32",
+  "offense",
+  "Levels, Texas and the angle route against man linebackers"
+ ],
+ [
+  "O33",
+  "offense",
+  "Snag and spacing against zone, and the corner route as the beater"
+ ],
+ [
+  "O34",
+  "offense",
+  "Bubble and now screens, then the bubble fake and the go"
+ ],
+ [
+  "O35",
+  "offense",
+  "Tempo and the hurry-up to lock a defense into its call or its personnel"
+ ],
+ [
+  "O36",
+  "offense",
+  "Formation tendencies: the same formation and motion with a different play to break a tell"
+ ],
+ [
+  "O37",
+  "offense",
+  "Down-and-distance tendencies and how offenses self-scout them (2nd and long, 3rd and medium)"
+ ],
+ [
+  "O38",
+  "offense",
+  "Field and boundary, hash tendencies: running and throwing to the wide side or the short side"
+ ],
+ [
+  "O39",
+  "offense",
+  "Personnel tendencies: 12 and 21 personnel throwing against base, 11 running against nickel"
+ ],
+ [
+  "O40",
+  "offense",
+  "Motion as a tell and as an answer: jet, orbit, return motion and what defenses read from it"
+ ],
+ [
+  "D01",
+  "defense",
+  "Against outside zone: slanting and angling the front, the backside end against the boot"
+ ],
+ [
+  "D02",
+  "defense",
+  "Against the zone read: scrape exchange and gap exchange"
+ ],
+ [
+  "D03",
+  "defense",
+  "Against power and counter: wrong-arm and spill against pullers, the backside linebacker staying home"
+ ],
+ [
+  "D04",
+  "defense",
+  "Against RPOs: post-snap rotation, the conflict defender's rules, cloud and overhang play"
+ ],
+ [
+  "D05",
+  "defense",
+  "Against play action: run keys against pass keys for linebackers and safeties, eyes on the guards"
+ ],
+ [
+  "D06",
+  "defense",
+  "Against bunch and stacks: banjo, combo and switch calls"
+ ],
+ [
+  "D07",
+  "defense",
+  "Against mesh and crossers: rat, robber and man-match rules"
+ ],
+ [
+  "D08",
+  "defense",
+  "Against four verticals: quarters, Cover 3 seam rules and match rules"
+ ],
+ [
+  "D09",
+  "defense",
+  "Against the quick game: press, cloud, buzz and sky curl-flat players"
+ ],
+ [
+  "D10",
+  "defense",
+  "Against screens: screen alerts, rush lanes and pursuit"
+ ],
+ [
+  "D11",
+  "defense",
+  "Disguise: rotating late from two-high to one-high and back"
+ ],
+ [
+  "D12",
+  "defense",
+  "Simulated pressures and creepers against hot throws and protection rules"
+ ],
+ [
+  "D13",
+  "defense",
+  "Fire zones against an offense's protection and hot tendencies"
+ ],
+ [
+  "D14",
+  "defense",
+  "Spy, mush rush and contain against scrambling quarterbacks"
+ ],
+ [
+  "D15",
+  "defense",
+  "Adjusting to motion: lock, rock, roll and bump calls"
+ ],
+ [
+  "D16",
+  "defense",
+  "Halftime and in-game adjustments: what defensive coordinators really change"
+ ],
+ [
+  "D17",
+  "defense",
+  "Tendency-based checks: run alerts and coverage checks off the formation and the down"
+ ],
+ [
+  "D18",
+  "defense",
+  "Pattern match coverages (Cover 4 MOD and MEG, Cover 3 match) against route combinations"
+ ],
+ [
+  "D19",
+  "defense",
+  "Red zone defense: man, Cover 0, brackets on the best receiver, the end line"
+ ],
+ [
+  "D20",
+  "defense",
+  "Goal line and short yardage fronts: run fits, and play action at the goal line"
+ ],
+ [
+  "D21",
+  "defense",
+  "Third-down packages and sim pressures"
+ ],
+ [
+  "D22",
+  "defense",
+  "Two-minute defense: rush four and drop, prevent, and when it fails"
+ ],
+ [
+  "D23",
+  "defense",
+  "Countering a quarterback's tendencies: his look-offs, his hots, his favorite receiver"
+ ],
+ [
+  "D24",
+  "defense",
+  "Defensive self-scout: hiding blitz and coverage tendencies by down, field zone and personnel"
+ ],
+ [
+  "D25",
+  "defense",
+  "Defensive line games and stunts against protection tendencies and slide direction"
+ ],
+ [
+  "S01",
+  "situation",
+  "Opening scripts: what the first 15 plays test and how coaches use what they learn"
+ ],
+ [
+  "S02",
+  "situation",
+  "Setting up plays across a game: when real coordinators come back with the answer to something shown earlier, and how long a set-up lasts"
+ ],
+ [
+  "S03",
+  "situation",
+  "Red zone sequencing on offense"
+ ],
+ [
+  "S04",
+  "situation",
+  "Third and fourth and short: formation and play sequencing"
+ ],
+ [
+  "S05",
+  "situation",
+  "Two-minute drive sequencing and the clock"
+ ],
+ [
+  "S06",
+  "situation",
+  "Four-minute offense: running to close a game"
+ ],
+ [
+  "S07",
+  "situation",
+  "Backed up offense near its own goal line"
+ ],
+ [
+  "S08",
+  "situation",
+  "Evidence on predictability: what analytics found about play-calling tendencies, serial correlation and mixed strategies in real football (for example Kovash and Levitt, play action and run rate)"
+ ],
+ [
+  "S09",
+  "situation",
+  "Evidence on how much scheme and coaching swing results against talent, and real upset rates"
+ ],
+ [
+  "S10",
+  "situation",
+  "Weekly game planning: how staffs build a plan from opponent tendencies and how opponents adjust when they see the plan"
+ ],
+ [
+  "O41",
+  "offense",
+  "Air raid series: mesh, Y-cross, four verticals and stick as one family, and how air raid staffs call answers to coverage tendencies"
+ ],
+ [
+  "O42",
+  "offense",
+  "Wide zone and play-action systems (Shanahan and McVay families): how the same look feeds outside zone, boot, keeper and leak"
+ ],
+ [
+  "O43",
+  "offense",
+  "Spread option and RPO systems in college: the conflict defender, packaged plays and how staffs sequence them"
+ ],
+ [
+  "O44",
+  "offense",
+  "Gap and power systems with pullers and H-backs: sequencing power, counter, GT counter and their play-action tags"
+ ],
+ [
+  "O45",
+  "offense",
+  "Wing-T and the triple option in high school and service academies: series football and how defenses gameplan against it"
+ ],
+ [
+  "O46",
+  "offense",
+  "West Coast offense: timing throws, the quick game and how its play-calling sequences short throws to set up shots"
+ ],
+ [
+  "O47",
+  "offense",
+  "Shot plays: when and where coordinators call deep shots, and what they look for first (safety depth, a corner's eyes)"
+ ],
+ [
+  "O48",
+  "offense",
+  "Check-with-me, kill calls and audibles at the line: what the quarterback reads (box count, shell, leverage) and how often"
+ ],
+ [
+  "O49",
+  "offense",
+  "Pre-snap shifts and unbalanced lines to change the defense's strength call and get numbers"
+ ],
+ [
+  "O50",
+  "offense",
+  "Attacking a single weak defender: isolating a poor cover man or a slow linebacker, and how defenses hide him"
+ ],
+ [
+  "O51",
+  "offense",
+  "Screens and draws as constraint plays against an aggressive pass rush, and how often to call them"
+ ],
+ [
+  "O52",
+  "offense",
+  "Game script and self-scouting week to week: tendency breakers, new wrinkles off old looks, and what film the opponent has"
+ ],
+ [
+  "D26",
+  "defense",
+  "Even and odd fronts, over and under, and how the front's strength call answers the offense's strength and motion"
+ ],
+ [
+  "D27",
+  "defense",
+  "Quarters families (Cover 4, Cover 6, Cover 7 and the match calls) and how they answer play action and vertical stems"
+ ],
+ [
+  "D28",
+  "defense",
+  "Single-high defenses (Cover 1, Cover 3, robber) and how they load the box against run tendencies"
+ ],
+ [
+  "D29",
+  "defense",
+  "College defenses against spread: 4-2-5, 3-3-5 and 3-4 fits, and the overhang's conflict"
+ ],
+ [
+  "D30",
+  "defense",
+  "Mugged linebackers, sugar fronts and pre-snap disguise of pressure and coverage"
+ ],
+ [
+  "D31",
+  "defense",
+  "Coverage rotation and the safety's pre-snap tells: how quarterbacks read them and how defenses hide them"
+ ],
+ [
+  "D32",
+  "defense",
+  "Run-down defense: what linebackers and safeties key, and how a defense cheats toward a run tendency"
+ ],
+ [
+  "D33",
+  "defense",
+  "Defensive game planning from opponent tendencies: what a defensive staff takes away first and what it lives with"
+ ],
+ [
+  "D34",
+  "defense",
+  "How defensive coordinators call blitzes against personnel, down and distance, and an offense's protection"
+ ],
+ [
+  "D35",
+  "defense",
+  "Linebacker discipline: eye violations, over-pursuit and fitting the cutback, and how coaches teach it"
+ ],
+ [
+  "S11",
+  "situation",
+  "How real scouting reports are wrong: tendency reports' error, small samples, and offenses breaking their own tendencies on purpose"
+ ],
+ [
+  "S12",
+  "situation",
+  "Hash and field position tendencies: plays to the field and the boundary, and sequencing in the high red zone and backed up"
+ ],
+ [
+  "S13",
+  "situation",
+  "Weather and game state in play calling: wind, rain, protecting a lead, chasing points"
+ ],
+ [
+  "S14",
+  "situation",
+  "Halftime adjustments in real games: what changes in the second half, with any numbers on second-half splits"
+ ],
+ [
+  "S15",
+  "situation",
+  "Real numbers on how coordinators' quality shows in results: play-caller effects, EPA by coordinator, and how stable they are"
+ ],
+ [
+  "S16",
+  "situation",
+  "Talent versus scheme: real cases where schemes beat better rosters (service academies, Air Raid upstarts, FCS over FBS) and why"
+ ],
+ [
+  "S17",
+  "situation",
+  "High school play calling: differences from college and the NFL (tendencies, scouting, sequencing, wristbands)"
+ ],
+ [
+  "S18",
+  "situation",
+  "Tempo and huddle: how no-huddle and tempo change a defense's ability to substitute, disguise and adjust"
+ ]
+]

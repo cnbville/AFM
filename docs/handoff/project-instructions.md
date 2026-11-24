@@ -13,7 +13,7 @@ How to work:
 - Ultra realism always. Never ask "realistic or simplified?". The first proposal must already be the full-realism version: do the "what else would make this more realistic?" pass yourself. Shorten wording, never substance.
 - Go topic by topic, in order, without skipping.
 - Real football reasoning: outcomes come from attributes and battles, dynamic, never flat rules. Influences are noteworthy, never driving.
-- Good calls and plans are rewarded through the battles, never a flat bonus, never so much that calls beat talent.
+- Good calls and plans are rewarded through the battles, never a flat bonus. Outscheming can beat a more talented team sometimes, only through what happens on the field: who is free, who is out of position, who has the numbers (Cain, 2026-11-24; it replaces "never so much that calls beat talent", which was Claude's wording of his 2026-10-14 "rewarded without being broken").
 - Potential is hidden in the game; exact numbers only in debug and trial tools.
 - Every trial result explains why, sanity-checked first. Trials use the same engine and code paths as the final game, and refresh both the mock GUI dashboard and the full player pages.
 - Write plainly: short sentences, a clear ask, explain jargon. Keep token use low: one checker pass per trial, no agent fan-outs, no small follow-up messages.
