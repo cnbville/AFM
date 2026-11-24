@@ -1,0 +1,913 @@
+{
+ "years": [
+  2022,
+  2023,
+  2024
+ ],
+ "source": "nflverse play_by_play, pbp_participation, ftn_charting (GitHub releases)",
+ "1_direction": {
+  "all runs": {
+   "baseline": {
+    "n": 35130,
+    "epa": -0.0266,
+    "success": 0.4182,
+    "yards": 4.371
+   },
+   "after two the same way: again that way": {
+    "n": 3843,
+    "epa": -0.0241,
+    "success": 0.4143,
+    "yards": 4.488
+   },
+   "after two the same way: the other way": {
+    "n": 3509,
+    "epa": -0.0065,
+    "success": 0.4263,
+    "yards": 4.578
+   },
+   "after two the same way: middle": {
+    "n": 1999,
+    "epa": -0.0011,
+    "success": 0.4422,
+    "yards": 3.971
+   },
+   "after mixed sides: same side as last": {
+    "n": 5976,
+    "epa": -0.0172,
+    "success": 0.4187,
+    "yards": 4.621
+   },
+   "after mixed sides: other side": {
+    "n": 5811,
+    "epa": -0.0283,
+    "success": 0.4134,
+    "yards": 4.541
+   },
+   "after three the same way: again": {
+    "n": 1556,
+    "epa": -0.0334,
+    "success": 0.4042,
+    "yards": 4.383
+   },
+   "after three the same way: the other way": {
+    "n": 1349,
+    "epa": 0.0011,
+    "success": 0.424,
+    "yards": 4.662
+   }
+  },
+  "outside runs (run_gap end)": {
+   "baseline": {
+    "n": 8550,
+    "epa": 0.0164,
+    "success": 0.4497,
+    "yards": 5.021
+   },
+   "after two the same way: again that way": {
+    "n": 1216,
+    "epa": 0.0225,
+    "success": 0.4424,
+    "yards": 5.001
+   },
+   "after two the same way: the other way": {
+    "n": 1140,
+    "epa": 0.0104,
+    "success": 0.4614,
+    "yards": 4.882
+   },
+   "after two the same way: middle": {
+    "n": 0,
+    "epa": null,
+    "success": null,
+    "yards": null
+   },
+   "after mixed sides: same side as last": {
+    "n": 1899,
+    "epa": 0.0169,
+    "success": 0.4576,
+    "yards": 5.145
+   },
+   "after mixed sides: other side": {
+    "n": 1908,
+    "epa": 0.0023,
+    "success": 0.4403,
+    "yards": 4.928
+   },
+   "after three the same way: again": {
+    "n": 476,
+    "epa": 0.0247,
+    "success": 0.4391,
+    "yards": 5.09
+   },
+   "after three the same way: the other way": {
+    "n": 430,
+    "epa": 0.0337,
+    "success": 0.4674,
+    "yards": 4.963
+   }
+  }
+ },
+ "2_play_action_by_run_share_so_far (1st/2nd down, 10+ plays in)": {
+  "[0.0, 0.35)": {
+   "play action": {
+    "n": 2460,
+    "epa": 0.116,
+    "success": 0.485,
+    "yards": 7.374
+   },
+   "straight drop": {
+    "n": 7635,
+    "epa": 0.0462,
+    "success": 0.466,
+    "yards": 6.049
+   }
+  },
+  "[0.35, 0.45)": {
+   "play action": {
+    "n": 3367,
+    "epa": 0.0805,
+    "success": 0.4829,
+    "yards": 7.203
+   },
+   "straight drop": {
+    "n": 8285,
+    "epa": 0.0554,
+    "success": 0.4752,
+    "yards": 6.091
+   }
+  },
+  "[0.45, 0.55)": {
+   "play action": {
+    "n": 2373,
+    "epa": 0.1133,
+    "success": 0.4922,
+    "yards": 7.766
+   },
+   "straight drop": {
+    "n": 5078,
+    "epa": 0.0499,
+    "success": 0.4689,
+    "yards": 6.156
+   }
+  },
+  "[0.55, 1.01)": {
+   "play action": {
+    "n": 858,
+    "epa": 0.0648,
+    "success": 0.472,
+    "yards": 7.016
+   },
+   "straight drop": {
+    "n": 1520,
+    "epa": 0.0947,
+    "success": 0.4678,
+    "yards": 6.42
+   }
+  }
+ },
+ "2b_play_action_by_previous_snap": {
+  "previous snap a successful run": {
+   "n": 2618,
+   "epa": 0.0988,
+   "success": 0.4969,
+   "yards": 7.486
+  },
+  "previous snap a failed run": {
+   "n": 3083,
+   "epa": 0.0617,
+   "success": 0.4625,
+   "yards": 6.345
+  },
+  "previous snap a pass": {
+   "n": 6700,
+   "epa": 0.1253,
+   "success": 0.5027,
+   "yards": 7.784
+  }
+ },
+ "3_box_on_1st_2nd_and_5_10_in_11_personnel_by_runs_in_last_3": {
+  "0": {
+   "n": 2665,
+   "box": 5.956,
+   "next is a run": 0.335
+  },
+  "1": {
+   "n": 4282,
+   "box": 6.118,
+   "next is a run": 0.405
+  },
+  "2": {
+   "n": 2449,
+   "box": 6.165,
+   "next is a run": 0.385
+  },
+  "3": {
+   "n": 520,
+   "box": 6.252,
+   "next is a run": 0.412
+  }
+ },
+ "4_serial_correlation_same_drive": {
+  "1 & (0.0, 3.0]": {
+   "run rate after a run": 0.767,
+   "run rate after a pass": 0.701,
+   "n": 787
+  },
+  "1 & (10.0, 99.0]": {
+   "run rate after a run": 0.279,
+   "run rate after a pass": 0.255,
+   "n": 1055
+  },
+  "1 & (3.0, 6.0]": {
+   "run rate after a run": 0.715,
+   "run rate after a pass": 0.612,
+   "n": 822
+  },
+  "1 & (6.0, 10.0]": {
+   "run rate after a run": 0.507,
+   "run rate after a pass": 0.496,
+   "n": 21765
+  },
+  "2 & (0.0, 3.0]": {
+   "run rate after a run": 0.676,
+   "run rate after a pass": 0.59,
+   "n": 4909
+  },
+  "2 & (10.0, 99.0]": {
+   "run rate after a run": 0.159,
+   "run rate after a pass": 0.186,
+   "n": 4464
+  },
+  "2 & (3.0, 6.0]": {
+   "run rate after a run": 0.461,
+   "run rate after a pass": 0.487,
+   "n": 7139
+  },
+  "2 & (6.0, 10.0]": {
+   "run rate after a run": 0.257,
+   "run rate after a pass": 0.36,
+   "n": 13551
+  },
+  "3 & (0.0, 3.0]": {
+   "run rate after a run": 0.519,
+   "run rate after a pass": 0.449,
+   "n": 5411
+  },
+  "3 & (10.0, 99.0]": {
+   "run rate after a run": 0.099,
+   "run rate after a pass": 0.09,
+   "n": 3392
+  },
+  "3 & (3.0, 6.0]": {
+   "run rate after a run": 0.087,
+   "run rate after a pass": 0.064,
+   "n": 4585
+  },
+  "3 & (6.0, 10.0]": {
+   "run rate after a run": 0.06,
+   "run rate after a pass": 0.028,
+   "n": 5161
+  },
+  "4 & (0.0, 3.0]": {
+   "run rate after a run": 0.612,
+   "run rate after a pass": 0.482,
+   "n": 1251
+  }
+ },
+ "5_upsets_by_spread": {
+  "bins": {
+   "(0.0, 3.1]": {
+    "games": 355,
+    "favorite wins": 0.583
+   },
+   "(3.1, 6.6]": {
+    "games": 291,
+    "favorite wins": 0.718
+   },
+   "(6.6, 9.6]": {
+    "games": 121,
+    "favorite wins": 0.727
+   },
+   "(9.6, 13.6]": {
+    "games": 59,
+    "favorite wins": 0.831
+   },
+   "(13.6, 30.0]": {
+    "games": 28,
+    "favorite wins": 0.964
+   }
+  },
+  "margin around the line sd": 12.48,
+  "games": 854
+ },
+ "6_epa_by_coverage": {
+  "2_MAN": {
+   "n": 2700,
+   "epa": 0.0428,
+   "success": 0.4393,
+   "yards": 6.038
+  },
+  "COMBO": {
+   "n": 1369,
+   "epa": 0.0286,
+   "success": 0.4587,
+   "yards": 6.188
+  },
+  "COVER_0": {
+   "n": 2028,
+   "epa": 0.0386,
+   "success": 0.432,
+   "yards": 4.304
+  },
+  "COVER_1": {
+   "n": 16469,
+   "epa": 0.0615,
+   "success": 0.442,
+   "yards": 6.423
+  },
+  "COVER_2": {
+   "n": 8783,
+   "epa": 0.053,
+   "success": 0.4771,
+   "yards": 6.484
+  },
+  "COVER_3": {
+   "n": 11690,
+   "epa": 0.1022,
+   "success": 0.4955,
+   "yards": 7.372
+  },
+  "COVER_4": {
+   "n": 5794,
+   "epa": 0.0569,
+   "success": 0.4562,
+   "yards": 6.201
+  },
+  "COVER_6": {
+   "n": 2945,
+   "epa": 0.0831,
+   "success": 0.4689,
+   "yards": 7.03
+  },
+  "COVER_9": {
+   "n": 652,
+   "epa": -0.0265,
+   "success": 0.4356,
+   "yards": 6.242
+  }
+ },
+ "6b_targeted_route_by_coverage": {
+  "ANGLE | COVER_2": {
+   "n": 155,
+   "epa": -0.0383,
+   "success": 0.5419,
+   "yards": 6.245
+  },
+  "ANGLE | COVER_3": {
+   "n": 189,
+   "epa": 0.0356,
+   "success": 0.4974,
+   "yards": 6.979
+  },
+  "CORNER | COVER_0": {
+   "n": 144,
+   "epa": 0.2198,
+   "success": 0.4375,
+   "yards": 5.035
+  },
+  "CORNER | COVER_1": {
+   "n": 744,
+   "epa": 0.2845,
+   "success": 0.4046,
+   "yards": 9.73
+  },
+  "CORNER | COVER_2": {
+   "n": 244,
+   "epa": 0.3897,
+   "success": 0.4836,
+   "yards": 11.59
+  },
+  "CORNER | COVER_3": {
+   "n": 330,
+   "epa": 0.5455,
+   "success": 0.5182,
+   "yards": 13.924
+  },
+  "CROSS | COVER_1": {
+   "n": 558,
+   "epa": 0.3326,
+   "success": 0.5179,
+   "yards": 8.441
+  },
+  "CROSS | COVER_2": {
+   "n": 196,
+   "epa": -0.0416,
+   "success": 0.5153,
+   "yards": 6.724
+  },
+  "CROSS | COVER_3": {
+   "n": 629,
+   "epa": 0.2131,
+   "success": 0.5199,
+   "yards": 8.836
+  },
+  "CROSS | COVER_4": {
+   "n": 226,
+   "epa": 0.1845,
+   "success": 0.5088,
+   "yards": 7.646
+  },
+  "DEEP OUT | 2_MAN": {
+   "n": 173,
+   "epa": 0.3079,
+   "success": 0.5491,
+   "yards": 7.665
+  },
+  "DEEP OUT | COVER_1": {
+   "n": 907,
+   "epa": 0.2757,
+   "success": 0.5325,
+   "yards": 7.623
+  },
+  "DEEP OUT | COVER_2": {
+   "n": 234,
+   "epa": 0.1732,
+   "success": 0.547,
+   "yards": 8.38
+  },
+  "DEEP OUT | COVER_3": {
+   "n": 412,
+   "epa": 0.2739,
+   "success": 0.5752,
+   "yards": 9.167
+  },
+  "DEEP OUT | COVER_4": {
+   "n": 188,
+   "epa": 0.2033,
+   "success": 0.5213,
+   "yards": 7.021
+  },
+  "FLAT | COVER_1": {
+   "n": 404,
+   "epa": 0.1389,
+   "success": 0.4554,
+   "yards": 5.651
+  },
+  "FLAT | COVER_2": {
+   "n": 379,
+   "epa": -0.0326,
+   "success": 0.438,
+   "yards": 5.23
+  },
+  "FLAT | COVER_3": {
+   "n": 748,
+   "epa": -0.0031,
+   "success": 0.4225,
+   "yards": 5.461
+  },
+  "FLAT | COVER_4": {
+   "n": 372,
+   "epa": 0.0187,
+   "success": 0.414,
+   "yards": 5.333
+  },
+  "FLAT | COVER_6": {
+   "n": 230,
+   "epa": -0.0451,
+   "success": 0.3913,
+   "yards": 5.317
+  },
+  "GO | 2_MAN": {
+   "n": 219,
+   "epa": 0.0214,
+   "success": 0.2694,
+   "yards": 7.726
+  },
+  "GO | COVER_0": {
+   "n": 203,
+   "epa": 0.0415,
+   "success": 0.3251,
+   "yards": 6.921
+  },
+  "GO | COVER_1": {
+   "n": 1774,
+   "epa": 0.2401,
+   "success": 0.3382,
+   "yards": 9.498
+  },
+  "GO | COVER_2": {
+   "n": 415,
+   "epa": 0.4782,
+   "success": 0.453,
+   "yards": 12.747
+  },
+  "GO | COVER_3": {
+   "n": 679,
+   "epa": 0.4877,
+   "success": 0.4212,
+   "yards": 12.972
+  },
+  "GO | COVER_4": {
+   "n": 344,
+   "epa": 0.3026,
+   "success": 0.3227,
+   "yards": 9.564
+  },
+  "GO | COVER_6": {
+   "n": 174,
+   "epa": 0.2662,
+   "success": 0.3966,
+   "yards": 11.149
+  },
+  "HITCH | COVER_1": {
+   "n": 388,
+   "epa": 0.0768,
+   "success": 0.5155,
+   "yards": 6.224
+  },
+  "HITCH | COVER_2": {
+   "n": 381,
+   "epa": 0.1737,
+   "success": 0.601,
+   "yards": 7.318
+  },
+  "HITCH | COVER_3": {
+   "n": 946,
+   "epa": 0.1433,
+   "success": 0.5761,
+   "yards": 7.041
+  },
+  "HITCH | COVER_4": {
+   "n": 410,
+   "epa": 0.1101,
+   "success": 0.578,
+   "yards": 6.637
+  },
+  "HITCH | COVER_6": {
+   "n": 229,
+   "epa": 0.1451,
+   "success": 0.5371,
+   "yards": 6.672
+  },
+  "HITCH/CURL | 2_MAN": {
+   "n": 253,
+   "epa": 0.0387,
+   "success": 0.5573,
+   "yards": 5.921
+  },
+  "HITCH/CURL | COMBO": {
+   "n": 195,
+   "epa": 0.1563,
+   "success": 0.5538,
+   "yards": 6.128
+  },
+  "HITCH/CURL | COVER_1": {
+   "n": 1278,
+   "epa": 0.0491,
+   "success": 0.4984,
+   "yards": 6.128
+  },
+  "HITCH/CURL | COVER_2": {
+   "n": 1278,
+   "epa": 0.1758,
+   "success": 0.5853,
+   "yards": 6.973
+  },
+  "HITCH/CURL | COVER_3": {
+   "n": 1166,
+   "epa": 0.1747,
+   "success": 0.6175,
+   "yards": 7.552
+  },
+  "HITCH/CURL | COVER_4": {
+   "n": 603,
+   "epa": 0.1752,
+   "success": 0.602,
+   "yards": 6.954
+  },
+  "HITCH/CURL | COVER_6": {
+   "n": 281,
+   "epa": 0.1398,
+   "success": 0.5836,
+   "yards": 7.249
+  },
+  "IN | COVER_1": {
+   "n": 296,
+   "epa": 0.1648,
+   "success": 0.4797,
+   "yards": 7.78
+  },
+  "IN | COVER_3": {
+   "n": 294,
+   "epa": 0.1654,
+   "success": 0.585,
+   "yards": 8.946
+  },
+  "IN | COVER_4": {
+   "n": 152,
+   "epa": 0.2416,
+   "success": 0.5263,
+   "yards": 6.901
+  },
+  "IN/DIG | 2_MAN": {
+   "n": 191,
+   "epa": 0.1296,
+   "success": 0.4764,
+   "yards": 7.366
+  },
+  "IN/DIG | COMBO": {
+   "n": 123,
+   "epa": 0.1338,
+   "success": 0.5285,
+   "yards": 9.268
+  },
+  "IN/DIG | COVER_1": {
+   "n": 1075,
+   "epa": 0.286,
+   "success": 0.5405,
+   "yards": 9.104
+  },
+  "IN/DIG | COVER_2": {
+   "n": 436,
+   "epa": 0.4645,
+   "success": 0.6078,
+   "yards": 10.888
+  },
+  "IN/DIG | COVER_3": {
+   "n": 517,
+   "epa": 0.3617,
+   "success": 0.6112,
+   "yards": 11.34
+  },
+  "IN/DIG | COVER_4": {
+   "n": 282,
+   "epa": 0.3936,
+   "success": 0.5922,
+   "yards": 9.865
+  },
+  "IN/DIG | COVER_6": {
+   "n": 122,
+   "epa": 0.3449,
+   "success": 0.582,
+   "yards": 11.197
+  },
+  "OUT | COVER_1": {
+   "n": 502,
+   "epa": 0.1891,
+   "success": 0.5359,
+   "yards": 6.456
+  },
+  "OUT | COVER_2": {
+   "n": 223,
+   "epa": 0.021,
+   "success": 0.5202,
+   "yards": 6.148
+  },
+  "OUT | COVER_3": {
+   "n": 681,
+   "epa": 0.1592,
+   "success": 0.583,
+   "yards": 7.01
+  },
+  "OUT | COVER_4": {
+   "n": 386,
+   "epa": 0.1079,
+   "success": 0.5622,
+   "yards": 6.43
+  },
+  "OUT | COVER_6": {
+   "n": 202,
+   "epa": 0.2001,
+   "success": 0.5743,
+   "yards": 6.787
+  },
+  "POST | COVER_1": {
+   "n": 509,
+   "epa": 0.4228,
+   "success": 0.5049,
+   "yards": 11.35
+  },
+  "POST | COVER_2": {
+   "n": 382,
+   "epa": 0.482,
+   "success": 0.5445,
+   "yards": 12.911
+  },
+  "POST | COVER_3": {
+   "n": 493,
+   "epa": 0.4808,
+   "success": 0.5639,
+   "yards": 13.4
+  },
+  "POST | COVER_4": {
+   "n": 236,
+   "epa": 0.1772,
+   "success": 0.3856,
+   "yards": 10.394
+  },
+  "POST | COVER_6": {
+   "n": 138,
+   "epa": 0.6212,
+   "success": 0.5725,
+   "yards": 16.348
+  },
+  "QUICK OUT | 2_MAN": {
+   "n": 361,
+   "epa": 0.1011,
+   "success": 0.4986,
+   "yards": 5.407
+  },
+  "QUICK OUT | COMBO": {
+   "n": 178,
+   "epa": -0.0199,
+   "success": 0.5112,
+   "yards": 5.539
+  },
+  "QUICK OUT | COVER_0": {
+   "n": 272,
+   "epa": 0.2005,
+   "success": 0.5257,
+   "yards": 3.143
+  },
+  "QUICK OUT | COVER_1": {
+   "n": 1985,
+   "epa": 0.059,
+   "success": 0.4997,
+   "yards": 5.189
+  },
+  "QUICK OUT | COVER_2": {
+   "n": 1112,
+   "epa": 0.0157,
+   "success": 0.4766,
+   "yards": 5.308
+  },
+  "QUICK OUT | COVER_3": {
+   "n": 1102,
+   "epa": 0.0293,
+   "success": 0.5064,
+   "yards": 5.648
+  },
+  "QUICK OUT | COVER_4": {
+   "n": 553,
+   "epa": 0.0544,
+   "success": 0.4738,
+   "yards": 5.371
+  },
+  "QUICK OUT | COVER_6": {
+   "n": 261,
+   "epa": 0.0101,
+   "success": 0.4483,
+   "yards": 5.705
+  },
+  "SCREEN | 2_MAN": {
+   "n": 258,
+   "epa": -0.0831,
+   "success": 0.3876,
+   "yards": 5.081
+  },
+  "SCREEN | COMBO": {
+   "n": 143,
+   "epa": -0.0162,
+   "success": 0.4545,
+   "yards": 5.72
+  },
+  "SCREEN | COVER_0": {
+   "n": 150,
+   "epa": 0.0265,
+   "success": 0.44,
+   "yards": 5.227
+  },
+  "SCREEN | COVER_1": {
+   "n": 1312,
+   "epa": -0.058,
+   "success": 0.4055,
+   "yards": 5.329
+  },
+  "SCREEN | COVER_2": {
+   "n": 968,
+   "epa": -0.0664,
+   "success": 0.4091,
+   "yards": 5.275
+  },
+  "SCREEN | COVER_3": {
+   "n": 1211,
+   "epa": -0.0041,
+   "success": 0.4459,
+   "yards": 5.82
+  },
+  "SCREEN | COVER_4": {
+   "n": 644,
+   "epa": -0.0494,
+   "success": 0.4068,
+   "yards": 5.312
+  },
+  "SCREEN | COVER_6": {
+   "n": 266,
+   "epa": -0.0338,
+   "success": 0.406,
+   "yards": 5.534
+  },
+  "SHALLOW CROSS/DRAG | 2_MAN": {
+   "n": 120,
+   "epa": 0.2251,
+   "success": 0.475,
+   "yards": 8.042
+  },
+  "SHALLOW CROSS/DRAG | COVER_1": {
+   "n": 878,
+   "epa": 0.1658,
+   "success": 0.4863,
+   "yards": 7.268
+  },
+  "SHALLOW CROSS/DRAG | COVER_2": {
+   "n": 363,
+   "epa": 0.1006,
+   "success": 0.5041,
+   "yards": 6.449
+  },
+  "SHALLOW CROSS/DRAG | COVER_3": {
+   "n": 308,
+   "epa": 0.1112,
+   "success": 0.5097,
+   "yards": 7.445
+  },
+  "SHALLOW CROSS/DRAG | COVER_4": {
+   "n": 175,
+   "epa": 0.0569,
+   "success": 0.4686,
+   "yards": 6.189
+  },
+  "SLANT | 2_MAN": {
+   "n": 212,
+   "epa": 0.158,
+   "success": 0.5236,
+   "yards": 7.632
+  },
+  "SLANT | COVER_0": {
+   "n": 191,
+   "epa": 0.0779,
+   "success": 0.4869,
+   "yards": 4.382
+  },
+  "SLANT | COVER_1": {
+   "n": 1183,
+   "epa": 0.1478,
+   "success": 0.5571,
+   "yards": 6.855
+  },
+  "SLANT | COVER_2": {
+   "n": 403,
+   "epa": 0.2717,
+   "success": 0.6253,
+   "yards": 7.65
+  },
+  "SLANT | COVER_3": {
+   "n": 453,
+   "epa": 0.3226,
+   "success": 0.6534,
+   "yards": 8.976
+  },
+  "SLANT | COVER_4": {
+   "n": 277,
+   "epa": 0.1936,
+   "success": 0.5704,
+   "yards": 7.386
+  },
+  "SLANT | COVER_6": {
+   "n": 141,
+   "epa": 0.3081,
+   "success": 0.617,
+   "yards": 8.291
+  },
+  "SWING | COVER_1": {
+   "n": 305,
+   "epa": 0.0066,
+   "success": 0.4033,
+   "yards": 5.587
+  },
+  "SWING | COVER_2": {
+   "n": 392,
+   "epa": -0.1079,
+   "success": 0.3827,
+   "yards": 4.633
+  },
+  "SWING | COVER_3": {
+   "n": 323,
+   "epa": -0.1398,
+   "success": 0.3684,
+   "yards": 4.105
+  },
+  "SWING | COVER_4": {
+   "n": 123,
+   "epa": -0.2116,
+   "success": 0.2358,
+   "yards": 3.829
+  },
+  "WHEEL | COVER_1": {
+   "n": 233,
+   "epa": 0.3496,
+   "success": 0.4464,
+   "yards": 10.386
+  }
+ }
+}

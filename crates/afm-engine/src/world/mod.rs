@@ -35,6 +35,7 @@ pub mod finance;
 pub mod folk;
 pub mod following;
 pub mod former;
+pub mod fortunes;
 pub mod franchise;
 pub mod front_office;
 pub mod game_log;

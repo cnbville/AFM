@@ -127,10 +127,11 @@ Impact is for the player's seat: high (he sees it every season), medium (he sees
 - Status: new.
 
 **14. NIL is spread too evenly across a power roster.**
-- World: 24% of Power 4 players earn under $10,000 a year (real 66.5%, Opendorse 2025) and 44% of SEC and Big Ten players earn $100,000 or more (real about 10%). A power program pays $27M to $31M in all; the Power 4 total of $1.94B matches Opendorse's $1.9B for 2025, but that figure is every sport.
+- World: 24% of Power 4 players earn under $10,000 a year and 44% of SEC and Big Ten players earn $100,000 or more. A power program pays $27M to $31M in all; the Power 4 total of $1.94B sits beside Opendorse's $1.9B for 2025.
+- Corrected 2026-11-24 (`docs/research/nil-split-by-sport.md`, Cain's "sure" to its item 1): the "real 66.5% and about 10%" are Opendorse's Power 4 football figures for July 2024 to August 2025, before revenue sharing began, not the 2025-26 year the world's payday is in. Against the College Sports Commission's 2025-26 pay, real is about 25-30% under $10,000 and about 35-45% at $100,000 or more (Claude's arithmetic, not published figures), so the world's 24% (seed 321, a 2025 payday) is at real; the 44% was one world and one year: the seed 1 world's July 2026 payday reads 66-68% at $100,000 or more in the SEC, Big Ten and ACC, well over real. See the research doc's "Measured" section. Opendorse's $1.9B is its projection for college football players, not every sport, so the totals compare football with football. The gap that stays is the low end of the paid set (real 10th percentile among the paid $17,500-$25,000; the world's $82K-$202K).
 - Likely cause: not traced; the paid set and its floors (`world/ncaa.rs`, `nil_market`; `world/program.rs`, `third_party`).
 - Touches: NIL, recruiting pulls, the portal, your budget.
-- Status: new. The real split by sport needs research first.
+- Status: researched 2026-11-24, `docs/research/nil-split-by-sport.md` (the real figures here are 2024-25, before revenue sharing; the narrower gap is the low end of the paid set; proposals wait for Cain).
 
 **15. NFL games missed read at a quarter of real.**
 - World: 0.28 to 0.34 games missed a player-season (real 1.2).
@@ -156,7 +157,7 @@ Impact is for the player's seat: high (he sees it every season), medium (he sees
 
 **21. Draft picks come from too many colleges.** 118 colleges with a pick a year (real 97), 8.2% of picks from FCS (real 6%). Status: new.
 
-**22. Too few in-season NFL trades.** 9.2 a year (real 17.6). Trades in all are near (85, real 91). Status: trial 7 finding 8, parked.
+**22. Too few in-season NFL trades.** 9.2 a year (real 17.6). Trades in all are near (85, real 91). Status: trial 7 finding 8, parked. Measured 2026-11-24 (thread "Fix in-season NFL trades"): the world was at real and the book read the wrong count. Its check read `deadline_trades`, the trades of deadline week alone (the two calls four days before the deadline and on the day), against the real count from September to November. The world's own count of every trade from kickoff to the deadline (`season_trades`) is 16.4 a year in 2021-2025 (12, 15, 18, 17, 20; real 15, 19, 15, 18, 21, mean 17.6), and 11.5 in 2002-2020 (real 11.1). The check and the trades chart now read `season_trades`, and the chart's "Trades" line counts draft-day trades too, as the real figure does (`crates/afm-reader/src/defs_nfl.rs`, `N9.season_trades`). No game change. Status: fixed (the measure).
 
 **23. History plays one era.** FBS teams throw 29.6 passes a game in 1996-99 and 31.2 in 2020-24, and complete 58.8% then and 60.3% now. Real football changed more. History only. Status: new.
 

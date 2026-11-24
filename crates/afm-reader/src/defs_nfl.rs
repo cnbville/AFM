@@ -296,7 +296,7 @@ pub const COLUMNS: &[(&str, &str)] = &[
     ("market__years", "agents_fired"),
     ("market__years", "promises_broken"),
     ("market__years", "trades"),
-    ("market__years", "deadline_trades"),
+    ("market__years", "season_trades"),
     ("market__years", "picks_traded"),
     ("market__years", "comp_picks"),
     ("market__years", "other_league"),
@@ -872,12 +872,16 @@ pub const CHECKS: &[Check] = &[
         how: r#"Mean of the market's yearly count over its last five league years, as the real figure is recent."#,
     },
     Check {
-        id: "N9.deadline_trades",
+        id: "N9.season_trades",
         page: "nfl",
         areas: "N12",
         title: r#"In-season trades a year"#,
         unit: "a year",
-        world: r#"SELECT AVG(deadline_trades) FROM market__years WHERE year > (SELECT MAX(year) - 5 FROM market__years)"#,
+        // Every trade from kickoff to the deadline, as the real count is
+        // September to November. Before, this read deadline week alone
+        // (`deadline_trades`, about half of them) and showed 9.2 against
+        // 17.6 on the seed 321 world, whose season count is 16.4.
+        world: r#"SELECT AVG(season_trades) FROM market__years WHERE year > (SELECT MAX(year) - 5 FROM market__years)"#,
         scale: 1.0,
         years: None,
         detail: None,
@@ -1854,7 +1858,7 @@ pub const PANELS: &[Panel] = &[
         title: r#"The market's year: every counter"#,
         kind: "table",
         note: r#"Each league year's market: unrestricted free agents, re-signed, signed elsewhere, deals at first offer, players swayed by a better offer, tags, tenders, offer sheets, options, extensions, restructures, cap cuts, June 1 releases, futures, claims and the rest. Before 1993 there was no free agency (1989-92 Plan B)."#,
-        sql: r#"SELECT year, ufa AS "ufa", resigned AS "resigned", signed_new AS "signed new", perfect AS "perfect", swayed AS "swayed", tags AS "tags", transition AS "transition", tenders AS "tenders", sheets AS "sheets", sheets_matched AS "sheets matched", options_taken AS "options taken", options_declined AS "options declined", extensions AS "extensions", rookie_extensions AS "rookie extensions", restructures AS "restructures", cap_cuts AS "cap cuts", june1 AS "june1", futures AS "futures", waiver_claims AS "waiver claims", poached AS "poached", signed_up AS "signed up", settlements AS "settlements", trouble AS "trouble", suspensions AS "suspensions", draft_trades AS "draft trades", udfa_signed AS "udfa signed", holdouts AS "holdouts", holdins AS "holdins", bluffs AS "bluffs", bluffs_called AS "bluffs called", agents_fired AS "agents fired", promises_broken AS "promises broken", trades AS "trades", deadline_trades AS "deadline trades", picks_traded AS "picks traded", comp_picks AS "comp picks", other_league AS "other league", ipp AS "ipp" FROM market__years ORDER BY year"#,
+        sql: r#"SELECT year, ufa AS "ufa", resigned AS "resigned", signed_new AS "signed new", perfect AS "perfect", swayed AS "swayed", tags AS "tags", transition AS "transition", tenders AS "tenders", sheets AS "sheets", sheets_matched AS "sheets matched", options_taken AS "options taken", options_declined AS "options declined", extensions AS "extensions", rookie_extensions AS "rookie extensions", restructures AS "restructures", cap_cuts AS "cap cuts", june1 AS "june1", futures AS "futures", waiver_claims AS "waiver claims", poached AS "poached", signed_up AS "signed up", settlements AS "settlements", trouble AS "trouble", suspensions AS "suspensions", draft_trades AS "draft trades", udfa_signed AS "udfa signed", holdouts AS "holdouts", holdins AS "holdins", bluffs AS "bluffs", bluffs_called AS "bluffs called", agents_fired AS "agents fired", promises_broken AS "promises broken", trades AS "trades", season_trades AS "season trades", deadline_trades AS "deadline trades", picks_traded AS "picks traded", comp_picks AS "comp picks", other_league AS "other league", ipp AS "ipp" FROM market__years ORDER BY year"#,
         says: None,
         needs: W,
         open: "",
@@ -1941,9 +1945,9 @@ pub const PANELS: &[Panel] = &[
         area: "N12",
         title: r#"Trades each year against real"#,
         kind: "line",
-        note: r#"Player trades, in-season trades, draft-day trades and picks traded each year. Real: nflverse trades (nfl_history.json, from Pro Football Reference and news), 2002-2025."#,
-        sql: r#"SELECT 'Trades' AS grp, year, trades AS world, json_extract((SELECT json FROM real_data WHERE file = 'nfl_history.json'), '$.trades.by_season."' || year || '".trades') AS real, trades AS n FROM market__years
-     UNION ALL SELECT 'In-season trades', year, deadline_trades, json_extract((SELECT json FROM real_data WHERE file = 'nfl_history.json'), '$.trades.by_season."' || year || '".in_season_sep_to_nov'), deadline_trades FROM market__years
+        note: r#"Player trades (draft-day ones included), in-season trades (kickoff to the deadline), draft-day trades and picks traded each year. Real: nflverse trades (nfl_history.json, from Pro Football Reference and news), 2002-2025."#,
+        sql: r#"SELECT 'Trades' AS grp, year, trades + draft_trades AS world, json_extract((SELECT json FROM real_data WHERE file = 'nfl_history.json'), '$.trades.by_season."' || year || '".trades') AS real, trades + draft_trades AS n FROM market__years
+     UNION ALL SELECT 'In-season trades', year, season_trades, json_extract((SELECT json FROM real_data WHERE file = 'nfl_history.json'), '$.trades.by_season."' || year || '".in_season_sep_to_nov'), season_trades FROM market__years
      UNION ALL SELECT 'Picks traded', year, picks_traded, json_extract((SELECT json FROM real_data WHERE file = 'nfl_history.json'), '$.trades.by_season."' || year || '".picks_moved'), picks_traded FROM market__years
      UNION ALL SELECT 'Draft-day trades', year, draft_trades, NULL, draft_trades FROM market__years ORDER BY 1, 2"#,
         says: None,

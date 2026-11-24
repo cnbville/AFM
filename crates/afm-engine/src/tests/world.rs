@@ -5,7 +5,7 @@ use crate::attributes::Attr;
 use crate::player::{ProspectOptions, generate_prospect};
 use crate::rng::Rng;
 use crate::world::background::{BackgroundSeed, apply_background, generate_background, generate_family, hardship};
-use crate::world::coach::{CoachTier, TitleKind, generate_coach};
+use crate::world::coach::{CoachTier, Group, Role, TitleKind, generate_coach};
 use crate::world::data::{COLLEGES, Division, STATES, hs_nil};
 use crate::world::high_school::transfer_rule;
 use crate::world::program::{GradeCat, GradeSpeed, letter, move_grade};
@@ -154,6 +154,40 @@ fn big_results_boost_reputation_massively_and_assistants_move_slower() {
     a.recent = vec![-0.2, 0.2];
     b.recent = vec![0.2, -0.2];
     assert!(a.hiring_buzz() > b.hiring_buzz() + 2.0);
+}
+
+#[test]
+fn a_title_above_the_roster_raises_a_coach_more_than_one_as_expected() {
+    // Program fortunes item 7: the 12th-best roster's title counts more
+    // than the most talented roster's, and three seasons above the roster
+    // make the heat (item 6).
+    let mut rng = Rng::new("title above");
+    let base = generate_coach(0, "A".into(), crate::world::ethnicity::Ethnicity::White, CoachTier::Fbs, 45, &mut rng);
+    let mut favorite = base.clone();
+    let mut riser = base.clone();
+    favorite.recent = vec![0.02];
+    riser.recent = vec![0.25];
+    favorite.title_reputation(TitleKind::National, true, 1.0);
+    riser.title_reputation(TitleKind::National, true, 0.3);
+    assert!(riser.reputation - base.reputation > 2.0 * (favorite.reputation - base.reputation));
+    riser.recent = vec![0.3, 0.25, 0.3];
+    favorite.recent = vec![0.0, 0.05, 0.0];
+    assert!(riser.above_three() > 0.8 && favorite.above_three() < 0.1);
+}
+
+#[test]
+fn a_coordinator_is_worth_his_play_calling() {
+    // Program fortunes items 5 and 8: a coordinator's worth reads his calling.
+    let mut rng = Rng::new("caller");
+    let mut a = generate_coach(0, "A".into(), crate::world::ethnicity::Ethnicity::White, CoachTier::Fbs, 45, &mut rng);
+    let mut b = a.clone();
+    a.ability.scheme = 16.0;
+    a.ability.game_management = 16.0;
+    b.ability.scheme = 11.0;
+    b.ability.game_management = 11.0;
+    use crate::world::staff::staff_worth;
+    assert!(staff_worth(&a, Role::OffensiveCoordinator) > staff_worth(&b, Role::OffensiveCoordinator) + 2.5);
+    assert_eq!(staff_worth(&a, Role::PositionCoach(Group::QB)), staff_worth(&b, Role::PositionCoach(Group::QB)));
 }
 
 #[test]

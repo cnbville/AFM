@@ -108,16 +108,20 @@ fn main() {
             eprintln!("read, {:?}", w.today);
             let mut before: HashMap<u32, Priced> = HashMap::new();
             let mut split: HashMap<u32, (usize, f64)> = HashMap::new();
+            let mut kinds: HashMap<u32, (Option<afm_engine::world::nil_bid::DealKind>, Option<PlayingTime>)> =
+                HashMap::new();
             while w.today.year() < until || w.today.month() < 7 || w.today.day() < 2 {
                 w.advance_day();
                 let (m, d) = (w.today.month(), w.today.day());
                 if m == 6 && d == 30 {
                     before = priced(&w);
                     split = roster_splits(&w);
+                    kinds = deal_kinds(&w);
                     eprintln!("{:?}: {} players priced", w.today, before.len());
                 }
                 if m == 7 && d == 2 && !before.is_empty() {
                     payday(&w);
+                    by_deal(&w, &kinds);
                     against_market(&w, &before);
                     scales(&w, &before);
                     against_split(&w, &split);
@@ -380,10 +384,19 @@ fn payday(w: &World) {
             let r = &w.programs[j].roster;
             (a.0 + r.len(), a.1 + r.iter().filter(|&&i| money(&w.people[i]) > 0.0).count())
         });
+        let (low, high) = js.iter().fold((0usize, 0usize), |a, &j| {
+            let r = &w.programs[j].roster;
+            (
+                a.0 + r.iter().filter(|&&i| money(&w.people[i]) < 10_000.0).count(),
+                a.1 + r.iter().filter(|&&i| money(&w.people[i]) >= 100_000.0).count(),
+            )
+        });
         println!(
-            "{c}: rosters {}; {:.0}% of players paid",
+            "{c}: rosters {}; {:.0}% of players paid, {:.0}% under $10K, {:.0}% at $100K or more",
             spread(&mut rosters),
-            100.0 * paid as f64 / n.max(1) as f64
+            100.0 * paid as f64 / n.max(1) as f64,
+            100.0 * low as f64 / n.max(1) as f64,
+            100.0 * high as f64 / n.max(1) as f64
         );
     }
     let groups: [(&str, &[P]); 9] = [
@@ -433,6 +446,42 @@ fn payday(w: &World) {
             line.push(format!("{name} {}", m(q(&mut v, 0.5))));
         }
         println!("  revenue share alone ({:.0}% paid any): {}", 100.0 * got as f64 / n.max(1) as f64, line.join(", "));
+        // The spread inside the paid set (thread "Research real NIL split by
+        // sport", item 3): the CSC's real tail among the paid is a 10th
+        // percentile of $17.5-25K at every position, an offensive line 90th
+        // percentile of $512K, a quarterback's 75th of $675K and 90th of $1.611M.
+        println!("  revenue share among the paid, p10 / p25 / p50 / p75 / p90:");
+        for (name, ps) in groups {
+            let mut v: Vec<f64> = w
+                .people
+                .iter()
+                .filter(|p| on(p) && ps.contains(&p.player.position))
+                .map(|p| p.cal.nil_school as f64)
+                .filter(|&x| x > 0.0)
+                .collect();
+            println!(
+                "    {name} (n {}): {} / {} / {} / {} / {}",
+                v.len(),
+                m(q(&mut v, 0.1)),
+                m(q(&mut v, 0.25)),
+                m(q(&mut v, 0.5)),
+                m(q(&mut v, 0.75)),
+                m(q(&mut v, 0.9))
+            );
+        }
+        // Whole-roster shares, everything he is paid (revenue share, third
+        // party, brand): under $10K and $100K or more, against the CSC-based
+        // 25-30% and 35-45% for a Power 4 roster.
+        {
+            let all: Vec<f64> = w.people.iter().filter(|p| on(p)).map(money).collect();
+            let k = all.len().max(1) as f64;
+            println!(
+                "  whole roster: {:.0}% under $10K, {:.0}% paid anything, {:.0}% at $100K or more",
+                100.0 * all.iter().filter(|&&x| x < 10_000.0).count() as f64 / k,
+                100.0 * all.iter().filter(|&&x| x > 0.0).count() as f64 / k,
+                100.0 * all.iter().filter(|&&x| x >= 100_000.0).count() as f64 / k
+            );
+        }
         if g == "P4" {
             share_grid(w, &groups);
         }
@@ -995,5 +1044,47 @@ fn scales(w: &World, before: &HashMap<u32, Priced>) {
             }
             println!("-- {g} {role}: {}", line.join(" | "));
         }
+    }
+}
+
+/// June 30's deal kind and role of every Power 4 player (the payday clears
+/// the deals), for `by_deal`.
+fn deal_kinds(w: &World) -> HashMap<u32, (Option<afm_engine::world::nil_bid::DealKind>, Option<PlayingTime>)> {
+    w.people
+        .iter()
+        .filter(|p| p.stage == Stage::College && p.college.is_some_and(|j| level(w, j) == Some("P4")))
+        .map(|p| (p.player.id, (p.cal.nil_deal.map(|d| d.kind), p.last_role)))
+        .collect()
+}
+
+/// Power 4 revenue share among the paid, by the kind of deal he held the day
+/// before July's payday and his role: where the spread is lost (thread
+/// "Research real NIL split by sport").
+fn by_deal(w: &World, kinds: &HashMap<u32, (Option<afm_engine::world::nil_bid::DealKind>, Option<PlayingTime>)>) {
+    println!("-- P4 revenue share among the paid, by June 30 deal and role: n, p10 / p50 / p90 --");
+    let mut rows: HashMap<String, Vec<f64>> = HashMap::new();
+    for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+        let Some(&(k, _)) = kinds.get(&p.player.id) else { continue };
+        // The role the split read on July 1 (a season's roll moves it).
+        let role = p.last_role;
+        let x = p.cal.nil_school as f64;
+        let deal = match k {
+            None => "no deal".to_string(),
+            Some(d) => format!("{d:?}"),
+        };
+        let name = |r: Option<PlayingTime>| match r {
+            Some(PlayingTime::Starter) => "starter",
+            Some(PlayingTime::Rotation) => "rotation",
+            Some(_) => "backup",
+            None => "none",
+        };
+        let r = format!("nil_role {} / last_role {}", name(p.cal.nil_role.map(|x| x.0)), name(role));
+        rows.entry(format!("{deal} / {r} / {}", if x > 0.0 { "paid" } else { "no school pay" })).or_default().push(x);
+    }
+    let mut keys: Vec<_> = rows.keys().cloned().collect();
+    keys.sort();
+    for k in keys {
+        let v = rows.get_mut(&k).unwrap();
+        println!("  {k}: {} players; {} / {} / {}", v.len(), m(q(v, 0.1)), m(q(v, 0.5)), m(q(v, 0.9)));
     }
 }
