@@ -2,7 +2,10 @@
 
 Reads sportsdataverse-data cfb_schedules_YEAR.parquet 2001-2025 in DIR
 (https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/cfb_schedules).
-FBS team seasons with 8+ games. Usage: python3 program_persistence.py DIR
+FBS team seasons with 8+ games. Usage: python3 program_persistence.py DIR [OUT.json]
+With OUT.json it also writes the figures the World Reader's program_check page
+sets beside a world's (data/real-world/program_persistence.json), read the same way:
+win share, margin a game and a simple SRS from the scores, 1 to 24 years on.
 """
 import sys, glob, numpy as np, pandas as pd
 D=sys.argv[1]
@@ -99,3 +102,47 @@ x = x[x.n >= 8]
 for L in (1, 5, 10, 15, 20):
     mm = x.merge(x.assign(season=x.season - L), on=["team", "season"])
     print("lag", L, "margin r %.2f (n %d)" % (mm.m_x.corr(mm.m_y), len(mm)))
+
+
+# ---- the figures the World Reader's program_check page reads (OUT.json) ----
+if len(sys.argv) > 2:
+    import json
+    rec["margin"] = x.set_index(["team", "season"]).m.reindex(pd.MultiIndex.from_frame(rec[["team", "season"]])).values
+    out = {"source": "sportsdataverse cfb_schedules 2001-2025, FBS team seasons with 8+ games (scripts/program_persistence.py)",
+           "seasons": 25, "team_seasons": int(len(rec)), "lags": {}}
+    for L in (1, 2, 5, 10, 15, 20, 24):
+        row = {}
+        for k, col in (("srs", "srs"), ("win_share", "wp"), ("margin", "margin")):
+            r, n = lagc(col, L)
+            row[k] = round(float(r), 3); row[k + "_n"] = int(n)
+        out["lags"][str(L)] = row
+    full = tot[tot.seasons >= 22]
+    out["records"] = {
+        "programs_22_plus": int(len(full)),
+        "best": [[t, int(r.w), int(r.l), round(float(r.pct), 3)] for t, r in full.sort_values("pct", ascending=False).head(3).iterrows()],
+        "worst": [[t, int(r.w), int(r.l), round(float(r.pct), 3)] for t, r in full.sort_values("pct").head(3).iterrows()],
+        "at_300_or_under": int((full.pct <= .300).sum()), "under_350": int((full.pct < .350).sum()), "over_750": int((full.pct > .75).sum()),
+        "no_winning_season": int((ws["sum"] == 0).sum()), "two_or_fewer_winning": int((ws["sum"] <= 2).sum()),
+        "longest_drought": int(dry.iloc[0]), "longest_drought_team": str(dry.index[0]),
+        "unbeaten_a_year": round(len(unb) / rec.season.nunique(), 2),
+        "longest_win_streak": best[1], "longest_win_streak_team": best[0],
+    }
+    # Top 10 by the same read in the first five and last five seasons (SRS and margin).
+    rk = {}
+    for col in ("srs", "margin"):
+        rec["rk"] = rec.groupby("season")[col].rank(ascending=False)
+        q = rec.pivot(index="team", columns="season", values="rk")
+        a = q.loc[:, 2001:2005].mean(axis=1); z = q.loc[:, 2021:2025].mean(axis=1)
+        top = a.sort_values().head(10).index
+        rk[col] = {"still_top10": int((z.rank()[top] <= 10).sum()), "still_top25": int((z.rank()[top] <= 25).sum()),
+                   "moved_30_places": round(float(((z - a).dropna().abs() >= 30).mean()), 3), "n": int((z - a).dropna().shape[0])}
+    out["top10_first_to_last_five_years"] = rk
+    out["blocks"] = {"next_block_r": round(float(m.wp_x.corr(m.wp_y)), 3), "moved_150_plus": round(float((d.abs() >= .15).mean()), 3),
+                     "moved_250_plus": round(float((d.abs() >= .25).mean()), 3), "n": int(len(m)),
+                     "bottom_and_top_quarter": int(rise.sum()), "of": int(p.dropna(thresh=4).shape[0])}
+    # The head coach's share of the big programs' class hauls and margin (dynasty-layers/real_coach_share.py, 20 programs).
+    out["coach_share"] = {"source": "afm/dynasty-layers/real_coach_share.py: 20 biggest programs, classes 2003-2025 (460 classes, 88 coach stints)",
+                          "haul": {"program": 0.31, "program_and_coach": 0.61, "noise_floor": 0.41, "coach_share_of_rest": 0.29},
+                          "margin": {"program": 0.23, "program_and_coach": 0.54, "noise_floor": 0.36, "coach_share_of_rest": 0.23}}
+    json.dump(out, open(sys.argv[2], "w"), indent=1)
+    print("wrote", sys.argv[2])

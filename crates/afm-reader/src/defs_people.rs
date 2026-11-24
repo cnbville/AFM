@@ -33,6 +33,7 @@ pub const COLUMNS: &[(&str, &str)] = &[
     ("people", "followers"),
     ("people", "brand"),
     ("people", "nil_income"),
+    ("people", "path"),
     ("people", "camp_stars"),
     ("people", "visibility"),
     ("people", "gpa_at_signing"),
