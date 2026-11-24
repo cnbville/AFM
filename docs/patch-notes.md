@@ -8,6 +8,18 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.687 (24 Nov, shipped): meet the holdover graduate assistants, analysts and QC coaches when you take a job (PR #623), let a live talk raise or let go a graduate assistant, analyst or QC coach (PR #624)
+**TLDR:** 2 changes ship together. When you take over a program or club, the old staff's graduate assistants, analysts and quality-control coaches now come up in the holdover meeting, so you can keep them or clear them out on day one. You can now sit down with a graduate assistant, analyst or quality-control coach and give him a raise or let him go in the talk itself.
+- Meet the holdover graduate assistants, analysts and QC coaches when you take a job (PR #623): When you take over a program or club, the old staff's graduate assistants, analysts and quality-control coaches now come up in the holdover meeting, so you can keep them or clear them out on day one.
+- The holdover meeting lists every junior coach left from the last staff (PR #623)
+- "Clean house" lets them all go; "Keep the recruiters" keeps those whose room's coach stays (PR #623)
+- NFL clubs get their own meeting for quality-control coaches (PR #623)
+- Let a live talk raise or let go a graduate assistant, analyst or QC coach (PR #624): You can now sit down with a graduate assistant, analyst or quality-control coach and give him a raise or let him go in the talk itself.
+- Your juniors are people you can talk to like the rest of your staff. (PR #624)
+- A raise in the talk lands on his pay; letting him go ends his post at no cost. (PR #624)
+- Years, a title or play-calling are for full-time coaches, so he turns those down. (PR #624)
+- Look at: your first-day holdover meeting after taking a job. (PR #623) a sit-down with one of your graduate assistants. (PR #624)
+
 ## 0.2.685 (23 Nov, shipped): make a recruit sound like his standing, and read an honest call fairly (PR #622)
 **TLDR:** Recruits now sound like where they really stand: a kid with no offers is thrilled when a big program calls, and an honest read of his game with a plan to fix it counts as the pitch it is.
 - A recruit's opening on a call or visit now fits his leverage: a kid with no offers, or none near your program's level, is eager and respectful instead of playing hard to get. (PR #622)
