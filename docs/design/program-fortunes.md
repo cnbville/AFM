@@ -1,6 +1,10 @@
 # The rise and fall of programs (realism audit item 2)
 
-Design proposal, 2026-11-24. Thread "Design rise and fall of programs". Everything below is **proposed, not confirmed** until Cain answers the questions at the end. Nothing is built.
+Design, 2026-11-24. Thread "Design rise and fall of programs". Nothing is built yet.
+
+## Cain's answer (2026-11-24)
+
+"agree on all": yes to questions 1 to 10 as proposed. The sizes (half the name from the last ~20 seasons, an 18 recruiter's bond about 3 times an 8's, the pass marks) are targets to tune on the measuring pass, still proposed, not confirmed until measured. Next: lane P0 (the measure), then P1 and P2 side by side, each in its own thread; the measuring pass states its cost and waits for Cain's yes.
 
 ## What it does in the game
 
@@ -65,7 +69,7 @@ What already exists and is not the cause: booster arrivals and exits (`program.r
 - The world seeds tradition from real titles before 1996 and then has no way for an era to end. Any future fix that adds a fixed part (a bigger home pool, a bigger brand) makes this worse; the fixed parts are about right in size, the moving parts are too small.
 - The world keeps no past final polls or year-by-year SRS, so persistence can only be read from season totals. P0 below reads it the same way on both sides.
 
-## Lanes (proposed, not confirmed)
+## Lanes (agreed 2026-11-24)
 
 - **P0, the measure.** A `program_check` page in the World Reader's book (or a tool on it) that prints the table above for any world from its season totals, with the real line beside it, plus the head coach's share of class swings and of margin at the 20 biggest programs (real 29% and 23%). Runs on the seed 321 book with no world build. It can start at once.
 - **P1, what a recruit reads** (items 1 to 4): the name from lived results, the coach's record in the pitch, the bond by recruiting skill, transfers and the staff.
