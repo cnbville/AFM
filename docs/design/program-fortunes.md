@@ -1,6 +1,6 @@
 # The rise and fall of programs (realism audit item 2)
 
-Design, 2026-11-24. Thread "Design rise and fall of programs". Nothing is built yet.
+Design, 2026-11-24. Thread "Design rise and fall of programs". Lane P2 built 2026-11-24; the rest not built yet.
 
 ## Cain's answer (2026-11-24)
 
@@ -73,7 +73,7 @@ What already exists and is not the cause: booster arrivals and exits (`program.r
 
 - **P0, the measure.** A `program_check` page in the World Reader's book (or a tool on it) that prints the table above for any world from its season totals, with the real line beside it, plus the head coach's share of class swings and of margin at the 20 biggest programs (real 29% and 23%). Runs on the seed 321 book with no world build. It can start at once.
 - **P1, what a recruit reads** (items 1 to 4): the name from lived results, the coach's record in the pitch, the bond by recruiting skill, transfers and the staff.
-- **P2, staffs and hiring** (items 5 to 8): the new coach's staff, the hot lists, title reputation, coordinator searches.
+- **P2, staffs and hiring** (items 5 to 8): the new coach's staff, the hot lists, title reputation, coordinator searches. Built 2026-11-24 (thread "Make staff hiring move programs"): a holdover is kept only on the new head coach's read above the best man a program like his can draw (`world/staff.rs`, `staff_worth`, `could_bring`); hot lists read the last three seasons against the roster (`hotness`, `HOT_ABOVE`; `world/coach.rs`, `above_three`); a title raises standing by the season against the roster (`title_reputation`, `title_above`); coordinator searches read play calling through the head coach's eye (`fill_opening`, `CALL_WEIGHT`). How it works: `docs/reference/how-it-works/staff-and-coaches.md`. Sizes proposed, not confirmed, for the measuring pass.
 - P1 and P2 touch different code and can be built side by side with unit tests. Then one measuring pass sizes them together on four seeds against the real table, before and after. Its cost is stated and waits for Cain's yes before any world runs.
 
 Pass marks, set before: win share 10 years on under 0.27 and 20 years on under 0.25 on every seed; strength 10 years on under 0.60; the best 25-year record under .870; at most two long-time programs under .330; no 20-year run without a winning season; unbeaten seasons 0.6 to 1.0 a year; 15 or more programs in both the bottom and the top quarter in some 5-year span; head coach's share of class swings 20 to 35%. Cain's NIL-era title call stays: 9 to 10 champions in 15 years.
