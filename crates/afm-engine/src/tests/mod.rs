@@ -33,6 +33,7 @@ mod facilities;
 mod fans;
 mod finder;
 mod following;
+mod fortunes;
 mod foundations;
 mod fresh_talks;
 mod front_office;

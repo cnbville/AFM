@@ -157,6 +157,7 @@ pub fn start(w: &mut World, p: usize, level: Division, build: i32, first: i32) {
     // size (proposed, not confirmed).
     if !restart {
         prog.tradition = 0.0;
+        prog.legacy = 0.0;
     }
     prog.stadium = prog.stadium.min(match level {
         Division::FBS | Division::FCS => 15_000,
