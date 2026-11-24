@@ -90,7 +90,8 @@ EPA a dropback by the coverage called, the engine's NFL test league (400 games, 
 40 engine games (30 NFL, 10 FBS; `match_check` play-by-play, seed 1), one Opus 5.5 review each through the Batches API ($4.34). Raw results: `/mnt/project-files/afm/scheme-sequencing/review_before/`.
 - Average scores: sequencing 3.6 of 10 (how much the calling showed set-ups, answers and adjustments), realism 4.0 of 10.
 - 540 findings: 246 unreal (58 serious), 132 failed adjustments (56 serious), 84 tendencies, 78 missed answers. The run of them: defenses that keep a two-high shell and a four-man rush while a run gashes them; offenses that keep calling a run that fails; inside runs into a Cover 0 double-A blitz at the goal line, three times in a row; the clock barely running between some in-bounds snaps; a few throws landing past the end line; odd end-of-game kneels. The engine bugs are in `GAPS.md`.
-- The same review on the same seeds after section 12 is the "after".
+- A second run, 60 games on seed 2 (20 NFL, 20 FBS, 20 high school; $6.40; `/mnt/project-files/afm/scheme-sequencing/review_before_2/`), gives the same picture at every level. Sequencing scores were 3.55 for the NFL, 3.4 for FBS and 3.25 for high school. Realism scores were 4.0, 4.05 and 3.7. It made 791 findings: 371 unreal (89 serious), 186 failed adjustments (84 serious), 119 missed answers and 115 tendencies. The most common serious one is an offense that keeps throwing into the same defender's zone after picks, or a defense that never changes its shell while a run gashes it.
+- The same reviews on the same seeds after section 12 are the "after".
 
 ## 10. The blind drive test
 
