@@ -151,6 +151,34 @@ fn a_college_job_on_jan1_fills_two_days_staff_first_with_an_interim_on_the_sidel
 }
 
 #[test]
+fn a_takeover_meets_the_holdover_juniors_and_cleaning_house_clears_them() {
+    let mut w = fresh();
+    let p = (0..w.programs.len())
+        .find(|&p| {
+            w.programs[p].head_coach.is_some()
+                && crate::world::staff::juniors_of(&w, crate::world::coach::Employer::College(p)).len() >= 2
+        })
+        .expect("a program with juniors");
+    let e = crate::world::coach::Employer::College(p);
+    let before = crate::world::staff::juniors_of(&w, e);
+    w.start_career_as(&you(), Start::Head(Job::College(p)), 5);
+    let v = scenes_of(&w);
+    let room = v
+        .iter()
+        .find(|s| s.kind == Kind::Holdover && s.a == u64::MAX)
+        .expect("the holdover room meets the position coaches and juniors");
+    let opened = scene::open(&mut w, room.id).unwrap();
+    let rows = opened.docs[0].rows.len();
+    assert!(rows >= before.len(), "every junior is in the room's list: {rows} rows for {} juniors", before.len());
+    // Keeping the room keeps them; cleaning house clears every one.
+    let kept = scene::answer(&mut w, room.id, 34).unwrap();
+    assert!(kept.done);
+    assert!(crate::world::staff::juniors_of(&w, e).iter().all(|c| !before.contains(c)), "every holdover junior went");
+    let tk = w.folk.takeover.as_ref().unwrap();
+    assert!(before.iter().all(|c| tk.let_go.contains(c)), "the takeover keeps who you let go");
+}
+
+#[test]
 fn an_nfl_club_taken_in_season_keeps_its_last_games_on_the_interims_record() {
     let mut w = fresh();
     let s = w.nfl_season.clone().unwrap();

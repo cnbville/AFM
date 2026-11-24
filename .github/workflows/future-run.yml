@@ -1,0 +1,172 @@
+name: Future run
+# Plays a published world on for whole seasons with the world log on, then
+# builds its book (realism audit item 25, docs/trials/realism-audit-seed321.md;
+# Cain 2026-11-24 "agreed"): the world's NIL, House cap, rating and money
+# drift over future seasons, which the world's own history can't answer.
+#
+# Nothing of the world's code changes: `afm_future` is the game's own
+# play-on (`World::play_on_to`) with the log and the tallies attached. The
+# run is cut in two jobs (a job may run six hours, and ten full seasons with
+# every level on the engine and the log on run about four to five): the
+# first plays `first` seasons and hands the world, its tallies and its log
+# to the second as one artifact; the log carries on after its last segment
+# (`WorldLog::resume`). The book job then builds the book on a fresh machine,
+# prints its pages in the run's summary, and puts it on the worlds page in a
+# release of its own (tag future-...). No world file goes up, so the game's
+# library never lists it. Needs the WORLDS_TOKEN secret.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The worlds page release to play on"
+        default: "world-2026-seed321-jan2026-094635f"
+      first:
+        description: "Seasons the first job plays"
+        default: "5"
+      second:
+        description: "Seasons the second job plays"
+        default: "5"
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile the play-on tool
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+        run: |
+          cargo build --release --bin afm_future
+          mkdir -p tools && cp target/release/afm_future tools/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: future-tools
+          path: tools/
+          retention-days: 3
+  first:
+    needs: tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: future-tools
+          path: tools
+      - run: chmod +x tools/*
+      - name: Download the world and its tallies
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          cd out
+          gh release download "$TAG" --repo cnbville/afm-worlds --pattern '*.afmworld*' --pattern '*.afmdata.tar.*'
+          f=$(ls | sed -n 's/\(.*\.afmworld\)\.[0-9]*$/\1/p' | head -1)
+          if [ -n "$f" ]; then cat "$f".[0-9][0-9][0-9] > "$f" && rm "$f".[0-9][0-9][0-9]; fi
+          for d in $(ls | sed -n 's/\(.*\.afmdata\)\.tar\.[0-9]*$/\1/p' | sort -u); do
+            for p in "$d".tar.[0-9][0-9][0-9]; do cat "$p" && rm "$p"; done | tar -xf -
+          done
+          ls -la && du -sh ./* && df -h / /mnt
+      - name: Play the first seasons
+        run: |
+          f=$(realpath "$(ls out/*.afmworld | head -1)")
+          tools/afm_future "$f" "${{ inputs.first }}" 2>&1 | tee future-first.txt
+          ls -la out/ && du -sh out/* && df -h / /mnt
+          { echo '### First job'; echo '```'; cat future-first.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: future-half
+          path: |
+            out/*.afmworld
+            out/*.afmdata/
+            out/*.afmlog/
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: error
+  second:
+    needs: first
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: future-tools
+          path: tools
+      - run: chmod +x tools/*
+      - uses: actions/download-artifact@v4
+        with:
+          name: future-half
+          path: out
+      - name: Play the rest
+        run: |
+          ls -la out/ && du -sh out/* && df -h / /mnt
+          f=$(realpath "$(ls out/*.afmworld | head -1)")
+          tools/afm_future "$f" "${{ inputs.second }}" 2>&1 | tee future-second.txt
+          ls -la out/ && du -sh out/* && df -h / /mnt
+          { echo '### Second job'; echo '```'; cat future-second.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      # The book needs the world and the log only (as the published worlds'
+      # book job reads them); the tallies stay behind.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: future-final
+          path: |
+            out/*.afmworld
+            out/*.afmlog/
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: error
+  book:
+    needs: second
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: future-final
+          path: out
+      - name: Build the book
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+          AFM_BOOK_PAGES: future-pages.txt
+        run: |
+          ls -la out/ && du -sh out/* && df -h / /mnt
+          .github/scripts/build-book.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: future-pages
+          path: future-pages.txt
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Publish the book
+        env:
+          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+          SHA: ${{ github.sha }}
+        run: |
+          cd out
+          tag="future-seed321-$(date -u +%Y%m%d)-$(echo "$SHA" | cut -c1-7)"
+          gh release create "$tag" --repo cnbville/afm-worlds --prerelease \
+            --title "Future run: seed 321 played on (book only)" \
+            --notes "The world reader's book for the seed 321 world played on from 1 January 2026 (realism audit item 25), commit $SHA. Book only: no world file, so the game does not list it. Unzstd it, joining parts first."
+          for b in *.afmbook.zst; do
+            [ -f "$b" ] || continue
+            if [ "$(stat -c %s "$b")" -gt 2000000000 ]; then
+              split -b 1900M -d -a 3 --numeric-suffixes=1 "$b" "$b."
+              rm "$b"
+            fi
+            gh release upload "$tag" ./"$b"* --repo cnbville/afm-worlds
+          done

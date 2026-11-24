@@ -311,3 +311,64 @@ fn a_staff_coachs_card_names_the_men_he_coaches_so_work_with_lands() {
     // Another club's coach, or nobody's, names no one.
     assert!(afm_engine::world::folk::talks::coached_by(w, usize::MAX).is_empty());
 }
+
+/// A graduate assistant, analyst or quality-control coach is on your staff
+/// in a talk: you can sit down with him, he asks as your staff do, a raise
+/// you give him lands on his post's pay and letting him go ends the post.
+#[test]
+fn a_junior_on_your_staff_can_be_raised_or_let_go_in_a_talk() {
+    use afm_engine::world::coach::{Group, Post};
+    use afm_engine::world::folk::persona::Them;
+    use afm_engine::world::folk::persona::ear::Confirm;
+    use afm_engine::world::folk::persona::office::{self, asks};
+    use afm_engine::world::folk::persona::terms::{DealKind, Decision, Give, Offer, Weighed};
+    use afm_engine::world::folk::persona::wants::Kind;
+    use afm_engine::world::folk::{juniors, staffing};
+
+    let (mut g, _, _) = game("n7-junior", false);
+    let w = g.world.as_mut().unwrap();
+    if staffing::my_juniors(w).is_empty() {
+        // The tiny world starts with none: bring one in, the way a room's
+        // coach does.
+        let _ = juniors::staff_pick(w, Post::GradAssistant, Group::ALL[0]);
+        if staffing::my_juniors(w).is_empty() {
+            let pick = juniors::candidates(w, Post::GradAssistant).into_iter().find(|p| p.coach.is_some());
+            if let Some(c) = pick.and_then(|p| p.coach) {
+                let _ = juniors::hire(w, juniors::Applicant::Coach(c), Post::GradAssistant, None);
+            }
+        }
+    }
+    let Some(&ga) = staffing::my_juniors(w).first() else { panic!("no junior to talk to") };
+    let him = Them::Coach(ga);
+    // He works for you, though his post is no job in the world's books.
+    assert!(!asks::on_your_staff(w, ga));
+    assert!(asks::yours(w, ga));
+    assert_eq!(afm_engine::world::folk::persona::makeup::kind(w, him), Kind::Staff);
+    assert!(office::sit::can_sit(w, him));
+    let sid = office::sit::start(w, him, None).expect("a sit-down with a junior");
+    assert!(w.folk.scenes.iter().any(|s| s.id == sid));
+
+    // A raise: more than he makes is a yes, less is a no, and the years or
+    // a title are a full-time job's.
+    let pay = staffing::junior_salary(w, ga).unwrap();
+    let offer = |gives: Vec<Give>| Offer { kind: DealKind::Staff, gives, ..Offer::default() };
+    let more = offer(vec![Give::Money(pay * 1.2)]);
+    assert!(matches!(office::deals::weigh(w, him, &more), Some(Weighed::Yes)));
+    assert!(matches!(office::deals::weigh(w, him, &offer(vec![Give::Money(pay * 0.8)])), Some(Weighed::No)));
+    assert!(matches!(office::deals::weigh(w, him, &offer(vec![Give::Years(2)])), Some(Weighed::No)));
+    assert!(matches!(office::deals::weigh(w, him, &offer(vec![Give::Title])), Some(Weighed::No)));
+    office::confirm(w, sid, him, &Confirm::Offer(more)).expect("the raise runs");
+    let now = staffing::junior_salary(w, ga).unwrap();
+    assert!(now > pay * 1.19, "{pay} -> {now}");
+
+    // He asks for more money himself, ten percent over his pay.
+    let asks_for = asks::his_gives(w, him, afm_engine::world::folk::persona::wants::WantKind::Money);
+    assert!(matches!(asks_for.as_slice(), [Give::Money(x)] if *x > now), "{asks_for:?}");
+    assert!(asks::his_gives(w, him, afm_engine::world::folk::persona::wants::WantKind::Career).is_empty());
+
+    // Let go: the post ends and nothing is owed.
+    let out = office::confirm(w, sid, him, &Confirm::Decision(Decision::CoachLetGo)).expect("let go runs");
+    assert!(out.iter().any(|l| l.contains("out as your")), "{out:?}");
+    assert!(!staffing::my_junior(w, ga));
+    assert!(!office::sit::can_sit(w, him));
+}

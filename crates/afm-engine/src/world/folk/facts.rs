@@ -567,6 +567,17 @@ pub fn assistants(w: &World, team: Team) -> Vec<(usize, Role)> {
     v
 }
 
+/// The graduate assistants, analysts and quality-control coaches a team has
+/// now, by post and then room: the juniors the last staff left behind.
+pub fn juniors(w: &World, team: Team) -> Vec<usize> {
+    let mut v = crate::world::staff::juniors_of(w, team.employer());
+    v.sort_by_key(|&c| {
+        let j = w.coaches[c].junior_now();
+        (j.map_or(0, |j| j.post as u8), j.map_or(0, |j| j.group as u8), c)
+    });
+    v
+}
+
 /// Whether he is gone before next season starts: leaving after this one,
 /// or already out of football.
 pub fn leaving_now(w: &World, i: usize) -> bool {

@@ -45,6 +45,13 @@ pub fn on_your_staff(w: &World, c: usize) -> bool {
         }
 }
 
+/// A coach who works for you: on your staff in a full-time job, or in one
+/// of your junior posts (a graduate assistant, analyst or quality-control
+/// coach, whose post is no job in the world's books: `staffing::my_junior`).
+pub fn yours(w: &World, c: usize) -> bool {
+    on_your_staff(w, c) || crate::world::folk::staffing::my_junior(w, c)
+}
+
 /// The boss ask a money request is, from what you said it's for: the staff
 /// pool unless you named recruiting, the collective, a facility or
 /// practice-squad money. The kind named first wins, since what the money is
@@ -803,8 +810,16 @@ pub fn after(w: &mut World, him: Them, t: &Turn) -> Vec<String> {
 /// play-calling (a coordinator who doesn't call it). Empty for anyone else.
 pub fn his_gives(w: &World, him: Them, k: WantKind) -> Vec<Give> {
     let Them::Coach(c) = him else { return Vec::new() };
-    if !on_your_staff(w, c) {
+    if !yours(w, c) {
         return Vec::new();
+    }
+    // A junior's post is year to year at the post's pay: he can ask for
+    // more money and nothing else (no title, no say in the scheme).
+    if !on_your_staff(w, c) {
+        return match (k, crate::world::folk::staffing::junior_salary(w, c)) {
+            (WantKind::Money, Some(s)) => vec![Give::Money((s * (1.0 + HIS_RAISE)).round())],
+            _ => Vec::new(),
+        };
     }
     let salary = w.folk.staff.deals.iter().find(|d| d.coach == c).map(|d| d.salary);
     let coordinator =

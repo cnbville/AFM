@@ -390,7 +390,7 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
                 3,
                 Kind::Holdover,
                 u64::MAX,
-                "The holdover position coaches".into(),
+                "The holdover position coaches and juniors".into(),
                 format!("{building}, the staff room"),
             ));
             v.push((
@@ -433,6 +433,15 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
             let staff = facts::assistants(w, team);
             for (c, role) in &staff {
                 v.push((2, Kind::Holdover, *c as u64, format!("Meeting the {}", role.name()), "Your office".into()));
+            }
+            if !facts::juniors(w, team).is_empty() {
+                v.push((
+                    2,
+                    Kind::Holdover,
+                    u64::MAX,
+                    "The holdover quality-control coaches".into(),
+                    "Your office".into(),
+                ));
             }
             v.push((
                 3,
@@ -619,7 +628,7 @@ fn rush_schedule(w: &World, team: Team, first: Date) -> Vec<(i32, u16, Kind, u64
                 at,
                 Kind::Holdover,
                 u64::MAX,
-                "The holdover position coaches".into(),
+                "The holdover position coaches and juniors".into(),
                 format!("{building}, the staff room"),
             ));
             v.push((
@@ -730,6 +739,16 @@ fn rush_schedule(w: &World, team: Team, first: Date) -> Vec<(i32, u16, Kind, u64
                     "Your office".into(),
                 ));
                 at += 60;
+            }
+            if !facts::juniors(w, team).is_empty() {
+                v.push((
+                    0,
+                    at,
+                    Kind::Holdover,
+                    u64::MAX,
+                    "The holdover quality-control coaches".into(),
+                    "Your office".into(),
+                ));
             }
             v.push((
                 0,
@@ -1884,12 +1903,26 @@ fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
         );
         return;
     }
-    s.who.push(Who::Group("The holdover position coaches".into()));
-    s.narrate(format!(
-        "{} position coaches are still on staff. A new head coach usually keeps one or two who know the roster and the recruits, and brings his own for the rest.",
-        staff.iter().filter(|x| matches!(x.1, crate::world::coach::Role::PositionCoach(_))).count()
+    let nfl = matches!(team, Team::Nfl(_));
+    let juniors = facts::juniors(w, team);
+    let position: Vec<(usize, crate::world::coach::Role)> =
+        staff.iter().copied().filter(|x| matches!(x.1, crate::world::coach::Role::PositionCoach(_))).collect();
+    s.who.push(Who::Group(
+        if nfl { "The holdover quality-control coaches" } else { "The holdover position coaches and juniors" }.into(),
     ));
-    for (c, role) in staff.iter().filter(|x| matches!(x.1, crate::world::coach::Role::PositionCoach(_))) {
+    s.narrate(if nfl {
+        format!(
+            "{} quality-control coaches are still on staff from the last one. A new head coach usually brings his own: they break down film for him and carry his scheme, so he wants men he trusts.",
+            juniors.len()
+        )
+    } else {
+        format!(
+            "{} position coaches and {} graduate assistants and analysts are still on staff. A new head coach usually keeps one or two position coaches who know the roster and the recruits, and brings his own for the rest, graduate assistants and analysts above all: they are the men he trusts with his film and his scheme.",
+            position.len(),
+            juniors.len()
+        )
+    });
+    for (c, role) in &position {
         let co = &w.coaches[*c];
         let since = co.job.map_or(w.year, |j| j.first_season());
         let tree = if old.is_some_and(|o| co.mentor == Some(o)) { "the old coach's" } else { "his own" };
@@ -1906,24 +1939,48 @@ fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
             ],
         });
     }
+    for &c in &juniors {
+        let co = &w.coaches[c];
+        let Some(j) = co.junior_now() else { continue };
+        let tree = if old.is_some_and(|o| co.mentor == Some(o)) { "the old coach's" } else { "his own" };
+        doc.rows.push(DocRow {
+            pid: None,
+            cells: vec![
+                coach_link(w, c),
+                format!("{}, {}", j.post.name(), j.group.name()),
+                j.since.to_string(),
+                super::rep_words(co.reputation).into(),
+                tree.into(),
+                staff_word(w, c),
+            ],
+        });
+    }
     s.docs.push(doc);
     s.pick(
         32,
-        "Keep the whole room through spring. Decide after.",
+        if nfl {
+            "Keep them through the offseason. Decide after."
+        } else {
+            "Keep the whole room through spring. Decide after."
+        },
         "Listen",
         "calm",
         "Continuity for the players and recruits; you can still make changes from the staff screen.",
     );
     s.pick(
         33,
-        "Keep the recruiters and the ones the players trust; let the rest go.",
+        if nfl {
+            "Keep the ones the players trust; let the rest go."
+        } else {
+            "Keep the recruiters and the ones the players trust; let the rest go. A junior stays with his room's coach."
+        },
         "Tell him straight",
         "firm",
-        "The weakest go; you owe their contracts, and you hire to fill.",
+        "The weakest go; you owe the position coaches' contracts, the juniors' posts open for your own picks, and you hire to fill.",
     );
     s.pick(
         34,
-        "Clean house. You're bringing your own staff.",
+        if nfl { "Clean house. You're bringing your own men." } else { "Clean house. You're bringing your own staff." },
         "Tell him straight",
         "fiery",
         "Every holdover goes. The players close to them take it hard, and their recruits wobble.",
@@ -2013,14 +2070,16 @@ fn holdover_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                 .filter(|x| matches!(x.1, crate::world::coach::Role::PositionCoach(_)))
                 .map(|x| x.0)
                 .collect();
+            // The test a man passes to stay: recruiting ties or a room that
+            // grew under him.
+            let earns = |w: &World, c: usize| {
+                let co = &w.coaches[c];
+                co.ties.values().filter(|&&v| v > 0.4).count() >= 3
+                    || co.units.iter().map(|u| u.growth_read()).sum::<f64>() > 1.0
+            };
             let mut gone = Vec::new();
             for c in staff {
-                let keep = code == 33 && {
-                    let co = &w.coaches[c];
-                    let ties = co.ties.values().filter(|&&v| v > 0.4).count();
-                    ties >= 3 || co.units.iter().map(|u| u.growth_read()).sum::<f64>() > 1.0
-                };
-                if !keep {
+                if !(code == 33 && earns(w, c)) {
                     gone.push(w.coaches[c].name.clone());
                     super::staffing::fire(w, c, "let go by the new head coach");
                     if let Some(t) = w.folk.takeover.as_mut() {
@@ -2028,10 +2087,42 @@ fn holdover_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                     }
                 }
             }
-            s.outcome.push(if gone.is_empty() {
+            // The graduate assistants, analysts and quality-control coaches
+            // the old staff left: a new head coach brings his own. A junior
+            // stays with his room's coach when that coach stays, or when he
+            // earns it himself.
+            let mut juniors_gone = 0;
+            for c in facts::juniors(w, team) {
+                let Some(j) = w.coaches[c].junior_now() else { continue };
+                let boss_stays = match team {
+                    Team::College(p) => w.programs[p].position_coaches[j.group as usize].is_some(),
+                    _ => false,
+                };
+                if code == 33 && (boss_stays || earns(w, c)) {
+                    continue;
+                }
+                super::staffing::fire(w, c, "let go by the new head coach");
+                if let Some(t) = w.folk.takeover.as_mut() {
+                    t.let_go.push(c);
+                }
+                juniors_gone += 1;
+            }
+            s.outcome.push(if gone.is_empty() && juniors_gone == 0 {
                 "Everyone you looked at stays.".into()
             } else {
-                format!("You let go {}. Hire their replacements from the staff screen.", gone.join(", "))
+                let mut text = String::new();
+                if !gone.is_empty() {
+                    text += &format!("You let go {}. Hire their replacements from the staff screen.", gone.join(", "));
+                }
+                if juniors_gone > 0 {
+                    if !text.is_empty() {
+                        text += " ";
+                    }
+                    text += &format!(
+                        "{juniors_gone} of the graduate assistants, analysts and quality-control coaches went too, and their posts are open for your own picks."
+                    );
+                }
+                text
             });
         }
         _ => {}
