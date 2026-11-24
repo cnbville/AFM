@@ -3474,23 +3474,33 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             Division::D3 => 0.15,
             Division::JUCO => 0.15,
         };
-        let season_score = scale
-            * (0.2
-                + 0.8 * win
-                + if t.conference_title { 0.15 } else { 0.0 }
-                + if t.national_title { 0.3 } else { 0.0 });
+        let season_score = program::season_score(p.division, win, t.conference_title, t.national_title);
         if w.recording {
             // Recent results build slowly and don't max out (11.10): a season
             // counts for a quarter, so the last four carry about two-thirds
             // (a recruit's high school years), and a title season counts more
             // than a plain 12-1 one (proposed, not confirmed).
             p.recent = 0.75 * p.recent + 0.25 * season_score;
-            // Tradition is built by titles; recent form only seeps in slowly (note 15C).
-            p.tradition = clamp(
-                0.995 * p.tradition
+            // The all-time part is built by titles; recent form only seeps
+            // in slowly (note 15C). An older file's starts from its name.
+            if p.legacy <= 0.0 {
+                p.legacy = p.tradition;
+            }
+            p.legacy = clamp(
+                0.995 * p.legacy
                     + 0.005 * p.recent
                     + if t.national_title { 0.03 } else { 0.0 }
                     + if t.conference_title { 0.004 } else { 0.0 },
+                0.0,
+                1.0,
+            );
+            // The name a recruit reads is half that and half the results
+            // he has lived through (program fortunes item 1, Cain
+            // 2026-11-24): Nebraska's 1990s fade from a 2026 recruit's
+            // read, and an Oregon run without a title builds a name.
+            let now = (t.games() > 0).then_some(season_score);
+            p.tradition = clamp(
+                (1.0 - program::LIVED_SHARE) * p.legacy + program::LIVED_SHARE * program::lived(p, year, now),
                 0.0,
                 1.0,
             );
@@ -3548,17 +3558,12 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let t = &results[i];
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
         let hc_rep = w.programs[i].head_coach.map_or(8.0, |c| w.coaches[c].reputation);
+        // The head coach's own record counts in his school's pitch
+        // (program fortunes item 2, Cain 2026-11-24): the picks his staffs
+        // developed and his wins above his rosters, wherever he coached.
+        let picks = super::fortunes::pipeline(w, i, year);
+        let head_record = w.programs[i].head_coach.map_or(0.0, |c| super::fortunes::head_record(w, c, year));
         let p = &mut w.programs[i];
-        let picks: f64 = p
-            .draft_picks
-            .iter()
-            .filter(|(y, _)| year - y < 4)
-            .map(|&(_, round)| match round {
-                1 => 3.0,
-                2 | 3 => 2.0,
-                _ => 1.0,
-            })
-            .sum();
         let academics = match p.academic_tier {
             AcademicTier::Aau => 0.9,
             AcademicTier::R1 => 0.7,
@@ -3573,7 +3578,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         raw[i][GradeCat::ProPipeline as usize] = picks * pitch;
         raw[i][GradeCat::PlayingTime as usize] = open[i];
         raw[i][GradeCat::Tradition as usize] = p.tradition * pitch;
-        raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength + (0.6 * titles_recent + win) * conf_strength(p);
+        raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength
+            + (0.6 * titles_recent + win + super::fortunes::HEAD_RECORD * head_record) * conf_strength(p);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;
         raw[i][GradeCat::Facilities as usize] = fac_reads[i];
         // Before NIL the grade reads the booster base, the money that becomes NIL.
