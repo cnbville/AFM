@@ -6610,10 +6610,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         let visited =
                             official.contains(&j) || contact > 0.0 || geo::miles(p.home_state, prog.state) <= 250.0;
                         let group = super::coach::Group::of(p.player.position);
-                        let hc = prog.head_coach.map(|c| *w.coaches[c].ability());
                         // C8: a famous name pulls recruits too.
-                        let hc_skill = 0.6 * hc.map_or(9.0, |a| a.recruiting)
-                            + 0.4 * hc.map_or(9.0, |a| a.relationships)
+                        let hc_skill = prog.head_coach.map_or(9.0, |c| super::fortunes::head_skill(w, c))
                             + prog.head_coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season))
                             // How the head coach talks, as the kid hears it
                             // from his host and the trail (coach voice):
@@ -6655,10 +6653,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             Some(_) => 0.01,
                             None => 0.0,
                         };
+                        // Each coach's recruiting sets how fast his bond
+                        // grows (program fortunes item 3, Cain 2026-11-24):
+                        // an 18 three times as fast as an 8.
                         let rel = known
-                            * (0.025 * hc_time
-                                + 0.006 * (hc_skill - 10.0) * hc_time
-                                + 0.003 * (pc_skill - 10.0) * pc_time)
+                            * (super::fortunes::HC_BOND * hc_time * super::fortunes::bond_rate(hc_skill)
+                                + super::fortunes::PC_BOND * pc_time * super::fortunes::bond_rate(pc_skill))
                             + 0.03 * tie
                             + babysat
                             + early_offer
@@ -9200,11 +9200,17 @@ fn suitors(
                 let nil = nil * super::nil_bid::term_weight(super::nil_bid::guarantee(p), o.years);
                 let fit =
                     mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
+                // His bond with your staff (program fortunes item 4): what
+                // your coaches built recruiting him out of high school, and
+                // your staff's calls when you didn't make your own.
+                let (calls, old) = super::fortunes::transfer_bond(wr, i, j);
                 let mut u =
                     utility(norms, &wr.high_schools, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
                         + fit
                         + o.bond
                         + bond
+                        + old
+                        + if o.called { 0.0 } else { calls }
                         + money.extra(nil);
                 // What you promised him, as far as he believes it, and your
                 // staff's call when it works the portal and you didn't call.
@@ -9282,9 +9288,16 @@ fn suitors(
             // Its staff calls him within hours of his name going in (portal
             // recruiting): his position coach's pitch, as yours makes it.
             let fit = mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
+            // His bond with the staff pitching him (program fortunes item
+            // 4, Cain 2026-11-24): its calls at each coach's recruiting
+            // rate, and what any of them built recruiting him out of high
+            // school, so a coach who lost him gets him back more often.
+            let (calls, old) = super::fortunes::transfer_bond(wr, i, j);
             let u = utility(norms, &wr.high_schools, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
                 + fit
                 + bond
+                + calls
+                + old
                 + money.extra(nil)
                 + super::folk::dialogue::staff_call(wr, i, j, role, nil)
                 // Its head coach's word on his role, as far as he believes
