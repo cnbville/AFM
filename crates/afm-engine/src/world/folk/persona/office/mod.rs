@@ -345,7 +345,7 @@ pub fn confirm(w: &mut World, id: u32, him: Them, c: &Confirm) -> Option<Vec<Str
         Confirm::RequestOf(doer, r) => asks::run(w, *doer, r).map(|r| r.done),
         Confirm::Decision(super::terms::Decision::CoachLetGo) => {
             let Them::Coach(c) = him else { return None };
-            if !asks::on_your_staff(w, c) {
+            if !asks::yours(w, c) {
                 return Some(vec!["He isn't on your staff.".into()]);
             }
             Some(vec![crate::world::folk::staffing::fire(w, c, "let go by the head coach")])
@@ -358,18 +358,25 @@ pub fn confirm(w: &mut World, id: u32, him: Them, c: &Confirm) -> Option<Vec<Str
 /// side's (asked how his room is): the room's band and its unhappiest man.
 fn room_mood(w: &World, him: Them, topic: Topic, about: Option<Them>) -> Vec<Known> {
     let (Them::Coach(c), Topic::Mood, None) = (him, topic, about) else { return Vec::new() };
-    if !asks::on_your_staff(w, c) {
+    if !asks::yours(w, c) {
         return Vec::new();
     }
     let Some(team) = Team::seat(w) else { return Vec::new() };
-    let Some(role) = w.coaches[c].job.map(|j| j.role) else { return Vec::new() };
+    // A junior works one position room (his post's group).
+    let post = w.coaches[c].junior_now().filter(|_| w.coaches[c].job.is_none()).map(|j| j.group);
+    let role = w.coaches[c].job.map(|j| j.role);
+    if role.is_none() && post.is_none() {
+        return Vec::new();
+    }
     let mine = |i: usize| {
         let g = crate::world::coach::Group::of(w.people[i].player.position);
-        match role {
-            Role::PositionCoach(x) => g == x,
-            Role::OffensiveCoordinator => g.offense(),
-            Role::DefensiveCoordinator => !g.offense(),
-            Role::HeadCoach => true,
+        match (role, post) {
+            (Some(Role::PositionCoach(x)), _) => g == x,
+            (Some(Role::OffensiveCoordinator), _) => g.offense(),
+            (Some(Role::DefensiveCoordinator), _) => !g.offense(),
+            (Some(Role::HeadCoach), _) => true,
+            (None, Some(x)) => g == x,
+            (None, None) => false,
         }
     };
     let men: Vec<usize> = team.roster(w).into_iter().filter(|&i| mine(i)).collect();

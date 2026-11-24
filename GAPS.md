@@ -221,7 +221,6 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **Before 2026 the dates' winter window is always January 2** (low). `YearDates::portal_open` reads `january_window`, which gives January 2-16 for every season before 2026, while the December windows of 2023-25 live in the rule book (`calendar/rules.rs`). Only a read on today's date in those years (a history replay at your desk) uses it. Same thread.
 
 - **The holdover staff room's live talk leaves out the juniors** (low). The takeover's holdover room now lists the holdover graduate assistants, analysts and quality-control coaches and lets them go with "Clean house" or by their room's coach (`takeover.rs`, `holdover_room`, `holdover_answer`), but a typed line in it seats only the position coaches (`coaching::holdover_room`), so nobody can ask a junior or raise or let go one man by name there; the Staff page still does that one by one. Found 2026-11-24 (thread "Add holdover juniors to takeover meetings").
-- **A talk with a graduate assistant can't raise him or let him go** (low). The talk's confirm runs (`persona/office/asks.rs`, `on_your_staff`; `deals.rs`, `own_agree`) read a full-time job and a deal, so a junior's talk offers neither; the Staff page and his move list do both. Found 2026-11-22 (same thread).
 
 ## UI
 

@@ -156,7 +156,10 @@ pub fn kind(w: &World, him: Them) -> Kind {
         Them::Kin(..) => Kind::Family,
         Them::Coach(c) => {
             let Some(coach) = w.coaches.get(c) else { return Kind::OtherCoach };
-            let team = coach_team(w, c);
+            // A graduate assistant, analyst or quality-control coach holds a
+            // post, not a job: `coach_team` doesn't see him, but he is on
+            // your staff all the same.
+            let team = coach_team(w, c).or_else(|| crate::world::folk::staffing::my_junior(w, c).then_some(seat?));
             if seat.is_some() && team == seat {
                 if assistant(w) && coach.job.is_some_and(|j| j.role == CoachRole::HeadCoach) {
                     Kind::Boss

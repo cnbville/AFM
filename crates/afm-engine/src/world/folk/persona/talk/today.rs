@@ -138,7 +138,7 @@ impl Wanting for Today {
             Them::Coach(c) => {
                 let mine = Team::seat(w).is_some_and(|t| {
                     w.coaches.get(c).and_then(|c| c.job).is_some_and(|j| Team::from_employer(j.employer) == t)
-                });
+                }) || crate::world::folk::staffing::my_junior(w, c);
                 if mine { Kind::Staff } else { Kind::OtherCoach }
             }
             Them::Cast(..) => Kind::Boss,
