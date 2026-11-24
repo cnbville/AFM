@@ -706,7 +706,7 @@ fn hotness(w: &World, c: usize) -> f64 {
     let mut h = coach.hiring_buzz();
     let Some(job) = coach.job else { return h };
     match job.employer {
-        Employer::College(_) | Employer::Nfl(_) => h += HOT_ABOVE * coach.above_three(),
+        Employer::College(_) | Employer::Nfl(_) => h += crate::knob!("hot_above", HOT_ABOVE) * coach.above_three(),
         // A winner in another league is a name (Marc Trestman's Grey Cups).
         Employer::Other(f) => {
             let ws = w.others.teams.get(f).and_then(|t| t.win_share.last().copied()).unwrap_or(0.5) as f64;
@@ -1588,7 +1588,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                         .sum::<f64>()
                         / 4.0;
                     s += 0.5 * side;
-                    s += CALL_WEIGHT * (coach.calling() + rng.normal(0.0, call_sd) - 10.0);
+                    s += crate::knob!("call_weight", CALL_WEIGHT) * (coach.calling() + rng.normal(0.0, call_sd) - 10.0);
                     if coach.came_up.offense() != off {
                         s -= 1.0;
                     }
@@ -1965,7 +1965,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         // (proposed, not confirmed: 1.5 points).
         let eye = 0.5 * w.coaches[c].evaluation() + 0.5 * w.coaches[c].calling();
         let sd = if promoted { 1.0 } else { clamp(2.25 - 0.125 * (eye - 10.0), 1.0, 3.5) };
-        let known = if promoted { KEEP_KNOWN } else { 0.0 };
+        let known = if promoted { crate::knob!("keep_known", KEEP_KNOWN) } else { 0.0 };
         for role in college_roles().skip(1) {
             if followed.contains(&role) {
                 continue;
@@ -2038,7 +2038,7 @@ fn could_bring(w: &World, p: usize, role: Role) -> f64 {
     if worth.is_empty() {
         return 0.0;
     }
-    let k = ((worth.len() - 1) as f64 * BRING_SHARE).round() as usize;
+    let k = ((worth.len() - 1) as f64 * crate::knob!("bring_share", BRING_SHARE)).round() as usize;
     let (_, v, _) = worth.select_nth_unstable_by(k, |a, b| a.total_cmp(b));
     *v
 }
@@ -3549,7 +3549,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             // counts for a quarter, so the last four carry about two-thirds
             // (a recruit's high school years), and a title season counts more
             // than a plain 12-1 one (proposed, not confirmed).
-            p.recent = 0.75 * p.recent + 0.25 * season_score;
+            p.recent = (1.0 - crate::knob!("recent_rate", 0.25)) * p.recent + crate::knob!("recent_rate", 0.25) * season_score;
             // The all-time part is built by titles; recent form only seeps
             // in slowly (note 15C). An older file's starts from its name.
             if p.legacy <= 0.0 {
@@ -3569,7 +3569,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             // read, and an Oregon run without a title builds a name.
             let now = (t.games() > 0).then_some(season_score);
             p.tradition = clamp(
-                (1.0 - program::LIVED_SHARE) * p.legacy + program::LIVED_SHARE * program::lived(p, year, now),
+                (1.0 - crate::knob!("lived_share", program::LIVED_SHARE)) * p.legacy
+                    + crate::knob!("lived_share", program::LIVED_SHARE) * program::lived(p, year, now),
                 0.0,
                 1.0,
             );
@@ -3648,7 +3649,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         raw[i][GradeCat::PlayingTime as usize] = open[i];
         raw[i][GradeCat::Tradition as usize] = p.tradition * pitch;
         raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength
-            + (0.6 * titles_recent + win + super::fortunes::HEAD_RECORD * head_record) * conf_strength(p);
+            + (0.6 * titles_recent + win + super::fortunes::head_record_weight() * head_record) * conf_strength(p);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;
         raw[i][GradeCat::Facilities as usize] = fac_reads[i];
         // Before NIL the grade reads the booster base, the money that becomes NIL.

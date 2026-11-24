@@ -3560,17 +3560,17 @@ fn utility_fit(
     let brand = prog.prestige_rel.min(NAME_TIE);
     let lv = recruit_level(prog, year);
     let mut u = 1.6 * lv * (0.5 + wants.prestige + wants.development)
-        + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
+        + crate::knob!("u_brand", 1.0) * (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
         + 0.1 * g(GradeCat::Facilities)
         // Campus life, by how much this kid cares (Capital lane C2), read
         // around a typical campus.
         + super::capital::rooms::campus_life_want(p) * (g(GradeCat::CampusLife) - 0.77)
-        + wants.prestige * prestige
+        + crate::knob!("u_prestige", 1.0) * wants.prestige * prestige
         + money_w * money * 1.5
         + home * close_w * close
         + wants.playing_time * playing
         + wants.academics * academics
-        + (wants.development + path_w) * development
+        + crate::knob!("u_develop", 1.0) * (wants.development + path_w) * development
         + path_w * playing;
     // No athletic scholarships the season he would arrive (`ncaa::aid`): the
     // Pioneer League gives none (the family pays), the Ivy League and the
@@ -6366,7 +6366,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // earlier), how much of the head coach's time he got, whether he saw the
     // campus, and the coaches' recruiting and relationship skills.
     let feel =
-        |j: usize, k: usize| FEEL_SD * key_normal(seed ^ 77 ^ j as u64, w.people[pool[k].person].player.id as u64);
+        |j: usize, k: usize| crate::knob!("feel_sd", FEEL_SD) * key_normal(seed ^ 77 ^ j as u64, w.people[pool[k].person].player.id as u64);
     let chemistry =
         |j: usize, k: usize| 0.03 * key_normal(seed ^ 91 ^ j as u64, w.people[pool[k].person].player.id as u64);
     // His own high school coach on a staff (C17: Gus Malzahn left
@@ -6657,8 +6657,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         // grows (program fortunes item 3, Cain 2026-11-24):
                         // an 18 three times as fast as an 8.
                         let rel = known
-                            * (super::fortunes::HC_BOND * hc_time * super::fortunes::bond_rate(hc_skill)
-                                + super::fortunes::PC_BOND * pc_time * super::fortunes::bond_rate(pc_skill))
+                            * (super::fortunes::hc_bond() * hc_time * super::fortunes::bond_rate(hc_skill)
+                                + super::fortunes::pc_bond() * pc_time * super::fortunes::bond_rate(pc_skill))
                             + 0.03 * tie
                             + babysat
                             + early_offer
@@ -11184,7 +11184,7 @@ fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
         home_weight(&w.programs, p, w.year),
     );
     let seed = w.options.seed as u64 ^ (p.class_of as u64) << 20;
-    u += FEEL_SD * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
+    u += crate::knob!("feel_sd", FEEL_SD) * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
     let contact = p.cal.visits.iter().filter(|v| v.0 == j).count().min(5) as f64;
     let official = p.cal.visits.iter().any(|v| v.0 == j && v.2 == super::Visit::Official);
     // The official visit's weekend; your athletic director's raises for
@@ -11271,7 +11271,7 @@ fn six_parts(
     let brand = prog.prestige_rel.min(NAME_TIE);
     let lv = recruit_level(prog, w.year);
     let mut name = 1.6 * lv * (0.5 + wants.prestige + wants.development)
-        + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
+        + crate::knob!("u_brand", 1.0) * (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
         + FACILITIES_GRADE * g(GradeCat::Facilities)
         + super::capital::rooms::campus_life_want(p) * (g(GradeCat::CampusLife) - 0.77)
         + wants.prestige * prestige;

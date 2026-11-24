@@ -1,0 +1,143 @@
+name: Program fortunes check
+# The program fortunes measuring pass (docs/design/program-fortunes.md):
+# stand-in worlds on several seeds, one machine a world, each read with the
+# World Reader's program check (`afm_read <book> program_check`) against the
+# real 2001-2025 table. An arm is a line of ARMS: its name, the commit that
+# builds the world (empty: this one), the world's scale and AFM_TUNE (the
+# pass's knobs, `afm_engine::tune`; empty: the sizes as built). The reader
+# is always this commit's. A full-size 30-year stand-in world takes about
+# four and a half hours of a job's six; a quarter-size one about an hour and
+# a half. Each world's page is in the run's summary and its artifacts, with
+# the star mix check and the book. Runs on a push that changes this file,
+# or by hand.
+on:
+  push:
+    paths:
+      - .github/workflows/program-check.yml
+  workflow_dispatch:
+    inputs:
+      arms:
+        description: "Arms, one a line: name|commit|scale|AFM_TUNE"
+        default: ""
+      seeds:
+        description: "Seeds, space separated"
+        default: ""
+      years:
+        description: "Years of history"
+        default: "30"
+env:
+  ARMS: |
+    before|8f0ba00885222d61882eefb242f9996118f5386e|1.0|
+    proposed||1.0|
+  SEEDS: "341 351 361 371"
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      arms: ${{ steps.plan.outputs.arms }}
+      refs: ${{ steps.plan.outputs.refs }}
+      seeds: ${{ steps.plan.outputs.seeds }}
+    steps:
+      - id: plan
+        env:
+          IN_ARMS: ${{ inputs.arms }}
+          IN_SEEDS: ${{ inputs.seeds }}
+        run: |
+          arms="${IN_ARMS:-$ARMS}"
+          seeds="${IN_SEEDS:-$SEEDS}"
+          arms_json=$(printf '%s\n' "$arms" | awk -F'|' 'NF>=3 && $1!="" {printf "{\"name\":\"%s\",\"ref\":\"%s\",\"scale\":\"%s\",\"tune\":\"%s\"}\n",$1,$2,$3,$4}' | jq -sc .)
+          echo "arms=$arms_json" >> "$GITHUB_OUTPUT"
+          echo "refs=$(echo "$arms_json" | jq -c '[.[].ref] | unique')" >> "$GITHUB_OUTPUT"
+          echo "seeds=$(echo "$seeds" | tr ' ' '\n' | grep . | jq -sc .)" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+  # The world builder (`star_mix build`, stand-in games) of each commit the
+  # arms name, compiled once on a machine of its own.
+  tools:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: ${{ fromJson(needs.plan.outputs.refs) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.ref || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: program-check-${{ matrix.ref || 'head' }}
+      - run: cargo build --release --bin star_mix
+      - run: mkdir -p tools && cp target/release/star_mix tools/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: star-mix-${{ matrix.ref || 'head' }}
+          path: tools/
+          retention-days: 3
+  reader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: program-check-reader
+      - run: cargo build --release -p afm-reader --bin afm_read
+      - run: mkdir -p tools && cp target/release/afm_read tools/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reader
+          path: tools/
+          retention-days: 3
+  world:
+    needs: [plan, tools, reader]
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    strategy:
+      fail-fast: false
+      matrix:
+        arm: ${{ fromJson(needs.plan.outputs.arms) }}
+        seed: ${{ fromJson(needs.plan.outputs.seeds) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: star-mix-${{ matrix.arm.ref || 'head' }}
+          path: tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: reader
+          path: tools
+      - run: chmod +x tools/*
+      - name: The world (${{ matrix.arm.name }}, seed ${{ matrix.seed }}, scale ${{ matrix.arm.scale }})
+        env:
+          AFM_TUNE: ${{ matrix.arm.tune }}
+          AFM_SAVE: out/world.afmworld
+        run: |
+          SECONDS=0
+          tools/star_mix build "${{ matrix.seed }}" "${{ inputs.years || '30' }}" "${{ matrix.arm.scale }}" > star_mix.txt
+          echo "world built in $SECONDS s" | tee time.txt
+          ls -la out/
+      - name: The book and the program check
+        run: |
+          tools/afm_read build "$(realpath out/world.afmworld)"
+          b="$(realpath out/world.afmbook)"
+          tools/afm_read "$b" program_check | tee program_check.txt
+          {
+            echo "## ${{ matrix.arm.name }}, seed ${{ matrix.seed }}, scale ${{ matrix.arm.scale }}, tune '${{ matrix.arm.tune }}'"
+            echo '```'; cat program_check.txt; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          zstd -T0 -6 --rm "$b" -o world.afmbook.zst
+      - uses: actions/upload-artifact@v4
+        with:
+          name: program-check-${{ matrix.arm.name }}-${{ matrix.seed }}
+          path: |
+            program_check.txt
+            star_mix.txt
+            time.txt
+            world.afmbook.zst
+          retention-days: 7

@@ -603,7 +603,7 @@ pub fn lived(p: &Program, year: i32, now: Option<f64>) -> f64 {
     let (mut sum, mut weights) = (0.0, 0.0);
     for k in 0..LIVED_SEASONS {
         let y = year - k;
-        let weight = 0.5f64.powf(k as f64 / LIVED_HALF_LIFE);
+        let weight = 0.5f64.powf(k as f64 / crate::knob!("lived_half", LIVED_HALF_LIFE));
         let score = match now.filter(|_| k == 0) {
             Some(s) => s,
             None => {
@@ -822,9 +822,9 @@ pub fn prestige_of(p: &Program, coach_rep: f64, conference: f64) -> f64 {
     // paid the staff; revenue sharing, about equal across a level, doesn't.
     let nil_share = clamp((p.collective.boosters() / 25.0e6).sqrt(), 0.0, 1.0);
     clamp(
-        0.15 * p.tradition
-            + 0.3 * p.recent
-            + 0.12 * clamp(coach_rep / 20.0, 0.0, 1.0) * division_scale(p.division).sqrt()
+        crate::knob!("prest_trad", 0.15) * p.tradition
+            + crate::knob!("prest_recent", 0.3) * p.recent
+            + crate::knob!("prest_coach", 0.12) * clamp(coach_rep / 20.0, 0.0, 1.0) * division_scale(p.division).sqrt()
             + 0.12 * p.facilities
             + 0.11 * nil_share
             + 0.12 * p.fans
