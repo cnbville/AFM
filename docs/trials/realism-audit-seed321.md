@@ -2,7 +2,16 @@
 
 Read-only. Nothing was fixed and no world was built. Thread "Audit multi-season realism".
 
-Everything below the measurements is **proposed, not confirmed**: a ranked patch list for Cain to approve item by item. Each root cause is the likely one from the docs and a grep of the code. A patch thread measures it before it changes anything.
+Each root cause is the likely one from the docs and a grep of the code. A patch thread measures it before it changes anything.
+
+## Cain's answer (2026-11-24)
+
+"agreed", to the list as proposed:
+
+- **Yes to items 1 to 22, 24 and 25.** No to item 23 (eras in history: history only).
+- **Build order:** FBS rushing (1) and freak defenders (3) first, measured on the world's own rosters, since awards (5) and top receivers (8) move with them. Frozen programs (2) as its own design thread. NIL spread (14) after research on the real split by sport.
+- **The future run (25) now:** this world played on 10 seasons with the log, about 4 to 5 runner hours plus 40 minutes for its book.
+- Each item is one lane in its own fresh thread. The causes and any sizes stay proposed, not confirmed, until its thread has measured them.
 
 ## What was read
 
