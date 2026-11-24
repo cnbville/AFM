@@ -8,6 +8,10 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.688 (24 Nov, shipped): add the future run tool and workflow (realism audit item 25) (PR #628)
+**TLDR:** Add the future run tool and workflow (realism audit item 25)
+- Docs and tooling merged too, no game change: Add the multi-season realism audit of the seed 321 world (PR #626); Record Cain's answer on the multi-season realism audit (PR #627); Research the real NIL and revenue-share split (audit item 14) (PR #629); Design proposal: the rise and fall of programs (audit item 2) (PR #630); Record Cain's yes to all 10 program-fortunes questions (PR #631); Correct the realism audit's NIL yardstick (item 14) (PR #632).
+
 ## 0.2.687 (24 Nov, shipped): meet the holdover graduate assistants, analysts and QC coaches when you take a job (PR #623), let a live talk raise or let go a graduate assistant, analyst or QC coach (PR #624)
 **TLDR:** 2 changes ship together. When you take over a program or club, the old staff's graduate assistants, analysts and quality-control coaches now come up in the holdover meeting, so you can keep them or clear them out on day one. You can now sit down with a graduate assistant, analyst or quality-control coach and give him a raise or let him go in the talk itself.
 - Meet the holdover graduate assistants, analysts and QC coaches when you take a job (PR #623): When you take over a program or club, the old staff's graduate assistants, analysts and quality-control coaches now come up in the holdover meeting, so you can keep them or clear them out on day one.
