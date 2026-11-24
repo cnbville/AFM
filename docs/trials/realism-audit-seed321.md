@@ -130,7 +130,7 @@ Impact is for the player's seat: high (he sees it every season), medium (he sees
 - World: 24% of Power 4 players earn under $10,000 a year (real 66.5%, Opendorse 2025) and 44% of SEC and Big Ten players earn $100,000 or more (real about 10%). A power program pays $27M to $31M in all; the Power 4 total of $1.94B matches Opendorse's $1.9B for 2025, but that figure is every sport.
 - Likely cause: not traced; the paid set and its floors (`world/ncaa.rs`, `nil_market`; `world/program.rs`, `third_party`).
 - Touches: NIL, recruiting pulls, the portal, your budget.
-- Status: new. The real split by sport needs research first.
+- Status: researched 2026-11-24, `docs/research/nil-split-by-sport.md` (the real figures here are 2024-25, before revenue sharing; the narrower gap is the low end of the paid set; proposals wait for Cain).
 
 **15. NFL games missed read at a quarter of real.**
 - World: 0.28 to 0.34 games missed a player-season (real 1.2).
