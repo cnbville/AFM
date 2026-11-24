@@ -104,9 +104,8 @@ fn nfl_games_look_like_the_nfl() {
     // about 7.0-7.3.
     within("yards per attempt", t.pass_yds / t.att, 6.2, 8.8, 7.05);
     within("int rate", t.int / t.att, 0.008, 0.035, 0.023);
-    // Known gap: these test rosters run short of the real 4.5 (about 3.4).
-    // Runs are tuned on the world's rosters, which ran 0.7 yards a carry
-    // above these in the NFL at trial 8 and 1.2 above them in FBS.
+    // These test rosters run about 4.48 and world seed 321's NFL clubs 4.47
+    // since the even run block (realism audit item 1, 2026-11-24).
     within("yards per carry", t.rush_yds / t.carries.max(1.0), 3.0, 5.2, 4.5);
     within("sacks per team game", t.sacks / t.team_games, 0.9, 3.5, 2.41);
     within("third down conversion", t.third_conv / t.third, 0.32, 0.47, 0.398);
@@ -131,9 +130,10 @@ fn fbs_games_look_like_fbs() {
     within("completion %", t.cmp / t.att, 0.52, 0.67, 0.606);
     within("CPOE, points", 100.0 * (t.cmp - t.x_cmp) / t.att, -2.5, 2.5, 0.0);
     within("yards per attempt", t.pass_yds / t.att, 6.2, 8.6, 7.29);
-    // These test rosters are slower than the world's (starting backs 4.78
-    // in the forty, the world's 4.57) and run about 1.2 yards a carry below
-    // them: about 3.9 here, 5.1 on trial 8's FBS rosters (real 5.12).
+    // These test rosters are slower than a world's (their typical back's
+    // Speed 62, world seed 321's 77) and run about 4.87 a carry, that
+    // world's FBS teams 5.36 since the even run block (realism audit item
+    // 1, 2026-11-24; real 5.12).
     within("yards per carry", t.rush_yds / t.carries.max(1.0), 3.3, 6.2, 5.12);
     // About 0.33 here since the trial 8 fixes (the world's FBS rosters 0.38).
     within("third down conversion", t.third_conv / t.third, 0.29, 0.47, 0.403);
