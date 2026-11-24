@@ -3557,7 +3557,7 @@ fn utility_fit(
     // leader of 30 years ago a program is one of the blue bloods, not a
     // bigger one, so a run of titles can't lift it clear of the rest of the
     // elite.
-    let brand = prog.prestige_rel.min(NAME_TIE);
+    let brand = prog.prestige_rel.min(crate::knob!("name_tie", NAME_TIE));
     let lv = recruit_level(prog, year);
     let mut u = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + crate::knob!("u_brand", 1.0) * (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
@@ -3572,6 +3572,11 @@ fn utility_fit(
         + wants.academics * academics
         + crate::knob!("u_develop", 1.0) * (wants.development + path_w) * development
         + path_w * playing;
+    // Measuring pass knobs: the moving grades' own terms, around a middle grade.
+    u += crate::knob!("u_title", 0.0) * (g(GradeCat::TitleChances) - 0.77)
+        + crate::knob!("u_pipe", 0.0) * (g(GradeCat::ProPipeline) - 0.77)
+        + crate::knob!("u_trad", 0.0) * (g(GradeCat::Tradition) - 0.77)
+        + crate::knob!("u_coach", 0.0) * (g(GradeCat::CoachPrestige) - 0.77);
     // No athletic scholarships the season he would arrive (`ncaa::aid`): the
     // Pioneer League gives none (the family pays), the Ivy League and the
     // Patriot League before 2013 only need-based aid. A scholarship offer
@@ -11268,7 +11273,7 @@ fn six_parts(
     let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * 0.6);
     let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
-    let brand = prog.prestige_rel.min(NAME_TIE);
+    let brand = prog.prestige_rel.min(crate::knob!("name_tie", NAME_TIE));
     let lv = recruit_level(prog, w.year);
     let mut name = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + crate::knob!("u_brand", 1.0) * (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
