@@ -80,3 +80,55 @@ fn chemistry_moves_completions_a_little() {
     let gap = warm - cold;
     assert!(gap > 0.01 && gap < 0.08, "warm {warm:.3} cold {cold:.3}");
 }
+
+/// Tackles and tackles for loss go in the book the way a box score keeps
+/// them (realism audit item 3). A tackle is one man's or two men's: one man
+/// has a solo, two have an assist each and no solo. A tackle for loss is a
+/// loss of half a yard or more, since yards go in the book whole. Every
+/// man in the pile used to get credit, the first man a solo, and any loss
+/// counted, even an inch: with the block's straight read of a rating gap
+/// that made a 196-tackle season and one of 52.7 tackles for loss.
+#[test]
+fn tackles_and_losses_are_kept_like_a_box_score() {
+    use crate::game::stats::PlayType;
+    for level in [Level::FBS, Level::NFL] {
+        let teams = synthetic_league(level, 32, 7);
+        let (mut shared, mut inches) = (0, 0);
+        for g in 0..24 {
+            let h = (g * 7) % 32;
+            let a = (g * 13 + 5) % 32;
+            let a = if a == h { (a + 1) % 32 } else { a };
+            let res = quick_game(&teams[h], &teams[a], level, 7_400_003 + g as u64);
+            let s = &res.stats;
+            let (mut solo, mut assists, mut losses) = (0u32, 0u32, 0.0f64);
+            // A play called back and a try are in the log, not in the book.
+            for r in s.plays.iter().filter(|r| !r.nullified && r.kind != PlayType::TwoPoint) {
+                let n = r.tacklers.len();
+                assert!(n <= 2, "{level:?} game {g}: {n} men credited with one tackle");
+                if n == 1 {
+                    solo += 1;
+                } else {
+                    assists += n as u32;
+                    shared += (n == 2) as u32;
+                }
+                // A sack is a tackle for loss for the men who share it; any
+                // other loss on a scrimmage play is one for its tacklers.
+                if !r.sackers.is_empty() {
+                    losses += 1.0;
+                }
+                if matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Scramble) && n > 0 {
+                    losses += r.lost() as u32 as f64;
+                    inches += (r.yards < 0.0 && !r.lost()) as u32;
+                }
+            }
+            let lines = || s.players.iter().flat_map(|side| side.values());
+            assert_eq!(lines().map(|l| l.tackles).sum::<u32>(), solo, "{level:?} game {g}: solo tackles");
+            assert_eq!(lines().map(|l| l.assists).sum::<u32>(), assists, "{level:?} game {g}: assists");
+            let booked: f64 = lines().map(|l| l.tfl).sum();
+            assert!((booked - losses).abs() < 1e-6, "{level:?} game {g}: {booked} tackles for loss, {losses} losses");
+        }
+        // Both cases have to come up.
+        assert!(shared >= 200, "{level:?}: only {shared} shared tackles in 24 games");
+        assert!(inches >= 10, "{level:?}: only {inches} losses under half a yard in 24 games");
+    }
+}

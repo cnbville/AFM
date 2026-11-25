@@ -894,9 +894,10 @@ fn refit(w: &mut World) {
     // budgets (`staff::update_programs`).
     let year = if d.month() > 2 || (d.month() == 2 && d.day() >= 8) { d.year() } else { d.year() - 1 };
     if super::ncaa::nil_era(year) {
-        for p in w.programs.iter_mut() {
-            p.collective.budget = super::ncaa::nil_budget(p, year);
-            p.collective.school = super::ncaa::revenue_share(p, year);
+        let athletic: Vec<f64> = (0..w.programs.len()).map(|p| super::staff::program_earned(w, p)).collect();
+        for (p, prog) in w.programs.iter_mut().enumerate() {
+            prog.collective.budget = super::ncaa::nil_budget(prog, year, athletic[p]);
+            prog.collective.school = super::ncaa::revenue_share(prog, year, athletic[p]);
         }
     }
     if super::ncaa::two_pots(d) {

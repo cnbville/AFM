@@ -1986,6 +1986,13 @@ impl World {
         self.college.as_ref().and_then(|c| c.teams.get(prog).cloned().flatten()).or_else(|| self.debug_game_team(prog))
     }
 
+    /// A high school's team as the match engine sees it this week (trial
+    /// tooling only: `coach_check` plays your school against its peers).
+    #[cfg(feature = "debug")]
+    pub fn debug_hs_team(&self, school: usize) -> Option<crate::game::GameTeam> {
+        hs_year::seat_team(self, school)
+    }
+
     /// This college season's games, played or to come and not called off:
     /// (home, away, at a neutral site, a regular-season game) (trial
     /// tooling only).
@@ -2131,7 +2138,9 @@ impl World {
                 a.set(x, (v * 0.8).max(1.0));
             }
         }
-        p.player.position = pos;
+        // His sport's spot, on his card with its spot and its weight (it was
+        // written over his position alone: see `athlete::set_position`).
+        crate::athlete::set_position(&mut p.player, pos);
         let start = self.people.len();
         self.people.push(p);
         // He is on the team from today, so his state's season start develops

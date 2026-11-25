@@ -803,15 +803,24 @@ pub fn fits(p: &Player, eye: Eye) -> [f64; POSITION_COUNT] {
 /// receiver turned tight end eats, a tight end turned tackle eats more) within
 /// what his frame allows, and his card records the change.
 pub fn set_position(p: &mut Player, pos: Position) {
-    if p.position_history.last().map(|h| h.1) == Some(pos) {
+    // Already there by his card and where he plays. A man whose card says
+    // one spot and who plays another is still moved (realism audit item 3:
+    // an athlete from another sport was put at his sport's spot without his
+    // card, so the move back to where his body fits never took and he
+    // played out of position for life; a save's men like him move at their
+    // staff's next look).
+    let listed = p.position_history.last().map(|h| h.1) == Some(pos);
+    if listed && p.position == pos {
         return;
     }
     // Rust from poor prep took his old position's technique: it comes back
     // before he moves.
     crate::training::prep::unrust(p);
     p.position = pos;
-    p.position_history.reserve_exact(1);
-    p.position_history.push((p.age, pos));
+    if !listed {
+        p.position_history.reserve_exact(1);
+        p.position_history.push((p.age, pos));
+    }
     // His spot at the new position: where he suits best (a staff sets the
     // whole room's spots each spring).
     let s = crate::spots::spots_of(pos)

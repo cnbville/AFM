@@ -13,6 +13,22 @@ Each root cause is the likely one from the docs and a grep of the code. A patch 
 - **The future run (25) now:** this world played on 10 seasons with the log, about 4 to 5 runner hours plus 40 minutes for its book.
 - Each item is one lane in its own fresh thread. The causes and any sizes stay proposed, not confirmed, until its thread has measured them.
 
+### Decisions taken for Cain while he slept (item 3, 2026-11-25)
+
+Cain, 2026-11-24: "i'm giving you permission to make decisions for me als long as you note them down." Each of these is proposed, not confirmed, and his to change.
+
+1. **The block's bend at 20** (`BLOCK_BEND`), read by the pass rush, the run block and the shed's pull alike. It is one block, so it gets one reading; at 20 the FBS sack ladder sits at real from the 2nd best season a year to the 200th.
+2. **The shed's pull back to 1.0** (`SHED_RUNNER`; 0.9 since minor bug 253), to hold yards a carry where item 1 left them (5.36 at FBS, 4.49 on the NFL clubs).
+3. **Two men to a tackle at most**, and a shared tackle is an assist for both with no solo, as the NCAA's and the NFL's scorers keep it.
+4. **A tackle for loss is a loss of half a yard or more**, since the book keeps whole yards.
+5. **Kickoffs covered by the bench**: picked on 0.6 Speed, 0.3 Tackling and 0.1 Block Shedding, a starter 30 points down on both kickoff units.
+6. **The two-gap read stops at the typical edge's weight**, the lightest men its fit saw.
+7. **An athlete from another sport goes on his card at his sport's spot**, and a move takes whenever a man's card and position disagree. A save's men like him move at their staff's next look.
+8. **No rusher was lifted to bring the team totals back.** Sacks a team game fell to 1.78 at FBS (real 2.09) and 1.82 on the NFL clubs (2.40), and NFL points rose 0.6. The missing sacks are linebackers' and backs', the next lane; lifting the line again would have put the stars back over real.
+9. **Left for later, in `GAPS.md`**: stuffs still reading any loss, a man far lighter than a tackle at tackle, the third linebacker and the nickel on kick units, and the roster, fit, call and analysts' tables (rebuilt once after the defenders' lanes).
+10. **The order after it, in the same thread**: linebackers and backs behind the line, who makes the tackle, the play caller's run lean (the coordinator took his yes on it), then items 6, 7, 8, 16 and 19.
+11. **No world run.** Everything was measured with `match_check` and `freak_check` on the seed 321 world file.
+
 ## What was read
 
 - The world: seed 321, 30 seasons of history (1996-2025), stopped on 1 January 2026, built 2026-11-22 on main `094635f` (after every scheme-fit and engine-gaps lane). Release `world-2026-seed321-jan2026-094635f` on the worlds page.
@@ -64,6 +80,7 @@ Impact is for the player's seat: high (he sees it every season), medium (he sees
 - Likely cause: the best linemen's edge over ordinary FBS blockers turns into wins too steeply at the very top (the top 1% get 5.2 sacks per 100 rushes and the top three 9.1; the best real seasons are about 3.5 to 4, my estimate from 17 sacks on about 450 rushes). The help rule exists but doesn't bring him back (`game/calling.rs`, `help_on`, `HELP_GAP`; `game/scrimmage.rs`, `slide_to`, `CHIP_W`): one slide or one chip, and the passer doesn't throw sooner. Edges also don't rotate by plan (`GAPS.md`, "Edges' third and fourth men still play only on fatigue"). Tackles not traced.
 - Touches: the match engine, records, awards (a defender's line is worth `6 × sacks` to voters, `world/college.rs`, `award_stats`), draft stock.
 - Status: trial 10 finding 3 (high school, waiting) is the same at FBS.
+- Built 2026-11-25 (thread "Fix freak defender stat lines"; `docs/match-engine.md`, "Defenders' season lines"): measured on this world's own FBS teams and schedule and on its NFL clubs (`match_check`, `AFM_AB_WORLD`, `AFM_DEFENDERS`), against real defenders' lines that are new in `data/real-world/defenders.json`. Six causes, none of them the help on the best rusher. (1) A block read a rating gap in a straight line, so an edge 10 to 20 points over the typical blocker won 52% to 65% of his rushes; it now reads the gap on a log curve that never goes flat (`BLOCK_BEND`), and he wins 38% to 48%. (2) A tackle's get-off read his weight with no floor, and (3) an athlete from another sport stayed at his sport's spot for life, so a 5-9, 167 lb thrower at tackle had 42 sacks a season. (4) Every man in a pile got the tackle, the first of them a solo. (5) Starters and linemen covered kickoffs. (6) A loss of an inch was a tackle for loss. In seasons of 13 games with nobody hurt, the best sack season a year went from 42.2 to 19.2 and the 2nd best from 25.6 to 15.5 (real 15.8 and 15.5), men with 20 sacks from 3.9 a year to 0.4 (real none), the best tackles-for-loss season from 49.2 to 27.8 (real 22.2) and the best tackle season from 205.7 to 185.0 (real 159.5). A 6-0, 240 lb edge with top tools still rushes with the league's best (`freak_check`): nothing is capped. Rushing held (5.36 a carry at FBS, 4.49 on the NFL clubs), and the Heisman voters' read no longer puts a defender on top (item 5). Left, all in `GAPS.md`: sacks and tackles for loss a team game are now short (FBS 1.78 and 4.35 against 2.09 and 5.64; NFL clubs 1.82 sacks against 2.40), because linebackers and backs rarely get home and the stars' extra sacks hid it; the tackle leaders are still 15% to 25% over real, because a team's tackles go to too few men. Both are the next lanes in the same thread. The book and its records show none of it until the next world rebuild.
 
 **4. Quarterbacks go first overall less than half as often as real.**
 - World: 31% of first picks are quarterbacks (real 73.1%), 11.3% of top-10 picks (19.1%). Several drafts have no first-round quarterback.

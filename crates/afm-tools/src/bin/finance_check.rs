@@ -16,12 +16,33 @@ fn main() {
     let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
     let scale: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(0.1);
     let engine_from = std::env::var("AFM_ENGINE_FROM").ok().and_then(|v| v.parse().ok());
+    // AFM_LOAD: read a world saved by AFM_SAVE and print only the college
+    // books (AFM_REOPEN=1 first works this money year's books out again, so
+    // a change to how they are sized shows without building the world).
+    if let Ok(path) = std::env::var("AFM_LOAD") {
+        let mut w = afm_engine::save::read_world(std::path::Path::new(&path)).expect("read the world");
+        if std::env::var("AFM_REOPEN").is_ok() {
+            let year = w.finance.college.iter().map(|d| d.budget.year).max().unwrap_or(0);
+            for p in 0..w.programs.len() {
+                if w.finance.college[p].budget.year == year && year != 0 {
+                    college::open_year(&mut w, p, year);
+                }
+            }
+        }
+        pay_report(&w);
+        share_lines(&w);
+        return;
+    }
     let opts =
         WorldOptions { seed, history_years: years, keep_game_log: false, scale, engine_from, ..Default::default() };
     let mut w = World::new_watched(opts, |w, secs| println!("season {} built in {secs:.0}s", w.year - 1));
     for _ in 0..future {
         w.advance_year();
         println!("season {} played", w.year - 1);
+    }
+    if let Ok(path) = std::env::var("AFM_SAVE") {
+        afm_engine::save::write_world(&w, std::path::Path::new(&path), "finance_check", "now", None)
+            .expect("write the world");
     }
     nfl_report(&w);
     college_report(&w);
@@ -94,6 +115,7 @@ fn pay_report(w: &World) {
             q(1.0)
         );
     }
+    income_lines(w, idx);
     println!(
         "conference            n  budget  earned/school  head coach  min-max          coordinator  position  prestige"
     );
@@ -114,6 +136,112 @@ fn pay_report(w: &World) {
             m2(avg(3)),
             avg(4)
         );
+    }
+}
+
+/// Each FBS conference's average income line on this year's books, in
+/// today's dollars, millions (the books against real conference money:
+/// USA Today's NCAA finances, Knight-Newhouse).
+fn income_lines(w: &World, idx: f64) {
+    use afm_engine::world::finance::college as c;
+    let cols: [(&str, usize); 8] = [
+        ("conf", c::CONFERENCE),
+        ("tickets", c::TICKETS),
+        ("seats", c::SEAT_DONATIONS),
+        ("gifts", c::GIFTS),
+        ("licens", c::LICENSING),
+        ("sports", c::OTHER_SPORTS),
+        ("fees", c::STUDENT_FEES),
+        ("ncaa", c::NCAA),
+    ];
+    let mut rows: std::collections::BTreeMap<String, Vec<[f64; 17]>> = Default::default();
+    for (p, prog) in w.programs.iter().enumerate() {
+        if prog.division != Division::FBS || !prog.plays(w.year) {
+            continue;
+        }
+        let d = &w.finance.college[p];
+        let b = &d.budget;
+        let mut r = [0.0; 17];
+        for (i, &(_, k)) in cols.iter().enumerate() {
+            r[i] = b.l[k] as f64 / idx;
+        }
+        r[8] = college::earned(b, d) / idx;
+        r[9] = b.l[c::SUPPORT] as f64 / idx;
+        r[10] = college::Dept::costs(b) / idx;
+        r[11] = college::Dept::revenue(b) / idx;
+        r[12] = prog.fans;
+        r[13] = college::media_value(w, p);
+        r[14] = d.hoops as f64;
+        r[15] = prog.collective.boosters();
+        r[16] = prog.enrollment as f64;
+        rows.entry(prog.conference.clone()).or_default().push(r);
+    }
+    println!(
+        "FBS income lines by conference (today's $M a school): conf tickets seats gifts licens sports fees ncaa | earned support costs revenue | fans media hoops boosters$M enroll(k)"
+    );
+    for (k, v) in &rows {
+        let n = v.len() as f64;
+        let a = |i: usize| v.iter().map(|r| r[i]).sum::<f64>() / n / 1.0e6;
+        println!(
+            "{k:<16} {:>3}  {:>5.1} {:>5.1} {:>5.1} {:>5.1} {:>5.1} {:>5.1} {:>5.1} {:>5.1} | {:>5.1} {:>5.1} {:>5.1} {:>5.1} | {:>5.2} {:>5.2} {:>5.2} {:>5.1} {:>5.1}",
+            v.len(),
+            a(0),
+            a(1),
+            a(2),
+            a(3),
+            a(4),
+            a(5),
+            a(6),
+            a(7),
+            a(8),
+            a(9),
+            a(10),
+            a(11),
+            a(12) * 1.0e6,
+            a(13) * 1.0e6,
+            a(14) * 1.0e6,
+            a(15),
+            a(16) * 1000.0
+        );
+    }
+}
+
+/// Football's revenue share by conference: the budget read off the books
+/// against the old guess by prestige (realism audit item 10), the median
+/// Group of 5 school's pot in $M.
+fn share_lines(w: &World) {
+    use afm_engine::world::{ncaa, staff};
+    println!(
+        "revenue share, Group of 5 and FCS by conference ($M): books | old prestige guess | athletic budget today (books | guess)"
+    );
+    let mut rows: std::collections::BTreeMap<String, Vec<[f64; 4]>> = Default::default();
+    for (p, prog) in w.programs.iter().enumerate() {
+        if !prog.plays(w.year) || !matches!(prog.division, Division::FBS | Division::FCS) || prog.power_four() {
+            continue;
+        }
+        let books = staff::program_earned(w, p);
+        // The old inputs, at the old constants: a budget guessed from
+        // prestige, $1M x (it / $80M)^3 and 2.5% of it.
+        let guess = match prog.division {
+            Division::FBS => 30.0e6 * (250.0f64 / 30.0).powf(prog.prestige.clamp(0.0, 1.0)),
+            _ => 8.0e6 * (35.0f64 / 8.0).powf(prog.prestige.clamp(0.0, 1.0)),
+        };
+        let old = match prog.division {
+            Division::FBS => (1.0e6 * (guess / 80.0e6).powi(3)).clamp(0.3e6, 3.0e6),
+            _ => (0.025 * guess).clamp(0.1e6, 1.0e6),
+        };
+        let key = if prog.division == Division::FBS { prog.conference.clone() } else { "(FCS)".to_string() };
+        rows.entry(key).or_default().push([
+            ncaa::revenue_share(prog, w.year, books) / 1.0e6,
+            old / 1.0e6,
+            books / 1.0e6,
+            guess / 1.0e6,
+        ]);
+    }
+    for (k, v) in &rows {
+        let n = v.len() as f64;
+        let a = |i: usize| v.iter().map(|r| r[i]).sum::<f64>() / n;
+        println!("{k:<16} {:>3}  {:>5.2} | {:>5.2} | {:>6.1} | {:>6.1}", v.len(), a(0), a(1), a(2), a(3));
     }
 }
 
