@@ -1,0 +1,989 @@
+######## ROUND 1 09:18
+
+=== panel ids and titles
+
+>>> select id || ' | ' || title || ' | ' || kind from panels order by id
+id || ' | ' || title || ' | ' || kind                                                                        
+-------------------------------------------------------------------------------------------------------------
+C1.levels_by_year | Programs at each level, season by season | line                                          
+C1.list | Every program | table                                                                              
+C1.stadium_gap | Stadiums that differ from the real capacity | table                                         
+C1.story | Each program's story lines | table                                                                
+C1.today | Programs at each level now, against the real 2026 count | bars                                    
+C10.final | The last full season's final AP poll | table                                                     
+C10.preseason_vs_final | Preseason AP rank against the season's win rate | bars                              
+C11.panels | Poll panels and the committee | bars                                                            
+C12.appearances | Bowl and playoff appearances by program (game log) | table                                 
+C12.bowls | FBS bowl and playoff games each season (game log) | line                                         
+C13.fields | Playoff fields by level (game log) | table                                                      
+C14.budgets | NIL collective budgets by level | table                                                        
+C14.by_year | NIL budgets and boosters by year, FBS | line                                                   
+C14.top | The biggest collectives | table                                                                    
+C14.trend | Collectives growing, steady, falling | bars                                                      
+C15.bans | Programs under NCAA penalties now | table                                                         
+C15.cases | NCAA cases (rogue boosters found) | table                                                        
+C15.ledger | Rosters and signees against the limits, FBS | line                                              
+C16.last_age | Age in a player's last college season | hist                                                  
+C16.roads | The long roads each year | line                                                                  
+C17.bars | Admissions bars and the classes they sign | table                                                 
+C17.terms | Ineligible players and grade-outs each year | line                                               
+C17.tiers | Academic redshirts and GPA by level | bars                                                       
+C18.conference_sources | Where each conference's players come from | matrix                                  
+C18.flagships | Programs by in-state share | table                                                           
+C18.hs_pipelines | The strongest high school pipelines | table                                               
+C18.in_state | In-state share of each FBS program's roster | hist                                            
+C18.reach | Footprint reach against prestige | line                                                          
+C19.ads | Athletic directors (debug) | table                                                                 
+C19.tenure | How long FBS head coaches last | bars                                                           
+C2.risers | Biggest risers and fallers since the history began | table                                       
+C2.spread | The spread of prestige within each level, year by year | line                                    
+C2.top | The most prestigious programs | table                                                               
+C2.top10_by_decade | The top 10 by prestige at each decade's turn | table                                    
+C2.vs_wins | Prestige against the last five seasons' win rate | bars                                         
+C20.blue_chips | Blue chips by FBS conference | bars                                                         
+C20.by_position | FBS players a roster by position | bars                                                    
+C20.sizes | Roster sizes by level | table                                                                    
+C21.best_22 | The strongest rosters: each FBS program's best 22 | table                                      
+C22.picks | Draft picks by program, the last ten drafts | bars                                               
+C22.picks_by_conference | Draft picks by conference, draft by draft | table                                  
+C22.records | School single-season records | table                                                           
+C23.list | Every high school | table                                                                         
+C23.money | Resources by the area's money | bars                                                             
+C23.national | The national powerhouses | table                                                              
+C23.per_state | High schools per state against the real count | map                                          
+C23.powerhouses | Powerhouses per state | map                                                                
+C23.prestige | Prestige spread, public and private | hist                                                    
+C23.prestige_years | Prestige by year | line                                                                 
+C23.private | Private schools and their titles by state | table                                              
+C23.real_powerhouses | The real top five of each state in the world | table                                  
+C24.active_streaks | Longest winning streaks still running | table                                           
+C24.by_state | Champions by state and season | table                                                         
+C24.champions | State champions a year by state | bars                                                       
+C24.dynasties | Most state titles | table                                                                    
+C24.most_15y | Most state titles by one school in 15 seasons | table                                         
+C24.streaks | Longest winning streaks | table                                                                
+C24.unbeaten | Unbeaten seasons and champions a year | line                                                  
+C25.all_state | All-state picks per 100 high school players | map                                            
+C25.counters | The high school year's counters | line                                                        
+C25.dates | Each state's season this year | table                                                            
+C25.engine | Games on the match engine | line                                                                
+C25.spring | Spring ball: notices, breakouts and fizzles | line                                              
+C26.churn | Head coach changes a season, by school prestige | bars                                           
+C26.churn_schools | Schools that change head coach most | table                                              
+C26.network | A coach's network and how seen his players are | bars                                          
+C26.tenure | High school head coaches' years in the job | hist                                               
+C26.titles | Coaches with the most state titles | table                                                      
+C26.to_college | High school coaches moving into college | line                                              
+C26.wins | Most high school wins by a coach | table                                                          
+C27.draw | Where the national powerhouses' players come from | table                                         
+C27.sit_out | Transfers by the state's sit-out rule | bars                                                   
+C27.transfers | Top recruits who changed high schools | line                                                 
+C28.draftees_by_state | Draft picks by home state against real | map                                         
+C28.fbs_by_state | FBS signees by home state against real | map                                              
+C28.overflow | Overflow: where G5 and FCS staffs are pointed | map                                           
+C28.top_states | The talent states, side by side | bars                                                      
+C29.areas | Area pipelines | table                                                                           
+C29.home_or_away | Playing in his home state, by stars | bars                                                
+C3.academics_top | The best academics grades | table                                                         
+C3.by_division | The 12 grades by level | matrix                                                             
+C3.speed | How far each grade moves in a year | bars                                                         
+C30.small_schools | Equal talent, smaller school: offers | matrix                                            
+C30.visibility | Visibility against offers and true potential (seniors) | line                               
+C31.read_vs_stars | The services' read against true potential (seniors) | bars                               
+C31.star_counts | Stars per class against ESPN, by star | line                                               
+C33.early | Early offers by grade | bars                                                                     
+C33.offers_by_stars | Offers by stars (seniors) | bars                                                       
+C33.who_offers | Who offers: divisions | bars                                                                
+C34.eval | Better evaluators land better players for their stars | line                                      
+C34.position_needs | Signees by position each class | matrix                                                 
+C35.by_month | Visits by month (seniors on record) | bars                                                    
+C35.visits | Visits a year: official, unofficial and drop-ins | line                                         
+C35.visits_by_stars | Official visits per recruit by stars (seniors) | bars                                  
+C36.by_month | Commitments by month | line                                                                   
+C36.decommits | Commitments, decommitments and flips a year | line                                           
+C37.class_ranks | The class ranking leaders | table                                                          
+C37.early | FBS signees who signed early | line                                                              
+C37.five_star_spread | Where each class's five-stars signed | line                                           
+C37.signed | Signees a year by division | line                                                               
+C38.childhood | Signed with his childhood team | bars                                                        
+C38.choice_lean | What leaned recruits toward a school | bars                                                
+C38.close_by_decider | Staying in state by who decides | bars                                                
+C38.reasons | What pulled recruits to the school they chose (world log) | bars                               
+C38.whys | Each recruit's choice and its why (world log) | table                                             
+C39.drafted_walkons | Walk-ons and JUCO players in the draft | line                                          
+C39.paths | Walk-ons, tryouts and JUCO a year | line                                                         
+C39.walk_ons | Walk-ons per FBS roster | bars                                                                
+C4.droughts | Longest runs without a winning season, power programs | table                                  
+C4.over_under | Seasons furthest from expected wins (world log) | table                                      
+C4.points | Points a team game by level, season by season | line                                             
+C4.records_by_level | Win rates by level and season | table                                                  
+C40.by_day | Entries by day inside the windows | bars                                                        
+C40.entrants | Portal entrants a year by division | line                                                     
+C40.landed | Where portal entrants landed | matrix                                                           
+C40.why | Why they entered | bars                                                                            
+C41.by_position | Starters' NIL at major programs by position | table                                        
+C41.p4_bands | Power 4 NIL earnings against real | bars                                                      
+C41.top | The top NIL earners today | table                                                                  
+C42.feed | The latest news about programs | table                                                            
+C42.kinds | News by kind | table                                                                             
+C5.by_program | National titles by program | bars                                                            
+C5.champions | National champions by season and level | table                                                
+C5.lower_distinct | Different champions per decade, every level | table                                      
+C5.rolling_distinct | Different FBS champions in 15 years | line                                             
+C5.rolling_most | Most FBS titles by one school in 15 years | line                                           
+C6.champions | Conference champions, season by season | table                                                
+C6.list | Every conference now | table                                                                       
+C6.most_15y | Most conference titles by one school in 15 years | line                                        
+C6.strength | Conference strength grade by year, FBS conferences | line                                      
+C6.title_games | Conference title games by conference (game log) | table                                     
+C7.attendance | FBS crowds a home game (game log) | line                                                     
+C7.days | Which day FBS home games are played (game log) | bars                                              
+C7.fcs_buy | FBS teams that play an FCS team (game log) | line                                               
+C7.games_per_team | Games per team each season by level (game log) | table                                   
+C8.deals | Non-conference deals on the books | table                                                         
+C9.games | Rivalry games each season (game log) | table                                                      
+C9.series | Rivalry series as the world carries them | table                                                 
+G1.cross | Games across divisions: how often the higher division wins | bars                                 
+G1.extremes | The most lopsided and highest-scoring college games | table                                    
+G1.key_numbers | FBS key numbers: games ending by exactly | bars                                             
+G1.margin | Final margins: how close games are | hist                                                        
+G1.points_by_year | Points a team game, year by year, by division | line                                     
+G1.shape | Score shape against real, by division | bars                                                      
+G1.team_seasons | Best and worst scoring team seasons, each year | table                                     
+G10.fg_curve | Field goals made by distance against real | bars                                              
+G10.kickers | Kickers' seasons from the game log | table                                                     
+G10.kickoffs | Kickoffs year by year: touchbacks and returns | line                                          
+G10.special | The kicking game a team game, by level | table                                                 
+G11.by_kind | Accepted fouls by kind a team game against real | bars                                         
+G11.by_year | Penalties and yards a team game, year by year | line                                           
+G11.flags | Flags a game: the crew's draw | hist                                                             
+G11.site | Declined fouls and the road team's pre-snap fouls | table                                         
+G12.calls | Close calls by kind: ruled right, wrong, reviewed, reversed | table                              
+G12.notes | Reviewed calls, the latest season | table                                                        
+G12.reviews | Replay and close calls, by level and year | table                                              
+G12.toss | The coin toss: what the winner chose | bars                                                       
+G13.bench | When coaches pull their starters | table                                                         
+G13.clock | Clock habits: kneels, spikes and plays out of bounds | table                                     
+G13.q4_lead | Fourth-quarter pass rate by the score after three quarters | bars                              
+G13.two_minute | Two-minute drill: pass rate by score | bars                                                 
+G14.profiles | FBS team fingerprints, offense and defense | table                                            
+G14.spread | How FBS teams spread: pass rate, blitz rate, third downs | hist                                 
+G15.best | Best and worst offenses and defenses each season | table                                          
+G15.luck | Program seasons: Pythagorean wins and luck | table                                                
+G15.turnovers | Win share by turnover margin a game | bars                                                   
+G16.by_stars | College production by recruiting stars | bars                                                 
+G16.leaders | Season leaders by level, with the real leader | table                                          
+G16.milestones | 1,000-yard rushers and receivers, 4,000-yard passers, 100-tackle and 10-sack seasons | table
+G17.seasons | The stats book: every college season | table                                                   
+G17.spread | Advanced rates in the stats book: average and spread | table                                    
+G17.stickiness | Year-to-year stickiness of a player's rates | bars                                          
+G18.drift | Season norms year by year: what a regular does a game | line                                     
+G18.latest | The latest season's norms by position | table                                                   
+G19.gems | Flagged seasons and what became of the player | table                                             
+G19.rates | Hidden-gem footprint flags: how often each is set | bars                                         
+G2.by_year | FBS vitals year by year against real | line                                                     
+G2.rates | Rates against real, by division | bars                                                            
+G2.spread | How team games spread: plays, pass rate and yards an attempt | hist                              
+G2.vitals | Team box score a game against real, by division | table                                          
+G20.books | Record books: the top of each book against the real record | table                               
+G20.win_streaks | Longest winning streaks, programs and high schools | table                                 
+G21.by_year | Records broken each year | line                                                                
+G21.list | Every record broken | table                                                                       
+G22.all_america | All-Americans and their stats | table                                                      
+G22.awards | College awards by year | table                                                                  
+G22.heisman | This season's Heisman vote | bars                                                              
+G23.classes | College Football Hall of Fame classes | table                                                  
+G23.mix | Hall of Fame mix by division | bars                                                                
+G24.buzz | Coach unit buzz: each unit's EPA rank and the buzz it gave | table                                
+G24.by_skill | Unit percentile by the coach's hidden scheme rating | bars                                    
+G25.leaders | NFL season leaders from the pros' records | table                                              
+G25.rates | NFL players' rates: spread against real | table                                                  
+G25.targets | Target shares: a team's top three and by position | bars                                       
+G26.all_pro | All-Pro and Pro Bowl counts by position | bars                                                 
+G26.awards | NFL awards by year | table                                                                      
+G26.hall | Pro Football Hall of Fame: classes and position mix | bars                                        
+G26.hall_list | Hall of Fame inductees and candidates | table                                                
+G26.records | The NFL record book and records broken | table                                                 
+G27.bests | Best high school seasons against real | bars                                                     
+G27.big_seasons | Big seasons a year | line                                                                  
+G27.leaders | Season leaders by stat | table                                                                 
+G27.spread | High school season lines: how they spread | hist                                                
+G27.state_books | State record books | table                                                                 
+G27.tops | High school season bests against real | table                                                     
+G28.carries | Lead back's share of running back carries a game | hist                                        
+G28.emergency | Emergency snaps: men playing out of their position group | line                              
+G28.shares | Snap share by depth: starters and rotation against real | bars                                  
+G29.by_pos | Player grades a play by position | table                                                        
+G29.top | Top-graded player seasons | table                                                                  
+G3.by_year | NFL scoring and pace by season against real | line                                              
+G3.games_per_year | NFL games each season by kind | table                                                    
+G3.rates | NFL rates against real | bars                                                                     
+G3.shape | NFL game shape against real | bars                                                                
+G3.vitals | NFL team box score a game against real | bars                                                    
+G30.splits | Passing and kicking by temperature and wind against real | table                                
+G30.weather_mix | Game-day conditions by level | bars                                                        
+G30.years | Weather each year: snow, rain, cold, lightning, moves and heat | table                           
+G31.games | The loudest games of the latest season and why | table                                           
+G31.loud | How loud games were, and upsets by loudness | table                                               
+G31.tags | Why games mattered: tags by year | line                                                           
+G32.accuracy | How good the lines are, by level and year | table                                             
+G32.calibration | Favorites' win share by the size of the spread | bars                                      
+G33.mix | Injuries of a week or more by kind against real body parts | bars                                  
+G33.rate | Injuries a team game, by level and year | line                                                    
+G33.weeks | Weeks out by kind of injury | table                                                              
+G34.games | Games with every snap kept | table                                                               
+G35.habits | What the tapes show: pass rate, blitz and man coverage by down | table                          
+G35.tapes | Film tapes kept for the coming season | table                                                    
+G36.epa | EPA a play by level against real | bars                                                            
+G36.wp | Win probability calibration: said against happened | bars                                           
+G37.levels | Each level's passing and running this season and last | table                                   
+G38.rows | The engine's calibration rows, measured on the world's NFL games | table                          
+G4.champions | Super Bowl champions, the world against real | table                                          
+G4.extremes | Win totals: great and awful seasons a year | line                                              
+G4.parity | Parity: spread of wins and how sticky they are | line                                            
+G4.seeds | How far each seed goes (this and last season) | table                                             
+G4.windows | Titles in every 15 seasons | line                                                               
+G5.champions | National champions by year, beside the real ones | table                                      
+G5.droughts | Longest runs without a winning season (power programs) | table                                 
+G5.postseason | Bowls, playoffs and title games each season | table                                          
+G5.titles_ladder | National titles in every 15 seasons | line                                                
+G5.unbeaten | Unbeaten FBS seasons and stickiness | line                                                     
+G6.games | Rivalry games in the game log | table                                                             
+G6.series | The 78 rivalries: the world's record against real | table                                        
+G6.upsets | Upsets in rivalry games against the rest | bars                                                  
+G7.brackets | This season's classes and brackets by state | table                                            
+G7.counters | Forfeits, no-contests, grade-outs, homecomings and senior nights | line                        
+G7.games | High school game shape (game log) | bars                                                          
+G7.per_game | Points, plays and yards a team game | line                                                     
+G7.records | Season records a year | line                                                                    
+G7.state_points | Points a team game by state | map                                                          
+G7.state_titles | State titles: the most by one school in 15 seasons, by state | table                       
+G7.streaks | Longest high school winning streaks | table                                                     
+G7.yearly | High school football year by year | line                                                         
+G8.box | Yards a carry by men in the box | bars                                                              
+G8.depth | Throws by depth: share and completion against real | bars                                         
+G8.explorer | Every situation key: plays, yards, EPA, success | table                                        
+G8.families | What the situation totals hold | table                                                         
+G8.pass_rate_dd | Pass rate by down and distance against real | matrix                                       
+G8.pressure | Pressure, blitz, man coverage, play action and time to throw | bars                            
+G9.by_team | FBS teams on fourth down | table                                                                
+G9.choices | What teams do on fourth down, by field zone and distance | table                                
+G9.conversion | How often a fourth-down go converts, by distance | bars                                      
+G9.go_real | Fourth-down go rate by field position and distance against real | matrix                        
+N1.count | Clubs in the league each year | line                                                              
+N1.eras | NFL franchises by era: name, city, division, roof | table                                          
+N10.ladder | The pay ladder's reads by position | table                                                      
+N10.tags | Franchise and transition tag prices by position | table                                           
+N11.counts | Tags, tenders, sheets, options and extensions by year | line                                    
+N11.tagged | Players tagged now, and how often | table                          
+=== panel rows: NIL, collectives, revenue share, money
+
+>>> select id, cols, substr(rows,1,6000) as rows, substr(says,1,500) as says from panels where id in ('C14.budgets','C14.by_year','C14.trend','C41.p4_bands','C41.by_position','C41.top')
+id               cols                                                                            rows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   says
+---------------  ------------------------------------------------------------------------------  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  ----
+C14.budgets      ["division","median","p90","biggest","booster_base","big_boosters","programs"]  [["FBS",25329210.0,57702980.0,90082070.0,6422465.0,49,141],["FCS",528547.7,684710.7,3913048.0,174069.4,63,209],["D3",42869.42,67009.43,218239.7,25031.29,114,316],["D2",48416.01,76040.22,111665.8,29068.69,66,207],["NAIA",43105.97,65636.08,94690.81,26238.56,46,160],["JUCO",42626.04,64982.28,91777.72,25137.76,51,148]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+C14.by_year      ["year","nil_budget_m","boosters"]                                              [[1996,0.0,7361365.0],[1997,0.0,7401575.0],[1998,0.0,7464335.0],[1999,0.0,7527259.0],[2000,0.0,7467881.0],[2001,0.0,7456494.0],[2002,0.0,7476127.0],[2003,0.0,7505786.0],[2004,0.0,7471824.0],[2005,0.0,7592226.0],[2006,0.0,7674036.0],[2007,0.0,7722098.0],[2008,0.0,7725796.0],[2009,0.0,7687453.0],[2010,0.0,7708705.0],[2011,0.0,7600673.0],[2012,0.0,7741644.0],[2013,0.0,7734282.0],[2014,0.0,7729812.0],[2015,0.0,7757060.0],[2016,0.0,7841062.0],[2017,0.0,7839574.0],[2018,0.0,7802300.0],[2019,0.0,7847388.0],[2020,0.0,7844711.0],[2021,0.0,7854909.0],[2022,3.01,7768343.0],[2023,5.14,7703075.0],[2024,6.47,7723209.0],[2025,7.88,7899562.0],[2026,16.46,7841366.0],[2027,16.02,7754360.0],[2028,16.72,7773950.0],[2029,17.25,7682849.0],[2030,18.45,7752759.0],[2031,19.55,7759517.0],[2032,20.41,7681019.0],[2033,21.16,7672530.0],[2034,21.95,7537991.0],[2035,22.79,7402027.0]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+C14.trend        ["label","world","drying_years"]                                                [["D2: Steady",195,0.0],["D2: Growing",12,0.0],["D3: Steady",295,0.0],["D3: Growing",15,0.0],["D3: BoosterLeft",4,1.0],["D3: Falling",2,1.5],["FBS: Steady",121,0.0],["FBS: Growing",19,0.0],["FBS: Falling",1,1.0],["FCS: Steady",197,0.0],["FCS: Growing",12,0.0],["JUCO: Steady",143,0.0],["JUCO: Growing",4,0.0],["JUCO: BoosterLeft",1,1.0],["NAIA: Steady",148,0.0],["NAIA: Growing",9,0.0],["NAIA: BoosterLeft",3,1.0]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+C41.by_position  ["pos","median_nil","starters"]                                                 [["QB",1681945.0,88],["EDGE",820862.0,236],["DT",785687.0,156],["OT",745262.0,206],["WR",618082.0,220],["IOL",617426.0,203],["CB",594693.0,214],["S",549416.0,172],["RB",523525.0,84],["LB",421093.0,196],["TE",264016.0,136],["P",153048.0,72],["K",90944.0,73],["LS",82713.0,70]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+C41.p4_bands     ["label","world","real"]                                                        [["under 10000",20.80607,66.5],["10000-49999",2.787228,16.1],["50000-99999",3.441507,7.4],["100000-499999",48.33813,9.1],["500000-999999",14.95682,0.6],["1000000+",9.670243,0.3]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+C41.top          ["name","program","pos","stars","nil","overall","id"]                           [["Jackson Simmons","LSU","QB",3,12130950.0,73.7,11729134],["Raymond Sellars-Wallace","Michigan","QB",5,11971150.0,81.5,11764512],["Asher Stucker","Texas A&M","QB",4,11943940.0,66.5,11684130],["Brady Junkersfeld","UCLA","QB",4,10913460.0,71.9,11774174],["Tyler Dudek","Washington","QB",4,9568697.0,72.8,12119890],["Kevin Elmore II","Georgia Tech","QB",3,8867908.0,75.2,12253405],["Drew Addison","Alabama","QB",2,8699186.0,66.2,11917643],["DeMonte Lundy","Pittsburgh","QB",3,7802800.0,64.8,11740356],["Jace Smith","Baylor","QB",3,7708584.0,66.6,11684222],["Daniel Anderson","Georgia","OT",5,6877535.0,69.7,11995059],["Nicholas Berrios","Illinois","QB",4,6698215.0,66.2,11884422],["Noah Moore","California","QB",3,6681457.0,74.3,12283348],["Richard Brooks","Arizona State","QB",3,6544972.0,62.7,12023287],["Wheeler Johnson","Pittsburgh","DT",4,6450678.0,82.6,11709337],["Braylon Mancino","Texas","QB",3,6358099.0,74.4,11876784],["Tyrell Kelly","Virginia Tech","QB",3,6320684.0,60.7,11686898],["Cedrick Harris","Missouri","QB",3,6102049.0,65.6,12207898],["AL Dailey","Texas","QB",4,6013241.0,70.7,11991559],["Alan May","Iowa","OT",5,5850837.0,74.7,11659678],["Malachi Fortt Jr.","Miami (FL)","WR",5,5531373.0,78.8,12398135],["Wyatt Auger III","Ohio State","QB",2,5520295.0,69.3,11849467],["Hank Frank","Clemson","QB",4,5484887.0,75.7,12084117],["Mason Dykes","Illinois","QB",3,5385158.0,66.6,11750375],["Ian Porter","Stanford","QB",3,5373764.0,71.7,11829956],["Kingston Dew","Miami (FL)","WR",5,5348334.0,77.4,11682564],["Easton Arquette","Kentucky","QB",2,5148614.0,68.5,11912957],["LK Tuggle","USC","QB",5,5061305.0,72.0,12181595],["Ryan Saxton","Tennessee","QB",2,5052177.0,62.7,11779899],["Logan Boehme","Arizona State","QB",2,4988370.0,65.8,11747267],["Tayshon Holden","Virginia Tech","QB",2,4936021.0,60.9,11739329],["Kaiden Holmes","Arizona State","QB",0,4864811.0,57.8,11837383],["Robert Piper","Miami (FL)","OT",3,4771423.0,73.3,12228160],["TyShawn Murry","Texas","DT",5,4599924.0,73.8,12101838],["Nathaniel Capito","Georgia","QB",2,4388938.0,62.1,12171652],["Kwaku Holifield","Texas","EDGE",5,4225292.0,74.1,12245139],["Julious Hawthorne","Georgia","EDGE",3,4176846.0,75.6,12185949],["Ephraim Roberts","Texas","OT",3,4158577.0,74.3,11712363],["Brody Ayala","Miami (FL)","WR",4,4142337.0,75.4,11920166],["Jaxson Jacobs","Alabama","DT",4,4083491.0,67.8,11813169],["Caiden Fields","Georgia","WR",5,4054451.0,70.5,12317072],["Abigail Genovese","Georgia","RB",5,4004057.0,78.8,11779054],["Gavin Raynard","Michigan","OT",5,3965665.0,77.2,11998241],["Rodney Armstrong","Miami (FL)","EDGE",5,3922368.0,82.8,12199296],["WD Pennington","Oklahoma","QB",2,3892112.0,55.7,12624087],["Mohamad Richardson","Penn State","OT",3,3857036.0,65.8,12376324],["Quintin Rogers","Maryland","EDGE",3,3847516.0,69.8,11689446],["Antron Canon","Florida","OT",5,3828202.0,85.2,12324389],["Brent Forlines","Arizona State","WR",5,3811707.0,79.3,11996664],["Zaden Gadson","Clemson","WR",4,3760058.0,74.8,12048436],["Noah Derr","Minnesota","QB",2,3744142.0,62.4,12163541]]      
+
+>>> select id, cols, substr(rows,1,6000) as rows, substr(says,1,500) as says from panels where id like 'N31.%' or id like 'N30.%' or id like 'N35.%' or id like 'C23.%' or id like 'P18.%'
+id                     cols                                                                                                                                                                                                                                                                                  rows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              says                                                                                                                                                         
+---------------------  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  -------------------------------------------------------------------------------------------------------------------------------------------------------------
+P18.family             ["row","col","value"]                                                                                                                                                                                                                                                                 [["Away","Foster",2.412869],["Away","Grandparents",12.33244],["Away","SingleParent",29.75871],["Away","TwoParents",55.49598],["CflPool","Foster",4.444444],["CflPool","Grandparents",14.81481],["CflPool","SingleParent",26.66667],["CflPool","TwoParents",54.07407],["D2","Foster",3.212379],["D2","Grandparents",9.04443],["D2","SingleParent",30.80264],["D2","TwoParents",56.94055],["D3","Foster",2.852513],["D3","Grandparents",8.945824],["D3","SingleParent",29.75725],["D3","TwoParents",58.44442],["Declared","Grandparents",14.81481],["Declared","SingleParent",40.74074],["Declared","TwoParents",44.44444],["Done","Foster",2.993056],["Done","Grandparents",8.913372],["Done","SingleParent",30.81672],["Done","TwoParents",57.27685],["FBS","Foster",2.795204],["FBS","Grandparents",9.061759],["FBS","SingleParent",30.38478],["FBS","TwoParents",57.75826],["FCS","Foster",2.808547],["FCS","Grandparents",9.190309],["FCS","SingleParent",30.09362],["FCS","TwoParents",57.90753],["High school","Foster",3.015239],["High school","Grandparents",9.039628],["High school","SingleParent",30.48211],["High school","TwoParents",57.46302],["JUCO","Foster",2.861906],["JUCO","Grandparents",9.039548],["JUCO","SingleParent",29.66565],["JUCO","TwoParents",58.4329],["NAIA","Foster",3.064351],["NAIA","Grandparents",8.463447],["NAIA","SingleParent",31.00832],["NAIA","TwoParents",57.46388],["NFL","Foster",2.980626],["NFL","Grandparents",8.614009],["NFL","SingleParent",29.29955],["NFL","TwoParents",59.10581],["PrepSchool","Foster",1.886792],["PrepSchool","Grandparents",7.54717],["PrepSchool","SingleParent",37.73585],["PrepSchool","TwoParents",52.83019]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+P18.money_by_level     ["label","world","school_resources","exposure","n"]                                                                                                                                                                                                                                   [["NAIA",0.470319,0.3702393,0.659256,13706],["CflPool",0.4721027,0.3382427,0.0,135],["D2",0.4823041,0.3702743,0.66817,22102],["Done",0.48799,0.3678495,0.5442566,71432],["Away",0.4935323,0.3856397,0.6814232,373],["High school",0.4969767,0.3684204,0.1276254,98566],["PrepSchool",0.4976718,0.3635276,0.7584445,53],["JUCO",0.5013144,0.3815461,0.7044422,10797],["FCS",0.5033867,0.3829547,0.6965404,13993],["D3",0.5063351,0.3787732,0.6400153,32708],["FBS",0.5361816,0.3788312,0.759304,14346],["NFL",0.5776009,0.3701627,0.7492667,3355],["Declared",0.5921801,0.3372064,0.8831289,27]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+P18.bloodlines         ["label","world","n"]                                                                                                                                                                                                                                                                 [["bloodline: CollegePlayer",4.051016,4361],["bloodline: NflPlayer",0.5127633,552],["bloodline: None",95.43622,102739],["decider: Grandparent",4.021291,4329],["decider: Handler",7.506595,8081],["decider: Himself",48.23505,51926],["decider: Parent",40.23706,43316],["steered signing",0.9623602,107652]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+=== panel rows: prestige and ratings
+
+>>> select id, cols, substr(rows,1,6000) as rows, substr(says,1,500) as says from panels where id in ('C2.spread','P8.level_ratings','P14.kept_starting','P14.starter_ages','C2.vs_wins','C2.top10_by_decade','C18.reach')
+id                  cols                                                                 rows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              says
+------------------  -------------------------------------------------------------------  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  ----
+C18.reach           ["year","reach","fans_x10","n"]                                      [[40.0,5.94295,3.898523,18],[50.0,9.036327,4.897281,46],[60.0,12.38708,6.017828,38],[70.0,13.2774,7.364905,10],[80.0,16.34859,8.588932,23],[90.0,21.47128,9.585147,4],[100.0,19.23748,9.751436,2]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+C2.spread           ["year","grp","p10","p50","p90"]                                     [[1995,"D2",0.1045636,0.1219588,0.149067],[1996,"D2",0.1062678,0.1224401,0.1486825],[1997,"D2",0.1071279,0.1229593,0.1489298],[1998,"D2",0.1071274,0.1221837,0.1521201],[1999,"D2",0.1064558,0.1226119,0.1543873],[2000,"D2",0.1072758,0.1237752,0.1556703],[2001,"D2",0.1052458,0.1241097,0.1545406],[2002,"D2",0.1053305,0.1236361,0.1573754],[2003,"D2",0.1052961,0.1243816,0.1548192],[2004,"D2",0.1050472,0.1243766,0.1545275],[2005,"D2",0.1040998,0.1256685,0.1576886],[2006,"D2",0.1047595,0.1272109,0.1570259],[2007,"D2",0.10564,0.1270615,0.1603378],[2008,"D2",0.1052452,0.1269559,0.1600753],[2009,"D2",0.1052326,0.127849,0.1611769],[2010,"D2",0.1061499,0.1268367,0.1640869],[2011,"D2",0.1072243,0.1292607,0.1643],[2012,"D2",0.1059283,0.1296024,0.1650556],[2013,"D2",0.1061416,0.1286663,0.1649363],[2014,"D2",0.1074306,0.1281474,0.1617282],[2015,"D2",0.1071344,0.1306024,0.1621562],[2016,"D2",0.1079702,0.1298038,0.1643331],[2017,"D2",0.1064474,0.1306793,0.1652149],[2018,"D2",0.1060909,0.129346,0.1632245],[2019,"D2",0.1058031,0.1324459,0.1662732],[2020,"D2",0.1067262,0.1308622,0.1640776],[2021,"D2",0.1084836,0.1316456,0.161647],[2022,"D2",0.1087897,0.1318028,0.1621288],[2023,"D2",0.1082739,0.131683,0.1591122],[2024,"D2",0.1086476,0.1319039,0.1634695],[2025,"D2",0.1088626,0.1301128,0.1645249],[2026,"D2",0.1085855,0.1330142,0.1707844],[2027,"D2",0.1088027,0.1319546,0.1698915],[2028,"D2",0.1090947,0.133343,0.1686606],[2029,"D2",0.1092869,0.1332468,0.169853],[2030,"D2",0.1095469,0.1344435,0.1693757],[2031,"D2",0.1079453,0.133506,0.1707508],[2032,"D2",0.1081871,0.1339736,0.1729174],[2033,"D2",0.1092305,0.1339993,0.1711233],[2034,"D2",0.1076727,0.1345433,0.1711401],[1995,"D3",0.07323938,0.08781997,0.1002697],[1996,"D3",0.07446049,0.08725764,0.1027989],[1997,"D3",0.0743394,0.08682871,0.1054956],[1998,"D3",0.07365493,0.08658382,0.1062624],[1999,"D3",0.07342443,0.08810487,0.1069231],[2000,"D3",0.07351948,0.08861633,0.1104421],[2001,"D3",0.07427038,0.08934278,0.1087217],[2002,"D3",0.07416673,0.08982888,0.1114361],[2003,"D3",0.07366266,0.08972483,0.1103167],[2004,"D3",0.07370658,0.0888819,0.1126414],[2005,"D3",0.0738858,0.08929847,0.1112706],[2006,"D3",0.07326057,0.09043183,0.111194],[2007,"D3",0.07332545,0.09136902,0.1124969],[2008,"D3",0.07293467,0.09224355,0.1142481],[2009,"D3",0.07241806,0.09269925,0.1140389],[2010,"D3",0.07254796,0.09303824,0.1152565],[2011,"D3",0.07254668,0.09314724,0.1153507],[2012,"D3",0.07257817,0.09273748,0.1168432],[2013,"D3",0.07258597,0.0931211,0.1147919],[2014,"D3",0.07241978,0.09227356,0.1150267],[2015,"D3",0.07272503,0.09284315,0.1186164],[2016,"D3",0.07267061,0.09235382,0.1181018],[2017,"D3",0.07255587,0.0920223,0.1182042],[2018,"D3",0.07254269,0.0914556,0.1180961],[2019,"D3",0.07261477,0.09254113,0.1174021],[2020,"D3",0.07268783,0.09351014,0.1208689],[2021,"D3",0.07278604,0.09322804,0.1197194],[2022,"D3",0.07286253,0.09315359,0.120195],[2023,"D3",0.07296186,0.09473219,0.1184315],[2024,"D3",0.07298851,0.09415058,0.117724],[2025,"D3",0.07310423,0.09506094,0.1176734],[2026,"D3",0.07290615,0.09498879,0.1184072],[2027,"D3",0.07286625,0.0937041,0.1192155],[2028,"D3",0.07297992,0.09404012,0.1197854],[2029,"D3",0.07280973,0.09297867,0.1197397],[2030,"D3",0.07292117,0.09411303,0.121904],[2031,"D3",0.07293389,0.09516605,0.1222873],[2032,"D3",0.07315324,0.09630935,0.1228157],[2033,"D3",0.07307483,0.09561646,0.1243354],[2034,"D3",0.07314601,0.09671693,0.1242332],[1995,"FBS",0.2146384,0.5349141,0.7537605],[1996,"FBS",0.2123538,0.5265109,0.759354],[1997,"FBS",0.2118235,0.5285248,0.7561847],[1998,"FBS",0.2172857,0.5329103,0.7564193],[1999,"FBS",0.2258216,0.5391957,0.755108],[2000,"FBS",0.2341788,0.5301088,0.7448264],[2001,"FBS",0.2425896,0.5306963,0.7596185],[2002,"FBS",0.2341465,0.5394115,0.7818771],[2003,"FBS",0.2295097,0.53589,0.7650729],[2004,"FBS",0.2300744,0.5412473,0.7704115],[2005,"FBS",0.2589715,0.5424892,0.7857991],[2006,"FBS",0.2675629,0.5449542,0.7794998],[2007,"FBS",0.253352,0.5491822,0.7798003],[2008,"FBS",0.2537711,0.5518828,0.7882872],[2009,"FBS",0.2640696,0.5551759,0.7987617],[2010,"FBS",0.2655837,0.544331,0.7917419],[2011,"FBS",0.2740617,0.5501949,0.7922229],[2012,"FBS",0.3165801,0.5569593,0.77527],[2013,"FBS",0.3599713,0.5537502,0.7852894],[2014,"FBS",0.3812973,0.5571361,0.788585],[2015,"FBS",0.3990151,0.5675586,0.7807695],[2016,"FBS",0.4054423,0.5649425,0.7927251],[2017,"FBS",0.4060795,0.5622215,0.7886468],[2018,"FBS",0.4219876,0.5649675,0.7904749],[2019,"FBS",0.4252686,0.5705772,0.7903575],[2020,"FBS",0.4231247,0.5641211,0.7963234],[2021,"FBS",0.4149874,0.5767079,0.7982847],[2022,"FBS",0.4178074,0.5804297,0.7936864],[2023,"FBS",0.4263942,0.576813,0.8029994],[2024,"FBS",0.4229608,0.5787104,0.8077992],[2025,"FBS",0.4317272,0.5830635,0.8048394],[2026,"FBS",0.4379528,0.587055,0.8048686],[2027,"FBS",0.441334,0.5770539,0.7962178],[2028,"FBS",0.4399387,0.575819,0.7937724],[2029,"FBS",0.4505948,0.568528,0.7950164],[2030,"FBS",0.4490324,0.5769099,0.7989835],[2031,"FBS",0.4406766,0.5628975,0.8024932],[2032,"FBS",0.4482966,0.5659263,0.8008227],[2033,"FBS",0.4425627,0.5640171,0.7942242],[2034,"FBS",0.4397895,0.5670247,0.7841311],[1995,"FCS",0.131281,0.2072957,0.2544231],[1996,"FCS",0.1341827,0.2071751,0.2568461],[1997,"FCS",0.1400498,0.2069374,0.2613477],[1998,"FCS",0.1383314,0.2064401,0.2592788],[1999,"FCS",0.1427942,0.2060489,0.2612827],[2000,"FCS",0.1408578,0.2064901,0.2661936],[2001,"FCS",0.1500402,0.2058698,0.2704734],[2002,"FCS",0.1524551,0.2047381,0.2704364],[2003,"FCS",0.155174,0.204703,0.2742691],[2004,"FCS",0.1598376,0.205709,0.2726395],[2005,"FCS",0.1594916,0.2062024,0.2758547],[2006,"FCS",0.1626327,0.2058408,0.276295],[2007,"FCS",0.1693158,0.2048973,0.2741069],[2008,"FCS",0.1699832,0.204651,0.2734754],[2009,"FCS",0.1724074,0.2067374,0.2757559],[2010,"FCS",0.1719748,0.2051972,0.2722885],[2011,"FCS",0.1713637,0.2063547,0.2761337],[2012,"FCS",0.1718353,0.2080141,0.2778174],[2013,"FCS",0.1757956,0.2058477,0.2815496],[2014,"FCS",0.177123,0.2052886,0.2796564],[2015,"FCS",0.1764574,0.      
+C2.top10_by_decade  ["year","rank","name","id","prestige"]                               [[2034,1,"Miami (FL)",59,0.998],[2034,2,"Georgia",34,0.969],[2034,3,"Texas",107,0.932],[2034,4,"Maryland",57,0.897],[2034,5,"Michigan",61,0.854],[2034,6,"Georgia Tech",37,0.85],[2034,7,"Pittsburgh",89,0.847],[2034,8,"Penn State",88,0.834],[2034,9,"Arizona State",5,0.828],[2034,10,"Florida",31,0.822],[2020,1,"Georgia",34,0.929],[2020,2,"Texas",107,0.928],[2020,3,"Pittsburgh",89,0.898],[2020,4,"USC",122,0.884],[2020,5,"Michigan",61,0.869],[2020,6,"Alabama",2,0.865],[2020,7,"Georgia Tech",37,0.858],[2020,8,"Maryland",57,0.852],[2020,9,"Miami (FL)",59,0.834],[2020,10,"Texas A&M",108,0.832],[2010,1,"Texas",107,0.99],[2010,2,"Georgia",34,0.889],[2010,3,"Pittsburgh",89,0.882],[2010,4,"Michigan",61,0.877],[2010,5,"Alabama",2,0.84],[2010,6,"Wisconsin",136,0.828],[2010,7,"Georgia Tech",37,0.827],[2010,8,"Notre Dame",79,0.824],[2010,9,"Ohio State",81,0.817],[2010,10,"Arizona State",5,0.815],[2000,1,"Texas",107,0.946],[2000,2,"Michigan",61,0.943],[2000,3,"Miami (FL)",59,0.862],[2000,4,"Pittsburgh",89,0.847],[2000,5,"Ohio State",81,0.832],[2000,6,"Tennessee",106,0.821],[2000,7,"Georgia",34,0.82],[2000,8,"Oklahoma",82,0.804],[2000,9,"Arizona State",5,0.801],[2000,10,"Alabama",2,0.799]]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+=== tables
+
+>>> select name from sqlite_master where type='table' order by name
+name                                       
+-------------------------------------------
+alumni                                     
+alumni__college_staff                      
+alumni__hs_lines                           
+alumni__player__craft__items               
+alumni__player__history                    
+alumni__player__position_history           
+alumni__pro__grudges                       
+alumni__pro__other                         
+alumni__pro__seasons                       
+areas                                      
+book_meta                                  
+calendar                                   
+calendar__counts                           
+calendar__events                           
+calendar__events___0__refs                 
+calendar__events___100__refs               
+calendar__events___101__refs               
+calendar__events___102__refs               
+calendar__events___103__refs               
+calendar__events___104__refs               
+calendar__events___105__refs               
+calendar__events___106__refs               
+calendar__events___107__refs               
+calendar__events___108__refs               
+calendar__events___109__refs               
+calendar__events___10__refs                
+calendar__events___110__refs               
+calendar__events___111__refs               
+calendar__events___112__refs               
+calendar__events___113__refs               
+calendar__events___114__refs               
+calendar__events___115__refs               
+calendar__events___116__refs               
+calendar__events___117__refs               
+calendar__events___118__refs               
+calendar__events___119__refs               
+calendar__events___11__refs                
+calendar__events___120__refs               
+calendar__events___121__refs               
+calendar__events___122__refs               
+calendar__events___123__refs               
+calendar__events___124__refs               
+calendar__events___125__refs               
+calendar__events___126__refs               
+calendar__events___127__refs               
+calendar__events___128__refs               
+calendar__events___129__refs               
+calendar__events___12__refs                
+calendar__events___130__refs               
+calendar__events___131__refs               
+calendar__events___132__refs               
+calendar__events___133__refs               
+calendar__events___134__refs               
+calendar__events___135__refs               
+calendar__events___136__refs               
+calendar__events___137__refs               
+calendar__events___138__refs               
+calendar__events___139__refs               
+calendar__events___13__refs                
+calendar__events___140__refs               
+calendar__events___141__refs               
+calendar__events___142__refs               
+calendar__events___143__refs               
+calendar__events___144__refs               
+calendar__events___145__refs               
+calendar__events___146__refs               
+calendar__events___147__refs               
+calendar__events___148__refs               
+calendar__events___149__refs               
+calendar__events___14__refs                
+calendar__events___150__refs               
+calendar__events___151__refs               
+calendar__events___152__refs               
+calendar__events___153__refs               
+calendar__events___154__refs               
+calendar__events___155__refs               
+calendar__events___156__refs               
+calendar__events___157__refs               
+calendar__events___158__refs               
+calendar__events___159__refs               
+calendar__events___15__refs                
+calendar__events___160__refs               
+calendar__events___161__refs               
+calendar__events___162__refs               
+calendar__events___163__refs               
+calendar__events___164__refs               
+calendar__events___165__refs               
+calendar__events___166__refs               
+calendar__events___167__refs               
+calendar__events___168__refs               
+calendar__events___169__refs               
+calendar__events___16__refs                
+calendar__events___170__refs               
+calendar__events___171__refs               
+calendar__events___172__refs               
+calendar__events___173__refs               
+calendar__events___174__refs               
+calendar__events___175__refs               
+calendar__events___176__refs               
+calendar__events___177__refs               
+calendar__events___178__refs               
+calendar__events___179__refs               
+calendar__events___17__refs                
+calendar__events___180__refs               
+calendar__events___181__refs               
+calendar__events___182__refs               
+calendar__events___183__refs               
+calendar__events___184__refs               
+calendar__events___185__refs               
+calendar__events___186__refs               
+calendar__events___187__refs               
+calendar__events___188__refs               
+calendar__events___189__refs               
+calendar__events___18__refs                
+calendar__events___190__refs               
+calendar__events___191__refs               
+calendar__events___192__refs               
+calendar__events___193__refs               
+calendar__events___194__refs               
+calendar__events___195__refs               
+calendar__events___196__refs               
+calendar__events___197__refs               
+calendar__events___198__refs               
+calendar__events___199__refs               
+calendar__events___19__refs                
+calendar__events___1__refs                 
+calendar__events___200__refs               
+calendar__events___201__refs               
+calendar__events___202__refs               
+calendar__events___203__refs               
+calendar__events___204__refs               
+calendar__events___205__refs               
+calendar__events___206__refs               
+calendar__events___207__refs               
+calendar__events___208__refs               
+calendar__events___209__refs               
+calendar__events___20__refs                
+calendar__events___210__refs               
+calendar__events___211__refs               
+calendar__events___212__refs               
+calendar__events___213__refs               
+calendar__events___214__refs               
+calendar__events___215__refs               
+calendar__events___216__refs               
+calendar__events___217__refs               
+calendar__events___218__refs               
+calendar__events___219__refs               
+calendar__events___21__refs                
+calendar__events___220__refs               
+calendar__events___221__refs               
+calendar__events___222__refs               
+calendar__events___223__refs               
+calendar__events___224__refs               
+calendar__events___225__refs               
+calendar__events___226__refs               
+calendar__events___227__refs               
+calendar__events___228__refs               
+calendar__events___229__refs               
+calendar__events___22__refs                
+calendar__events___230__refs               
+calendar__events___231__refs               
+calendar__events___232__refs               
+calendar__events___233__refs               
+calendar__events___234__refs               
+calendar__events___235__refs               
+calendar__events___236__refs               
+calendar__events___237__refs               
+calendar__events___238__refs               
+calendar__events___239__refs               
+calendar__events___23__refs                
+calendar__events___240__refs               
+calendar__events___241__refs               
+calendar__events___242__refs               
+calendar__events___243__refs               
+calendar__events___244__refs               
+calendar__events___245__refs               
+calendar__events___246__refs               
+calendar__events___247__refs               
+calendar__events___248__refs               
+calendar__events___249__refs               
+calendar__events___24__refs                
+calendar__events___250__refs               
+calendar__events___251__refs               
+calendar__events___252__refs               
+calendar__events___253__refs               
+calendar__events___254__refs               
+calendar__events___255__refs               
+calendar__events___256__refs               
+calendar__events___257__refs               
+calendar__events___258__refs               
+calendar__events___259__refs               
+calendar__events___25__refs                
+calendar__events___260__refs               
+calendar__events___261__refs               
+calendar__events___262__refs               
+calendar__events___263__refs               
+calendar__events___264__refs               
+calendar__events___265__refs               
+calendar__events___266__refs               
+calendar__events___267__refs               
+calendar__events___268__refs               
+calendar__events___269__refs               
+calendar__events___26__refs                
+calendar__events___270__refs               
+calendar__events___271__refs               
+calendar__events___272__refs               
+calendar__events___273__refs               
+calendar__events___274__refs               
+calendar__events___275__refs               
+calendar__events___276__refs               
+calendar__events___277__refs               
+calendar__events___278__refs               
+calendar__events___279__refs               
+calendar__events___27__refs                
+calendar__events___280__refs               
+calendar__events___281__refs               
+calendar__events___282__refs               
+calendar__events___283__refs               
+calendar__events___284__refs               
+calendar__events___285__refs               
+calendar__events___286__refs               
+calendar__events___287__refs               
+calendar__events___288__refs               
+calendar__events___289__refs               
+calendar__events___28__refs                
+calendar__events___290__refs               
+calendar__events___291__refs               
+calendar__events___292__refs               
+calendar__events___293__refs               
+calendar__events___294__refs               
+calendar__events___295__refs               
+calendar__events___296__refs               
+calendar__events___297__refs               
+calendar__events___298__refs               
+calendar__events___299__refs               
+calendar__events___29__refs                
+calendar__events___2__refs                 
+calendar__events___300__refs               
+calendar__events___301__refs               
+calendar__events___302__refs               
+calendar__events___303__refs               
+calendar__events___304__refs               
+calendar__events___305__refs               
+calendar__events___306__refs               
+calendar__events___307__refs               
+calendar__events___308__refs               
+calendar__events___309__refs               
+calendar__events___30__refs                
+calendar__events___310__refs               
+calendar__events___311__refs               
+calendar__events___312__refs               
+calendar__events___313__refs               
+calendar__events___314__refs               
+calendar__events___315__refs               
+calendar__events___316__refs               
+calendar__events___317__refs               
+calendar__events___318__refs               
+calendar__events___319__refs               
+calendar__events___31__refs                
+calendar__events___320__refs               
+calendar__events___321__refs               
+calendar__events___322__refs               
+calendar__events___323__refs               
+calendar__events___324__refs               
+calendar__events___325__refs               
+calendar__events___326__refs               
+calendar__events___327__refs               
+calendar__events___328__refs               
+calendar__events___329__refs               
+calendar__events___32__refs                
+calendar__events___330__refs               
+calendar__events___331__refs               
+calendar__events___332__refs               
+calendar__events___333__refs               
+calendar__events___334__refs               
+calendar__events___335__refs               
+calendar__events___336__refs               
+calendar__events___337__refs               
+calendar__events___338__refs               
+calendar__events___339__refs               
+calendar__events___33__refs                
+calendar__events___340__refs               
+calendar__events___341__refs               
+calendar__events___342__refs               
+calendar__events___343__refs               
+calendar__events___344__refs               
+calendar__events___345__refs               
+calendar__events___346__refs               
+calendar__events___347__refs               
+calendar__events___348__refs               
+calendar__events___349__refs               
+calendar__events___34__refs                
+calendar__events___350__refs               
+calendar__events___351__refs               
+calendar__events___352__refs               
+calendar__events___353__refs               
+calendar__events___354__refs               
+calendar__events___355__refs               
+calendar__events___356__refs               
+calendar__events___357__refs               
+calendar__events___358__refs               
+calendar__events___359__refs               
+calendar__events___35__refs                
+calendar__events___360__refs               
+calendar__events___361__refs               
+calendar__events___362__refs               
+calendar__events___363__refs               
+calendar__events___364__refs               
+calendar__events___365__refs               
+calendar__events___366__refs               
+calendar__events___367__refs               
+calendar__events___368__refs               
+calendar__events___369__refs               
+calendar__events___36__refs                
+calendar__events___370__refs               
+calendar__events___371__refs               
+calendar__events___372__refs               
+calendar__events___373__refs               
+calendar__events___374__refs               
+calendar__events___375__refs               
+calendar__events___376__refs               
+calendar__events___377__refs               
+calendar__events___378__refs               
+calendar__events___379__refs               
+calendar__events___37__refs                
+calendar__events___380__refs               
+calendar__events___381__refs               
+calendar__events___382__refs               
+calendar__events___383__refs               
+calendar__events___384__refs               
+calendar__events___385__refs               
+calendar__events___386__refs               
+calendar__events___387__refs               
+calendar__events___388__refs               
+calendar__events___389__refs               
+calendar__events___38__refs                
+calendar__events___390__refs               
+calendar__events___391__refs               
+calendar__events___392__refs               
+calendar__events___393__refs               
+calendar__events___394__refs               
+calendar__events___395__refs               
+calendar__events___396__refs               
+calendar__events___397__refs               
+calendar__events___398__refs               
+calendar__events___399__refs               
+calendar__events___39__refs                
+calendar__events___3__refs                 
+calendar__events___400__refs               
+calendar__events___401__refs               
+calendar__events___402__refs               
+calendar__events___403__refs               
+calendar__events___404__refs               
+calendar__events___405__refs               
+calendar__events___406__refs               
+calendar__events___407__refs               
+calendar__events___408__refs               
+calendar__events___409__refs               
+calendar__events___40__refs                
+calendar__events___410__refs               
+calendar__events___411__refs               
+calendar__events___412__refs               
+calendar__events___413__refs               
+calendar__events___414__refs               
+calendar__events___415__refs               
+calendar__events___416__refs               
+calendar__events___417__refs               
+calendar__events___418__refs               
+calendar__events___419__refs               
+calendar__events___41__refs                
+calendar__events___420__refs               
+calendar__events___421__refs               
+calendar__events___422__refs               
+calendar__events___423__refs               
+calendar__events___424__refs               
+calendar__events___425__refs               
+calendar__events___426__refs               
+calendar__events___427__refs               
+calendar__events___428__refs               
+calendar__events___429__refs               
+calendar__events___42__refs                
+calendar__events___430__refs               
+calendar__events___431__refs               
+calendar__events___432__refs               
+calendar__events___433__refs               
+calendar__events___434__refs               
+calendar__events___435__refs               
+calendar__events___436__refs               
+calendar__events___437__refs               
+calendar__events___438__refs               
+calendar__events___439__refs               
+calendar__events___43__refs                
+calendar__events___440__refs               
+calendar__events___441__refs               
+calendar__events___442__refs               
+calendar__events___443__refs               
+calendar__events___444__refs               
+calendar__events___445__refs               
+calendar__events___446__refs               
+calendar__events___447__refs               
+calendar__events___448__refs               
+calendar__events___449__refs               
+calendar__events___44__refs                
+calendar__events___450__refs               
+calendar__events___451__refs               
+calendar__events___452__refs               
+calendar__events___453__refs               
+calendar__events___454__refs               
+calendar__events___455__refs               
+calendar__events___456__refs               
+calendar__events___457__refs               
+calendar__events___458__refs               
+calendar__events___459__refs               
+calendar__events___45__refs                
+calendar__events___460__refs               
+calendar__events___461__refs               
+calendar__events___462__refs               
+calendar__events___463__refs               
+calendar__events___464__refs               
+calendar__events___465__refs               
+calendar__events___466__refs               
+calendar__events___467__refs               
+calendar__events___468__refs               
+calendar__events___469__refs               
+calendar__events___46__refs                
+calendar__events___470__refs               
+calendar__events___471__refs               
+calendar__events___472__refs               
+calendar__events___473__refs               
+calendar__events___474__refs               
+calendar__events___475__refs               
+calendar__events___476__refs               
+calendar__events___477__refs               
+calendar__events___478__refs               
+calendar__events___479__refs               
+calendar__events___47__refs                
+calendar__events___480__refs               
+calendar__events___481__refs               
+calendar__events___482__refs               
+calendar__events___483__refs               
+calendar__events___484__refs               
+calendar__events___485__refs               
+calendar__events___486__refs               
+calendar__events___487__refs               
+calendar__events___488__refs               
+calendar__events___489__refs               
+calendar__events___48__refs                
+calendar__events___490__refs               
+calendar__events___491__refs               
+calendar__events___492__refs               
+calendar__events___493__refs               
+calendar__events___494__refs               
+calendar__events___495__refs               
+calendar__events___496__refs               
+calendar__events___497__refs               
+calendar__events___498__refs               
+calendar__events___499__refs               
+calendar__events___49__refs                
+calendar__events___4__refs                 
+calendar__events___500__refs               
+calendar__events___501__refs               
+calendar__events___502__refs               
+calendar__events___503__refs               
+calendar__events___504__refs               
+calendar__events___505__refs               
+calendar__events___506__refs               
+calendar__events___507__refs               
+calendar__events___508__refs               
+calendar__events___509__refs               
+calendar__events___50__refs                
+calendar__events___510__refs               
+calendar__events___511__refs               
+calendar__events___512__refs               
+calendar__events___513__refs               
+calendar__events___514__refs               
+calendar__events___515__refs               
+calendar__events___516__refs               
+calendar__events___517__refs               
+calendar__events___518__refs               
+calendar__events___519__refs               
+calendar__events___51__refs                
+calendar__events___520__refs               
+calendar__events___521__refs               
+calendar__events___522__refs               
+calendar__events___523__refs               
+calendar__events___524__refs               
+calendar__events___525__refs               
+calendar__events___526__refs               
+calendar__events___527__refs               
+calendar__events___528__refs               
+calendar__events___529__refs               
+calendar__events___52__refs                
+calendar__events___530__refs               
+calendar__events___531__refs               
+calendar__events___532__refs               
+calendar__events___533__refs               
+calendar__events___534__refs               
+calendar__events___535__refs               
+calendar__events___536__refs               
+calendar__events___537__refs               
+calendar__events___538__refs               
+calendar__events___539__refs               
+calendar__events___53__refs                
+calendar__events___540__refs               
+calendar__events___541__refs               
+calendar__events___542__refs               
+calendar__events___543__refs               
+calendar__events___544__refs               
+calendar__events___545__refs               
+calendar__events___546__refs               
+calendar__events___547__refs               
+calendar__events___548__refs               
+calendar__events___549__refs               
+calendar__events___54__refs                
+calendar__events___550__refs               
+calendar__events___551__refs               
+calendar__events___552__refs               
+calendar__events___553__refs               
+calendar__events___554__refs               
+calendar__events___555__refs               
+calendar__events___556__refs               
+calendar__events___557__refs               
+calendar__events___558__refs               
+calendar__events___559__refs               
+calendar__events___55__refs                
+calendar__events___560__refs               
+calendar__events___561__refs               
+calendar__events___562__refs               
+calendar__events___563__refs               
+calendar__events___564__refs               
+calendar__events___565__refs               
+calendar__events___566__refs               
+calendar__events___567__refs               
+calendar__events___568__refs               
+calendar__events___569__refs               
+calendar__events___56__refs                
+calendar__events___570__refs               
+calendar__events___571__refs               
+calendar__events___572__refs               
+calendar__events___573__refs               
+calendar__events___574__refs               
+calendar__events___575__refs               
+calendar__events___576__refs               
+calendar__events___577__refs               
+calendar__events___578__refs               
+calendar__events___579__refs               
+calendar__events___57__refs                
+calendar__events___580__refs               
+calendar__events___581__refs               
+calendar__events___582__refs               
+calendar__events___583__refs               
+calendar__events___584__refs               
+calendar__events___585__refs               
+calendar__events___586__refs               
+calendar__events___587__refs               
+calendar__events___588__refs               
+calendar__events___589__refs               
+calendar__events___58__refs                
+calendar__events___590__refs               
+calendar__events___591__refs               
+calendar__events___592__refs               
+calendar__events___593__refs               
+calendar__events___594__refs               
+calendar__events___595__refs               
+calendar__events___596__refs               
+calendar__events___597__refs               
+calendar__events___598__refs               
+calendar__events___599__refs               
+calendar__events___59__refs                
+calendar__events___5__refs                 
+calendar__events___600__refs               
+calendar__events___601__refs               
+calendar__events___602__refs               
+calendar__events___603__refs               
+calendar__events___604__refs               
+calendar__events___605__refs               
+calendar__events___606__refs               
+calendar__events___607__refs               
+calendar__events___608__refs               
+calendar__events___609__refs               
+calendar__events___60__refs                
+calendar__events___610__refs               
+calendar__events___611__refs               
+calendar__events___612__refs               
+calendar__events___613__refs               
+calendar__events___614__refs               
+calendar__events___615__refs               
+calendar__events___616__refs               
+calendar__events___617__refs               
+calendar__events___618__refs               
+calendar__events___619__refs               
+calendar__events___61__refs                
+calendar__events___620__refs               
+calendar__events___621__refs               
+calendar__events___622__refs               
+calendar__events___623__refs               
+calendar__events___624__refs               
+calendar__events___625__refs               
+calendar__events___626__refs               
+calendar__events___627__refs               
+calendar__events___628__refs               
+calendar__events___629__refs               
+calendar__events___62__refs                
+calendar__events___630__refs               
+calendar__events___631__refs               
+calendar__events___632__refs               
+calendar__events___633__refs               
+calendar__events___634__refs               
+calendar__events___635__refs               
+calendar__events___636__refs               
+calendar__events___637__refs               
+calendar__events___638__refs               
+calendar__events___639__refs               
+calendar__events___63__refs                
+calendar__events___640__refs               
+calendar__events___641__refs               
+calendar__events___642__refs               
+calendar__events___643__refs               
+calendar__events___644__refs               
+calendar__events___645__refs               
+calendar__events___646__refs               
+calendar__events___647__refs               
+calendar__events___648__refs               
+calendar__events___649__refs               
+calendar__events___64__refs                
+calendar__events___650__refs               
+calendar__events___651__refs               
+calendar__events___652__refs               
+calendar__events___653__refs               
+calendar__events___654__refs               
+calendar__events___655__refs               
+calendar__events___656__refs               
+calendar__events___657__refs               
+calendar__events___658__refs               
+calendar__events___659__refs               
+calendar__events___65__refs                
+calendar__events___660__refs               
+calendar__events___661__refs               
+calendar__events___662__refs               
+calendar__events___663__refs               
+calendar__events___664__refs               
+calendar__events___665__refs               
+calendar__events___666__refs               
+calendar__events___667__refs               
+calendar__events___668__refs               
+calendar__events___669__refs               
+calendar__events___66__refs                
+calendar__events___670__refs               
+calendar__events___671__refs               
+calendar__events___672__refs               
+calendar__events___673__refs               
+calendar__events___674__refs               
+calendar__events___675__refs               
+calendar__events___676__refs               
+calendar__events___677__refs               
+calendar__events___678__refs               
+calendar__events___679__refs               
+calendar__events___67__refs                
+calendar__events___680__refs               
+calendar__events___681__refs               
+calendar__events___682__refs               
+calendar__events___683__refs               
+calendar__events___684__refs               
+calendar__events___685__refs               
+calendar__events___686__refs               
+calendar__events___687__refs               
+calendar__events___688__refs               
+calendar__events___689__refs               
+calendar__events___68__refs                
+calendar__events___690__refs               
+calendar__events___691__refs               
+calendar__events___692__refs               
+calendar__events___693__refs               
+calendar__events___694__refs               
+calendar__events___695__refs               
+calendar__events___696__refs               
+calendar__events___697__refs               
+calendar__events___698__refs               
+calendar__events___699__refs               
+calendar__events___69__refs         ######## END ROUND 1
