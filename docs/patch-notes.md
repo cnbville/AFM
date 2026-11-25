@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.704 (25 Nov, shipped): NIL deals in later years: the paid set by standing, a deal's school part by standing, keep-him offers only to men a school pays (PR #658)
+**TLDR:** College pay stays realistic after the first year. Schools now pay players by where they stand on the team, not by who happened to hold a deal first.
+- A returning redshirt or young backup who has earned a place is paid by his school, even with no deal. (PR #658)
+- The lowest-paid players on a major roster get a real stipend again, not a token one. (PR #658)
+- Schools stop making keep-him offers to walk-ons and deep backups they would not pay anyway. (PR #658)
+- The very top quarterback checks come down into the real range. (PR #658)
+- Look at: your NIL desk's roster split in a second season, and what your backups and redshirts are paid in July. (PR #658)
+
 ## 0.2.703 (25 Nov, shipped): coach_check: your coach's ratings measured (coach ratings lane RE0) (PR #652), read school budgets from the books and spread the Group of 5 by conference (realism audit item 10) (PR #653), bring defenders' season lines back to real (realism audit item 3: freak defenders) (PR #650), and 2 more
 **TLDR:** 5 changes ship together. coach_check: your coach's ratings measured (coach ratings lane RE0) Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books. Plus 3 more below.
 - coach_check: your coach's ratings measured (coach ratings lane RE0) (PR #652): no summary in the PR

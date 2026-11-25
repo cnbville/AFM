@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.704", date: "25 Nov", title: "NIL deals in later years: the paid set by standing, a deal's school part by standing, keep-him offers only to men a school pays",
+    notes: [
+      "College pay stays realistic after the first year. Schools now pay players by where they stand on the team, not by who happened to hold a deal first.",
+      "A returning redshirt or young backup who has earned a place is paid by his school, even with no deal.",
+      "The lowest-paid players on a major roster get a real stipend again, not a token one.",
+      "Schools stop making keep-him offers to walk-ons and deep backups they would not pay anyway.",
+      "The very top quarterback checks come down into the real range.",
+    ],
+  },
+  {
     v: "0.2.703", date: "25 Nov", title: "High school careers run again and 3 more",
     notes: [
       "Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books.",

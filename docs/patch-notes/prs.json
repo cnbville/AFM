@@ -3218,5 +3218,19 @@
   "players": true,
   "title": "High school careers run again",
   "tldr": "High school careers run again. At most schools the game stopped in your first practice week; that is fixed."
+ },
+ "658": {
+  "auto": false,
+  "bullets": [
+   "A returning redshirt or young backup who has earned a place is paid by his school, even with no deal.",
+   "The lowest-paid players on a major roster get a real stipend again, not a token one.",
+   "Schools stop making keep-him offers to walk-ons and deep backups they would not pay anyway.",
+   "The very top quarterback checks come down into the real range."
+  ],
+  "h": "d3b0e307b8e8",
+  "look": "your NIL desk's roster split in a second season, and what your backups and redshirts are paid in July.",
+  "players": true,
+  "title": "NIL deals in later years: the paid set by standing, a deal's school part by standing, keep-him offers only to men a school pays",
+  "tldr": "College pay stays realistic after the first year. Schools now pay players by where they stand on the team, not by who happened to hold a deal first."
  }
 }
