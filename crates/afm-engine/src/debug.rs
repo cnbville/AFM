@@ -67,6 +67,20 @@ pub fn coach_ability(c: &crate::world::coach::Coach) -> crate::world::coach::Abi
     *c.ability()
 }
 
+/// Changes a coach's hidden ability and, for your own coach, the four
+/// ratings only you have (trial tooling: `coach_check` moves one rating an
+/// arm on the world's own coaches).
+pub fn set_coach(
+    w: &mut World,
+    c: usize,
+    f: impl FnOnce(&mut crate::world::coach::Ability, Option<&mut crate::world::coach::Yours>),
+) {
+    let co = &mut w.coaches[c];
+    let mut y = co.yours;
+    f(&mut co.ability, y.as_mut());
+    co.yours = y;
+}
+
 /// A coach's hidden sportsmanship (dynasty item 3), 1-20.
 pub fn coach_sportsmanship(c: &crate::world::coach::Coach) -> f64 {
     c.sportsmanship
