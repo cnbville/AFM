@@ -124,6 +124,114 @@ pub fn star_lifts(w: &World) -> [f64; 4] {
     lift
 }
 
+/// The bars a school's revenue share reads a man against (the NIL split by
+/// value, 2026-11-24; `recruiting::share_standing`): at each money level
+/// and spot, the play of the men who started there last season and are
+/// still at that school, sorted, and each level's star lift on the same men
+/// (`star_lifts`' form). A newcomer carries his high school role and play
+/// until his first fall camp, and a transfer who landed his old school's,
+/// so neither is on a bar. Read each July 1 before the split and kept for
+/// the year ([`NilBook::bars`]), so a staff signing its class reads next
+/// July's paid set against the last payday's bars.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct ShareBars {
+    /// Each money level's starters' play at each spot, worst first.
+    pub(crate) play: [[Vec<f32>; POSITION_COUNT]; 4],
+    /// Each money level's star lift.
+    pub(crate) lift: [f64; 4],
+}
+
+impl ShareBars {
+    pub fn read(w: &World) -> ShareBars {
+        let mut bars = ShareBars::default();
+        let mut stars = [(0.0f64, 0usize); 4];
+        for p in w.people.iter() {
+            if p.stage == Stage::College
+                && p.last_role == Some(PlayingTime::Starter)
+                && p.cal.nil_role.is_none()
+                && super::recruiting::college_season(p)
+                && let (Some(c), Some(play)) = (p.college, p.last_performance.get())
+            {
+                let prog = &w.programs[c];
+                let l = level(prog);
+                bars.play[l][p.player.position.index()].push(play as f32);
+                let unpaid = prog.collective.budget <= 0.0 && !matches!(prog.division, Division::FBS | Division::FCS);
+                if !unpaid && !p.player.position.is_specialist() {
+                    stars[l].0 += p.stars.max(1) as f64;
+                    stars[l].1 += 1;
+                }
+            }
+        }
+        for k in 0..POSITION_COUNT {
+            let mut all: Vec<f32> = bars.play.iter().flat_map(|l| l[k].iter().copied()).collect();
+            all.sort_by(|a, b| a.total_cmp(b));
+            for l in bars.play.iter_mut() {
+                // A level with no starter at a spot reads the spot's
+                // starters at every level.
+                if l[k].is_empty() {
+                    l[k] = all.clone();
+                }
+                l[k].sort_by(|a, b| a.total_cmp(b));
+            }
+        }
+        let mean = |l: usize| (stars[l].1 >= 50).then(|| stars[l].0 / stars[l].1 as f64);
+        if let Some(top) = mean(0) {
+            for (l, x) in bars.lift.iter_mut().enumerate().skip(1) {
+                *x = mean(l).map_or(0.0, |m| (top - m).max(0.0));
+            }
+        }
+        bars
+    }
+
+    /// None read yet (a world before its first July 1).
+    pub fn is_empty(&self) -> bool {
+        self.play.iter().flatten().all(|b| b.is_empty())
+    }
+
+    /// A median starter's play at `pos` at money level `l`.
+    pub fn median(&self, l: usize, pos: Position) -> Option<f64> {
+        let b = &self.play[l.min(3)][pos.index()];
+        (!b.is_empty()).then(|| b[b.len() / 2] as f64)
+    }
+
+    /// The share of the level's starters at `pos` a man at `play`
+    /// outplays: the k-th best of n sits at (k + 0.5) / n, linear between
+    /// two of them, 0 under the worst and 1 over the best. Half with no
+    /// starter to read him against.
+    pub fn outplays(&self, l: usize, pos: Position, play: f64) -> f64 {
+        let b = &self.play[l.min(3)][pos.index()];
+        let n = b.len();
+        if n == 0 {
+            return 0.5;
+        }
+        let hi = b.partition_point(|&x| x as f64 <= play);
+        if hi == 0 {
+            return 0.0;
+        }
+        let under = b[hi - 1] as f64;
+        if hi == n {
+            return if play > under { 1.0 } else { (n as f64 - 0.5) / n as f64 };
+        }
+        (hi as f64 - 0.5 + (play - under) / (b[hi] as f64 - under)) / n as f64
+    }
+
+    /// A man's stars as a school at money level `l` reads them ([`star_at`]
+    /// on the bars' own lift).
+    pub fn stars(&self, l: usize, stars: u8) -> f64 {
+        star_bid_at(stars.max(1) as f64 + self.lift[l.min(3)])
+    }
+}
+
+/// The revenue share's bars in force: the book's, or today's own read in a
+/// world whose book holds none yet (before its first July 1).
+pub fn share_bars(w: &World) -> std::borrow::Cow<'_, ShareBars> {
+    if w.nil_book.bars.is_empty() {
+        std::borrow::Cow::Owned(ShareBars::read(w))
+    } else {
+        std::borrow::Cow::Borrowed(&w.nil_book.bars)
+    }
+}
+
 /// His talent as the market prices it: a recruit's stars (None: no college
 /// season yet), else his role and his play over the level's starters at his
 /// spot (`edge`, points).
@@ -213,6 +321,10 @@ pub struct NilBook {
     /// (`recruiting::pays_recruit`). July 1 starts it again.
     #[serde(default)]
     pub signed_paid: Vec<u16>,
+    /// The bars a school's revenue share reads a man against
+    /// ([`ShareBars`]), read each July 1 before the split.
+    #[serde(default)]
+    pub bars: ShareBars,
 }
 
 impl NilBook {
@@ -239,7 +351,11 @@ impl NilBook {
     /// from before the scheme, or NIL Go's first July): each program's pot
     /// over its roster's payroll weight, what its July split pays a unit.
     pub fn from_pots(w: &World) -> NilBook {
-        NilBook { star_lift: star_lifts(w), ..NilBook::read(w.today.year(), Vec::new(), pot_rates(w)) }
+        NilBook {
+            star_lift: star_lifts(w),
+            bars: ShareBars::read(w),
+            ..NilBook::read(w.today.year(), Vec::new(), pot_rates(w))
+        }
     }
 }
 
@@ -733,6 +849,8 @@ pub fn ensure(w: &mut World) {
     }
     // 3: recruits' stars read at the school's level (`star_at`).
     w.nil_book.star_lift = star_lifts(w);
+    // 4: the revenue share's bars (`ShareBars`).
+    w.nil_book.bars = ShareBars::read(w);
     w.nil_rev = NIL_REV;
 }
 
@@ -756,13 +874,16 @@ fn refit(w: &mut World) {
 /// The new NIL scheme's version of a world's money (`ensure`).
 /// 2: the Group of 5's money refit to real payments (2b, 2026-11-18).
 /// 3: recruits' stars read at the school's level (2026-11-18).
-pub(crate) const NIL_REV: u8 = 3;
+/// 4: the revenue share split by each man's own value (2026-11-24).
+pub(crate) const NIL_REV: u8 = 4;
 
 /// July 1's book (item 10): NIL Go's comparisons for the coming year,
-/// read from the third-party money each player cleared today.
+/// read from the third-party money each player cleared today. The bars
+/// the day's split read stay with it.
 pub(crate) fn read_book(w: &mut World, deals: Vec<(usize, f64)>, new_share: [f64; 4]) {
     let pots = pot_rates(w);
-    w.nil_book = NilBook { star_lift: star_lifts(w), new_share, ..NilBook::read(w.today.year(), deals, pots) };
+    let bars = std::mem::take(&mut w.nil_book.bars);
+    w.nil_book = NilBook { star_lift: star_lifts(w), new_share, bars, ..NilBook::read(w.today.year(), deals, pots) };
 }
 
 /// How much of his tape the college market adds to his season's play
