@@ -91,7 +91,19 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
 
 #[test]
 fn your_money_is_the_schools_revenue_share() {
+    use crate::player::{Level, OptF64, PlayingTime};
     let (mut w, j) = college(true);
+    // The collective pays the men with a college season (a man with none
+    // signed for the scholarship), so the seat's players get one, and the
+    // book reads its bars on them.
+    for i in w.programs[j].roster.clone() {
+        let p = &mut w.people[i];
+        p.last_role = Some(PlayingTime::Starter);
+        p.last_performance = OptF64::some(60.0);
+        p.player.history = vec![season_row(Level::FBS, PlayingTime::Starter, 60.0)];
+    }
+    w.nil_book = crate::world::nil_bid::NilBook::from_pots(&w);
+    w.nil_book.new_share = [0.3; 4];
     let (id, usual) = usual_deals(&w, j)[0];
     // Every player of yours starts on the going rate (Cain 2026-11-07:
     // every NIL dollar is yours, so nobody is left to a split).
