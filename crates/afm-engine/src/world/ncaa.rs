@@ -236,39 +236,44 @@ pub fn shares_revenue(prog: &Program, year: i32) -> bool {
 /// pay the full cap and give football about 75% (the Texas model). In
 /// 2025 the Group of 5 used the American's floor, $10M over three years.
 /// From 2026 (the new NIL scheme, items 3 and 4) a Group of 5 school pays
-/// football from its own athletic money: $1M × (its athletic budget /
-/// $80M)³, held to $0.3-3M. The 2b fit (a proxy decision for Cain
+/// football from its own money: $1M × (what its department earns /
+/// $35M)³, held to $0.3-3M. The 2b fit (a proxy decision for Cain
 /// 2026-11-18) puts the pay where the College Sports Commission's
 /// payments are, not the press's $1-8M estimates of what schools set
 /// aside (item 3's first sizes, $3M inside $1-8M): non-Power 4 revenue
 /// share among the paid a median $31K for a quarterback (the top tenth
 /// over $260K) and $14-19K at the other spots, a Group of 5 starter about
 /// $10-100K in all. An FCS program that opted in pays
-/// 2.5% of its athletic budget, held to $0.1-1M (thin evidence: no
+/// 4.4% of what its department earns, held to $0.1-1M (thin evidence: no
 /// FCS-only figures, and the College Sports Commission's non-Power 4
 /// numbers include FCS). Sizes proposed, not confirmed, fitted on seed 41.
-pub fn revenue_share(prog: &Program, year: i32) -> f64 {
+/// `earned` is what the school's department earns a year in today's dollars,
+/// read off its books (`staff::program_earned`; realism audit item 10: it
+/// was a budget guessed from prestige, $1M at $80M and 2.5% of a budget). The
+/// two constants were refitted so the mean pot stays where it was on seed
+/// 381's world: the books' American schools now pay about three times a
+/// MAC school's.
+pub fn revenue_share(prog: &Program, year: i32, earned: f64) -> f64 {
     let Some(cap) = revenue_cap(year) else { return 0.0 };
     if !shares_revenue(prog, year) {
         return 0.0;
     }
-    let athletic = super::staff::program_budget(prog);
     match prog.division {
         Division::FBS if prog.power_four() => FOOTBALL_SHARE * cap,
         Division::FBS if year == HOUSE_START => FOOTBALL_SHARE * 10.0e6 / 3.0,
-        Division::FBS => (G5_SHARE * (athletic / G5_AT).powi(3)).clamp(G5_LOW, G5_HIGH),
-        _ => (FCS_SHARE * athletic).clamp(0.1e6, 1.0e6),
+        Division::FBS => (G5_SHARE * (earned / G5_AT).powi(3)).clamp(G5_LOW, G5_HIGH),
+        _ => (FCS_SHARE * earned).clamp(0.1e6, 1.0e6),
     }
 }
 
-/// A Group of 5 school's football revenue share at an $80M athletic
-/// budget (item 3), and how it moves with the budget.
+/// A Group of 5 school's football revenue share at $35M earned (item 3),
+/// and how it moves with the money.
 const G5_SHARE: f64 = 1.0e6;
-const G5_AT: f64 = 80.0e6;
+const G5_AT: f64 = 35.0e6;
 const G5_LOW: f64 = 0.3e6;
 const G5_HIGH: f64 = 3.0e6;
-/// An opted-in FCS program's share of its athletic budget (item 4).
-const FCS_SHARE: f64 = 0.025;
+/// An opted-in FCS program's share of what it earns (item 4).
+const FCS_SHARE: f64 = 0.044;
 
 /// What denied third-party money could still move into football's
 /// revenue share this money year (item 11): the room under the cap. A
@@ -288,8 +293,8 @@ pub fn share_room(prog: &Program, year: i32) -> f64 {
 /// 2026, the school's marketing partners, `program::nil_lift`) at the
 /// market as it stood that year, plus revenue sharing. None before July
 /// 2021.
-pub fn nil_budget(prog: &Program, year: i32) -> f64 {
-    nil_market(year) * super::program::third_party(prog, year) + revenue_share(prog, year)
+pub fn nil_budget(prog: &Program, year: i32, earned: f64) -> f64 {
+    nil_market(year) * super::program::third_party(prog, year) + revenue_share(prog, year, earned)
 }
 
 /// Two pots from July 1, 2025, the House settlement's first day (B18): the
@@ -331,7 +336,15 @@ pub fn school_pot(prog: &Program, d: Date) -> f64 {
     if !two_pots(d) {
         return 0.0;
     }
-    let s = if prog.collective.school > 0.0 { prog.collective.school } else { revenue_share(prog, d.year()) };
+    // An old save without the stored figure reads a Power 4 school's cap
+    // share; a school below it has its figure from its books each year.
+    let s = if prog.collective.school > 0.0 {
+        prog.collective.school
+    } else if prog.power_four() {
+        revenue_share(prog, d.year(), 0.0)
+    } else {
+        0.0
+    };
     s.clamp(0.0, prog.collective.budget.max(0.0))
 }
 

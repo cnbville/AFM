@@ -83,8 +83,10 @@ fn main() {
             // to how they are sized shows in a world saved after they were set.
             if std::env::var("AFM_REBUDGET").is_ok() {
                 let y = w.today.year();
-                for p in w.programs.iter_mut() {
-                    p.collective.budget = afm_engine::world::ncaa::nil_budget(p, y);
+                let money: Vec<f64> =
+                    (0..w.programs.len()).map(|p| afm_engine::world::staff::program_earned(&w, p)).collect();
+                for (p, prog) in w.programs.iter_mut().enumerate() {
+                    prog.collective.budget = afm_engine::world::ncaa::nil_budget(prog, y, money[p]);
                 }
             }
             w.options.engine_from = Some(2100);
@@ -463,7 +465,16 @@ fn payday(w: &World) {
         totals.sort_by(|a, b| b.0.total_cmp(&a.0));
         deals.sort_by(|a, b| b.0.total_cmp(&a.0));
         let budget: f64 = progs.iter().map(|&j| w.programs[j].collective.budget).sum();
-        let school: f64 = progs.iter().map(|&j| afm_engine::world::ncaa::revenue_share(&w.programs[j], year)).sum();
+        let school: f64 = progs
+            .iter()
+            .map(|&j| {
+                afm_engine::world::ncaa::revenue_share(
+                    &w.programs[j],
+                    year,
+                    afm_engine::world::staff::program_earned(w, j),
+                )
+            })
+            .sum();
         let paid: f64 = totals.iter().map(|t| t.0).sum();
         let n = deals.len().max(1) as f64;
         let under = deals.iter().filter(|d| d.0 < 10_000.0).count() as f64 / n;
