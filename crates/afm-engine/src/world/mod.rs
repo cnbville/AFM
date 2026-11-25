@@ -1986,6 +1986,13 @@ impl World {
         self.college.as_ref().and_then(|c| c.teams.get(prog).cloned().flatten()).or_else(|| self.debug_game_team(prog))
     }
 
+    /// A high school's team as the match engine sees it this week (trial
+    /// tooling only: `coach_check` plays your school against its peers).
+    #[cfg(feature = "debug")]
+    pub fn debug_hs_team(&self, school: usize) -> Option<crate::game::GameTeam> {
+        hs_year::seat_team(self, school)
+    }
+
     /// This college season's games, played or to come and not called off:
     /// (home, away, at a neutral site, a regular-season game) (trial
     /// tooling only).
