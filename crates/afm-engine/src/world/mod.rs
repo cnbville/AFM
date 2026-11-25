@@ -1983,7 +1983,12 @@ impl World {
     /// tooling only: `match_check` plays a world's own college teams).
     #[cfg(feature = "debug")]
     pub fn debug_season_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
-        self.college.as_ref().and_then(|c| c.teams.get(prog).cloned().flatten()).or_else(|| self.debug_game_team(prog))
+        let season = self.college.as_ref().and_then(|c| {
+            let mut t = c.teams.get(prog).cloned().flatten()?;
+            t.league = college::league_of(self, c, prog);
+            Some(t)
+        });
+        season.or_else(|| self.debug_game_team(prog))
     }
 
     /// A high school's team as the match engine sees it this week (trial

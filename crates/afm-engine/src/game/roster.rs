@@ -513,6 +513,13 @@ pub struct GameTeam {
     /// a plain game.
     #[serde(default)]
     pub day: super::talk::Day,
+    /// His league's own typical men this season (realism audit, the run
+    /// lean): what his staff reads his men about when it leans its calls
+    /// to them (`roster_fit::LeagueMen`). None for a team with no league of
+    /// its own (the test leagues and the tools): the level's synthetic
+    /// typical men.
+    #[serde(default)]
+    pub league: Option<std::sync::Arc<super::roster_fit::LeagueMen>>,
 }
 
 /// A call sheet play: the formation's personnel, backfield and set, and the play.
@@ -824,6 +831,7 @@ impl GameTeam {
             ranked: Vec::new(),
             prep: Prep::default(),
             day: Default::default(),
+            league: None,
         }
     }
 

@@ -45,6 +45,22 @@ The same permission. Each is proposed, not confirmed, and his to change.
 10. **The order after it, in the same thread**: the four-man rush first (it holds most of the missing sacks and the tackles' single blocks), then who makes the tackle, the play caller's run lean, then items 6, 7, 8, 16 and 19.
 11. **No world run.** Everything was measured with `match_check` and `freak_check` on the seed 321 world file.
 
+### Decisions taken for Cain while he slept (the play caller's run lean, 2026-11-25)
+
+The coordinator took Cain's yes on the fix itself ("give the engine each league's own typical men, carried in saves and replays"); the rest was decided under the same permission. Each is proposed, not confirmed, and his to change.
+
+1. **The run lean before the four-man rush.** The pass rush lane's list put the four-man rush next; the coordinator asked for the run lean first.
+2. **A league is a college division, one state's high schools, the NFL or one other league.** A conference's men would sit closer still, but conferences play each other every September and recruit from the same pool; a division is the field a staff measures its men against.
+3. **The typical man is the man the engine seats at the place at kickoff with everyone dressed**, averaged over the league's teams: the same reading of a team's men the lean makes on each snap, so a team like its league's typical one leans nowhere.
+4. **Worked out once a season**, at each league's first game day (college at fall camp, a state the day before its season, the NFL and each other league the day before its first game), not weekly: a staff's sense of its league's men doesn't move with one week's injuries.
+5. **Carried with every game team**, so a save, a live game and a replay read the same men. A save holds one table a league, a replay of one of your games its two teams' (about 9 KB each before packing).
+6. **A world saved before the fix works out its tables at its next dawn**, so an old save's games read their league's men from the next day on.
+7. **The defense's two body reads go with it.** The blitz lean by the named linebackers' and corners' weight and the shell lean by the safeties' hitter read had the same fault and now read the league's men, measured as the level's are (every man on the rosters at those positions, the men listed at each safety job). They move little: the FBS blitz rate fell 1.1 points of dropbacks.
+8. **Nothing was retuned and no table was rebuilt.** The roster lean's weights are slopes, now read about the league's middle; the test leagues play the same games.
+9. **`AFM_LEAGUE=off`** in `match_check` and `ab_check` reads a world's teams about the level's men, for before and after runs.
+10. **The order after it, in the same thread**: the four-man rush, then who makes the tackle, then items 6, 7, 8, 16 and 19.
+11. **No world run.** Everything was measured with `match_check` on the seed 321 world file.
+
 ## What was read
 
 - The world: seed 321, 30 seasons of history (1996-2025), stopped on 1 January 2026, built 2026-11-22 on main `094635f` (after every scheme-fit and engine-gaps lane). Release `world-2026-seed321-jan2026-094635f` on the worlds page.
