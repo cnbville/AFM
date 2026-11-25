@@ -1224,8 +1224,13 @@ impl GameStats {
                     l.ints += 1;
                     grade(l, COVERAGE, 2.0);
                 }
-                for &id in &r.on_field[1] {
-                    if !r.pressures.contains(&id)
+                // A man who rushed (`rushed`) is not in coverage, blocked or
+                // not: a blitzer nobody blocked who didn't get there had a
+                // coverage snap (realism audit item 3, the pass rush).
+                for (k, &id) in r.on_field[1].iter().enumerate() {
+                    let rushed = k < 16 && (r.rushed >> k) & 1 == 1;
+                    if !rushed
+                        && !r.pressures.contains(&id)
                         && !r.sackers.contains(&id)
                         && !r.blocks.iter().any(|b| b.1 == id && b.2)
                     {
@@ -1274,8 +1279,13 @@ impl GameStats {
                 grade(l, PASS_RUSH, 0.6);
             }
         }
+        // A pressure is a hurry, a hit or a sack, as the NFL's charters keep
+        // it (realism audit item 3, the pass rush). Only the men first near
+        // the passer were counted, so a man who hit him or got home after
+        // them had no pressure on his line: on the world's NFL clubs four in
+        // ten of the edges' pressures were missing.
         let mut seen = Vec::new();
-        for &id in &r.pressures {
+        for &id in r.pressures.iter().chain(&r.hits).chain(r.sackers.iter().take(2)) {
             if seen.contains(&id) {
                 continue;
             }
@@ -1289,7 +1299,10 @@ impl GameStats {
             l.ttp_sum += r.time_to_throw;
         }
         // Blocks: wins, pressures and sacks allowed (the beaten blocker).
-        // On an interception return the defense blocks.
+        // On an interception return the defense blocks. A rusher's win is
+        // once a dropback, as his rush snap is: a man who beat both men of
+        // a double team won one rush.
+        let mut won_rush: Vec<u32> = Vec::new();
         for &(b, def, pass, won, secs, _) in &r.blocks {
             let gave_sack = !won && r.sackers.contains(&def);
             let gave_pressure = !won && (r.pressures.contains(&def) || gave_sack);
@@ -1325,17 +1338,36 @@ impl GameStats {
                 }
             }
             let l = self.line(side(def, d), def);
-            if pass {
-                l.rush_snaps += 1;
-            }
             if !won {
-                if pass && secs < 2.5 {
+                if pass && secs < 2.5 && !won_rush.contains(&def) {
+                    won_rush.push(def);
                     l.rush_wins += 1;
                 }
                 grade(l, if pass { PASS_RUSH } else { RUN_DEF }, 0.3);
             } else {
                 grade(l, if pass { PASS_RUSH } else { RUN_DEF }, -0.1);
             }
+        }
+        // A rush snap is each dropback he rushed, blocked or not, once
+        // (realism audit item 3, the pass rush): every man in
+        // `PlayRecord::rushed` and every man a pass block took (one who
+        // joined the rush late, and plays kept before `rushed`). It was one
+        // a pass block, so a blitzer nobody blocked had none and a man two
+        // blockers took in turn had two.
+        let mut rush_men: Vec<u32> = r.on_field[1]
+            .iter()
+            .take(16)
+            .enumerate()
+            .filter(|&(k, _)| (r.rushed >> k) & 1 == 1)
+            .map(|(_, &id)| id)
+            .collect();
+        for &(_, def, pass, ..) in &r.blocks {
+            if pass && !rush_men.contains(&def) {
+                rush_men.push(def);
+            }
+        }
+        for id in rush_men {
+            self.line(side(id, d), id).rush_snaps += 1;
         }
         for &(id, mv, _) in &r.rush_wins {
             let l = self.line(d, id);
