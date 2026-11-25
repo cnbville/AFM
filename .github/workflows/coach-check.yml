@@ -1,0 +1,77 @@
+name: Coach check (world)
+# Reads a published world for the coach ratings measure (lane RE0,
+# docs/design/coach-ratings-earned.md, section 12): how many coaches meet
+# each archetype's feat on the world's history (coach_check world), what each
+# of your ratings is worth on game day in both ways of playing on the world's
+# own teams (coach_check game), and what a head coach's rating is worth in a
+# played year (coach_check year: the world played on twice from the same
+# morning, games on the stand-in).
+# By hand only. One runner, about three hours. Nothing is published: the
+# reports go to the run's summary and an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The worlds page release to read"
+        default: "world-2026-seed321-jan2026-094635f"
+      days:
+        description: "Days the played year runs"
+        default: "400"
+      games:
+        description: "Games an arm on game day (a multiple of 40)"
+        default: "2400"
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile the tool
+        run: cargo build --release --bin coach_check
+      - name: Download the world and its tallies
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          cd out
+          gh release download "$TAG" --repo cnbville/afm-worlds --pattern '*.afmworld*' --pattern '*.afmdata.tar.*'
+          f=$(ls | sed -n 's/\(.*\.afmworld\)\.[0-9]*$/\1/p' | head -1)
+          if [ -n "$f" ]; then cat "$f".[0-9][0-9][0-9] > "$f" && rm "$f".[0-9][0-9][0-9]; fi
+          for d in $(ls | sed -n 's/\(.*\.afmdata\)\.tar\.[0-9]*$/\1/p' | sort -u); do
+            for p in "$d".tar.[0-9][0-9][0-9]; do cat "$p" && rm "$p"; done | tar -xf -
+          done
+          ls -la && du -sh ./* && df -h / /mnt
+      - name: The feats on the world's history
+        run: |
+          f=$(realpath "$(ls out/*.afmworld | head -1)")
+          target/release/coach_check world "$f" 2>&1 | tee coach-world.txt
+          { echo '```'; cat coach-world.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: A played year, twice
+        if: ${{ !cancelled() }}
+        env:
+          DAYS: ${{ inputs.days }}
+        run: |
+          f=$(realpath "$(ls out/*.afmworld | head -1)")
+          target/release/coach_check year "$f" "days=$DAYS" 2>&1 | tee coach-year.txt
+          { echo '```'; cat coach-year.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Game day, both ways of playing
+        if: ${{ !cancelled() }}
+        env:
+          GAMES: ${{ inputs.games }}
+        run: |
+          f=$(realpath "$(ls out/*.afmworld | head -1)")
+          target/release/coach_check game "$GAMES" 331 "$f" 2>&1 | tee coach-game.txt
+          { echo '```'; cat coach-game.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coach-check
+          path: coach-*.txt
+          retention-days: 30

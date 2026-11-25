@@ -411,7 +411,7 @@ Each lane is its own thread. Order by proxy: the bug, then the measure, then the
 | Lane | What | Files | Waits for |
 |---|---|---|---|
 | RE-bug | One store for your ratings. **Built 2026-11-25** | `world/seat.rs` (`Me`, `Setup`), `folk/talks.rs`, `pitch.rs`, `takeover.rs`, `handoff.rs`, `front_office/preview.rs`, `legacy/guys.rs` | Nothing |
-| RE0 | `coach_check`, both ways of playing, and its world read (archetype shares, the climb) | `afm-tools` | RE-bug |
+| RE0 | `coach_check`, both ways of playing, and its world read (archetype shares, the climb). **Built 2026-11-25**; results in `docs/coach-check.md` | `afm-tools` (`bin/coach_check.rs`), `.github/workflows/coach-check.yml` | RE-bug |
 | RE1 | The store: abilities, reps, tiers, the pace, rust, the road's start and first archetype, ratings as road plus earned; the ladder, feats, unlocks and banked reps; age growth and lesson points out | `world/coach.rs`, a new `world/coach_ladder.rs`, `setup.rs`, `storylines/credit.rs`, `legacy/` | RE-bug |
 | RE2 | The full perk list (159) written into this doc, then the perk gates on the screens | this doc, `afm-game` | RE1 |
 | RE3 | Game-day abilities in the engine, all three columns (an engine lane) | `game/calling.rs`, `game/flow.rs`, `game/live.rs`, `world/season.rs` | RE0, RE1, and no other engine lane running |
@@ -425,9 +425,9 @@ Each lane is its own thread. Order by proxy: the bug, then the measure, then the
 ## Not measured
 
 - How many lesson points a season pays today.
-- What any rating but play calling is worth in wins, signings or growth. RE0 measures it.
+- What any rating but play calling is worth in wins, signings or growth. RE0 measured it on a small world (`docs/coach-check.md`); the published world's run is to come.
 - A season's worth of reps for each ability. The counts above are estimates; RE1 counts them on a small world before the curve is fixed.
-- What "better prepared in a situation" is worth on the field. RE0 measures it before RE3 sets its size.
+- What "better prepared in a situation" is worth on the field. RE0's first read: 5 points of a game-day rating are under a point a game today (`docs/coach-check.md`), so RE3 sets its size on a path of its own.
 - How many coaches in a world meet each feat, and in which season a typical head coach does. RE0's world read measures it; the feats' sizes move until the shares in section 10 hold.
 
 ## Decided by Cain
@@ -473,3 +473,15 @@ Cain was asleep with full proxy ("make decisions for me als long as you note the
 4. **Style, reputation and birthday** are read from the coach record as well. Why: the same cause (two stores), and the coach record is the one the world moves.
 5. **A coined nickname's chance to stick** (`stories/nick.rs`, `coin`) read your reputation (1-20) as if it were 0-1, so it sat at its 85% cap for every coach and a nickname could never flop. It now reads reputation / 20: a coach at 9 lands at about 53% before the player's ego. Why: the line read the frozen copy and had to change; the scale was plainly a slip (its own default is 0.4). Size as written in the code before, not tuned.
 
+## Decided by proxy in lane RE0 (2026-11-25)
+
+Cain was asleep with full proxy. These are his to change. The lane built the measure only: no size in this design moved.
+
+1. **The lift measured**: your coach at 12 in every rating against one rating at 17. Why: a tier 4 ability is 5 points of its rating, so this is the most one ability could pay through today's wiring.
+2. **Six seats on game day**: a high school head coach; a college head coach whose coordinators call, who calls his offense, who calls his defense; an NFL head coach whose coordinators call and who calls his offense. Why: these are the seats where the code reads your ratings differently.
+3. **Where the games are played**: your career on a world, your staff running the team to 10 October, then engine games against the sixteen teams nearest yours. Why: on the first morning an interim still has your team, and a test league's teams are not the world's.
+4. **"By hand" in the sizes** is a caller of the level's typical skill on both sides, the same in both arms. Why: a hand's calls are the player, not a rating; the same hand in both arms leaves only what the rating does outside the call. A live game can't size it (the staff's unused call shifts the game's random stream), so the live part only shows where a rating is read.
+5. **The year**: every fourth head coach at each level gets one rating lifted, each team is read against itself in the plain run, and the untouched teams are the noise. Games on the stand-in. Why: one pair of runs measures nine ratings at three levels, and the engine's part is measured on game day.
+6. **The feats** are read as section 5 writes them. What the world does not keep (System Builder, the high school and NFL forms of Trail Boss and Pro Factory) is listed as not read, never guessed.
+7. **The heavy run went ahead without a yes on cost**: the Coach check workflow on the published seed 321 world, one GitHub runner for about three hours. Why: he asked not to be waited on, and the run only reads. The small world's seed is new (331).
+8. **What the first numbers mean for the lanes** (proposed, not confirmed): five points of a game-day rating are worth under a point a game today, so RE3 needs a path of its own for each game-day ability; a high school head coach's teaching is the one clear effect in a year; RE1 needs three stores the world lacks before it can award every feat. Results: `docs/coach-check.md`.
