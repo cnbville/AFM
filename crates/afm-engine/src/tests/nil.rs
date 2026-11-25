@@ -347,9 +347,11 @@ fn promise_answers(house: bool) {
     let usual = rec::usual_nil_offer(&w, j, i);
     assert!(usual > 1_000.0, "{usual}");
     let commit = w.people[i].cal.commit;
-    // Far over his usual money, inside your budget (his place in your July
-    // paid set floors it, Cain 2026-11-19).
-    let promise = (10.0 * usual + 1.0e6).min(0.9 * w.programs[j].collective.budget);
+    // Far over his usual money, inside the pot it comes from (his place in
+    // your July paid set floors it, Cain 2026-11-19: a four-star on this
+    // thin roster of men with no college season takes a large part of the
+    // school's share by his standing, so the whole budget is no bound).
+    let promise = (10.0 * usual + 1.0e6).min(0.9 * budget(&w, j).left);
     let text = set_promise(&mut w, id, Some(promise), None).unwrap();
     assert!(text.contains("He'll get back to you by"), "{text}");
     assert!(reaction(&w, id, MoneyKind::Promise).is_none(), "no answer before its hour");
