@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.706", date: "25 Nov", title: "NFL head coaches: a public hot seat before any in-season firing and 1 more",
+    notes: [
+      "Blitzes now get home like real ones, and pass protection blocks the way real lines are taught.",
+      "Linebackers, corners and safeties who blitz creep up before the snap and get to the passer as often as real blitzers do.",
+      "Offensive lines pick up the rush man for man across the formation, so an edge rusher no longer runs free because a guard was sent out to him.",
+      "Quarterbacks throw hot right away when a blitzer they know is free is coming, and backs check for the blitz at the snap.",
+      "A pass rusher's pressures now count every hurry, hit and sack, and his rushes count once a play.",
+      "Your NFL owner no longer fires you out of the blue. If your seat gets hot he tells you first, and you get at least a week to turn it around.",
+    ],
+  },
+  {
     v: "0.2.704", date: "25 Nov", title: "NIL deals in later years: the paid set by standing, a deal's school part by standing, keep-him offers only to men a school pays",
     notes: [
       "College pay stays realistic after the first year. Schools now pay players by where they stand on the team, not by who happened to hold a deal first.",

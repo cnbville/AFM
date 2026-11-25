@@ -3219,6 +3219,21 @@
   "title": "High school careers run again",
   "tldr": "High school careers run again. At most schools the game stopped in your first practice week; that is fixed."
  },
+ "657": {
+  "auto": false,
+  "bullets": [
+   "An owner now gives a new head coach real time: a bad first month in your first season is not a firing matter.",
+   "When your job is in doubt you hear it from the owner, and the news carries it. He can only make a change from the Monday after.",
+   "If the team steadies, the talk dies down and you are told so.",
+   "An owner who nearly fired you after the season says so: you start the next one on the hot seat.",
+   "Every other club's coach is on the same rules, so in-season firings around the league come at real times too."
+  ],
+  "h": "7a8c539102a7",
+  "look": "the inbox and the news after a bad start with an NFL club.",
+  "players": true,
+  "title": "NFL head coaches: a public hot seat before any in-season firing",
+  "tldr": "Your NFL owner no longer fires you out of the blue. If your seat gets hot he tells you first, and you get at least a week to turn it around."
+ },
  "658": {
   "auto": false,
   "bullets": [
@@ -3232,5 +3247,31 @@
   "players": true,
   "title": "NIL deals in later years: the paid set by standing, a deal's school part by standing, keep-him offers only to men a school pays",
   "tldr": "College pay stays realistic after the first year. Schools now pay players by where they stand on the team, not by who happened to hold a deal first."
+ },
+ "659": {
+  "auto": false,
+  "bullets": [
+   "Linebackers, corners and safeties who blitz creep up before the snap and get to the passer as often as real blitzers do.",
+   "Offensive lines pick up the rush man for man across the formation, so an edge rusher no longer runs free because a guard was sent out to him.",
+   "Quarterbacks throw hot right away when a blitzer they know is free is coming, and backs check for the blitz at the snap.",
+   "A pass rusher's pressures now count every hurry, hit and sack, and his rushes count once a play."
+  ],
+  "h": "2d1e4fa12338",
+  "look": "a defense that blitzes a lot, and its linebackers' sack and pressure lines.",
+  "players": true,
+  "title": "Get blitzes home: big-on-big protection, the blitzer's creep and the hot throw (realism audit item 3, the pass rush)",
+  "tldr": "Blitzes now get home like real ones, and pass protection blocks the way real lines are taught."
+ },
+ "661": {
+  "auto": true,
+  "bullets": [
+   "Game day, 2,400 games an arm, six seats, both ways of playing. Play calling when you call your offense and sim is the one game-day rating that pays at every level: 5 points are +4.5 percent of wins in high school, +3.1…",
+   "The feats on 30 seasons. Six of the seven feats the tool reads are the wrong size: Mastermind's is met by 80% to 96% of head coaches in their first season, Builder's by 34% to 48%, Standard Setter's by nobody. Only…"
+  ],
+  "h": "9e9528e8e015",
+  "look": "",
+  "players": true,
+  "title": "coach_check on the published seed 321 world: game day and the feats",
+  "tldr": "Docs only."
  }
 }

@@ -8,6 +8,22 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.706 (25 Nov, shipped): get blitzes home: big-on-big protection, the blitzer's creep and the hot throw (realism audit item 3, the pass rush) (PR #659), NFL head coaches: a public hot seat before any in-season firing (PR #657)
+**TLDR:** 2 changes ship together. Blitzes now get home like real ones, and pass protection blocks the way real lines are taught. Your NFL owner no longer fires you out of the blue. If your seat gets hot he tells you first, and you get at least a week to turn it around.
+- Get blitzes home: big-on-big protection, the blitzer's creep and the hot throw (realism audit item 3, the pass rush) (PR #659): Blitzes now get home like real ones, and pass protection blocks the way real lines are taught.
+- Linebackers, corners and safeties who blitz creep up before the snap and get to the passer as often as real blitzers do. (PR #659)
+- Offensive lines pick up the rush man for man across the formation, so an edge rusher no longer runs free because a guard was sent out to him. (PR #659)
+- Quarterbacks throw hot right away when a blitzer they know is free is coming, and backs check for the blitz at the snap. (PR #659)
+- A pass rusher's pressures now count every hurry, hit and sack, and his rushes count once a play. (PR #659)
+- NFL head coaches: a public hot seat before any in-season firing (PR #657): Your NFL owner no longer fires you out of the blue. If your seat gets hot he tells you first, and you get at least a week to turn it around.
+- An owner now gives a new head coach real time: a bad first month in your first season is not a firing matter. (PR #657)
+- When your job is in doubt you hear it from the owner, and the news carries it. He can only make a change from the Monday after. (PR #657)
+- If the team steadies, the talk dies down and you are told so. (PR #657)
+- An owner who nearly fired you after the season says so: you start the next one on the hot seat. (PR #657)
+- Every other club's coach is on the same rules, so in-season firings around the league come at real times too. (PR #657)
+- Look at: a defense that blitzes a lot, and its linebackers' sack and pressure lines. (PR #659) the inbox and the news after a bad start with an NFL club. (PR #657)
+- Docs and tooling merged too, no game change: coach_check on the published seed 321 world: game day and the feats (PR #661).
+
 ## 0.2.704 (25 Nov, shipped): NIL deals in later years: the paid set by standing, a deal's school part by standing, keep-him offers only to men a school pays (PR #658)
 **TLDR:** College pay stays realistic after the first year. Schools now pay players by where they stand on the team, not by who happened to hold a deal first.
 - A returning redshirt or young backup who has earned a place is paid by his school, even with no deal. (PR #658)
