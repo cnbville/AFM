@@ -1055,7 +1055,7 @@ pub(crate) fn given_cut(w: &World, k: AskKind) -> f64 {
 /// resources.
 pub(crate) fn rich(w: &World, team: Team) -> f64 {
     match team {
-        Team::College(p) => (crate::world::staff::program_budget(&w.programs[p]) / 80.0e6).min(1.5),
+        Team::College(p) => (crate::world::staff::budget_today(w, p) / 80.0e6).min(1.5),
         Team::Nfl(_) => 1.0,
         Team::Other(_) => 0.4,
         Team::High(h) => w.high_schools[h].resources,

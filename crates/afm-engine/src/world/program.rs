@@ -1065,6 +1065,8 @@ pub fn fade_pipelines(p: &mut Program, year: i32) {
 /// One year of a collective's money. Losing seasons shrink donations; a big
 /// booster can walk away. `next` is the offseason the new NIL budget pays
 /// for. Returns the warning level (0 = none).
+/// `earned` is what the school's department earns, today's dollars, off its
+/// books (the revenue share reads it).
 /// `walk` adds to the big booster's chance of leaving (his patience with
 /// your own program, `folk::boss::booster_push`).
 /// What the fever adds to the collective's yearly growth (Capital lane C3,
@@ -1073,7 +1075,15 @@ pub const COLLECTIVE_FEVER: f64 = 0.05;
 
 /// The booster base's year: `fever` is the program's fever on the day
 /// (Capital lane C3; 0 before the drives live).
-pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, fever: f64, rng: &mut Rng) -> u32 {
+pub fn update_collective(
+    p: &mut Program,
+    win_pct: f64,
+    next: i32,
+    walk: f64,
+    fever: f64,
+    earned: f64,
+    rng: &mut Rng,
+) -> u32 {
     let before = p.collective.boosters();
     let mood = (win_pct - 0.5) * 0.18 + (p.prestige - 0.5) * 0.04 + COLLECTIVE_FEVER * fever;
     // Donations follow results, and drift back toward what the brand can raise.
@@ -1118,8 +1128,8 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, fe
         c.drying_years = 0;
     }
     let level = c.drying_years;
-    p.collective.budget = super::ncaa::nil_budget(p, next);
-    p.collective.school = super::ncaa::revenue_share(p, next);
+    p.collective.budget = super::ncaa::nil_budget(p, next, earned);
+    p.collective.school = super::ncaa::revenue_share(p, next, earned);
     // A new money year's room under the cap (item 11).
     p.collective.moved = 0.0;
     level

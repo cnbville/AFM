@@ -713,10 +713,13 @@ fn money_place(w: &World, p: usize) -> f64 {
 /// `Division` order), fitted on the seed 331 world's books (2025) so its
 /// conferences' head coaches land on real 2024 pay: at FBS pay grows a
 /// little faster than the money (USA Today: the SEC's $7.5M on about $175M
-/// earned, the MAC's $0.8M and the Sun Belt's $1.0M on about $27M).
-/// Proposed, not confirmed.
+/// earned, the MAC's $0.8M and the Sun Belt's $1.0M on about $30M). The FBS
+/// ends were moved from $19-290M to $30-303M when the Group of 5's books
+/// were spread by conference name (realism audit item 10, seed 381: the
+/// American earns about $52M, the MAC $30M), so the MAC and the Sun Belt
+/// keep their pay and the American's rises. Proposed, not confirmed.
 const PAY_MONEY: [(f64, f64); 6] =
-    [(19.0e6, 290.0e6), (5.0e6, 25.0e6), (0.7e6, 7.0e6), (0.3e6, 3.0e6), (0.4e6, 5.0e6), (0.8e6, 15.0e6)];
+    [(30.0e6, 303.0e6), (5.0e6, 25.0e6), (0.7e6, 7.0e6), (0.3e6, 3.0e6), (0.4e6, 5.0e6), (0.8e6, 15.0e6)];
 
 /// How hot a name is (11.11): what a search committee and the press can see.
 /// His reputation with recency bias, and how far his last three seasons beat
@@ -2741,15 +2744,35 @@ fn buyout_share(w: &World, p: usize) -> f64 {
     base * clamp((w.year - 1990) as f64 / 25.0, 0.2, 1.0)
 }
 
-/// A program's athletic budget a year in today's dollars (proposed, not
-/// confirmed, from the Knight Commission and USA Today finance data): FBS
-/// $30-250 million, FCS $8-35 million, Division II $3-10 million, junior
-/// colleges $1-3 million, by prestige.
-/// A program's athletic budget a year, every sport (people screens read it).
-pub(crate) fn program_budget(prog: &program::Program) -> f64 {
-    athletic_budget(prog)
+/// A program's athletic budget a year, every sport, as its books spend it
+/// (this money year's costs, `finance::college::athletic_budget`). The
+/// people screens and the readers below take their money from the books so
+/// they agree with the money screens and move with them (realism audit
+/// items 9 and 10: the readers used a guess by prestige). Before the books
+/// first open (a new world's first staffs) the guess stands in.
+pub fn program_budget(w: &World, p: usize) -> f64 {
+    super::finance::college::athletic_budget(w, p).unwrap_or_else(|| athletic_budget(&w.programs[p]))
 }
 
+/// The same budget in today's dollars, for the readers that weigh it
+/// against sizes fitted on today's money (the boss's read of his money,
+/// the analysts' count, the NCAA revenue share's pot): a 1995 school
+/// reads like a 2025 one that spends as much against its time.
+pub fn budget_today(w: &World, p: usize) -> f64 {
+    super::finance::college::athletic_budget_today(w, p).unwrap_or_else(|| athletic_budget(&w.programs[p]))
+}
+
+/// What a program's department earns a year in today's dollars, off its
+/// books (`finance::college::earned`): the pot the revenue share is paid
+/// from. Before the books open, the guess stands in at its usual share.
+pub fn program_earned(w: &World, p: usize) -> f64 {
+    super::finance::college::earned_today(w, p).unwrap_or_else(|| 0.55 * athletic_budget(&w.programs[p]))
+}
+
+/// The guess before a program has books (proposed, not confirmed, from the
+/// Knight Commission and USA Today finance data): FBS $30-250 million, FCS
+/// $8-35 million, Division II $3-10 million, junior colleges $1-3 million,
+/// by prestige.
 fn athletic_budget(prog: &program::Program) -> f64 {
     let (lo, hi): (f64, f64) = match prog.division {
         Division::FBS => (30.0e6, 250.0e6),
@@ -3729,7 +3752,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
         let walk = super::folk::boss::booster_push(w, i);
-        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, fevers[i], &mut rng);
+        let athletic = program_earned(w, i);
+        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, fevers[i], athletic, &mut rng);
         let p = &w.programs[i];
         // Collectives exist from July 2021 (11.5).
         if w.recording && level > 0 && p.division != Division::JUCO && super::ncaa::nil_era(year) {
@@ -4113,7 +4137,7 @@ pub(crate) fn junior_slots(w: &World, e: Employer) -> Vec<(super::coach::Post, u
                 return Vec::new();
             }
             let fbs = prog.division == Division::FBS;
-            let analysts = if fbs { (2.0 + program_budget(prog) / 25.0e6).min(12.0) as usize } else { 1 };
+            let analysts = if fbs { (2.0 + budget_today(w, p) / 25.0e6).min(12.0) as usize } else { 1 };
             let gas = if fbs || prog.division == Division::FCS { 4 } else { 2 };
             vec![(Post::GradAssistant, gas), (Post::Analyst, analysts)]
         }

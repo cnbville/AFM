@@ -265,7 +265,7 @@ pub fn money_words(w: &World, team: Team) -> Vec<(String, String)> {
         Team::College(p) => {
             let prog = &w.programs[p];
             let mut v = Vec::new();
-            let budget = crate::world::staff::program_budget(prog);
+            let budget = crate::world::staff::program_budget(w, p);
             v.push(("Athletic budget".into(), format!("about {} a year for every sport", m(budget))));
             if w.year >= 2021 {
                 v.push((

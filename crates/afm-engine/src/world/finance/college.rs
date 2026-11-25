@@ -271,7 +271,9 @@ fn ticket(w: &World, p: usize, year: i32) -> f64 {
     let prog = &w.programs[p];
     let base = match tier(w, p, year) {
         0 => 22.0 + 60.0 * prog.fans * prog.fans,
-        1 => 14.0 + 20.0 * prog.fans,
+        // A bigger conference's name sells its schedule: a Group of 5 school's
+        // price rises with its conference's stature (`stature`).
+        1 => (14.0 + 20.0 * prog.fans) * (1.0 + STATURE_TICKETS * stature(prog, year)),
         2 => 10.0 + 10.0 * prog.fans,
         _ => match prog.division {
             Division::D2 => 8.0,
@@ -281,6 +283,30 @@ fn ticket(w: &World, p: usize, year: i32) -> f64 {
     };
     base * data::college_index(year)
 }
+
+/// How big a name a Group of 5 school's conference is, 0-1: what it pays
+/// each member against the American's (the best of them, $7M in 2024). A
+/// conference's name brings its schools sponsors, multimedia rights and
+/// dearer tickets, which is what keeps a Group of 5 school's books from
+/// reading the same in every conference (realism audit item 10: the
+/// American earned $35M against the MAC's $28M, real about twice). Pay
+/// per member stands in for the name (proposed, not confirmed).
+pub fn stature(prog: &crate::world::program::Program, year: i32) -> f64 {
+    let pay = data::conference_payout(&prog.conference, Division::FBS, year);
+    clamp(pay / (STATURE_TOP * data::small_curve(year)), 0.0, 1.0)
+}
+
+/// The conference payout that reads as the top of a Group of 5 name: the
+/// American's 2024 distribution.
+const STATURE_TOP: f64 = 7.0e6;
+/// A Group of 5 school's licensing and sponsor money from a top conference
+/// name, 2024 dollars, and how much dearer its tickets run (the ratio at
+/// the top; real American and Mountain West schools sell sponsorships and
+/// seats for $6-10M and $9-12M against a Mid-American school's $3M and
+/// $3M: USA Today's NCAA finances and Knight-Newhouse, from memory;
+/// proposed, not confirmed).
+const STATURE_RIGHTS: f64 = 14.0e6;
+const STATURE_TICKETS: f64 = 0.35;
 
 /// Opens every department's books.
 pub(crate) fn open(w: &mut World) {
@@ -349,7 +375,7 @@ fn football_aid(d: Division) -> f64 {
 const G5_GIFT_RATIO: f64 = 2.6;
 
 /// The year's budget, set when the money year opens in July.
-pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
+pub fn open_year(w: &mut World, p: usize, year: i32) {
     let prog = &w.programs[p];
     let t = tier(w, p, year);
     let idx = data::college_index(year);
@@ -387,7 +413,7 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     b.l[NCAA] = data::ncaa_distribution(prog.division, dept.hoops as f64, year) as f32;
     b.l[LICENSING] = (match t {
         0 => 4.0e6 + 34.0e6 * fans.powf(1.6),
-        1 => 1.0e6 + 3.0e6 * fans,
+        1 => 0.5e6 + 2.5e6 * fans + STATURE_RIGHTS * stature(prog, year).powf(1.3),
         2 => 0.2e6 + 0.8e6 * fans,
         _ => 0.03e6 + 0.1e6 * fans,
     } * idx) as f32;
@@ -717,6 +743,20 @@ fn close_year(w: &mut World, p: usize) {
 pub fn athletic_budget(w: &World, p: usize) -> Option<f64> {
     let d = w.finance.college.get(p)?;
     (d.budget.year != 0).then(|| Dept::costs(&d.budget))
+}
+
+/// The same money in today's dollars (the books' year's index taken out).
+pub fn athletic_budget_today(w: &World, p: usize) -> Option<f64> {
+    let d = w.finance.college.get(p)?;
+    (d.budget.year != 0).then(|| Dept::costs(&d.budget) / data::college_index(d.budget.year).max(0.05))
+}
+
+/// What a program's department earns a year in today's dollars (income on
+/// the books less the university's support, `earned`): the money its own
+/// choices are paid from.
+pub fn earned_today(w: &World, p: usize) -> Option<f64> {
+    let d = w.finance.college.get(p)?;
+    (d.budget.year != 0).then(|| earned(&d.budget, d) / data::college_index(d.budget.year).max(0.05))
 }
 
 /// Football's spending level from the books, 0-1 (support staff buy).
