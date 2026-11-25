@@ -13,8 +13,8 @@ on:
         description: "Run ids, space separated"
         default: ""
 env:
-  RUNS: "45506695888 45524401404"
-  SKIP: ""
+  RUNS: "45506695888"
+  SKIP: "program-check-proposed-371 program-check-before-351 program-check-proposed-351"
   FULL: ""
 jobs:
   collect:
