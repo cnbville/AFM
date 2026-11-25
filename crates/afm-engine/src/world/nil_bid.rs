@@ -787,7 +787,15 @@ pub fn market_all(w: &World) -> Vec<(usize, f64, f64)> {
 /// December's keep-him offers before the January window (item 9): each AI
 /// program prices every player it wants back (one with a season left who
 /// isn't leaving) at the best rival's top bid for him and offers up to its
-/// own top bid in the role he has there. Every role, not only starters
+/// own top bid in the role he has there. Only a man it will pay at all
+/// (2026-11-25): one next July's paid set takes as its staff reads it
+/// today (`recruiting::PaidLine`, the gate a recruit's money has), or one
+/// who played in its two-deep. A school doesn't pay to keep a deep backup
+/// it pays nothing; while deal holders filled the paid set first every
+/// keep-him offer bought its own place, and once the set fills by standing
+/// the offers to men outside it would be paid on top of it (95% of a
+/// Power 4 roster paid something on seed 1's July 2027 payday, real about
+/// 75%). Every role, not only starters
 /// (2026-11-18): before, a rotation player or backup a rival would start
 /// or rotate was left on the split, never his market price; the offer
 /// still stands only where it beats his split (`recruiting::NilHeld`). A
@@ -803,6 +811,9 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
     let market = Market::new(w);
     let today = w.today;
     let year = deal_year(today);
+    // Who each school will pay at all next July, as its staff reads it.
+    let lines = super::recruiting::paid_lines(w);
+    let share = share_bars(w).into_owned();
     let wr: &World = w;
     let offers: Vec<(usize, f64, f64, f64)> = (0..wr.people.len())
         .into_par_iter()
@@ -820,6 +831,13 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
                 return None;
             }
             if super::college::no_season_left(p, wr.programs[c].division, label) {
+                return None;
+            }
+            // A school pays to keep only a man it will pay at all: one its
+            // July paid set takes, or one who played in its two-deep, whom
+            // the third party pays whatever the set says (`roster_split`).
+            let two_deep = matches!(p.last_role, Some(PlayingTime::Starter | PlayingTime::Rotation));
+            if !two_deep && !lines[c].takes(p, &share) {
                 return None;
             }
             market.bid_read(wr, i, false).map(|(keep, rival, edge)| (i, keep, rival, edge))
