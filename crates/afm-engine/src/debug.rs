@@ -194,6 +194,13 @@ pub fn recruit_money(w: &World, j: usize, i: usize) -> f64 {
     rec::offer_money(w, j, i)
 }
 
+/// Every college program's depth chart as its staff would set it today:
+/// (player index, role). July 1's payday reads it for each man's market
+/// (`recruiting::market_read`); fall camp sets the season's roles from it.
+pub fn college_chart(w: &World) -> Vec<(usize, crate::player::PlayingTime)> {
+    crate::world::season::college_roles(w)
+}
+
 /// The top of NIL Go's range for a collective's deal with recruit `i` at
 /// program `j` (the new NIL scheme: it reads the school's level).
 pub fn recruit_nil_go_top(w: &World, j: usize, i: usize) -> f64 {

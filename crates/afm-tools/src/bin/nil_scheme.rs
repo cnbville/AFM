@@ -401,6 +401,10 @@ fn played(p: &Person) -> bool {
 fn payday(w: &World) {
     use Position as P;
     println!("== July {} payday ==", w.today.year());
+    // The depth chart the payday read each man's market on.
+    let chart: HashMap<u32, PlayingTime> =
+        afm_engine::debug::college_chart(w).into_iter().map(|(i, r)| (w.people[i].player.id, r)).collect();
+    let first = |p: &Person| chart.get(&p.player.id) == Some(&PlayingTime::Starter);
     for c in CONFS {
         let js: Vec<usize> = (0..w.programs.len()).filter(|&j| conf(w, j) == Some(c)).collect();
         let mut rosters: Vec<f64> =
@@ -540,35 +544,46 @@ fn payday(w: &World) {
         println!(
             "-- {g}: starters with a college season, brand included (real P4: QB 2M, EDGE 929K, OT 907K, WR 726K, CB 572K, RB 527K, IOL 525K) --"
         );
-        let mut line = Vec::new();
-        for pos in P::ALL {
-            let mut v: Vec<f64> = w
-                .people
-                .iter()
-                .filter(|p| on(p) && p.player.position == pos && p.last_role == Some(PlayingTime::Starter) && played(p))
-                .map(|p| p.nil_income.max(0.0))
-                .collect();
-            line.push(format!("{} {} (p90 {})", pos.name(), m(q(&mut v, 0.5)), m(q(&mut v, 0.9))));
+        // The men on the depth chart's first line today (the lineup the
+        // school expects to play, what The NIL Standard values), then the
+        // men who started last season, as the tool read them before.
+        for (what, last) in [("on the chart's first line", false), ("started last season", true)] {
+            let mut line = Vec::new();
+            let mut n = 0;
+            for pos in P::ALL {
+                let mut v: Vec<f64> = w
+                    .people
+                    .iter()
+                    .filter(|p| on(p) && p.player.position == pos && played(p))
+                    .filter(|p| if last { p.last_role == Some(PlayingTime::Starter) } else { first(p) })
+                    .map(|p| p.nil_income.max(0.0))
+                    .collect();
+                n += v.len();
+                line.push(format!("{} {} (p90 {})", pos.name(), m(q(&mut v, 0.5)), m(q(&mut v, 0.9))));
+            }
+            println!("  {what} (n {n}): {}", line.join(", "));
         }
-        println!("  {}", line.join(", "));
         // The budget's split by role (the scheme's check: starters ~62%,
         // rotation ~11%, recruits and backups ~27%).
-        let (mut st, mut rot, mut rest) = (0.0, 0.0, 0.0);
-        for p in w.people.iter().filter(|p| on(p)) {
-            let x = money(p);
-            match (played(p), p.last_role) {
-                (true, Some(PlayingTime::Starter)) => st += x,
-                (true, Some(PlayingTime::Rotation)) => rot += x,
-                _ => rest += x,
+        for (what, last) in [("by the chart", false), ("by last season's role", true)] {
+            let (mut st, mut rot, mut rest) = (0.0, 0.0, 0.0);
+            for p in w.people.iter().filter(|p| on(p)) {
+                let x = money(p);
+                let role = if last { p.last_role } else { chart.get(&p.player.id).copied() };
+                match (played(p), role) {
+                    (true, Some(PlayingTime::Starter)) => st += x,
+                    (true, Some(PlayingTime::Rotation)) => rot += x,
+                    _ => rest += x,
+                }
             }
+            let t = (st + rot + rest).max(1.0);
+            println!(
+                "  split {what}: starters {:.0}%, rotation {:.0}%, recruits and backups {:.0}%",
+                100.0 * st / t,
+                100.0 * rot / t,
+                100.0 * rest / t
+            );
         }
-        let t = (st + rot + rest).max(1.0);
-        println!(
-            "  split: starters {:.0}%, rotation {:.0}%, recruits and backups {:.0}%",
-            100.0 * st / t,
-            100.0 * rot / t,
-            100.0 * rest / t
-        );
         // A freshman backup (real ~$25K at P4).
         let mut fr: Vec<f64> = w.people.iter().filter(|p| on(p) && !played(p)).map(money).collect();
         println!("  newcomers {}", spread(&mut fr));
@@ -586,12 +601,14 @@ fn payday(w: &World) {
         let p = &w.people[i];
         let j = p.college.unwrap_or(0);
         println!(
-            "  {} (brand {}) {} {}★ {:?} perf {:.1} at {} (budget {})",
+            "  {} (brand {}, school {}) {} {}★ last {:?} chart {:?} perf {:.1} at {} (budget {})",
             m(x),
             m(p.brand as f64),
+            m(p.cal.nil_school as f64),
             p.player.position.name(),
             p.stars,
             p.last_role,
+            chart.get(&p.player.id),
             p.last_performance.get().unwrap_or(0.0),
             w.program_name(j),
             m(w.programs[j].collective.budget)
@@ -1044,7 +1061,9 @@ fn rows(
     // Starters' median play by division and spot, as the split reads it
     // (`recruiting::nil_medians`).
     let mut by: HashMap<(usize, usize), Vec<f64>> = HashMap::new();
-    for p in w.people.iter().filter(|p| p.stage == Stage::College && p.last_role == Some(PlayingTime::Starter)) {
+    for p in w.people.iter().filter(|p| {
+        p.stage == Stage::College && p.last_role == Some(PlayingTime::Starter) && p.cal.nil_role.is_none() && played(p)
+    }) {
         if let (Some(c), Some(x)) = (p.college, p.last_performance.get()) {
             by.entry((w.programs[c].division as usize, p.player.position.index())).or_default().push(x);
         }
@@ -1063,10 +1082,13 @@ fn rows(
         Some(_) => "backup",
         None => "none",
     };
+    // The role each man's depth chart gives him today (`market_read`).
+    let chart: HashMap<u32, PlayingTime> =
+        afm_engine::debug::college_chart(w).into_iter().map(|(i, r)| (w.people[i].player.id, r)).collect();
     let mut out = std::io::BufWriter::new(std::fs::File::create(path).expect("the rows file"));
     writeln!(
         out,
-        "id,prog,name,conf,level,budget,school_pot,roster,pos,stars,class_of,seasons,age,walk_on,played,last_role,nil_role,nil_edge,perf,median,overall,transfers,deal,nil_school,nil_paid,brand,ahead,snaps,prev_level,away"
+        "id,prog,name,conf,level,budget,school_pot,roster,pos,stars,class_of,seasons,age,walk_on,played,last_role,nil_role,nil_edge,perf,median,overall,transfers,deal,nil_school,nil_paid,brand,ahead,snaps,prev_level,away,chart"
     )
     .unwrap();
     // Signees who are not on their school's roster yet (`ahead`, 1): they
@@ -1093,7 +1115,7 @@ fn rows(
             };
             writeln!(
                 out,
-                "{},{},{},{},{},{:.0},{:.0},{},{},{},{},{},{},{},{},{},{},{:.2},{:.2},{:.2},{:.2},{},{},{:.0},{:.0},{:.0},{},{},{},{}",
+                "{},{},{},{},{},{:.0},{:.0},{},{},{},{},{},{},{},{},{},{},{:.2},{:.2},{:.2},{:.2},{},{},{:.0},{:.0},{:.0},{},{},{},{},{}",
                 p.player.id,
                 j,
                 w.program_name(j).replace(',', " "),
@@ -1126,6 +1148,7 @@ fn rows(
                 // school), by money level.
                 p.path.last().and_then(|&c| level(w, c)).unwrap_or("-"),
                 p.roads.away_years,
+                role(chart.get(&p.player.id).copied()),
             )
             .unwrap();
         }
