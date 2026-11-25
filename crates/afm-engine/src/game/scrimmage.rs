@@ -1572,6 +1572,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 sim.agents[i].job = Job::RunBlock { target: Some(lb), pull: false };
             }
         }
+        if pass.is_some() {
+            late_help(&mut sim, off_n);
+        }
         // ---- offense
         for i in 0..off_n {
             if !sim.agents[i].up(t) || sim.agents[i].engaged.is_some() {
@@ -1831,10 +1834,29 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             // bug 406).
                             let dp = sim.agents[d].pos;
                             let dv = sim.agents[d].vel;
+                            let me = sim.agents[i].pos;
+                            // The vertical set (realism audit item 3, the
+                            // four-man rush): against a man coming round the
+                            // edge a lineman kicks back to his set point on
+                            // the line from the rusher to the launch point
+                            // and lets him come (`set_spot`).
+                            let arc = matches!(sim.agents[d].job, Job::Rush { contain, .. } if contain != 0.0);
+                            if arc
+                                && is_line(sim.agents[i].label)
+                                && let Some(p) = pass.as_ref()
+                                && let Some(spot) = set_spot(los, p.drop_to, dp)
+                            {
+                                let gap = spot - me;
+                                let pace = SET_PACE * sim.agents[i].vmax;
+                                sim.steer(i, gap.norm().scale(pace.min(3.0 * gap.len())));
+                                if sq_lt(me.dist_sq(dp), 1.5) && sim.can_square(i, d, q) {
+                                    sim.engage(i, d, true);
+                                }
+                                continue;
+                            }
                             let spot = dp + (q - dp).norm().scale(1.0) + dv.scale(0.15);
                             let set = los - PASS_SET;
                             let spot = v2(spot.x.min(set), spot.y);
-                            let me = sim.agents[i].pos;
                             let want = dv.scale(0.8) + (spot - me).scale(3.0);
                             sim.steer(i, hold_at(want, me.x, set, sim.agents[i].brake()));
                             // (On the square, `sq_lt`: the same answer.)
@@ -1847,7 +1869,25 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             // The same tests on the squares (`sq_lt`) and the
                             // same pick as `min_by` on the distance to the
                             // quarterback (`Nearest`; world speed lane).
+                            // A man a teammate is on his way to is not free
+                            // (realism audit item 3, the four-man rush): the
+                            // spare guard went after the end while his
+                            // tackle set back for him, and left the inside.
+                            // The plan's star is the exception: the spare
+                            // slides to him (A8). A man who beat his blocker
+                            // is free again.
                             let me = sim.agents[i].pos;
+                            let star = sim.help_on;
+                            let spoken = |d: usize| {
+                                Some(d) != star
+                                    && (0..off_n).any(|o| {
+                                        o != i
+                                            && sim.agents[o].up(t)
+                                            && sim.agents[o].engaged.is_none()
+                                            && matches!(sim.agents[o].job, Job::PassBlock { target: Some(x) } if x == d)
+                                            && sim.agents[o].beat_by != Some(d)
+                                    })
+                            };
                             let mut near = Nearest::default();
                             for d in off_n..sim.agents.len() {
                                 let a = &sim.agents[d];
@@ -1856,6 +1896,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     && a.engaged.is_none()
                                     && sq_lt(a.pos.dist_sq(me), 4.5)
                                     && sim.can_square(i, d, q)
+                                    && !spoken(d)
                                 {
                                     near.offer(d, a.pos.dist_sq(q));
                                 }
@@ -1864,10 +1905,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             if let Some(d) = threat {
                                 sim.agents[i].job = Job::PassBlock { target: Some(d) };
                             } else {
-                                // Help the nearest teammate's block; the rusher
-                                // the plan slides to (A8) from farther, and
-                                // before anyone else.
-                                let star = sim.help_on;
+                                // Help a teammate's block: the rusher the plan
+                                // slides to (A8) from farther and before
+                                // anyone else, then a block the rusher is
+                                // winning (`LATE_HELP`), then the nearest,
+                                // inside `HELP_REACH` (realism audit item 3,
+                                // the four-man rush).
                                 let help = sim
                                     .eng
                                     .iter()
@@ -1879,14 +1922,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     .filter_map(|(k, e)| {
                                         let on_star = Some(e.defender) == star;
                                         let sq = sim.agents[e.defender].pos.dist_sq(me);
-                                        if sq_lt(sq, if on_star { 4.5 } else { 2.5 }) {
-                                            Some((k, sq.sqrt(), on_star))
+                                        if sq_lt(sq, if on_star { 4.5 } else { HELP_REACH }) {
+                                            Some((k, sq.sqrt(), on_star, e.w > LATE_HELP))
                                         } else {
                                             None
                                         }
                                     })
-                                    .min_by(|a, b| b.2.cmp(&a.2).then(a.1.total_cmp(&b.1)))
-                                    .map(|(k, d, _)| (k, d));
+                                    .min_by(|a, b| b.2.cmp(&a.2).then(b.3.cmp(&a.3)).then(a.1.total_cmp(&b.1)))
+                                    .map(|(k, d, _, _)| (k, d));
                                 if let Some((k, d)) = help {
                                     if d < 1.4 {
                                         let def = sim.eng[k].defender;
@@ -3825,6 +3868,89 @@ fn protect_rest(sim: &mut Sim, off_n: usize, rushers: &[usize], taken: &mut [boo
 
 /// How far across a pass blocker reaches for his man at the snap, yards.
 const PRO_REACH: f64 = 3.2;
+
+/// The vertical set (realism audit item 3, the four-man rush): where a pass
+/// blocker sets against a man coming round the edge. He kicks back to
+/// `SET_DEPTH` of the way from the line of scrimmage at `los` to the depth
+/// of the passer's launch point `launch`, onto the line from the rusher at
+/// `rusher` to it, and lets him come (the offense's backfield is below
+/// `los`). None once the rusher is within half a yard of that depth: the
+/// blocker then takes him where he is, mirroring him as before.
+///
+/// He used to mirror an end from the snap at the line, as he mirrors a man
+/// over him: on world seed 321's NFL clubs the two met 0.8 s after the snap
+/// with the end 0.65 yards past the line and 6.8 from the passer, and an
+/// end who won came off 5.5 yards from him, in front of his eyes, so he
+/// threw. Ends had 2.7 pressures and 0.53 sacks a team game as PFR counts
+/// them (real 4.7 and 1.27, ends with edges listed as linebackers) and
+/// tackles 4.3 and 0.83 (2.1 and 0.52). Real tackles set back against a
+/// wide rusher, and the two meet two or three yards behind the line. At
+/// 0.3 they meet 1.2 s after the snap, the end 2.1 yards past the line.
+/// Deeper sets gave the ends more, but the world's long-armed power end ran
+/// further past the best real seasons: 22.7 sacks a season at 0.3, 23.6 at
+/// 0.35 and 29.7 at 0.4 (19.2 before), the best season a year 23.9, 25.8
+/// and 30.1 (23.8 before, real 19.4). Proposed, not confirmed.
+pub(crate) fn set_spot(los: f64, launch: V2, rusher: V2) -> Option<V2> {
+    let at = los - SET_DEPTH * (los - launch.x).max(0.0);
+    if rusher.x <= at + 0.5 {
+        return None;
+    }
+    let k = (rusher.x - at) / (rusher.x - launch.x).max(0.1);
+    Some(v2(at, rusher.y + k * (launch.y - rusher.y)))
+}
+
+/// The vertical set's depth, a share of the way from the line to the
+/// launch point (`set_spot`), and the pace he kicks back at, a share of his
+/// top speed (proposed, not confirmed).
+const SET_DEPTH: f64 = 0.3;
+const SET_PACE: f64 = 0.4;
+
+/// The spare man in pass protection helps where the trouble is (realism
+/// audit item 3, the four-man rush): a block whose rusher has w above
+/// `LATE_HELP` comes before the nearest when a free blocker picks one to
+/// help, inside `HELP_REACH` yards of him (2.5 before); and a man helping
+/// on a double team that is not the plan's star comes off it for a block
+/// inside `LATE_REACH` yards whose rusher is winning, by `LATE_MARGIN` more
+/// than his own (`late_help`). Big on big leaves one lineman over against
+/// four rushers, and he helped the block nearest him all play: a team's
+/// second tackle had a guard alone, and tackles took 0.83 sacks a team game
+/// on world seed 321's NFL clubs (real 0.52), the best of them 20 a
+/// season. Proposed, not confirmed.
+const LATE_HELP: f64 = 0.2;
+const LATE_MARGIN: f64 = 0.5;
+const LATE_REACH: f64 = 2.5;
+const HELP_REACH: f64 = 3.5;
+
+/// A man helping on a double team comes off it for a block in trouble near
+/// him (`LATE_HELP`): the rusher there winning his block and by
+/// `LATE_MARGIN` more than the man he is doubling. He is then free, and
+/// takes the block in trouble as a free blocker does. Never off the plan's
+/// star.
+fn late_help(sim: &mut Sim, off_n: usize) {
+    for i in 0..off_n {
+        let Some(k) = sim.agents[i].engaged else { continue };
+        let e = &sim.eng[k];
+        if e.over || !e.pass || e.helper != Some(i) || Some(e.defender) == sim.help_on {
+            continue;
+        }
+        let me = sim.agents[i].pos;
+        let own = e.w;
+        let trouble = sim.eng.iter().enumerate().any(|(j, x)| {
+            j != k
+                && !x.over
+                && x.pass
+                && x.helper.is_none()
+                && x.w > LATE_HELP
+                && x.w > own + LATE_MARGIN
+                && sq_lt(sim.agents[x.defender].pos.dist_sq(me), LATE_REACH)
+        });
+        if trouble {
+            sim.eng[k].helper = None;
+            sim.agents[i].engaged = None;
+            sim.agents[i].job = Job::PassBlock { target: None };
+        }
+    }
+}
 
 /// The play fake's protection when the back stays in (scheme-fit item 3):
 /// a half-slide, the way real staffs build it so that the back's fake path
