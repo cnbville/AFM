@@ -88,6 +88,12 @@ pub(crate) struct NflSeason {
     /// 0 tied), for the tiebreakers (minor bug B30).
     #[serde(default)]
     pub results: Vec<(u8, u8, i8)>,
+    /// The league's own typical men this season (realism audit, the run
+    /// lean), worked out the day before its first game
+    /// (`pro::games::ensure_league`) and handed to the engine with each
+    /// club's team.
+    #[serde(default)]
+    pub men: Option<std::sync::Arc<crate::game::roster_fit::LeagueMen>>,
 }
 
 /// A playoff game once played: its round (1 wild card .. 4 the Super

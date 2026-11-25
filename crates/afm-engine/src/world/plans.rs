@@ -352,10 +352,10 @@ pub fn our_team(w: &World) -> Option<GameTeam> {
         Level::College => w
             .college
             .as_ref()
-            .and_then(|c| c.teams.get(t))
-            .and_then(|x| x.clone())
-            .map(|mut x| {
+            .and_then(|c| Some((c, c.teams.get(t)?.clone()?)))
+            .map(|(c, mut x)| {
                 crate::training::seat::sit_hurt(w, &mut x);
+                x.league = super::college::league_of(w, c, t);
                 x
             })
             .or_else(|| w.seat_game_team().map(|x| x.0)),
@@ -1047,7 +1047,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
             let margin = if inp.level == crate::player::Level::HS { 4.0 } else { 99.0 };
             let depth = crate::game::roster::depth_chart(team, margin);
             let men = crate::game::roster_fit::depth_men(team, &depth);
-            crate::game::roster_fit::OffFit::of(&team.players, &men, inp.level)
+            crate::game::roster_fit::OffFit::of(&team.players, &men, inp.level, team.league.as_deref())
         },
     };
     let staff = team.staff;

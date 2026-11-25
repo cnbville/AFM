@@ -3141,6 +3141,65 @@ What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
 - **FBS corners' blitzes get home two and a half times as often as the NFL's** (a pressure on 34% of their rushes and 8.8 sacks a 100, the NFL clubs' 19% and 3.6), with no real college count to read it against.
 - **Sacks are still short**: 1.74 a team game on the NFL clubs (real 2.41) and 1.93 on the FBS teams (2.09).
 
+## The calls read each league's own men (realism audit, the run lean, 2026-11-25)
+
+The target (`GAPS.md`, "The roster's run lean reads a world's men against the test league's", from the even run block lane): world seed 321's FBS backs and receivers are 12 to 17 points faster than the FBS test league's typical men, so every staff leaned to the wide runs, 32% of its backs' runs called outside (26% with the lean off, the FBS test league 18%). Built over main b3992d4 (with the pass rush lane). The coordinator took Cain's yes on the fix; the choices in it were taken for him while he slept (the audit doc's list). Every size is proposed, not confirmed.
+
+What was wrong:
+
+- **A lean cancels inside a team, not across a league.** Lane SF10's roster lean pays each call by how far the side's men stand from the typical man at their place on a depth chart (`roster_fit::reference`), and that man was the test league's: the mean of 64 synthetic teams (`synthetic::typical_at`). What every option of one team shares cancels (a great passer adds to every throw), but what every team of a league shares doesn't. When every back in a league is 15 points faster than the test league's typical back, every staff reads its back as a burner and leans to the toss and outside zone, though he is only as fast as his league's backs, and the defenders he runs at are his league's too.
+- **Two of the defense's body reads had the same fault.** The blitz lean reads the weight of a staff's named linebackers and corners over the level's typical men at those positions (`Side::blitz_lean`, L1 and C1), and the shell lean its safeties' hitter read over the level's typical pair (`Side::safety_hitter`, S-A).
+
+What's built:
+
+- **Each league's own typical men** (`game/roster_fit.rs`, `LeagueMen`, `LeagueSum`; `game/flow.rs`, `league_men`, `kickoff_men`): for every team the men the engine seats at kickoff with everyone dressed at the lean's 26 places (`Side::off_men`, `def_men`), averaged over the league rating by rating and weight; a place no team fills keeps the level's typical man. With them the mean weight of every man on the league's rosters at each position and the mean hitter read of the men listed at free and at strong safety, measured as the level's are (`synthetic::typical_body`, `typical_hitter`).
+- **Which league:** each college division on its own (FBS, FCS, Division II, NAIA, Division III, junior college; `college::division_men`), each state's high schools (a batch of 64 schools at a time, `hs_year::state_men`), the NFL, and each other league.
+- **When:** college at fall camp from the season's rosters (`college::start`), a state the day before its season (`hs_year::start_state`), the NFL and each other league at dawn the day before its first game (`pro::games::ensure_league`, `pro::other::ensure_men`). A world saved before this works them out at its next dawn (`clock::league_men`).
+- **Carried with the team** (`GameTeam::league`): every game team the world builds carries its league's table, so your call sheet's draft (`world/plans.rs`), a live game, a save and a replay read the same men (`ReplaySetup`). A table from before a new rating reads as none.
+- **The reads:** every lean reads about the league's typical man when the team has one (`roster_fit::reference_in`, `deviation_in`; `OffFit::of`, `DefFit::of` and `back_value` take the league), and so do the blitz lean and the shell lean (`LeagueMen::weight_at`, `hitter_at`). A team with none (the test leagues and the tools' synthetic teams) reads the level's typical men as before, so the test leagues play the same games. `AFM_LEAGUE=off` turns a world's tables off in `match_check` and `ab_check`. Nothing was retuned and no table rebuilt: the roster lean's weights are slopes, now read about the league's middle.
+
+Measured (seed 1; `match_check` on world seed 321's FBS teams on their own schedule, 12,000 games, and its NFL clubs, 2,720 games; before is the same build with `AFM_LEAGUE=off`, which plays main's games; real FBS from cfbfastR 2022-24, real NFL 2021-25):
+
+| | before | built | real |
+|---|---|---|---|
+| World 321 FBS, yards a carry | 5.334 | 5.224 | 5.122 |
+| rushing yards a team game | 176.7 | 171.2 | 171.8 |
+| points a team game | 26.92 | 26.41 | 26.97 |
+| explosive run rate (cfbfastR's) | 0.145 | 0.137 | 0.145 |
+| rushing touchdowns a team game | 1.40 | 1.32 | 1.58 |
+| backs' runs called outside | 32.0% | 26.6% | |
+| runs that end outside the tackles | 36.7% | 32.3% | NFL 23.1% |
+| a carry inside the tackles / outside | 4.39 / 6.68 | 4.41 / 6.60 | NFL 4.05 / 5.06 |
+| throws 20+ yards downfield | 12.6% | 11.8% | NFL 11.5% |
+| man coverage / a blitz, of dropbacks | 35.1% / 25.7% | 32.8% / 24.4% | |
+| World 321 NFL clubs, yards a carry | 4.475 | 4.489 | 4.503 |
+| throws 20+ yards downfield | 12.7% | 11.7% | 11.5% |
+| backs' runs called outside | 19.6% | 19.9% | |
+| a blitz called, of dropbacks | 22.5% | 22.3% | 27.3% |
+| NFL, FBS and high school test leagues | | the same games | |
+
+The FBS staffs leaned to the wide runs and the deep throws on the test league's men, and both are gone. The NFL clubs' men sit near the NFL test league's at the back, so their runs barely moved, but their passers lean deep no more: lane SF10's deep lean on a world's passers (`GAPS.md`, "The typical starter isn't the world's") was this. The defense's two body reads add little: the FBS blitz rate fell 1.1 points of dropbacks (its linebackers and corners weigh more than the test league's) and the NFL clubs' 0.3.
+
+Season lines on the world's FBS teams (`AFM_SEASONS=13`: seasons of 13 games, the same starters every week, 11 seasons):
+
+| a year | before | built | real |
+|---|---|---|---|
+| thousand-yard backs | 89.3 | 84.6 | 45 to 51 |
+| 2,000-yard backs | 0.36 | 0.27 | about 0.5 |
+| the rushing leader | 1,942 | 1,933 | 1,809 |
+| backs with 100+ carries, median a carry | 5.29 | 5.19 | 4.9 |
+| 10th percentile | 4.26 | 4.23 | 3.5 |
+| thousand-yard receivers | 32.2 | 34.4 | 28 to 33 |
+| receivers with 25+ catches, 90th / 99th percentile | 931 / 1,231 | 934 / 1,249 | 922 / 1,353 |
+
+What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
+
+- **FBS backs still gain 0.10 a carry over real**, almost all of it on the wide runs: 32% of FBS runs end outside the tackles and pay 2.2 yards more a carry than inside ones (real NFL 23% and 1.0 more; no FBS split in the repo). Receivers' blocks on corners (`GAPS.md`, "Receivers block corners too well on a world's rosters").
+- **FBS rushing touchdowns** fell with the wide runs, to 1.32 a team game (real 1.58), and points to 26.41 (26.97): the red zone's runs (`GAPS.md`, "FBS rush touchdowns short of real").
+- **Thousand-yard backs**, 85 a year in seasons with the same starters every week (real 45 to 51).
+- **One roster table for every level**: a college call still leans by what the NFL game pays its men, now about its own league's men.
+- **High school states and the lower divisions were not measured**: `match_check` plays no world's high schools or lower divisions. Each reads its own men now, so none leans the way its men differ from the test league's.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs, or at `fbs` its FBS programs as its season played them on its own schedule (`AFM_CONF=1`: conference games; `AFM_TEAMS=<file>` keeps the teams, a world file takes a minute to read), `AFM_STARTERS=<points>` prints the teams' starters against the level's typical starter in every rating that far apart, `AFM_TYPICAL="OT,IOL;RB:Speed,weight"` moves those positions' men so their starters average him (`ALL` for every position), `AFM_SEASONS=13` reads the games as seasons of that many (thousand-yard backs and receivers, the leaders, the Heisman voters' read), `AFM_DEFENDERS=13` the defenders' season lines against `data/real-world/defenders.json` (realism audit item 3: the nth best sack, tackle-for-loss and tackle season a year, the men over each mark, team leaders' shares, the top men with their rush lines, the rush and the run defense by a man's lead on the typical blocker, a team's tackles by rank, snap shares and who covers kicks), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).

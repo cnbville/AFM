@@ -349,7 +349,40 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         * crate::world::capital::nfl::soft_tissue_guard(&w.capital, t)) as f32;
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::super::chemistry::apply(w, &mut team, super::super::chemistry::Unit::Nfl);
+    // The league's own typical men this season (realism audit, the run lean).
+    team.league = w.nfl_season.as_ref().and_then(|s| s.men.clone());
     Some(Side { team, who })
+}
+
+/// The NFL's own typical men this season (realism audit, the run lean): the
+/// men each active club would dress today at the roster lean's slots,
+/// averaged over the league (`game::league_men`). Worked out the day
+/// before the season's first game and kept with the season
+/// (`NflSeason::men`), so the preseason, the season and the playoffs read
+/// the same men and a save plays the same.
+pub(crate) fn ensure_league(w: &mut World, d: crate::calendar::Date) {
+    let year = w.year;
+    let on = w.options.engine_from.is_none_or(|from| year >= from) && !w.clubs.is_empty();
+    let Some(s) = w.nfl_season.as_ref() else { return };
+    if !on || s.men.is_some() {
+        return;
+    }
+    let first = super::preseason_dates(w).first().copied().map_or(w.dates.hof_game, |p| p.min(w.dates.hof_game));
+    if d.add(1) < first {
+        return;
+    }
+    let teams: Vec<GameTeam> = (0..w.clubs.len())
+        .filter(|&t| franchise::active_in(w, t, year))
+        .collect::<Vec<_>>()
+        .par_iter()
+        .filter_map(|&t| game_side(w, t).map(|s| s.team))
+        .collect();
+    if teams.is_empty() {
+        return;
+    }
+    let refs: Vec<&GameTeam> = teams.iter().collect();
+    let men = std::sync::Arc::new(crate::game::league_men(&refs, crate::player::Level::NFL));
+    w.nfl_season.as_mut().unwrap().men = Some(men);
 }
 
 /// The weather and crowd at an NFL game: the home team's stadium in its

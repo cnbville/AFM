@@ -216,6 +216,12 @@ pub(crate) struct CollegeSeason {
     /// 6): last season's page reads its own year's leagues after realignment.
     #[serde(default)]
     pub confs: Vec<(Division, String)>,
+    /// Each division's own typical men this season (realism audit, the run
+    /// lean), by `Division as usize`: worked out from its programs' teams
+    /// when the season starts (`division_men`), and handed to the engine
+    /// with each team (`GameTeam::league`).
+    #[serde(default)]
+    pub men: Vec<Option<std::sync::Arc<crate::game::roster_fit::LeagueMen>>>,
 }
 
 /// A rivalry's record over the world's history (A28): wins by its first
@@ -241,6 +247,7 @@ pub(crate) fn keep_for_next_year(c: &mut CollegeSeason) {
     c.awards = Vec::new();
     c.bowl_teams = HashSet::new();
     c.rivalry_of = HashMap::new();
+    c.men = Vec::new();
 }
 
 #[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -312,6 +319,7 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
         heisman_vote: Vec::new(),
         heisman_reads: Vec::new(),
         confs: w.programs.iter().map(|p| (p.division, p.conference.clone())).collect(),
+        men: Vec::new(),
     }
 }
 
@@ -408,6 +416,8 @@ pub(crate) fn start(w: &mut World) {
     let on_engine = w.college.as_ref().unwrap().on_engine;
     let teams: Vec<Option<GameTeam>> =
         if on_engine { w.programs.par_iter().map(|p| season::game_team(w, p)).collect() } else { Vec::new() };
+    // Each division's own typical men (realism audit, the run lean).
+    let men = if on_engine { division_men(w, &teams) } else { Vec::new() };
     let coaches: Vec<CoachContext> = w.programs.iter().map(|p| season::coach_context(w, p)).collect();
     #[cfg(feature = "debug")]
     crate::debug::capture_teams(w.year, &teams, &results.iter().map(|r| r.strength).collect::<Vec<_>>());
@@ -433,9 +443,58 @@ pub(crate) fn start(w: &mut World) {
     let c = w.college.as_mut().unwrap();
     c.results = results;
     c.teams = teams;
+    c.men = men;
     c.coaches = coaches;
     c.out = out;
     c.started = true;
+}
+
+/// Each division's own typical men this season (realism audit, the run
+/// lean), by `Division as usize`: the men its programs' teams start at each
+/// of the roster lean's slots, averaged over the division
+/// (`game::league_men`). D2, NAIA, D3 and the junior colleges play one rule
+/// book but are leagues of their own: a D3 staff reads its back's speed
+/// about D3's backs. None for a division with no team.
+pub(crate) fn division_men(
+    w: &World,
+    teams: &[Option<GameTeam>],
+) -> Vec<Option<std::sync::Arc<crate::game::roster_fit::LeagueMen>>> {
+    Division::ALL
+        .iter()
+        .map(|&d| {
+            let list: Vec<&GameTeam> = teams
+                .iter()
+                .enumerate()
+                .filter(|(p, _)| w.programs.get(*p).is_some_and(|x| x.division == d))
+                .filter_map(|(_, t)| t.as_ref())
+                .collect();
+            (!list.is_empty()).then(|| std::sync::Arc::new(crate::game::league_men(&list, division_level(d))))
+        })
+        .collect()
+}
+
+/// A save from before the divisions' typical men (the run lean) works them
+/// out from its season's teams the first morning it plays on: the teams
+/// are the season's own, so they are the men the season start would have
+/// read.
+pub(crate) fn ensure_men(w: &mut World) {
+    let Some(cs) = w.college.as_ref() else { return };
+    if !cs.on_engine || !cs.started || cs.finished || !cs.men.is_empty() || cs.teams.is_empty() {
+        return;
+    }
+    let men = division_men(w, &cs.teams);
+    w.college.as_mut().unwrap().men = men;
+}
+
+/// The typical men a program's staff reads its men about this season: its
+/// division's (the run lean).
+pub(crate) fn league_of(
+    w: &World,
+    cs: &CollegeSeason,
+    prog: usize,
+) -> Option<std::sync::Arc<crate::game::roster_fit::LeagueMen>> {
+    let d = w.programs.get(prog)?.division as usize;
+    cs.men.get(d).cloned().flatten()
 }
 
 /// Weather for a game: from the climate of the home town (or the neutral
@@ -774,6 +833,7 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
                         && !super::folk::rules::sitting(w, p.id, date)
                 });
                 t.week = week(me);
+                t.league = league_of(w, cs, me);
                 t
             };
             let context = [(g.home, g.away), (g.away, g.home)]
@@ -4436,6 +4496,7 @@ pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSe
                 && !super::folk::rules::sitting(w, p.id, date)
         });
         t.week = week(me);
+        t.league = league_of(w, cs, me);
         t
     };
     let mut home = strip(cs.teams.get(g.home)?.as_ref()?, g.home);

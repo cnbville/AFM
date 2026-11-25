@@ -540,6 +540,11 @@ pub struct Live {
     pub alive: Vec<u16>,
     pub round: u8,
     pub done: bool,
+    /// The league's own typical men this season (realism audit, the run
+    /// lean), worked out the day before its first week (`ensure_men`) and
+    /// handed to the engine with each team.
+    #[serde(default)]
+    pub men: Option<std::sync::Arc<crate::game::roster_fit::LeagueMen>>,
 }
 
 /// A finished league season, for the record books and the screens.
@@ -1404,7 +1409,31 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
         crate::training::seat::sit_hurt(w, &mut t);
         crate::training::seat::prepare(w, &mut t);
     }
+    // The league's own typical men this season (realism audit, the run lean).
+    t.league = w.others.live.iter().rev().find(|l| l.league == k && l.year == year).and_then(|l| l.men.clone());
     Some(Side { team: t, who })
+}
+
+/// Each league's own typical men this season (realism audit, the run
+/// lean): the men every team would dress at the roster lean's slots,
+/// averaged over the league (`game::league_men`), worked out the day
+/// before its first week and kept with the season (`Live::men`).
+pub(crate) fn ensure_men(w: &mut World, d: Date) {
+    for k in 0..LEAGUE_COUNT as u8 {
+        let Some((li, _)) = week_due(w, d, k).or_else(|| week_due(w, d.add(1), k)) else { continue };
+        if w.others.live[li].men.is_some() {
+            continue;
+        }
+        let year = w.others.live[li].year;
+        let frs: Vec<usize> = w.others.live[li].table.iter().map(|r| r.fr as usize).collect();
+        let teams: Vec<GameTeam> = frs.par_iter().filter_map(|&fr| side(w, k, fr, year).map(|x| x.team)).collect();
+        if teams.is_empty() {
+            continue;
+        }
+        let refs: Vec<&GameTeam> = teams.iter().collect();
+        let men = std::sync::Arc::new(crate::game::league_men(&refs, crate::player::Level::NFL));
+        w.others.live[li].men = Some(men);
+    }
 }
 
 /// Your club as the engine would dress it today.

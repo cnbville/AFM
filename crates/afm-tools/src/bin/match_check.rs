@@ -134,13 +134,16 @@ fn world_fbs(path: &str, seed: u32) -> (Vec<afm_engine::game::GameTeam>, Vec<(us
     let keep = std::env::var("AFM_TEAMS").ok();
     let cached: Option<afm_tools::ab::CollegeTeams> =
         keep.as_ref().and_then(|k| std::fs::read(k).ok()).map(|b| serde_json::from_slice(&b).expect("the teams file"));
-    let (teams, conf, games) = cached.unwrap_or_else(|| {
+    let (mut teams, conf, games) = cached.unwrap_or_else(|| {
         let t = afm_tools::ab::world_college(path, "FBS");
         if let Some(k) = &keep {
             std::fs::write(k, serde_json::to_vec(&t).unwrap()).expect("write the teams file");
         }
         t
     });
+    // Their league's own typical men (the run lean), when the kept file
+    // has none.
+    afm_tools::ab::own_league(&mut teams, Level::FBS);
     eprintln!("{} FBS programs from the world, {} games between them", teams.len(), games.len());
     let sched =
         if std::env::var("AFM_CONF").is_ok() || games.is_empty() { conference_games(&conf, seed) } else { games };

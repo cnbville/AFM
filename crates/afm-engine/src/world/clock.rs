@@ -490,6 +490,10 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
         college::finals_week(w);
     }
     hs_year::dawn(w, d);
+    // Each league's own typical men for its play callers' lean (realism
+    // audit, the run lean): worked out before the first game that reads
+    // them, and kept with the season.
+    league_men(w, d);
     // The commitments lifting a brand exposure grade (GR44).
     super::following::day(w, d);
     // The week's rhythm, for the record and the future screens (T6), and
@@ -503,6 +507,19 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
         // Capital's donor slots (lane C4), all year.
         super::capital::week::dawn(w, d);
     }
+}
+
+/// Each league's own typical men this season (realism audit, the run lean,
+/// `roster_fit::LeagueMen`): a college division's at fall camp with the
+/// season's teams (`college::start`), a state's when its season starts
+/// (`hs_year::start_state`), the NFL's and the other leagues' the day before
+/// their first game. A save from before them works out a season under way
+/// on its first morning.
+fn league_men(w: &mut World, d: Date) {
+    college::ensure_men(w);
+    hs_year::ensure_men(w);
+    super::pro::games::ensure_league(w, d);
+    super::pro::other::ensure_men(w, d);
 }
 
 /// 7:00 AM: staffs in early, and on Mondays every team's training week
