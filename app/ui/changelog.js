@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.703", date: "25 Nov", title: "High school careers run again and 3 more",
+    notes: [
+      "Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books.",
+      "A school's athletic budget on the people screens is read from its books, not guessed from its name.",
+      "American and Mountain West programs bring in more sponsor and ticket money than MAC and Conference USA ones.",
+      "The revenue share a Group of 5 school pays players follows what it earns, so richer conferences pay more.",
+      "Group of 5 head coaches' pay follows the new money.",
+      "Defensive stars now put up seasons you can believe. The best pass rushers finish with 14 to 20 sacks instead of 30 or 40, and a great one is still worth every snap.",
+    ],
+  },
+  {
     v: "0.2.697", date: "25 Nov", title: "NIL pay by player value",
     notes: [
       "College players are now paid by what each one is worth to his team, not a flat rate for his role. Your stars earn far more than your depth, and a deep backup's going rate is a small one.",

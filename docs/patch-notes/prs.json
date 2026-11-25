@@ -3136,5 +3136,87 @@
   "players": true,
   "title": "NIL pay by player value",
   "tldr": "College players are now paid by what each one is worth to his team, not a flat rate for his role. Your stars earn far more than your depth, and a deep backup's going rate is a small one."
+ },
+ "650": {
+  "auto": false,
+  "bullets": [
+   "The best rushers beat ordinary blockers on about four rushes in ten, down from six. Every rating point still helps, a little less the further ahead a man already is.",
+   "Tackles are counted the way real box scores count them: one tackler gets a solo, two share it as assists, nobody gets credit for landing on the pile, and a tackle for loss needs a real loss of half a yard or more.",
+   "Your starters stay off kickoff coverage. Backups cover kicks, so your best edge no longer pads his tackles there.",
+   "A player who came over from another sport can now be moved to the position his body fits, so no more 167-pound defensive tackles piling up sacks.",
+   "Record books in a world you already play keep their old numbers; games from here on use the new counts."
+  ],
+  "h": "211b32ce00d8",
+  "look": "your sack and tackle leaders after a few games, and who lines up on your kickoff team.",
+  "players": true,
+  "title": "Bring defenders' season lines back to real (realism audit item 3: freak defenders)",
+  "tldr": "Defensive stars now put up seasons you can believe. The best pass rushers finish with 14 to 20 sacks instead of 30 or 40, and a great one is still worth every snap."
+ },
+ "651": {
+  "auto": false,
+  "bullets": [],
+  "h": "404da664fa21",
+  "look": "",
+  "players": false,
+  "title": "Docs: the NIL split by value measured (item 4's numbers, gaps and the audit list)",
+  "tldr": ""
+ },
+ "652": {
+  "auto": false,
+  "bullets": [],
+  "h": "49a3b201bc49",
+  "look": "",
+  "players": false,
+  "title": "coach_check: your coach's ratings measured (coach ratings lane RE0)",
+  "tldr": ""
+ },
+ "653": {
+  "auto": false,
+  "bullets": [
+   "A school's athletic budget on the people screens is read from its books, not guessed from its name.",
+   "American and Mountain West programs bring in more sponsor and ticket money than MAC and Conference USA ones.",
+   "The revenue share a Group of 5 school pays players follows what it earns, so richer conferences pay more.",
+   "Group of 5 head coaches' pay follows the new money."
+  ],
+  "h": "2d11cacccad3",
+  "look": "the Athletic budget line on a Group of 5 school's people screen.",
+  "players": true,
+  "title": "Read school budgets from the books and spread the Group of 5 by conference (realism audit item 10)",
+  "tldr": "Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books."
+ },
+ "654": {
+  "auto": false,
+  "bullets": [
+   "Collectives now pay each player up to his market price on top of what the school shares with him, instead of splitting their money by a separate formula.",
+   "Pay follows today's depth chart, so a player who wins a starting job is paid like a starter that summer.",
+   "The best-paid quarterbacks come down to what real stars make, and starters at the other positions come up.",
+   "The going rate on your NIL desk reads the same market, so it matches what rival schools pay."
+  ],
+  "h": "ff04622ea690",
+  "look": "your NIL desk's roster split on July 1, and the top earners at the big programs.",
+  "players": true,
+  "title": "Refit the third party's NIL market: one market, the depth chart's roles, real starters' bars",
+  "tldr": "NIL money now follows the lineup. Schools pay the men their depth chart starts, each close to what real starters at his position make, and no quarterback runs away with the pot."
+ },
+ "655": {
+  "auto": false,
+  "bullets": [],
+  "h": "a2fe84b6681b",
+  "look": "",
+  "players": false,
+  "title": "Add the future read workflow (reads the future run's book into the log)",
+  "tldr": ""
+ },
+ "656": {
+  "auto": false,
+  "bullets": [
+   "A high school career no longer stops in its first week of practice.",
+   "A high school team's body plans and summer conditioning no longer borrow a college's dietitians and strength staff."
+  ],
+  "h": "82f037705ae9",
+  "look": "start a career at any high school and play through the first week.",
+  "players": true,
+  "title": "High school careers run again",
+  "tldr": "High school careers run again. At most schools the game stopped in your first practice week; that is fixed."
  }
 }

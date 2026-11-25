@@ -8,6 +8,31 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.703 (25 Nov, shipped): coach_check: your coach's ratings measured (coach ratings lane RE0) (PR #652), read school budgets from the books and spread the Group of 5 by conference (realism audit item 10) (PR #653), bring defenders' season lines back to real (realism audit item 3: freak defenders) (PR #650), and 2 more
+**TLDR:** 5 changes ship together. coach_check: your coach's ratings measured (coach ratings lane RE0) Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books. Plus 3 more below.
+- coach_check: your coach's ratings measured (coach ratings lane RE0) (PR #652): no summary in the PR
+- Read school budgets from the books and spread the Group of 5 by conference (realism audit item 10) (PR #653): Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books.
+- A school's athletic budget on the people screens is read from its books, not guessed from its name. (PR #653)
+- American and Mountain West programs bring in more sponsor and ticket money than MAC and Conference USA ones. (PR #653)
+- The revenue share a Group of 5 school pays players follows what it earns, so richer conferences pay more. (PR #653)
+- Group of 5 head coaches' pay follows the new money. (PR #653)
+- Bring defenders' season lines back to real (realism audit item 3: freak defenders) (PR #650): Defensive stars now put up seasons you can believe. The best pass rushers finish with 14 to 20 sacks instead of 30 or 40, and a great one is still worth every snap.
+- The best rushers beat ordinary blockers on about four rushes in ten, down from six. Every rating point still helps, a little less the further ahead a man already is. (PR #650)
+- Tackles are counted the way real box scores count them: one tackler gets a solo, two share it as assists, nobody gets credit for landing on the pile, and a tackle for loss needs a real loss of half a yard or more. (PR #650)
+- Your starters stay off kickoff coverage. Backups cover kicks, so your best edge no longer pads his tackles there. (PR #650)
+- A player who came over from another sport can now be moved to the position his body fits, so no more 167-pound defensive tackles piling up sacks. (PR #650)
+- Record books in a world you already play keep their old numbers; games from here on use the new counts. (PR #650)
+- Refit the third party's NIL market: one market, the depth chart's roles, real starters' bars (PR #654): NIL money now follows the lineup. Schools pay the men their depth chart starts, each close to what real starters at his position make, and no quarterback runs away with the pot.
+- Collectives now pay each player up to his market price on top of what the school shares with him, instead of splitting their money by a separate formula. (PR #654)
+- Pay follows today's depth chart, so a player who wins a starting job is paid like a starter that summer. (PR #654)
+- The best-paid quarterbacks come down to what real stars make, and starters at the other positions come up. (PR #654)
+- The going rate on your NIL desk reads the same market, so it matches what rival schools pay. (PR #654)
+- High school careers run again (PR #656): High school careers run again. At most schools the game stopped in your first practice week; that is fixed.
+- A high school career no longer stops in its first week of practice. (PR #656)
+- A high school team's body plans and summer conditioning no longer borrow a college's dietitians and strength staff. (PR #656)
+- Look at: the Athletic budget line on a Group of 5 school's people screen. (PR #653) your sack and tackle leaders after a few games, and who lines up on your kickoff team. (PR #650) your NIL desk's roster split on July 1, and the top earners at the big programs. (PR #654)
+- Docs and tooling merged too, no game change: Docs: the NIL split by value measured (item 4's numbers, gaps and the audit list) (PR #651); Add the future read workflow (reads the future run's book into the log) (PR #655).
+
 ## 0.2.697 (25 Nov, shipped): NIL pay by player value (PR #649)
 **TLDR:** College players are now paid by what each one is worth to his team, not a flat rate for his role. Your stars earn far more than your depth, and a deep backup's going rate is a small one.
 - A school's revenue share reads each player's own play against his level's starters, his class year and, for a newcomer, his stars. (PR #649)
