@@ -8,7 +8,7 @@ name: Program fortunes check
 # is always this commit's. A full-size 30-year stand-in world takes about
 # four and a half hours of a job's six; a quarter-size one about an hour and
 # a half. Each world's page is in the run's summary and its artifacts, with
-# the star mix check and the book. Runs on a push that changes this file,
+# the star mix check. Runs on a push that changes this file,
 # or by hand.
 on:
   push:
@@ -27,13 +27,17 @@ on:
         default: "30"
 env:
   ARMS: |
-    q-before|8f0ba00885222d61882eefb242f9996118f5386e|0.25|
-    q-proposed||0.25|
-    q-bond4||0.25|hc_bond=0.24,pc_bond=0.12
-    q-grades||0.25|u_title=1.0,u_pipe=0.5
-    q-name||0.25|lived_share=0.8,prest_trad=0.35
-    q-recent||0.25|prest_recent=0.5,recent_rate=0.15
-    q-combo||0.25|hc_bond=0.12,pc_bond=0.06,u_title=1.0,u_pipe=0.5,prest_recent=0.5,recent_rate=0.15
+    f-proposed||1.0|
+    f-s10||1.0|bond_base=10,hc_bond=0.0243,pc_bond=0.0122
+    f-s30||1.0|bond_base=30,hc_bond=0.0107,pc_bond=0.0053
+    f-s30x2||1.0|bond_base=30,hc_bond=0.0213,pc_bond=0.0107
+    f-s30x4||1.0|bond_base=30,hc_bond=0.0427,pc_bond=0.0213
+    f-s100||1.0|bond_base=100,hc_bond=0.0043,pc_bond=0.0022
+    f-s100x2||1.0|bond_base=100,hc_bond=0.0087,pc_bond=0.0043
+  # Years of history, and the first season the late page reads (the first
+  # classes of a short history are the seeded rosters').
+  YEARS: "20"
+  FROM: "2009"
   SEEDS: "341"
 jobs:
   plan:
@@ -124,7 +128,7 @@ jobs:
           AFM_SAVE: out/world.afmworld
         run: |
           SECONDS=0
-          tools/star_mix build "${{ matrix.seed }}" "${{ inputs.years || '30' }}" "${{ matrix.arm.scale }}" > star_mix.txt
+          tools/star_mix build "${{ matrix.seed }}" "${{ inputs.years || env.YEARS }}" "${{ matrix.arm.scale }}" > star_mix.txt
           echo "world built in $SECONDS s" | tee time.txt
           ls -la out/
       - name: The book and the program check
@@ -132,11 +136,11 @@ jobs:
           tools/afm_read build "$(realpath out/world.afmworld)"
           b="$(realpath out/world.afmbook)"
           tools/afm_read "$b" program_check | tee program_check.txt
+          tools/afm_read "$b" program_check "from=$FROM" > program_check_from.txt
           {
             echo "## ${{ matrix.arm.name }}, seed ${{ matrix.seed }}, scale ${{ matrix.arm.scale }}, tune '${{ matrix.arm.tune }}'"
             echo '```'; cat program_check.txt; echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          zstd -T0 -6 --rm "$b" -o world.afmbook.zst
       - uses: actions/upload-artifact@v4
         with:
           name: program-check-${{ matrix.arm.name }}-${{ matrix.seed }}
@@ -144,5 +148,5 @@ jobs:
             program_check.txt
             star_mix.txt
             time.txt
-            world.afmbook.zst
+            program_check_from.txt
           retention-days: 7
