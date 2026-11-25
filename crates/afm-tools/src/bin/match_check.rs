@@ -648,6 +648,12 @@ fn main() {
             100.0 * five[3],
         );
     }
+    // AFM_DEFENDERS=13: the defenders' season lines in seasons of that many
+    // games (audit item 3: the sack, tackle-for-loss and tackle leaders).
+    if let Some(len) = std::env::var("AFM_DEFENDERS").ok().and_then(|v| v.parse::<usize>().ok()) {
+        let pairs: Vec<(usize, usize)> = (0..results.len()).map(&pair).collect();
+        defenders_read(&results, &teams, &pairs, len, level);
+    }
     // Snap shares (topic: depth and rotation): starters' share of their
     // side's snaps by position, and the lead back's share of the backs'
     // carries, against real bands (proposed, not confirmed; see
@@ -2196,6 +2202,878 @@ fn main() {
             bp[3] / n,
             bp[4] / n,
             100.0 * bp[5] / bp[6].max(1.0)
+        );
+    }
+}
+
+/// The real defenders' numbers `defenders_read` prints beside the engine's:
+/// FBS 2024-25 from ESPN's boxes (every game an FBS team played, seasons of
+/// about 13 games), the NFL's regular seasons 2021-24 from nflverse (17
+/// games). All of it is read from `data/real-world/defenders.json`
+/// (`data/real-world/scripts/defenders.py`).
+struct DefReal {
+    /// A team game's tackles, solo tackles, sacks and tackles for loss.
+    game: String,
+    /// The nth best a year (1 2 3 5 10 25 50 100 200) and the men a year at or over four marks.
+    sacks: ([f64; 9], [(f64, f64); 4]),
+    tfl: ([f64; 9], [(f64, f64); 4]),
+    tackles: ([f64; 9], [(f64, f64); 4]),
+    /// A team's tackles by rank, over a season and within one game.
+    season_ranks: String,
+    game_ranks: String,
+    /// The same inside the line, the linebackers and the backs.
+    group_ranks: String,
+    /// A team game's tackles, sacks and tackles for loss by group.
+    groups: String,
+    /// A team leader's share and count: sacks, tackles for loss, tackles.
+    leaders: String,
+}
+
+impl DefReal {
+    fn of(level: Level) -> DefReal {
+        let all: Value = serde_json::from_str(include_str!("../../../../data/real-world/defenders.json")).unwrap();
+        let (key, name, label) = if level == Level::NFL {
+            ("nfl", "real NFL 2021-24", "by listed group (3-4 edges are listed LB)")
+        } else {
+            ("fbs", "real FBS 2024-25", "by roster label (some edges are listed LB)")
+        };
+        let v = &all[key];
+        let f = |x: &Value| x.as_f64().unwrap_or(0.0);
+        let arr = |x: &Value| -> Vec<f64> { x.as_array().map(|a| a.iter().map(f).collect()).unwrap_or_default() };
+        let line = |x: &Value, d: usize| arr(x).iter().map(|y| format!("{y:.d$}")).collect::<Vec<_>>().join(" ");
+        let ladder = |k: &str| -> [f64; 9] {
+            let a = arr(&v["ladder"][k]);
+            std::array::from_fn(|i| a.get(i).copied().unwrap_or(0.0))
+        };
+        let over = |k: &str, marks: [f64; 4]| -> [(f64, f64); 4] {
+            marks.map(|m| (m, f(&v["a_year_at_or_over"][k][format!("{m:.0}").as_str()])))
+        };
+        let pg = &v["per_team_game"];
+        let (sr, gr) = (&v["tackles_by_season_ranks"], &v["tackles_by_game_ranks"]);
+        let names = ["line", "linebackers", "backs"];
+        let group_ranks = names
+            .iter()
+            .map(|g| {
+                let x = &v["by_group"][*g];
+                format!(
+                    "{g} {} ({:.2} men) | a season: {}",
+                    line(&x["game_ranks_1_8"], 2),
+                    f(&x["men_with_a_tackle"]),
+                    line(&x["season_ranks_1_6_a_team_game"], 2)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        let groups = names
+            .iter()
+            .map(|g| {
+                let a = arr(&v["by_group"][*g]["a_team_game"]);
+                format!("{g} {:.1}, {:.2}, {:.2}", a[0], a[1], a[2])
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        let lead =
+            |k: &str| format!("{:.3}, {:.1}", f(&v["team_leader"][k]["share"]), f(&v["team_leader"][k]["count"]));
+        DefReal {
+            game: format!(
+                "{name}: {:.1}, {:.1}, {:.2}, {:.2}",
+                f(&pg["tackles"]),
+                f(&pg["solo"]),
+                f(&pg["sacks"]),
+                f(&pg["tfl"])
+            ),
+            sacks: (ladder("sacks"), over("sacks", [10.0, 12.0, 15.0, 20.0])),
+            tfl: (ladder("tfl"), over("tfl", [15.0, 20.0, 25.0, 30.0])),
+            tackles: (ladder("tackles"), over("tackles", [100.0, 120.0, 130.0, 150.0])),
+            season_ranks: format!(
+                "{name}: {} | the top 11 {:.3}, 12-22 {:.3}, the rest {:.3} | men with a tackle {:.1}",
+                line(&sr["ranks_1_11"], 3),
+                f(&sr["top_11"]),
+                f(&sr["next_11"]),
+                f(&sr["rest"]),
+                f(&sr["men_with_a_tackle"])
+            ),
+            game_ranks: format!(
+                "{name}: {} | the top 11 {:.3}, 12-22 {:.3} | men with a tackle {:.1}",
+                line(&gr["ranks_1_11"], 3),
+                f(&gr["top_11"]),
+                f(&gr["next_11"]),
+                f(&gr["men_with_a_tackle"])
+            ),
+            group_ranks: format!("{name} {label}: {group_ranks}"),
+            groups: format!("{name} {label}: {groups}"),
+            leaders: format!(
+                "{name}, a team leader's share and count: sacks {}; tackles for loss {}; tackles {}",
+                lead("sacks"),
+                lead("tfl"),
+                lead("tackles")
+            ),
+        }
+    }
+}
+
+/// One defender's season for `defenders_read`.
+#[derive(Default, Clone)]
+struct DefSeason {
+    games: u32,
+    snaps: u32,
+    rush: u32,
+    wins: u32,
+    pressures: u32,
+    sacks: f64,
+    tfl: f64,
+    solo: u32,
+    assists: u32,
+    missed: u32,
+}
+
+impl DefSeason {
+    fn tackles(&self) -> f64 {
+        (self.solo + self.assists) as f64
+    }
+}
+
+/// AFM_DEFENDERS=<games>: the defenders' season lines when each team's
+/// games are read as seasons of that many, in order (realism audit item 3,
+/// freak defenders): the nth best sack, tackle-for-loss and tackle seasons
+/// a year and the counts over the marks, against real FBS 2024-25 (ESPN
+/// boxes, every game an FBS team played) or the NFL 2021-24 (`DefReal`,
+/// `data/real-world/defenders.json`), each team leader's share of his team's count,
+/// the top seasons' men with their rush lines, and the line rushers' rush
+/// lines by how far their overall stands over the league's typical blocker.
+/// The same rosters play every season, so a year's leaders are the same few
+/// men: read the rungs and the counts, and the top men's lines for why.
+fn defenders_read(
+    results: &[afm_engine::game::GameResult],
+    teams: &[afm_engine::game::GameTeam],
+    pairs: &[(usize, usize)],
+    len: usize,
+    level: Level,
+) {
+    use afm_engine::positions::{Position as P, overall_for};
+    use std::collections::HashMap;
+    let who: HashMap<u32, (usize, &afm_engine::game::GamePlayer)> =
+        teams.iter().enumerate().flat_map(|(ti, t)| t.players.iter().map(move |p| (p.id, (ti, p)))).collect();
+    // Each team's games this season, its seasons done and its lines.
+    type Lines = HashMap<u32, DefSeason>;
+    let mut cur: HashMap<usize, (usize, usize, Lines, u32)> = HashMap::new();
+    // (year, team, lines, the team's defense snaps)
+    let mut done: Vec<(usize, usize, Lines, u32)> = Vec::new();
+    for (g, r) in results.iter().enumerate() {
+        let (h, a) = pairs[g];
+        for (k, ti) in [h, a].into_iter().enumerate() {
+            let e = cur.entry(ti).or_default();
+            let mut most = 0;
+            for (id, l) in r.stats.players[k].iter() {
+                most = most.max(l.snaps_def);
+                if l.snaps_def == 0 {
+                    continue;
+                }
+                let v = e.2.entry(*id).or_default();
+                v.games += 1;
+                v.snaps += l.snaps_def;
+                v.rush += l.rush_snaps;
+                v.wins += l.rush_wins;
+                v.pressures += l.pressures;
+                v.sacks += l.sacks;
+                v.tfl += l.tfl;
+                v.solo += l.tackles;
+                v.assists += l.assists;
+                v.missed += l.missed;
+            }
+            // The team's defense snaps: nobody plays more than all of them.
+            e.3 += most;
+            e.0 += 1;
+            if e.0 == len {
+                done.push((e.1, ti, std::mem::take(&mut e.2), e.3));
+                e.0 = 0;
+                e.3 = 0;
+                e.1 += 1;
+            }
+        }
+    }
+    let years = done.iter().map(|d| d.0 + 1).max().unwrap_or(0);
+    let full: Vec<usize> = (0..years).filter(|&y| done.iter().filter(|d| d.0 == y).count() == teams.len()).collect();
+    if full.is_empty() {
+        println!("defenders: no full season of {len} games (play more games)");
+        return;
+    }
+    let ny = full.len() as f64;
+    let tg = ny * teams.len() as f64 * len as f64;
+    let all =
+        |y: usize| done.iter().filter(move |d| d.0 == y).flat_map(|d| d.2.iter().map(move |(id, v)| (*id, d.1, v)));
+    let sum = |f: &dyn Fn(&DefSeason) -> f64| full.iter().map(|&y| all(y).map(|x| f(x.2)).sum::<f64>()).sum::<f64>();
+    let real = DefReal::of(level);
+    println!(
+        "defenders, seasons of {len} games: {} years of {} teams | per team game: tackles {:.2} (solo {:.2}), sacks {:.2}, tackles for loss {:.2} ({})",
+        full.len(),
+        teams.len(),
+        sum(&|v| v.tackles()) / tg,
+        sum(&|v| v.solo as f64) / tg,
+        sum(&|v| v.sacks) / tg,
+        sum(&|v| v.tfl) / tg,
+        real.game,
+    );
+    let ranks = [1usize, 2, 3, 5, 10, 25, 50, 100, 200];
+    type Stat = (&'static str, fn(&DefSeason) -> f64, [f64; 9], [(f64, f64); 4]);
+    let stats: [Stat; 3] = [
+        ("sacks", |v| v.sacks, real.sacks.0, real.sacks.1),
+        ("tackles for loss", |v| v.tfl, real.tfl.0, real.tfl.1),
+        ("tackles", |v| v.tackles(), real.tackles.0, real.tackles.1),
+    ];
+    for (name, f, real_ranks, real_over) in stats {
+        // The nth best a year, averaged over the years.
+        let mut rung = [0.0f64; 9];
+        let mut over = [0.0f64; 4];
+        let (mut best, mut share, mut lead, mut shares) = (0.0f64, 0.0f64, 0.0f64, Vec::new());
+        for &y in &full {
+            let mut v: Vec<f64> = all(y).map(|x| f(x.2)).collect();
+            v.sort_by(|a, b| b.total_cmp(a));
+            for (k, &n) in ranks.iter().enumerate() {
+                rung[k] += v.get(n - 1).copied().unwrap_or(0.0) / ny;
+            }
+            for (k, &(t, _)) in real_over.iter().enumerate() {
+                over[k] += v.iter().filter(|&&x| x >= t).count() as f64 / ny;
+            }
+            best = best.max(v.first().copied().unwrap_or(0.0));
+            // Each team's leader and his share of the team's count.
+            for d in done.iter().filter(|d| d.0 == y) {
+                let tot: f64 = d.2.values().map(f).sum();
+                let top = d.2.values().map(f).fold(0.0, f64::max);
+                if tot > 0.0 {
+                    share += top / tot;
+                    lead += top;
+                    shares.push(top / tot);
+                }
+            }
+        }
+        shares.sort_by(|a, b| a.total_cmp(b));
+        let n = shares.len().max(1) as f64;
+        let line = |v: &[f64]| v.iter().map(|x| format!("{x:.1}")).collect::<Vec<_>>().join(" ");
+        println!(
+            "{name}: the nth best a year (1 2 3 5 10 25 50 100 200): {} | real {}",
+            line(&rung),
+            line(&real_ranks)
+        );
+        println!(
+            "{name}: a year at or over {} | real {} | the best season {best:.1} | a team leader's share {:.3}, the 90th percentile {:.3}, the most {:.3}; his count {:.1}",
+            real_over.iter().zip(&over).map(|(r, o)| format!("{:.0}: {o:.1}", r.0)).collect::<Vec<_>>().join(", "),
+            real_over.iter().map(|r| format!("{:.1}", r.1)).collect::<Vec<_>>().join(", "),
+            share / n,
+            shares.get(((shares.len().max(1) - 1) as f64 * 0.9).round() as usize).copied().unwrap_or(0.0),
+            shares.last().copied().unwrap_or(0.0),
+            lead / n,
+        );
+    }
+    println!("  {}", real.leaders);
+    // The league's typical blocker and rusher, to place a man's overall.
+    let mean_ovr = |ps: &[P]| {
+        let v: Vec<f64> = teams
+            .iter()
+            .flat_map(|t| {
+                let d = afm_engine::game::roster::depth_chart(t, 99.0);
+                ps.iter()
+                    .flat_map(|&p| {
+                        d.list(p)
+                            .iter()
+                            .take(afm_engine::game::roster::starters(p))
+                            .map(|&i| overall_for(p, &t.players[i].attrs))
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        v.iter().sum::<f64>() / v.len().max(1) as f64
+    };
+    let blockers = mean_ovr(&[P::OT, P::IOL]);
+    println!(
+        "starters' overall at {level:?}: blockers {blockers:.1}, edges {:.1}, tackles {:.1}, linebackers {:.1}",
+        mean_ovr(&[P::EDGE]),
+        mean_ovr(&[P::DT]),
+        mean_ovr(&[P::LB])
+    );
+    // Each man's seasons pooled (the same man every year): the top by sacks
+    // and by tackles a season, with their rush lines.
+    let mut men: HashMap<u32, (usize, DefSeason, u32)> = HashMap::new();
+    for d in done.iter().filter(|d| full.contains(&d.0)) {
+        for (id, v) in d.2.iter() {
+            let e = men.entry(*id).or_insert((d.1, DefSeason::default(), 0));
+            e.1.games += v.games;
+            e.1.snaps += v.snaps;
+            e.1.rush += v.rush;
+            e.1.wins += v.wins;
+            e.1.pressures += v.pressures;
+            e.1.sacks += v.sacks;
+            e.1.tfl += v.tfl;
+            e.1.solo += v.solo;
+            e.1.assists += v.assists;
+            e.1.missed += v.missed;
+            e.2 += d.3;
+        }
+    }
+    let row = |id: u32, ti: usize, v: &DefSeason, team: u32| {
+        let Some(&(_, p)) = who.get(&id) else { return String::new() };
+        let ovr = overall_for(p.position, &p.attrs);
+        let r = v.rush.max(1) as f64;
+        format!(
+            "  {:<22} {:?} {:.0} in {:.0} lb ovr {ovr:.1} ({:+.1} on blockers) | a season: sacks {:.1}, TFL {:.1}, tackles {:.1} | snap share {:.2}, rushes a game {:.1}, wins {:.3}, pressures {:.3}, sacks a 100 rushes {:.2}",
+            teams[ti].name,
+            p.position,
+            p.height,
+            p.weight,
+            ovr - blockers,
+            v.sacks / ny,
+            v.tfl / ny,
+            v.tackles() / ny,
+            v.snaps as f64 / team.max(1) as f64,
+            v.rush as f64 / v.games.max(1) as f64,
+            v.wins as f64 / r,
+            v.pressures as f64 / r,
+            100.0 * v.sacks / r,
+        )
+    };
+    let mut by: Vec<(&u32, &(usize, DefSeason, u32))> = men.iter().collect();
+    by.sort_by(|a, b| b.1.1.sacks.total_cmp(&a.1.1.sacks));
+    println!("the top 15 by sacks a season:");
+    for (id, (ti, v, team)) in by.iter().take(15) {
+        println!("{}", row(**id, *ti, v, *team));
+    }
+    by.sort_by(|a, b| b.1.1.tackles().total_cmp(&a.1.1.tackles()));
+    println!("the top 10 by tackles a season:");
+    for (id, (ti, v, team)) in by.iter().take(10) {
+        println!("{}", row(**id, *ti, v, *team));
+    }
+    by.sort_by(|a, b| b.1.1.tfl.total_cmp(&a.1.1.tfl));
+    println!("the top 10 by tackles for loss a season:");
+    for (id, (ti, v, team)) in by.iter().take(10) {
+        println!("{}", row(**id, *ti, v, *team));
+    }
+    // The line rushers' rush by overall over the typical blocker: how the
+    // rush pays as a man stands further over the men who block him.
+    for (name, pos) in [("edges", P::EDGE), ("tackles", P::DT)] {
+        println!("{name} with 100+ rushes a season, by overall over the league's typical blocker:");
+        println!("  over      men  rushes/game  snap share  wins   pressures  sacks/100  sacks/season  TFL/season");
+        let edges = [-99.0, -5.0, 0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 99.0];
+        for w in edges.windows(2) {
+            let rows: Vec<&(usize, DefSeason, u32)> = men
+                .iter()
+                .filter(|(id, m)| {
+                    who.get(id).is_some_and(|x| {
+                        let o = overall_for(x.1.position, &x.1.attrs) - blockers;
+                        x.1.position == pos && o >= w[0] && o < w[1]
+                    }) && m.1.rush as f64 / ny >= 100.0
+                })
+                .map(|x| x.1)
+                .collect();
+            if rows.is_empty() {
+                continue;
+            }
+            let n = rows.len() as f64;
+            let s = |f: &dyn Fn(&DefSeason) -> f64| rows.iter().map(|m| f(&m.1)).sum::<f64>();
+            let rush = s(&|v| v.rush as f64).max(1.0);
+            println!(
+                "  {:>3.0}..{:<3.0} {:>4}  {:>10.1}  {:>10.2}  {:.3}  {:>9.3}  {:>9.2}  {:>12.1}  {:>10.1}",
+                w[0].max(-9.0),
+                w[1].min(40.0),
+                rows.len(),
+                rush / s(&|v| v.games as f64).max(1.0),
+                s(&|v| v.snaps as f64) / rows.iter().map(|m| m.2 as f64).sum::<f64>().max(1.0),
+                s(&|v| v.wins as f64) / rush,
+                s(&|v| v.pressures as f64) / rush,
+                100.0 * s(&|v| v.sacks) / rush,
+                s(&|v| v.sacks) / n / ny,
+                s(&|v| v.tfl) / n / ny,
+            );
+        }
+    }
+    // Tackles by position group: a team game's tackles and who makes them.
+    let mut groups: Vec<(&str, f64, f64, f64)> = Vec::new();
+    for (name, ps) in [("line", vec![P::EDGE, P::DT]), ("linebackers", vec![P::LB]), ("backs", vec![P::CB, P::S])] {
+        let f = |g: &dyn Fn(&DefSeason) -> f64| {
+            men.iter()
+                .filter(|(id, _)| who.get(id).is_some_and(|x| ps.contains(&x.1.position)))
+                .map(|x| g(&x.1.1))
+                .sum::<f64>()
+                / tg
+        };
+        groups.push((name, f(&|v| v.tackles()), f(&|v| v.sacks), f(&|v| v.tfl)));
+    }
+    println!(
+        "a team game by group (tackles, sacks, TFL): {} | {}",
+        groups.iter().map(|g| format!("{} {:.1}, {:.2}, {:.2}", g.0, g.1, g.2, g.3)).collect::<Vec<_>>().join("; "),
+        real.groups
+    );
+    defenders_plays(results, teams, pairs, len, blockers, &real);
+}
+
+/// One defender's snaps for `defenders_plays`.
+#[derive(Default, Clone)]
+struct DefPlays {
+    snaps: u32,
+    garbage: u32,
+    drops: u32,
+    rush: u32,
+    wins: u32,
+    press: u32,
+    sacks: f64,
+    free: u32,
+    free_sacks: f64,
+    runs: u32,
+    run_tk: u32,
+    run_tfl: f64,
+    tfl_free: f64,
+    tfl_shed: f64,
+    pass_tk: u32,
+    kick_tk: u32,
+    tk: u32,
+}
+
+/// The second part of `defenders_read`, from the play log: who rushed on
+/// each dropback and how it paid (the stat line's rush snaps count blocks,
+/// so a man blocked by two counts twice), how often nobody blocked him,
+/// each position's snap shares by depth rank, a team's tackles by rank
+/// against real, the run defense by overall, who covers kicks, the losses
+/// by their depth and how many men are in on a tackle.
+fn defenders_plays(
+    results: &[afm_engine::game::GameResult],
+    teams: &[afm_engine::game::GameTeam],
+    pairs: &[(usize, usize)],
+    len: usize,
+    blockers: f64,
+    real: &DefReal,
+) {
+    use afm_engine::game::stats::PlayType;
+    use afm_engine::positions::{Position as P, overall_for};
+    use std::collections::HashMap;
+    let who: Vec<HashMap<u32, &afm_engine::game::GamePlayer>> =
+        teams.iter().map(|t| t.players.iter().map(|p| (p.id, p)).collect()).collect();
+    let mut men: HashMap<(usize, u32), DefPlays> = HashMap::new();
+    let mut team_snaps = vec![0u32; teams.len()];
+    let mut team_games = vec![0u32; teams.len()];
+    // (dropbacks, rushers, five or more, runs)
+    let mut calls = (0u32, 0u32, 0u32, 0u32);
+    // Men in on a tackle on a scrimmage play: one, two, three or more.
+    let mut in_on = [0u32; 3];
+    // Losses with a tackler that aren't sacks: [runs, catches][under half a
+    // yard, half a yard or more], and by the first tackler's group.
+    let mut losses = [[0u32; 2]; 2];
+    let mut loss_grp = [[0u32; 2]; 3];
+    // A team season's tackles by man (everyone, the offense's too).
+    let mut season: HashMap<usize, (usize, HashMap<u32, f64>)> = HashMap::new();
+    let mut seasons: Vec<Vec<f64>> = Vec::new();
+    // A team game's tackles by rank: the shares' sums, the men with one, the games.
+    let mut in_game = ([0.0f64; 23], 0.0f64, 0.0f64);
+    // A team game's tackles by rank inside the group (line, linebackers,
+    // backs): the counts' sums and the men with one; and a team season's.
+    let mut grp_game = [([0.0f64; 8], 0.0f64); 3];
+    let mut grp_season: HashMap<usize, HashMap<u32, f64>> = HashMap::new();
+    let mut grp_seasons = [([0.0f64; 8], 0.0f64); 3];
+    let group = |p: P| match p {
+        P::EDGE | P::DT => Some(0),
+        P::LB => Some(1),
+        P::CB | P::S => Some(2),
+        _ => None,
+    };
+    for (g, r) in results.iter().enumerate() {
+        let (h, a) = pairs[g];
+        let ts = [h, a];
+        for (k, &ti) in ts.iter().enumerate() {
+            team_games[ti] += 1;
+            let e = season.entry(ti).or_default();
+            let mut game: Vec<f64> = Vec::new();
+            for (id, l) in r.stats.players[k].iter() {
+                let t = (l.tackles + l.assists) as f64;
+                if t > 0.0 {
+                    *e.1.entry(*id).or_default() += t;
+                    game.push(t);
+                }
+            }
+            let mut by_group: [Vec<f64>; 3] = Default::default();
+            let gs = grp_season.entry(ti).or_default();
+            for (id, l) in r.stats.players[k].iter() {
+                let t = (l.tackles + l.assists) as f64;
+                if t > 0.0
+                    && let Some(q) = who[ti].get(id).and_then(|p| group(p.position))
+                {
+                    by_group[q].push(t);
+                    *gs.entry(*id).or_default() += t;
+                }
+            }
+            for (q, v) in by_group.iter_mut().enumerate() {
+                v.sort_by(|a, b| b.total_cmp(a));
+                for (k, t) in v.iter().take(8).enumerate() {
+                    grp_game[q].0[k] += t;
+                }
+                grp_game[q].1 += v.len() as f64;
+            }
+            game.sort_by(|a, b| b.total_cmp(a));
+            let all: f64 = game.iter().sum();
+            if all > 0.0 {
+                for (k, t) in game.iter().enumerate() {
+                    in_game.0[k.min(22)] += t / all;
+                }
+                in_game.1 += game.len() as f64;
+                in_game.2 += 1.0;
+            }
+            e.0 += 1;
+            if e.0 == len {
+                let mut v: Vec<f64> = e.1.values().copied().collect();
+                v.sort_by(|a, b| b.total_cmp(a));
+                seasons.push(v);
+                e.0 = 0;
+                e.1.clear();
+                let gs = grp_season.entry(ti).or_default();
+                for (q, out) in grp_seasons.iter_mut().enumerate() {
+                    let mut v: Vec<f64> = gs
+                        .iter()
+                        .filter(|(id, _)| who[ti].get(id).and_then(|p| group(p.position)) == Some(q))
+                        .map(|x| *x.1)
+                        .collect();
+                    v.sort_by(|a, b| b.total_cmp(a));
+                    for (k, t) in v.iter().take(8).enumerate() {
+                        out.0[k] += t / len as f64;
+                    }
+                    out.1 += 1.0;
+                }
+                gs.clear();
+            }
+        }
+        for p in r.stats.plays.iter().filter(|p| !p.nullified) {
+            let scrimmage = matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+            let kick = matches!(p.kind, PlayType::Punt | PlayType::Kickoff);
+            let d = 1 - p.offense;
+            // Tackles: whoever made them, on his own team.
+            let n = p.tacklers.len();
+            for &id in &p.tacklers {
+                let Some(ti) = ts.iter().copied().find(|&t| who[t].contains_key(&id)) else { continue };
+                let m = men.entry((ti, id)).or_default();
+                m.tk += 1;
+                if kick {
+                    m.kick_tk += 1;
+                }
+            }
+            if !scrimmage {
+                continue;
+            }
+            if n > 0 {
+                in_on[(n - 1).min(2)] += 1;
+            }
+            let ti = ts[d];
+            team_snaps[ti] += 1;
+            if n > 0 && p.kind != PlayType::Sack && p.yards < 0.0 {
+                let deep = (p.yards <= -0.5) as usize;
+                losses[(p.kind != PlayType::Run) as usize][deep] += 1;
+                if let Some(q) = p.tacklers.first().and_then(|id| who[ti].get(id)).and_then(|x| group(x.position)) {
+                    loss_grp[q][deep] += 1;
+                }
+            }
+            let drop = p.kind != PlayType::Run;
+            if drop {
+                calls.0 += 1;
+                calls.1 += p.rushed.count_ones();
+                calls.2 += (p.rushed.count_ones() >= 5) as u32;
+            } else {
+                calls.3 += 1;
+            }
+            let share = if p.sackers.len() > 1 { 0.5 } else { 1.0 };
+            for (k, &id) in p.on_field[1].iter().enumerate() {
+                let m = men.entry((ti, id)).or_default();
+                m.snaps += 1;
+                m.garbage += (p.garbage[d] > 0) as u32;
+                let on_him = p.blocks.iter().filter(|b| b.1 == id && b.2 == drop).count();
+                let shed = p.blocks.iter().any(|b| b.1 == id && b.2 == drop && !b.3);
+                if drop {
+                    m.drops += 1;
+                    if p.rushed >> k & 1 == 1 {
+                        m.rush += 1;
+                        let win = p.blocks.iter().any(|b| b.1 == id && b.2 && !b.3 && b.4 < 2.5);
+                        let sack = if p.sackers.iter().take(2).any(|&s| s == id) { share } else { 0.0 };
+                        m.wins += win as u32;
+                        m.press += p.pressures.contains(&id) as u32;
+                        m.sacks += sack;
+                        m.free += (on_him == 0) as u32;
+                        if on_him == 0 {
+                            m.free_sacks += sack;
+                        }
+                    }
+                    if p.kind == PlayType::Pass && p.complete && p.tacklers.contains(&id) {
+                        m.pass_tk += 1;
+                    }
+                } else {
+                    m.runs += 1;
+                    if p.tacklers.contains(&id) {
+                        m.run_tk += 1;
+                        if p.lost() {
+                            let c = if n > 1 { 0.5 } else { 1.0 };
+                            m.run_tfl += c;
+                            if on_him == 0 {
+                                m.tfl_free += c;
+                            } else if shed {
+                                m.tfl_shed += c;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let tg: f64 = team_games.iter().sum::<u32>() as f64;
+    let snaps: f64 = team_snaps.iter().sum::<u32>() as f64;
+    let tot = (in_on[0] + in_on[1] + in_on[2]).max(1) as f64;
+    println!(
+        "the play log: defense snaps a team game {:.1} | dropbacks {:.1} with {:.2} rushers, five or more on {:.3} | runs {:.1} | men in on a tackle: one {:.3}, two {:.3}, three or more {:.3}",
+        snaps / tg,
+        calls.0 as f64 / tg,
+        calls.1 as f64 / calls.0.max(1) as f64,
+        calls.2 as f64 / calls.0.max(1) as f64,
+        calls.3 as f64 / tg,
+        in_on[0] as f64 / tot,
+        in_on[1] as f64 / tot,
+        in_on[2] as f64 / tot,
+    );
+    println!(
+        "losses that aren't sacks a team game: runs {:.2} (half a yard or more {:.2}), catches and scrambles {:.2} ({:.2}) | by the first tackler, all and half a yard or more: line {:.2} {:.2}, linebackers {:.2} {:.2}, backs {:.2} {:.2}",
+        (losses[0][0] + losses[0][1]) as f64 / tg,
+        losses[0][1] as f64 / tg,
+        (losses[1][0] + losses[1][1]) as f64 / tg,
+        losses[1][1] as f64 / tg,
+        (loss_grp[0][0] + loss_grp[0][1]) as f64 / tg,
+        loss_grp[0][1] as f64 / tg,
+        (loss_grp[1][0] + loss_grp[1][1]) as f64 / tg,
+        loss_grp[1][1] as f64 / tg,
+        (loss_grp[2][0] + loss_grp[2][1]) as f64 / tg,
+        loss_grp[2][1] as f64 / tg,
+    );
+    // A team season's tackles by rank.
+    if !seasons.is_empty() {
+        let n = seasons.len() as f64;
+        let share = |lo: usize, hi: usize| {
+            seasons
+                .iter()
+                .map(|v| {
+                    let t: f64 = v.iter().sum();
+                    v.iter().skip(lo).take(hi - lo).sum::<f64>() / t.max(1.0)
+                })
+                .sum::<f64>()
+                / n
+        };
+        println!(
+            "a team season's tackles by rank 1-11: {} | the top 11 {:.3}, 12-22 {:.3}, the rest {:.3} | men with a tackle {:.1}",
+            (0..11).map(|k| format!("{:.3}", share(k, k + 1))).collect::<Vec<_>>().join(" "),
+            share(0, 11),
+            share(11, 22),
+            share(22, 999),
+            seasons.iter().map(|v| v.len() as f64).sum::<f64>() / n,
+        );
+        println!("  {}", real.season_ranks);
+    }
+    if in_game.2 > 0.0 {
+        let g = in_game.2;
+        println!(
+            "a team game's tackles by rank 1-11: {} | the top 11 {:.3}, 12-22 {:.3} | men with a tackle {:.1}",
+            (0..11).map(|k| format!("{:.3}", in_game.0[k] / g)).collect::<Vec<_>>().join(" "),
+            in_game.0[..11].iter().sum::<f64>() / g,
+            in_game.0[11..22].iter().sum::<f64>() / g,
+            in_game.1 / g,
+        );
+        println!("  {}", real.game_ranks);
+    }
+    // By rank inside the group.
+    println!(
+        "a team game's tackles by rank inside the group (and the men with one), then a season's by rank a team game:"
+    );
+    for (q, name) in ["line", "linebackers", "backs"].iter().enumerate() {
+        let g = in_game.2.max(1.0);
+        let n = grp_seasons[q].1.max(1.0);
+        println!(
+            "  {:<11} {} ({:.2} men) | a season: {}",
+            name,
+            grp_game[q].0.iter().map(|t| format!("{:.2}", t / g)).collect::<Vec<_>>().join(" "),
+            grp_game[q].1 / g,
+            grp_seasons[q].0.iter().take(6).map(|t| format!("{:.2}", t / n)).collect::<Vec<_>>().join(" "),
+        );
+    }
+    println!("  {}", real.group_ranks);
+    // Snap shares by depth rank: each team's men at a position by snaps.
+    let pos_of = |ti: usize, id: u32| who[ti].get(&id).map(|p| p.position);
+    println!("snap shares of the team's defense snaps by rank at the position (and in garbage time):");
+    for pos in [P::EDGE, P::DT, P::LB, P::CB, P::S] {
+        let mut by = [0.0f64; 7];
+        let (mut garb, mut all) = (0.0, 0.0);
+        for (ti, &team) in team_snaps.iter().enumerate().take(teams.len()) {
+            let mut v: Vec<&DefPlays> =
+                men.iter().filter(|(k, _)| k.0 == ti && pos_of(ti, k.1) == Some(pos)).map(|x| x.1).collect();
+            v.sort_by_key(|m| std::cmp::Reverse(m.snaps));
+            for (k, m) in v.iter().take(7).enumerate() {
+                by[k] += m.snaps as f64 / team.max(1) as f64 / teams.len() as f64;
+            }
+            garb += v.iter().map(|m| m.garbage as f64).sum::<f64>();
+            all += v.iter().map(|m| m.snaps as f64).sum::<f64>();
+        }
+        println!(
+            "  {:<5} {} | on the field a snap {:.2}, in garbage time {:.3}",
+            format!("{pos:?}"),
+            by.iter().map(|x| format!("{x:.2}")).collect::<Vec<_>>().join(" "),
+            all / snaps,
+            garb / all.max(1.0),
+        );
+    }
+    // True rushes by position and overall over the typical blocker.
+    let ovr = |ti: usize, id: u32| who[ti].get(&id).map(|p| overall_for(p.position, &p.attrs));
+    println!("true rushes (a dropback he rushed on), by overall over the league's typical blocker:");
+    println!(
+        "  pos   over       men  rushes/game  of his dropbacks  wins   pressures  sacks/100  free   sacks a season | sacks/100: blocked, free"
+    );
+    let edges = [-99.0, -5.0, 0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 99.0];
+    for pos in [P::EDGE, P::DT, P::LB, P::CB, P::S] {
+        let bins: Vec<[f64; 2]> = if matches!(pos, P::EDGE | P::DT) {
+            edges.windows(2).map(|w| [w[0], w[1]]).collect()
+        } else {
+            vec![[-99.0, 99.0]]
+        };
+        for w in bins {
+            let rows: Vec<(&(usize, u32), &DefPlays)> = men
+                .iter()
+                .filter(|(k, m)| {
+                    pos_of(k.0, k.1) == Some(pos)
+                        && ovr(k.0, k.1).is_some_and(|o| o - blockers >= w[0] && o - blockers < w[1])
+                        && m.rush > 0
+                        && (m.rush as f64 / team_games[k.0].max(1) as f64 >= 5.0 || !matches!(pos, P::EDGE | P::DT))
+                })
+                .collect();
+            if rows.is_empty() {
+                continue;
+            }
+            let s = |f: &dyn Fn(&DefPlays) -> f64| rows.iter().map(|x| f(x.1)).sum::<f64>();
+            let rush = s(&|m| m.rush as f64).max(1.0);
+            let games: f64 = rows.iter().map(|x| team_games[x.0.0] as f64).sum::<f64>().max(1.0);
+            let free = s(&|m| m.free as f64);
+            let blocked = (rush - free).max(1.0);
+            println!(
+                "  {:<5} {:>3.0}..{:<3.0} {:>5}  {:>10.2}  {:>15.3}  {:.3}  {:>9.3}  {:>9.2}  {:.3}  {:>14.1} | {:.2}, {:.2}",
+                format!("{pos:?}"),
+                w[0].max(-9.0),
+                w[1].min(40.0),
+                rows.len(),
+                rush / games,
+                rush / s(&|m| m.drops as f64).max(1.0),
+                s(&|m| m.wins as f64) / rush,
+                s(&|m| m.press as f64) / rush,
+                100.0 * s(&|m| m.sacks) / rush,
+                free / rush,
+                len as f64 * s(&|m| m.sacks) / games,
+                100.0 * (s(&|m| m.sacks) - s(&|m| m.free_sacks)) / blocked,
+                100.0 * s(&|m| m.free_sacks) / free.max(1.0),
+            );
+        }
+    }
+    // The run defense by overall over the typical starter at his position.
+    println!(
+        "the run defense, by overall over the league's typical starter at his position (men with 10+ run snaps a game):"
+    );
+    println!(
+        "  pos   over       men  run snaps/game  tackles/100  TFL/100  of TFLs: unblocked, off a block won  | tackles a season: runs, catches, kicks, all | TFL a season on runs"
+    );
+    let cuts = [-99.0, -10.0, -5.0, 0.0, 5.0, 10.0, 15.0, 99.0];
+    for pos in [P::EDGE, P::DT, P::LB, P::S, P::CB] {
+        let start: Vec<f64> = teams
+            .iter()
+            .flat_map(|t| {
+                let d = afm_engine::game::roster::depth_chart(t, 99.0);
+                d.list(pos)
+                    .iter()
+                    .take(afm_engine::game::roster::starters(pos))
+                    .map(|&i| overall_for(pos, &t.players[i].attrs))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let typical = start.iter().sum::<f64>() / start.len().max(1) as f64;
+        for w in cuts.windows(2) {
+            let rows: Vec<(&(usize, u32), &DefPlays)> = men
+                .iter()
+                .filter(|(k, m)| {
+                    pos_of(k.0, k.1) == Some(pos)
+                        && ovr(k.0, k.1).is_some_and(|o| o - typical >= w[0] && o - typical < w[1])
+                        && m.runs as f64 / team_games[k.0].max(1) as f64 >= 10.0
+                })
+                .collect();
+            if rows.is_empty() {
+                continue;
+            }
+            let s = |f: &dyn Fn(&DefPlays) -> f64| rows.iter().map(|x| f(x.1)).sum::<f64>();
+            let runs = s(&|m| m.runs as f64).max(1.0);
+            let games: f64 = rows.iter().map(|x| team_games[x.0.0] as f64).sum::<f64>().max(1.0);
+            let tfl = s(&|m| m.run_tfl).max(1e-9);
+            println!(
+                "  {:<5} {:>3.0}..{:<3.0} {:>5}  {:>13.1}  {:>11.2}  {:>7.2}  {:>8.3}, {:.3}  | {:.1}, {:.1}, {:.1}, {:.1} | {:.1}",
+                format!("{pos:?}"),
+                w[0].max(-15.0),
+                w[1].min(25.0),
+                rows.len(),
+                runs / games,
+                100.0 * s(&|m| m.run_tk as f64) / runs,
+                100.0 * s(&|m| m.run_tfl) / runs,
+                s(&|m| m.tfl_free) / tfl,
+                s(&|m| m.tfl_shed) / tfl,
+                len as f64 * s(&|m| m.run_tk as f64) / games,
+                len as f64 * s(&|m| m.pass_tk as f64) / games,
+                len as f64 * s(&|m| m.kick_tk as f64) / games,
+                len as f64 * s(&|m| m.tk as f64) / games,
+                len as f64 * s(&|m| m.run_tfl) / games,
+            );
+        }
+    }
+    // The top sack men again on true rushes.
+    let mut by: Vec<(&(usize, u32), &DefPlays)> = men.iter().collect();
+    by.sort_by(|a, b| {
+        (b.1.sacks / team_games[b.0.0].max(1) as f64).total_cmp(&(a.1.sacks / team_games[a.0.0].max(1) as f64))
+    });
+    // Who covers kicks: tackles on kickoffs and punts a team game by position,
+    // and the share made by men who play half their side's scrimmage snaps.
+    {
+        let mut by: std::collections::BTreeMap<String, (f64, f64)> = Default::default();
+        let (mut all, mut st) = (0.0, 0.0);
+        for (k, m) in men.iter().filter(|x| x.1.kick_tk > 0) {
+            let Some(p) = who[k.0].get(&k.1) else { continue };
+            let starter = m.snaps as f64 >= 0.5 * team_snaps[k.0] as f64;
+            let e = by.entry(format!("{:?}", p.position)).or_default();
+            e.0 += m.kick_tk as f64;
+            all += m.kick_tk as f64;
+            if starter {
+                e.1 += m.kick_tk as f64;
+                st += m.kick_tk as f64;
+            }
+        }
+        println!(
+            "tackles on kicks a team game {:.2}, by starters on defense {:.3} | by position (and its starters' part): {}",
+            all / tg,
+            st / all.max(1.0),
+            by.iter().map(|(k, v)| format!("{k} {:.2} ({:.2})", v.0 / tg, v.1 / tg)).collect::<Vec<_>>().join(", "),
+        );
+    }
+    println!("the top 12 by sacks, on true rushes:");
+    for (k, m) in by.iter().take(12) {
+        let Some(p) = who[k.0].get(&k.1) else { continue };
+        let g = team_games[k.0].max(1) as f64;
+        let rush = m.rush.max(1) as f64;
+        println!(
+            "  {:<22} {:?} ovr {:.1} ({:+.1}) | sacks a season {:.1} | snap share {:.2} | rushes a game {:.1} of {:.1} dropbacks on | wins {:.3}, pressures {:.3}, sacks/100 {:.2} | free {:.3} | run TFL a season {:.1} (unblocked {:.2}, off a block won {:.2}) on {:.1} run snaps a game",
+            teams[k.0].name,
+            p.position,
+            overall_for(p.position, &p.attrs),
+            overall_for(p.position, &p.attrs) - blockers,
+            len as f64 * m.sacks / g,
+            m.snaps as f64 / team_snaps[k.0].max(1) as f64,
+            m.rush as f64 / g,
+            m.drops as f64 / g,
+            m.wins as f64 / rush,
+            m.press as f64 / rush,
+            100.0 * m.sacks / rush,
+            m.free as f64 / rush,
+            len as f64 * m.run_tfl / g,
+            m.tfl_free / m.run_tfl.max(1e-9),
+            m.tfl_shed / m.run_tfl.max(1e-9),
+            m.runs as f64 / g,
         );
     }
 }

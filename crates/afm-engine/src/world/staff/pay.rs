@@ -4,8 +4,9 @@
 //!
 //! - The job's line (`salary`) is now only what that employer usually pays
 //!   for the job: its budget line.
-//! - What it can pay at most (`cap`) comes from its money: a share of a
-//!   college's athletic budget, an NFL owner's line stretched.
+//! - What it can pay at most (`cap`) is its line stretched: a college's
+//!   line reads what its department earns (realism audit item 9 on the
+//!   seed 321 world), an NFL owner's line his money.
 //! - His market read (`refresh`, `read`) is what the market says he is
 //!   worth on his rung: the men of one level and rung ranked by how hot
 //!   they are, the jobs ranked by their lines, the k-th hottest man worth
@@ -19,15 +20,18 @@
 //!
 //! Every size here is proposed, not confirmed.
 
-use super::{athletic_budget, hotness, salary};
+use super::{hotness, salary};
 use crate::world::World;
 use crate::world::coach::{Contract, Employer, Role};
 use crate::world::data::Division;
 
-/// A college can pay one man at most this share of its athletic budget a
-/// year: about Kirby Smart's $13.3M (2024) on Georgia's budget for a head
-/// coach, the best coordinators' $3M, the best position coaches' $1M+.
-const CAP_SHARE: [f64; 3] = [0.07, 0.016, 0.006];
+/// A college stretches its line this far for one man, by rung (head coach,
+/// coordinator, position coach): Kirby Smart's $13.3M (2024) against the
+/// SEC's $7.5M average and a MAC school's top $1.26M against its $0.85M
+/// (USA Today), the best coordinators' $3M, the best position coaches'
+/// $1M+. Before realism audit item 9 it was a share of a budget read by
+/// prestige (7%, 1.6%, 0.6%), so a Group of 5 school could pay $4-6M.
+const COLLEGE_STRETCH: [f64; 3] = [1.4, 1.5, 1.5];
 /// An NFL owner stretches his line this far for the man he wants (Andy
 /// Reid, reported over $20M).
 const NFL_STRETCH: f64 = 1.6;
@@ -79,7 +83,7 @@ pub(crate) fn cap(w: &World, e: Employer, role: Role) -> f64 {
         Role::PositionCoach(_) => 2,
     };
     match e {
-        Employer::College(p) => (CAP_SHARE[rung] * athletic_budget(&w.programs[p])).max(line * 1.1),
+        Employer::College(_) => line * COLLEGE_STRETCH[rung],
         Employer::Nfl(_) => line * NFL_STRETCH,
         _ => line,
     }

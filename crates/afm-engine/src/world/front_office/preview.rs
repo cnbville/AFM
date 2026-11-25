@@ -128,8 +128,8 @@ fn recruiting_reads(w: &World) -> Vec<Rated> {
             });
         }
     }
-    if let Some(k) = w.career.as_ref() {
-        let r = k.you.recruiting.round() as u8;
+    if let Some(a) = w.your_ability() {
+        let r = a.recruiting.round() as u8;
         v.push(Rated { name: "You · Recruiting".to_string(), lo: r, hi: r, yours: true });
     }
     v

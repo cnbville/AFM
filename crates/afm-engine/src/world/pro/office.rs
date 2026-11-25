@@ -237,6 +237,73 @@ pub(crate) fn replace_gm(w: &mut World, t: usize, why: &str) {
     );
 }
 
+/// How much of last year's trust in the GM an owner carries into this
+/// season's read, the rest falling back to neutral (realism audit item 12;
+/// proposed, not confirmed): good years bank credit that wears off.
+pub(crate) const TRUST_FADE: f64 = 0.6;
+const TRUST_NEUTRAL: f64 = 0.5;
+/// Trust an owner loses in his GM for each head coach the GM hired that the
+/// owner fired this season: the GM picked the wrong man (proposed, not
+/// confirmed).
+pub(crate) const HIRE_FIRED: f64 = 0.2;
+/// The owner starts to move on from his GM below this trust, at
+/// `GM_FIRE_RATE` per point of trust under it (proposed, not confirmed).
+pub(crate) const GM_BAR: f64 = 0.45;
+const GM_FIRE_RATE: f64 = 3.0;
+
+/// The owner's call on his GM, on Black Monday after the coaches' firings
+/// (realism audit item 12): a GM whose own head coach was just fired loses
+/// trust for the hire, then a GM under the bar is fired with odds by how far
+/// under, the owner's patience and his time in the job (none in his first
+/// two seasons). A fired GM whose club also fired its head coach goes in the
+/// same sweep. One in about 30 a year is hired away or retires besides.
+pub(crate) fn gm_review(w: &mut World) {
+    use crate::world::coach::{Employer, Role};
+    let year = w.year;
+    let cycle = super::super::staff::cycle_year(w);
+    let n = w.clubs.len();
+    // Head coaches fired this season (in the season or today), and which of
+    // them the club's GM hired.
+    let mut fired = vec![0u32; n];
+    let mut his = vec![0u32; n];
+    for c in &w.coaches {
+        for s in c.history.iter().rev().take_while(|s| s.to >= cycle) {
+            if let Employer::Nfl(t) = s.employer
+                && t < n
+                && s.role == Role::HeadCoach
+                && s.to == cycle
+                && s.ended.starts_with("fired")
+            {
+                fired[t] += 1;
+                if s.from >= w.clubs[t].office.gm.since {
+                    his[t] += 1;
+                }
+            }
+        }
+    }
+    for t in 0..n {
+        if !super::super::franchise::active_in(w, t, year) {
+            continue;
+        }
+        let o = &mut w.clubs[t].office;
+        o.owner.trust = clamp(o.owner.trust - HIRE_FIRED * his[t] as f64, 0.0, 1.0);
+        let tenure = year - o.gm.since;
+        let leash = match tenure {
+            ..=1 => 0.0,
+            2 => 0.3,
+            3 => 0.7,
+            _ => 1.0,
+        };
+        let p = clamp((GM_BAR - o.owner.trust) * GM_FIRE_RATE * (1.5 - o.owner.patience), 0.0, 0.95) * leash;
+        if w.rng.chance(p) {
+            let why = if fired[t] > 0 { "fired with the head coach" } else { "fired after the season" };
+            replace_gm(w, t, why);
+        } else if w.rng.chance(0.03) {
+            replace_gm(w, t, "moved on");
+        }
+    }
+}
+
 /// The fans' mood after a season (topic 7 question 1): wins against
 /// expectation, a playoff run, a title; a big market's fans and press turn
 /// faster. Kept between -1 and 1, fading toward neutral.
@@ -255,8 +322,12 @@ pub(crate) fn fan_year(w: &mut World) {
         let level = (wins / games - 0.5) * 1.2;
         let o = &mut w.clubs[t].office;
         o.fans = clamp(0.5 * o.fans + 0.3 * over + level + playoff + run, -1.0, 1.0);
-        // The owner's trust in his GM follows results and the fans.
-        o.owner.trust = clamp(o.owner.trust + 0.1 * over + 0.08 * o.fans, 0.0, 1.0);
+        // The owner's trust in his GM follows results and the fans, and
+        // what he did lately counts most (realism audit item 12): the old
+        // read fades toward neutral first, so credit from good years wears
+        // off in three or four seasons.
+        let kept = TRUST_NEUTRAL + TRUST_FADE * (o.owner.trust - TRUST_NEUTRAL);
+        o.owner.trust = clamp(kept + 0.1 * over + 0.08 * o.fans, 0.0, 1.0);
     }
 }
 

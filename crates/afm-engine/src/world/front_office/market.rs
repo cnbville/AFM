@@ -507,7 +507,7 @@ pub(crate) fn offer(w: &mut World, e: Employer, r: Role, prestige: f64) {
     }
     // What the staff says it wants from you, from the job and your ratings
     // as people around football see them (your strongest side for the job).
-    let y = &c.you;
+    let Some(y) = w.your_ability() else { return };
     why.push(match r {
         Role::HeadCoach => "they want your plan for the program".into(),
         Role::PositionCoach(g) if y.teaching[g as usize] >= 13.0 => {

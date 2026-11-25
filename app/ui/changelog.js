@@ -17,6 +17,28 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.694", date: "25 Nov", title: "Fix NFL GM tenure (realism audit item 12) and 1 more",
+    notes: [
+      "College run games now play much closer to real football. Defenders hold up against run blocks the way their size and strength say they should, so backs no longer run wild.",
+      "A defender's legs, strength, balance and first step now count when he fights off a run block, the same as they do for the man blocking him.",
+      "FBS teams gain about a third of a yard less per carry, and 2,000-yard seasons become rare again.",
+      "NFL rushing now sits at the real average.",
+      "Strong, athletic defensive linemen are worth more against the run, and pure technicians a little less.",
+      "Record books in a world you already play keep their old numbers; games from here on use the new run game.",
+    ],
+  },
+  {
+    v: "0.2.691", date: "25 Nov", title: "Let recent results and coaches drive what a recruit reads (program fortunes lane P1) and 1 more",
+    notes: [
+      "Coaching changes now reshape programs. New head coaches clean house unless your staff is good, and the hottest names are the coaches who win above their talent.",
+      "A new head coach keeps an assistant only if he judges him better than the man he could bring in.",
+      "Coaches who beat what their rosters should win top the hot lists for big jobs, even at small schools.",
+      "A title won with an underdog roster lifts a coach's standing far more than one won with the best roster.",
+      "Coordinator searches now weigh play calling, judged through the head coach's eye.",
+      "Programs now rise and fall with their coaches and results. A great recruiter wins close battles, a proven coach lifts his new school's classes, and old names fade when they stop winning.",
+    ],
+  },
+  {
     v: "0.2.687", date: "24 Nov", title: "Let a live talk raise or let go a graduate assistant, analyst or QC coach and 1 more",
     notes: [
       "When you take over a program or club, the old staff's graduate assistants, analysts and quality-control coaches now come up in the holdover meeting, so you can keep them or clear them out on day one.",

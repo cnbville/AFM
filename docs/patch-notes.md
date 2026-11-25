@@ -8,6 +8,43 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.694 (25 Nov, shipped): add the program check page to the World Reader (lane P0) (PR #638), count a defender's body off a run block as the blocker's (realism audit item 1: FBS rushing) (PR #641), fix NFL GM tenure (realism audit item 12) (PR #645)
+**TLDR:** 3 changes ship together. Add the program check page to the World Reader (lane P0) College run games now play much closer to real football. Defenders hold up against run blocks the way their size and strength say they should, so backs no longer run wild. Plus 1 more below.
+- Add the program check page to the World Reader (lane P0) (PR #638): no summary in the PR
+- Count a defender's body off a run block as the blocker's (realism audit item 1: FBS rushing) (PR #641): College run games now play much closer to real football. Defenders hold up against run blocks the way their size and strength say they should, so backs no longer run wild.
+- A defender's legs, strength, balance and first step now count when he fights off a run block, the same as they do for the man blocking him. (PR #641)
+- FBS teams gain about a third of a yard less per carry, and 2,000-yard seasons become rare again. (PR #641)
+- NFL rushing now sits at the real average. (PR #641)
+- Strong, athletic defensive linemen are worth more against the run, and pure technicians a little less. (PR #641)
+- Record books in a world you already play keep their old numbers; games from here on use the new run game. (PR #641)
+- Fix NFL GM tenure (realism audit item 12) (PR #645): NFL front offices turn over the way real ones do. A general manager whose teams keep losing, or whose coach hire flops, is now shown the door, often with the coach on the same day.
+- Owners judge their GM on the last few seasons, not his whole run. (PR #645)
+- A GM whose head coach is fired loses the owner's trust for the hire. (PR #645)
+- Clean sweeps: the coach and the GM can go together on Black Monday. (PR #645)
+- GMs get two seasons before they can be fired. (PR #645)
+- Look at: your run defense's yards allowed per carry over the next few games, and how your strongest linemen hold the point. (PR #641) the Black Monday news in your first NFL offseason. (PR #645)
+- Docs and tooling merged too, no game change: Coach ratings overhaul, version 4: use it to level it (PR #644); Measure the July 2026 NIL paid spread against the CSC (audit item 14) (PR #640); Count every in-season NFL trade in the book (realism audit item 22) (PR #643); GAPS: what program fortunes lane P1 left open (PR #646).
+
+## 0.2.691 (25 Nov, shipped): make staff hiring move programs (program fortunes lane P2) (PR #635), scheme sequencing research for section 12, and the ground rule in Cain's words (PR #633), let recent results and coaches drive what a recruit reads (program fortunes lane P1) (PR #634)
+**TLDR:** 3 changes ship together. Coaching changes now reshape programs. New head coaches clean house unless your staff is good, and the hottest names are the coaches who win above their talent. Scheme sequencing research for section 12, and the ground rule in Cain's words Plus 1 more below.
+- Make staff hiring move programs (program fortunes lane P2) (PR #635): Coaching changes now reshape programs. New head coaches clean house unless your staff is good, and the hottest names are the coaches who win above their talent.
+- A new head coach keeps an assistant only if he judges him better than the man he could bring in. (PR #635)
+- Coaches who beat what their rosters should win top the hot lists for big jobs, even at small schools. (PR #635)
+- A title won with an underdog roster lifts a coach's standing far more than one won with the best roster. (PR #635)
+- Coordinator searches now weigh play calling, judged through the head coach's eye. (PR #635)
+- Scheme sequencing research for section 12, and the ground rule in Cain's words (PR #633): no summary in the PR
+- Let recent results and coaches drive what a recruit reads (program fortunes lane P1) (PR #634): Programs now rise and fall with their coaches and results. A great recruiter wins close battles, a proven coach lifts his new school's classes, and old names fade when they stop winning.
+- A school's tradition now reflects the last twenty seasons, not just its old titles. (PR #634)
+- A new head coach brings his record with him: his old school's draft picks and his wins above his talent count in your pitch from day one. (PR #634)
+- Your coaches' recruiting ratings decide how fast they build a bond with a recruit. (PR #634)
+- Transfers remember the coaches who recruited them out of high school, and your staff's calls count in the portal. (PR #634)
+- Look at: the coaching carousel news after your first season, and who gets the big jobs. (PR #635) a school that changed coaches, and its next recruiting class. (PR #634)
+- Docs and tooling merged too, no game change: Propose earned coach ratings (your ratings overhaul) (PR #636); Coach ratings overhaul, version 2 from the code (PR #637); Coach ratings overhaul, version 3: the game loop (PR #639).
+
+## 0.2.688 (24 Nov, shipped): add the future run tool and workflow (realism audit item 25) (PR #628)
+**TLDR:** Add the future run tool and workflow (realism audit item 25)
+- Docs and tooling merged too, no game change: Add the multi-season realism audit of the seed 321 world (PR #626); Record Cain's answer on the multi-season realism audit (PR #627); Research the real NIL and revenue-share split (audit item 14) (PR #629); Design proposal: the rise and fall of programs (audit item 2) (PR #630); Record Cain's yes to all 10 program-fortunes questions (PR #631); Correct the realism audit's NIL yardstick (item 14) (PR #632).
+
 ## 0.2.687 (24 Nov, shipped): meet the holdover graduate assistants, analysts and QC coaches when you take a job (PR #623), let a live talk raise or let go a graduate assistant, analyst or QC coach (PR #624)
 **TLDR:** 2 changes ship together. When you take over a program or club, the old staff's graduate assistants, analysts and quality-control coaches now come up in the holdover meeting, so you can keep them or clear them out on day one. You can now sit down with a graduate assistant, analyst or quality-control coach and give him a raise or let him go in the talk itself.
 - Meet the holdover graduate assistants, analysts and QC coaches when you take a job (PR #623): When you take over a program or club, the old staff's graduate assistants, analysts and quality-control coaches now come up in the holdover meeting, so you can keep them or clear them out on day one.

@@ -799,7 +799,7 @@ pub fn answer_doc(w: &mut World, yes: bool) -> Result<String, String> {
 /// calm for a teacher, funny for a players' coach, emotional late in camp.
 fn your_tone(w: &World, n: u8) -> &'static str {
     let Some(c) = w.career.as_ref() else { return "calm" };
-    let y = &c.you;
+    let Some(y) = w.your_ability() else { return "calm" };
     let u = key(c.seed as u64, (w.year as u64) << 4 ^ n as u64);
     if n == 5 && u < 0.5 {
         return "emotional";

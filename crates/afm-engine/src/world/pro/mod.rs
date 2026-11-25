@@ -2423,8 +2423,8 @@ fn tell_cutdown(w: &mut World, d: Date, chosen: &[usize], squad: &[usize], cut: 
 }
 
 /// Black Monday for the front offices (topic 7): the fans' verdict on the
-/// season, the owner's trust in his GM, and a GM who lost it fired (one
-/// in about 30 a year is hired away or retires besides).
+/// season and the owner's trust in his GM. The owner's call on the GM comes
+/// after the coaches' firings (`office::gm_review`).
 pub(crate) fn black_monday(w: &mut World) {
     let year = w.year;
     // The books close on the regular season: what is left carries over.
@@ -2439,20 +2439,6 @@ pub(crate) fn black_monday(w: &mut World) {
         .map_or(Vec::new(), |s| (0..s.seed.len()).filter(|&t| s.active[t] && s.seed[t].is_none()).collect());
     let today = w.today;
     market::futures(w, today, &out);
-    for t in 0..w.clubs.len() {
-        if !super::franchise::active_in(w, t, year) {
-            continue;
-        }
-        let o = &w.clubs[t].office;
-        let tenure = year - o.gm.since;
-        let fired = o.owner.trust < 0.3 && tenure >= 2;
-        let gone = w.rng.chance(0.03);
-        if fired {
-            office::replace_gm(w, t, "fired after the season");
-        } else if gone {
-            office::replace_gm(w, t, "moved on");
-        }
-    }
 }
 
 /// A week of the season for the lists: weeks on reserve and on the

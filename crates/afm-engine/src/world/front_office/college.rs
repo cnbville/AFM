@@ -954,7 +954,7 @@ pub(crate) fn after_payouts(w: &mut World, short: &[(u32, f64, f64)], held: (usi
             let p = &mut w.people[i];
             let age = p.row_age();
             p.note(format!(
-                "At {age} his NIL deal ({}) fell well short of what players in his role were paid; he took it badly.",
+                "At {age} his NIL deal ({}) fell well short of what players like him were paid; he took it badly.",
                 dollars(money)
             ));
             let _ = fair;
@@ -1420,9 +1420,9 @@ fn reminders(w: &mut World, j: usize, d: Date) {
             }
             if low > 0 {
                 parts.push(if low == 1 {
-                    "1 player is under half the going rate for his role".into()
+                    "1 player is under half his going rate".into()
                 } else {
-                    format!("{low} players are under half the going rate for their role")
+                    format!("{low} players are under half their going rate")
                 });
             }
             tell(
@@ -2795,7 +2795,10 @@ fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64
         0.0
     };
     let money = (year_money - waiting - to_come).max(0.0);
-    let rows = rec::roster_split(w, j, &roster, money, s, two, &medians, |_, i| {
+    let bars = crate::world::nil_bid::share_bars(w);
+    // The depth chart the split pays on (`rec::market_read`).
+    let chart = if two { crate::world::season::program_chart(w, prog, &w.seat_order()) } else { Vec::new() };
+    let rows = rec::roster_split(w, j, &roster, money, s, two, &medians, &bars, year, &chart, |_, i| {
         holds.get(&i).copied().unwrap_or(rec::NilHeld::None)
     });
     // Sandbox mode's NIL Go switch: nothing held back from your roster.
@@ -2810,7 +2813,7 @@ fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64
             // NIL Go clears the collective's part to the top of his range
             // and moves what it denies into the revenue share while the cap
             // has room, as on an AI school's July 1.
-            let top = rec::go_top_now(w, j, &w.people[row.i], &medians);
+            let top = crate::world::nil_bid::range_top(w, j, &w.people[row.i], row.role, row.edge);
             let r = crate::world::nil_bid::review(w.today, row.coll, top, room, free);
             room -= r.moved;
             (id, row.school + r.moved, r.cleared, (row.coll - r.cleared - r.moved).max(0.0))
@@ -3221,7 +3224,7 @@ pub fn coll_cleared(w: &World, j: usize, id: u32, deal: f64) -> f64 {
 // --- First answers to your money (N1) ------------------------------------------------------
 
 /// How money reads against what he measures it by: the best offer he has
-/// heard, what he makes, what players in his role get (proposed, not
+/// heard, what he makes, what players like him get (proposed, not
 /// confirmed: 1.5, 1.1, 0.85 and 0.5 of it).
 fn mood_of(money: f64, reference: f64) -> Mood {
     if reference < 1_000.0 {
@@ -3486,7 +3489,7 @@ fn portal_reaction(w: &World, i: usize, j: usize, after: Option<(f64, f64)>) -> 
 }
 
 /// A roster player's first answer to the deal you set (N1): his year's
-/// money against what players in his role are paid (the usual split) and
+/// money against what players like him are paid (the usual split) and
 /// what he made this year. It only reads: on July 1 a deal under half his
 /// worth (a worth of $25K or more) still grows his lean toward the portal.
 fn deal_reaction(w: &World, i: usize, j: usize, amount: f64, mine_coll: f64) -> Reaction {
@@ -3498,12 +3501,12 @@ fn deal_reaction(w: &World, i: usize, j: usize, amount: f64, mine_coll: f64) -> 
     // Cain 2026-11-07).
     let paid = if two { coll_cleared(w, j, id, mine_coll) } else { 0.0 };
     let total = amount + paid;
-    // His worth: what players in his role get (the going rate), or his
+    // His worth: what players like him get (the going rate), or his
     // market price where a rival would pay more (Cain 2026-11-17).
     let split = usual + if two { coll } else { 0.0 };
     let market = market_price(w, i).unwrap_or(0.0);
     let fair = split.max(market);
-    let role = if market > split { "other schools would pay him" } else { "players in his role get" };
+    let role = if market > split { "other schools would pay him" } else { "players like him get" };
     let last = p.nil_paid();
     let counts = fair >= 25_000.0 && p.college_seasons < 4;
     let mood = match mood_of(total, fair) {

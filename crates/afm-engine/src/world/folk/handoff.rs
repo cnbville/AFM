@@ -612,7 +612,7 @@ fn one_on_one(w: &World, s: &Scene) -> Option<Handoff> {
         list: give,
         button: label.clone(),
     };
-    let you = w.career.as_ref().map_or(10.0, |c| c.you.relationships);
+    let you = w.your_ability().map_or(10.0, |a| a.relationships);
     let hours = format!("{:.0} h of your week left", talks::hours_left(w));
     let hold_side = match hold {
         Some(x) => {
@@ -730,7 +730,7 @@ pub(crate) fn lean(yours: f32, hand: [f32; 2]) -> Lean {
 
 fn pitch_talk(w: &World, s: &Scene) -> Option<Handoff> {
     let h = pitch::hand_pitch(w, s)?;
-    let you = &w.career.as_ref()?.you;
+    let you = w.your_ability()?;
     let label = h.caller.map_or_else(|| "Hand to your staff".to_string(), |c| coach_label(w, c));
     let man = h.caller.filter(|_| !h.mine).map(|c| super::coach_link(w, c)).unwrap_or_else(|| "your staff".to_string());
     let scale = match s.kind {

@@ -79,3 +79,34 @@ fn an_nfl_head_coach_signs_a_deal_owed_in_full() {
     assert!(k.through >= w.year + 3);
     assert!(k.salary > 0.0);
 }
+
+/// Realism audit item 9: a college's pay line reads what its department
+/// earns, not its prestige, so a richer school's line is never below a
+/// poorer one's at its level, a Power 4 school pays several times a Group
+/// of 5 school, and the most it pays one man is its line stretched.
+#[test]
+fn the_pay_line_follows_what_the_department_earns() {
+    use crate::world::finance::{college, data};
+    let mut w = World::empty(WorldOptions { scale: 0.01, history_years: 0, start_year: 2026, ..Default::default() });
+    college::open(&mut w);
+    let mut rows: Vec<(f64, f64, u8)> = (0..w.programs.len())
+        .filter(|&p| w.programs[p].division == Division::FBS)
+        .map(|p| {
+            let d = &w.finance.college[p];
+            let earned = college::earned(&d.budget, d) / data::college_index(d.budget.year);
+            (earned, salary(&w, Employer::College(p), Role::HeadCoach), college::tier(&w, p, w.year))
+        })
+        .collect();
+    rows.sort_by(|a, b| a.0.total_cmp(&b.0));
+    for x in rows.windows(2) {
+        assert!(x[1].1 >= x[0].1, "more money, no less pay: {:?} then {:?}", x[0], x[1]);
+    }
+    let mean = |t: u8| {
+        let v: Vec<f64> = rows.iter().filter(|r| r.2 == t).map(|r| r.1).collect();
+        v.iter().sum::<f64>() / v.len() as f64
+    };
+    assert!(mean(0) > 3.0 * mean(1), "Power 4 {} against Group of 5 {}", mean(0), mean(1));
+    let p = (0..w.programs.len()).find(|&p| w.programs[p].division == Division::FBS).unwrap();
+    let e = Employer::College(p);
+    assert!((pay::cap(&w, e, Role::HeadCoach) - 1.4 * salary(&w, e, Role::HeadCoach)).abs() < 1.0);
+}

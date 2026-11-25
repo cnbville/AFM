@@ -106,9 +106,8 @@ fn find(w: &World, id: u32) -> Option<usize> {
 
 /// Your best teaching group (where people credit go when it's about players).
 pub fn best_group(w: &World) -> usize {
-    w.career.as_ref().map_or(0, |c| {
-        (0..c.you.teaching.len()).max_by(|&a, &b| c.you.teaching[a].total_cmp(&c.you.teaching[b])).unwrap_or(0)
-    })
+    w.your_ability()
+        .map_or(0, |a| (0..a.teaching.len()).max_by(|&x, &y| a.teaching[x].total_cmp(&a.teaching[y])).unwrap_or(0))
 }
 
 /// Your guys from college who were drafted.

@@ -91,7 +91,19 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
 
 #[test]
 fn your_money_is_the_schools_revenue_share() {
+    use crate::player::{Level, OptF64, PlayingTime};
     let (mut w, j) = college(true);
+    // The collective pays the men with a college season (a man with none
+    // signed for the scholarship), so the seat's players get one, and the
+    // book reads its bars on them.
+    for i in w.programs[j].roster.clone() {
+        let p = &mut w.people[i];
+        p.last_role = Some(PlayingTime::Starter);
+        p.last_performance = OptF64::some(60.0);
+        p.player.history = vec![season_row(Level::FBS, PlayingTime::Starter, 60.0)];
+    }
+    w.nil_book = crate::world::nil_bid::NilBook::from_pots(&w);
+    w.nil_book.new_share = [0.3; 4];
     let (id, usual) = usual_deals(&w, j)[0];
     // Every player of yours starts on the going rate (Cain 2026-11-07:
     // every NIL dollar is yours, so nobody is left to a split).
@@ -347,9 +359,11 @@ fn promise_answers(house: bool) {
     let usual = rec::usual_nil_offer(&w, j, i);
     assert!(usual > 1_000.0, "{usual}");
     let commit = w.people[i].cal.commit;
-    // Far over his usual money, inside your budget (his place in your July
-    // paid set floors it, Cain 2026-11-19).
-    let promise = (10.0 * usual + 1.0e6).min(0.9 * w.programs[j].collective.budget);
+    // Far over his usual money, inside the pot it comes from (his place in
+    // your July paid set floors it, Cain 2026-11-19: a four-star on this
+    // thin roster of men with no college season takes a large part of the
+    // school's share by his standing, so the whole budget is no bound).
+    let promise = (10.0 * usual + 1.0e6).min(0.9 * budget(&w, j).left);
     let text = set_promise(&mut w, id, Some(promise), None).unwrap();
     assert!(text.contains("He'll get back to you by"), "{text}");
     assert!(reaction(&w, id, MoneyKind::Promise).is_none(), "no answer before its hour");
@@ -714,12 +728,12 @@ fn an_old_world_file_takes_the_limited_states_off_and_fills_the_deals() {
 fn a_college_players_pay_reads_his_play_and_the_interior_line_costs_less() {
     use crate::player::PlayingTime::Starter;
     use crate::positions::Position as P;
-    let w = |pos, stars, edge| rec::nil_weight(Some(Starter), pos, stars, edge, false);
+    let w = |pos, stars, edge| rec::nil_weight(Some(Starter), pos, stars, edge);
     // Stars fade: a two-star starter is 0.6 of a four-star at the same play
     // (the square root before gave 0.28); a freshman keeps the full read.
     let r = w(P::WR, 2, 0.0) / w(P::WR, 4, 0.0);
     assert!((r - 0.08f64.powf(0.2)).abs() < 1e-9, "{r}");
-    let fresh = rec::nil_weight(None, P::WR, 2, 0.0, false) / rec::nil_weight(None, P::WR, 4, 0.0, false);
+    let fresh = rec::nil_weight(None, P::WR, 2, 0.0) / rec::nil_weight(None, P::WR, 4, 0.0);
     assert!((fresh - 0.08).abs() < 1e-9, "{fresh}");
     // Ten points of play over the level's starters: 3% a point.
     let up = w(P::CB, 3, 10.0) / w(P::CB, 3, 0.0);
@@ -730,33 +744,155 @@ fn a_college_players_pay_reads_his_play_and_the_interior_line_costs_less() {
     assert!((w(P::DT, 3, 0.0) / w(P::EDGE, 3, 0.0) - 0.73).abs() < 1e-9);
 }
 
-/// Minor bug 336: in two pots the school spreads its whole revenue share
-/// over the roster by role and position, and the collective pays its
-/// roster share by its own weights.
+/// Minor bug 336 and the NIL split by value (2026-11-24): in two pots the
+/// school spreads its whole revenue share over the roster by each man's
+/// own standing and his position. The third party's part is its own test
+/// (`the_third_party_fills_each_man_to_his_market_price`).
 #[test]
-fn the_school_spreads_its_whole_share_by_role_and_position() {
-    use crate::player::PlayingTime as R;
+fn the_school_spreads_its_whole_share_by_each_mans_value() {
     use crate::positions::Position as P;
+    use crate::world::nil_bid::star_bid;
     // $20M a year, 60% the school's: a player holding 1/50 of the school's
     // weights and 1/20 of the collective's.
-    let (school, coll) = rec::july_split(20.0e6, 0.6, (1.0, 50.0), (1.0, 20.0), true);
+    let (school, _) = rec::july_split(20.0e6, 0.6, (1.0, 50.0), (1.0, 20.0), true);
     assert!((school - 12.0e6 / 50.0).abs() < 1.0, "{school}");
-    assert!((coll - 8.0e6 * rec::NIL_ROSTER_TWO / 20.0).abs() < 1.0, "{coll}");
     // Before two pots it is all the collective's, which keeps some back.
     let (school, coll) = rec::july_split(20.0e6, 0.0, (1.0, 50.0), (1.0, 20.0), false);
     assert_eq!(school, 0.0);
     assert!((coll - 20.0e6 * rec::NIL_ROSTER / 20.0).abs() < 1.0, "{coll}");
     // Quarterbacks first, then the lines, then receivers; specialists last.
-    let w = |r, p| rec::share_weight(Some(r), p);
-    assert!(w(R::Starter, P::QB) > w(R::Starter, P::DT) && w(R::Starter, P::DT) > w(R::Starter, P::OT));
-    assert!(w(R::Starter, P::OT) > w(R::Starter, P::WR) && w(R::Starter, P::WR) > w(R::Starter, P::TE));
-    assert!(w(R::Starter, P::TE) > w(R::Starter, P::K));
-    // A starter over a rotation player over a backup; a backup still holds
-    // a real part (a quarter: the College Sports Commission's medians once
-    // only the paid three quarters of a Power 4 roster share it).
-    assert!(w(R::Starter, P::WR) > w(R::Rotation, P::WR) && w(R::Rotation, P::WR) > w(R::Backup, P::WR));
-    assert!(w(R::Backup, P::WR) >= 0.25 * w(R::Starter, P::WR));
-    assert_eq!(rec::share_weight(None, P::WR), w(R::Backup, P::WR));
+    let at = rec::share_at;
+    assert!(at(P::QB) > at(P::DT) && at(P::DT) > at(P::OT));
+    assert!(at(P::OT) > at(P::WR) && at(P::WR) > at(P::TE));
+    assert!(at(P::TE) > at(P::K));
+    // A Power 4 school's median paid man (a four-star's read) and anyone
+    // over him is paid his position's whole worth.
+    let w = |pos, standing| rec::share_weight(pos, standing, 0, true);
+    let (mid, low) = (star_bid(4), star_bid(3));
+    for standing in [mid, 0.6, 1.0, 1.5] {
+        assert!((w(P::DT, standing) / w(P::WR, standing) - at(P::DT)).abs() < 1e-9, "{standing}");
+        assert!((w(P::TE, standing) / w(P::WR, standing) - at(P::TE)).abs() < 1e-9, "{standing}");
+    }
+    // Under him it fades: a three-star's read is paid the same at every
+    // position, and nothing reads below that.
+    assert!((w(P::QB, low) - low).abs() < 1e-12 && (w(P::K, low) - low).abs() < 1e-12);
+    assert!((w(P::QB, 0.01) - 0.01).abs() < 1e-12);
+    let between = w(P::QB, (mid * low).sqrt()) / w(P::WR, (mid * low).sqrt());
+    assert!(between > 1.0 && between < at(P::QB), "{between}");
+    // Over him the worth of the school's first quarterback keeps growing:
+    // one quarterback plays. Its other quarterbacks are paid as any spot.
+    assert!((w(P::QB, mid) / w(P::WR, mid) - at(P::QB)).abs() < 1e-9);
+    assert!(w(P::QB, 1.0) / w(P::WR, 1.0) > 1.5 * at(P::QB));
+    let second = |standing| rec::share_weight(P::QB, standing, 0, false);
+    assert!((second(1.0) / w(P::WR, 1.0) - at(P::QB)).abs() < 1e-9);
+    assert_eq!(second(low), w(P::QB, low));
+    assert_eq!(rec::share_weight(P::OT, 1.0, 0, false), w(P::OT, 1.0), "only a quarterback's grows");
+    // More standing is more money at every position, and none is none.
+    for pos in [P::QB, P::OT, P::WR, P::TE, P::K] {
+        let v: Vec<f64> = [0.0, 0.01, low, 0.15, mid, 0.5, 1.0, 1.4].iter().map(|&x| w(pos, x)).collect();
+        assert!(v[0] == 0.0 && v.windows(2).all(|x| x[0] < x[1]), "{pos:?} {v:?}");
+    }
+    // The other levels pay 29% of a roster, so their median paid man is a
+    // median starter.
+    let g5 = |pos, standing| rec::share_weight(pos, standing, 1, true);
+    assert!((g5(P::DT, 1.0) / g5(P::WR, 1.0) - at(P::DT)).abs() < 1e-9);
+    assert!((g5(P::DT, mid) - g5(P::WR, mid)).abs() < 1e-12, "a four-star's read is far under him there");
+}
+
+/// The NIL split by value (2026-11-24): a man's standing in his school's
+/// revenue share is his own. A starter reads his play against the level's
+/// median starter at his spot, anyone else with a season the share of
+/// those starters he outplays, with the year he grows, and a man with no
+/// play to read his stars.
+#[test]
+fn a_mans_standing_in_the_share_is_his_own() {
+    use crate::player::{Level, OptF64, PlayingTime as R};
+    use crate::positions::Position as P;
+    use crate::world::nil_bid::{BID_PLAY, ShareBars, star_bid, star_bid_at};
+    let (mut w, j) = college(true);
+    // Ten starters at each spot at every level, from 50 to 68.
+    let mut bars = ShareBars::default();
+    for l in bars.play.iter_mut() {
+        for b in l.iter_mut() {
+            *b = (0..10).map(|k| 50.0 + 2.0 * k as f32).collect();
+        }
+    }
+    bars.lift = [0.0, 0.5, 1.0, 1.0];
+    assert_eq!(bars.median(0, P::WR), Some(60.0));
+    // The k-th of ten sits at (k + 0.5) / 10, linear between two of them.
+    assert_eq!(bars.outplays(0, P::WR, 49.0), 0.0);
+    assert!((bars.outplays(0, P::WR, 50.0) - 0.05).abs() < 1e-12);
+    assert!((bars.outplays(0, P::WR, 61.0) - 0.6).abs() < 1e-12);
+    assert!((bars.outplays(0, P::WR, 68.0) - 0.95).abs() < 1e-12);
+    assert_eq!(bars.outplays(0, P::WR, 68.5), 1.0);
+    let season = w.today.year();
+    let i = w.programs[j].roster[0];
+    let standing = |w: &World| rec::share_standing(&w.people[i], 0, season, &bars);
+    {
+        let p = &mut w.people[i];
+        p.player.position = P::WR;
+        p.stars = 3;
+        p.cal.nil_role = None;
+        p.roads.away_years = 0;
+        // No college season on his record: his stars, at his school's level.
+        let row = crate::player::SeasonRecord {
+            position: P::WR,
+            age: 18,
+            level: Level::HS,
+            playing_time: R::Starter,
+            overall_start: 60.0,
+            overall: 60.0,
+            potential: 60.0,
+            performance: OptF64::some(70.0),
+            level_rating: None,
+            level_rating_end: None,
+            coaching: 10.0,
+            events: Default::default(),
+            games_missed: 0,
+            adjustment: OptF64::NONE,
+            spring_gain: OptF64::NONE,
+            spring_open: OptF64::NONE,
+            team: crate::player::OptIdx::NONE,
+            depth: crate::player::DepthLabel::NONE,
+            situation: OptF64::NONE,
+            results: OptF64::NONE,
+        };
+        p.player.history = vec![row];
+        p.last_role = Some(R::Starter);
+        p.last_performance = OptF64::some(70.0);
+    }
+    assert!(!rec::college_season(&w.people[i]));
+    assert!((standing(&w) - star_bid(3)).abs() < 1e-12, "a newcomer's high school season reads nothing");
+    assert!((rec::share_standing(&w.people[i], 1, season, &bars) - star_bid_at(3.5)).abs() < 1e-12);
+    // A starter: 3% a point over the median starter, with the market's floor.
+    w.people[i].player.history.last_mut().unwrap().level = Level::FBS;
+    assert!((standing(&w) - (BID_PLAY * 10.0).exp()).abs() < 1e-12);
+    w.people[i].last_performance = OptF64::some(20.0);
+    assert!((standing(&w) - (BID_PLAY * -15.0).exp()).abs() < 1e-12);
+    // A backup going into his third year or later: the share of the
+    // starters he outplays, half a point ahead of last season.
+    w.people[i].last_role = Some(R::Backup);
+    w.people[i].last_performance = OptF64::some(60.5);
+    w.people[i].class_of = season - 2;
+    let old = standing(&w);
+    assert!((old - 1.5 * 0.6).abs() < 1e-9, "{old}");
+    // Going into his second year he is read 4.5 points ahead.
+    w.people[i].class_of = season - 1;
+    let young = standing(&w);
+    assert!((young - 1.5 * 0.8).abs() < 1e-9, "{young}");
+    // A man under every starter is worth nothing to the share yet, one
+    // over all of them more than a median starter.
+    w.people[i].last_performance = OptF64::some(40.0);
+    assert_eq!(standing(&w), 0.0);
+    w.people[i].last_performance = OptF64::some(80.0);
+    assert!((standing(&w) - 1.5).abs() < 1e-12);
+    // A transfer is read in the place he landed.
+    w.people[i].cal.nil_role = Some((R::Starter, 0.0));
+    w.people[i].last_performance = OptF64::some(64.0);
+    assert!((standing(&w) - (BID_PLAY * 4.0).exp()).abs() < 1e-12);
+    // A season he sat out reads his stars again.
+    w.people[i].last_performance = OptF64::NONE;
+    assert!((standing(&w) - star_bid(3)).abs() < 1e-12);
 }
 
 /// Cain 2026-11-17 ("go"): the roster you inherit at a new job keeps each
@@ -909,6 +1045,180 @@ fn the_roster_split_is_what_an_ai_school_pays() {
         paid_some += (s > 1_000.0) as usize;
     }
     assert!(paid_some > 10, "{paid_some}");
+}
+
+/// One season's row for a test player.
+fn season_row(level: crate::player::Level, role: crate::player::PlayingTime, play: f64) -> crate::player::SeasonRecord {
+    use crate::player::OptF64;
+    crate::player::SeasonRecord {
+        position: crate::positions::Position::WR,
+        age: 19,
+        level,
+        playing_time: role,
+        overall_start: 60.0,
+        overall: 60.0,
+        potential: 60.0,
+        performance: OptF64::some(play),
+        level_rating: None,
+        level_rating_end: None,
+        coaching: 10.0,
+        events: Default::default(),
+        games_missed: 0,
+        adjustment: OptF64::NONE,
+        spring_gain: OptF64::NONE,
+        spring_open: OptF64::NONE,
+        team: crate::player::OptIdx::NONE,
+        depth: crate::player::DepthLabel::NONE,
+        situation: OptF64::NONE,
+        results: OptF64::NONE,
+    }
+}
+
+/// The third party's refit (2026-11-25): the third party's pot fills every
+/// man from his revenue share up to the same multiple of his market price.
+#[test]
+fn the_third_party_fills_each_man_to_his_market_price() {
+    // The school pays three men 100, 300 and 50; the market prices them at
+    // 400, 200 and nothing.
+    let school = [100.0, 300.0, 50.0];
+    let price = [400.0, 200.0, 0.0];
+    // A pot of 300 takes the first to his price. The second is already
+    // paid over his, and nobody prices the third.
+    let c = rec::fill_to_market(&school, &price, 300.0);
+    assert!((c[0] - 300.0).abs() < 1e-6 && c[1] == 0.0 && c[2] == 0.0, "{c:?}");
+    // A smaller pot stops short of it.
+    let c = rec::fill_to_market(&school, &price, 150.0);
+    assert!((c[0] - 150.0).abs() < 1e-6 && c[1] == 0.0, "{c:?}");
+    // A bigger one lifts both to the same multiple of their prices.
+    let c = rec::fill_to_market(&school, &price, 700.0);
+    let mu = 1100.0 / 600.0;
+    assert!((c[0] - (mu * 400.0 - 100.0)).abs() < 1e-6, "{c:?}");
+    assert!((c[1] - (mu * 200.0 - 300.0)).abs() < 1e-6, "{c:?}");
+    assert!((c.iter().sum::<f64>() - 700.0).abs() < 1e-6 && c[2] == 0.0);
+    // No pot, or nobody priced: nothing.
+    assert!(rec::fill_to_market(&school, &price, 0.0).iter().all(|&x| x == 0.0));
+    assert!(rec::fill_to_market(&school, &[0.0; 3], 100.0).iter().all(|&x| x == 0.0));
+}
+
+/// The third party's refit (2026-11-25): the starters' bars read only men
+/// who started a season at their school, and July 1 reads each man in the
+/// role his school's depth chart gives him today.
+#[test]
+fn july_reads_real_starters_and_the_depth_chart() {
+    use crate::player::{Level, OptF64, PlayingTime as R};
+    let (mut w, j) = college(true);
+    let div = w.programs[j].division;
+    let i = w.programs[j].roster[0];
+    {
+        let p = &mut w.people[i];
+        p.cal.nil_role = None;
+        p.last_role = Some(R::Starter);
+        p.last_performance = OptF64::some(70.0);
+        p.player.history = vec![season_row(Level::HS, R::Starter, 70.0)];
+    }
+    // A newcomer who started in high school is on no starters' bar.
+    assert!(!rec::level_starter(&w.people[i]));
+    // With a college season he is; a transfer who landed isn't until he
+    // has played where he is.
+    w.people[i].player.history = vec![season_row(Level::FBS, R::Starter, 70.0)];
+    assert!(rec::level_starter(&w.people[i]));
+    w.people[i].cal.nil_role = Some((R::Rotation, 0.0));
+    assert!(!rec::level_starter(&w.people[i]));
+    w.people[i].cal.nil_role = None;
+    // His play as it is, in the role the chart gives him.
+    let medians = rec::nil_medians(&w);
+    let last = rec::nil_read(&w.people[i], div, &medians);
+    assert_eq!(last.0, Some(R::Starter));
+    assert_eq!(rec::market_read(&w.people[i], div, &medians, Some(R::Rotation)), (Some(R::Rotation), last.1));
+    assert_eq!(rec::market_read(&w.people[i], div, &medians, None), last, "off the chart: his last role");
+    // A man with no college season is a newcomer whatever the chart says.
+    w.people[i].player.history = vec![season_row(Level::HS, R::Starter, 70.0)];
+    assert_eq!(rec::market_read(&w.people[i], div, &medians, Some(R::Starter)).0, None);
+    // The chart is the one fall camp will set: every roster man is on it.
+    let chart = crate::world::season::program_chart(&w, &w.programs[j], &w.seat_order());
+    assert_eq!(chart.len(), w.programs[j].roster.len());
+    assert_eq!(rec::chart_role(&w, j, &w.people[i]), chart.iter().find(|x| x.0 == i).map(|x| x.1));
+}
+
+/// The third party's refit (2026-11-25): in two pots a school's July split
+/// pays every man his revenue share and the third party's money on top, up
+/// to one multiple of his market price; a man with no college season and
+/// no deal gets no third-party money.
+#[test]
+fn the_july_split_pays_the_chart_up_to_its_market() {
+    use crate::player::{Level, OptF64, PlayingTime as R};
+    use crate::world::nil_bid;
+    let (mut w, j) = college(true);
+    let roster = w.programs[j].roster.clone();
+    assert!(roster.len() >= 20, "{}", roster.len());
+    // Everyone a scholarship man with a college season, but the last five,
+    // who have only a high school one.
+    for (n, &i) in roster.iter().enumerate() {
+        let p = &mut w.people[i];
+        let new = n + 5 >= roster.len();
+        let play = 55.0 + (n % 12) as f64;
+        p.walk_on = false;
+        p.cal.nil_role = None;
+        p.cal.nil_deal = None;
+        p.last_role = Some(if n % 2 == 0 { R::Starter } else { R::Backup });
+        p.last_performance = OptF64::some(play);
+        p.player.history = vec![season_row(if new { Level::HS } else { Level::FBS }, R::Starter, play)];
+    }
+    let medians = rec::nil_medians(&w);
+    let bars = nil_bid::ShareBars::read(&w);
+    let level = nil_bid::level(&w.programs[j]);
+    // The chart: the first third start, the next third rotate.
+    let chart: Vec<(usize, R)> = roster
+        .iter()
+        .enumerate()
+        .map(|(n, &i)| (i, [R::Starter, R::Rotation, R::Backup][(3 * n / roster.len()).min(2)]))
+        .collect();
+    let year = w.today.year();
+    // $20M a year, a fifth of it the school's.
+    let rows =
+        rec::roster_split(&w, j, &roster, 20.0e6, 0.2, true, &medians, &bars, year, &chart, |_, _| rec::NilHeld::None);
+    // Both pots are paid in full.
+    let school: f64 = rows.iter().map(|r| r.school).sum();
+    let coll: f64 = rows.iter().map(|r| r.coll).sum();
+    assert!((school - 4.0e6).abs() < 1.0, "{school}");
+    assert!((coll - 16.0e6).abs() < 1.0, "{coll}");
+    let mut multiple: Option<f64> = None;
+    let mut paid = 0;
+    for (n, r) in rows.iter().enumerate() {
+        let p = &w.people[r.i];
+        if n + 5 >= roster.len() {
+            assert_eq!(r.role, None);
+            assert_eq!(r.coll, 0.0, "a newcomer with no deal signed for the scholarship");
+            continue;
+        }
+        // Read on the chart, not on last season's role.
+        assert_eq!(r.role, Some(chart[n].1));
+        let price = 20.0e6 * nil_bid::market_unit_on(&bars, level, p, r.role, r.edge);
+        if r.coll > 0.0 {
+            // Everyone the third party pays sits at the same multiple of
+            // his price, school's share and all.
+            let mu = (r.school + r.coll) / price;
+            let m = *multiple.get_or_insert(mu);
+            assert!((mu - m).abs() < 1e-6 * m, "{mu} against {m}");
+            paid += 1;
+        } else if let Some(m) = multiple {
+            // The rest are paid over it by the school already, or sit
+            // outside the paid set as deep backups.
+            assert!(r.school >= m * price - 1.0 || !r.paid, "{} under {m} x {price}", r.school);
+        }
+    }
+    assert!(paid >= 3, "{paid}");
+    // A deal that stands takes its money first; the rest of the year's
+    // money goes to the rest, and the holder's row still carries his own
+    // split of it, the going rate a desk shows beside his deal.
+    let star = roster[0];
+    let held = rec::roster_split(&w, j, &roster, 20.0e6, 0.2, true, &medians, &bars, year, &chart, |_, i| {
+        if i == star { rec::NilHeld::Fixed(3.0e6) } else { rec::NilHeld::None }
+    });
+    assert_eq!(held[0].fixed, Some(3.0e6));
+    assert!(held[0].school + held[0].coll > 0.0, "a deal holder's own split");
+    let rest: f64 = held.iter().filter(|r| r.fixed.is_none()).map(|r| r.school + r.coll).sum();
+    assert!((rest - 17.0e6).abs() < 1.0, "{rest}");
 }
 
 /// 2026-11-18: a recruit's stars are read at the school's money level, its

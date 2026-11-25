@@ -90,6 +90,7 @@ mod nil_multi;
 mod no_fire;
 mod offer_days;
 mod one_on_ones;
+mod one_store;
 mod outside_talks;
 mod persona;
 mod persona_asks_of;
