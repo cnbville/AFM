@@ -134,13 +134,16 @@ fn world_fbs(path: &str, seed: u32) -> (Vec<afm_engine::game::GameTeam>, Vec<(us
     let keep = std::env::var("AFM_TEAMS").ok();
     let cached: Option<afm_tools::ab::CollegeTeams> =
         keep.as_ref().and_then(|k| std::fs::read(k).ok()).map(|b| serde_json::from_slice(&b).expect("the teams file"));
-    let (teams, conf, games) = cached.unwrap_or_else(|| {
+    let (mut teams, conf, games) = cached.unwrap_or_else(|| {
         let t = afm_tools::ab::world_college(path, "FBS");
         if let Some(k) = &keep {
             std::fs::write(k, serde_json::to_vec(&t).unwrap()).expect("write the teams file");
         }
         t
     });
+    // Their league's own typical men (the run lean), when the kept file
+    // has none.
+    afm_tools::ab::own_league(&mut teams, Level::FBS);
     eprintln!("{} FBS programs from the world, {} games between them", teams.len(), games.len());
     let sched =
         if std::env::var("AFM_CONF").is_ok() || games.is_empty() { conference_games(&conf, seed) } else { games };
@@ -504,11 +507,17 @@ fn main() {
             if let Some(t) = env("AFM_TEMP") {
                 venue.cond.temperature = t;
             }
+            // AFM_BLITZ keeps each snap's line chart (who the protection
+            // gave each rusher at the snap); the chart only watches, and the
+            // replay setup kept with it is dropped.
+            venue.keep = std::env::var("AFM_BLITZ").is_ok();
             let seed = seed as u64 * 1_000_003 + g as u64;
-            match book {
+            let mut r = match book {
                 Some((b, y)) => afm_engine::game::quick_game_book(&teams[h], &teams[a], b, y, seed, venue, false),
                 None => quick_game_in(home, &teams[a], level, seed, Default::default(), venue),
-            }
+            };
+            r.replay = None;
+            r
         })
         .collect();
     let secs = t0.elapsed().as_secs_f64();
@@ -653,6 +662,11 @@ fn main() {
     if let Some(len) = std::env::var("AFM_DEFENDERS").ok().and_then(|v| v.parse::<usize>().ok()) {
         let pairs: Vec<(usize, usize)> = (0..results.len()).map(&pair).collect();
         defenders_read(&results, &teams, &pairs, len, level);
+    }
+    // AFM_BLITZ=1: the blitz by how many came, who came and who picked him up.
+    if std::env::var("AFM_BLITZ").is_ok() {
+        let pairs: Vec<(usize, usize)> = (0..results.len()).map(&pair).collect();
+        blitz_read(&results, &teams, &pairs);
     }
     // Snap shares (topic: depth and rotation): starters' share of their
     // side's snaps by position, and the lead back's share of the backs'
@@ -3074,6 +3088,505 @@ fn defenders_plays(
             m.tfl_free / m.run_tfl.max(1e-9),
             m.tfl_shed / m.run_tfl.max(1e-9),
             m.runs as f64 / g,
+        );
+    }
+}
+
+/// AFM_BLITZ=1: the blitz, by how many came, who came and who picked him up
+/// (realism audit item 3's second lane, linebackers and backs behind the
+/// line). Dropbacks by the number of rushers and with and without a blitz
+/// called against the NFL's 2021-25 (`engine_targets.json`), and by the
+/// defense's rush call; each call's blitzers by who picked them up and how
+/// often a back pass blocked; each group's rushes a team game, pressures a
+/// rush and sacks a 100 rushes against Pro Football Reference's blitz counts
+/// 2018-24 (`data/real-world/blitz.json`, NFL only: nobody charts college
+/// blitzes by player), split by the first kind of blocker on him (a lineman,
+/// a back, a tight end or receiver, nobody), with when he first met a blocker
+/// and how long the passer had the ball, and the linebackers by spot; and
+/// runs with and without a blitz called. AFM_BLITZ=2 adds the free blitzers
+/// by the rush call and the offense's call, and the edges nobody touched.
+fn blitz_read(
+    results: &[afm_engine::game::GameResult],
+    teams: &[afm_engine::game::GameTeam],
+    pairs: &[(usize, usize)],
+) {
+    use afm_engine::game::stats::PlayType;
+    use afm_engine::positions::Position as P;
+    use std::collections::HashMap;
+    let who: Vec<HashMap<u32, P>> =
+        teams.iter().map(|t| t.players.iter().map(|p| (p.id, p.position)).collect()).collect();
+    const WHO: [&str; 5] = ["edges", "tackles", "linebackers", "corners", "safeties"];
+    const BY: [&str; 6] = [
+        "a lineman",
+        "a back",
+        "a tight end or receiver",
+        "a block that left no record",
+        "nobody touched him: a blocker had him at the snap",
+        "nobody touched him, nobody had him",
+    ];
+    #[derive(Default, Clone, Copy)]
+    struct Cell {
+        n: f64,
+        press: f64,
+        any: f64,
+        sacks: f64,
+        hits: f64,
+        contact: f64,
+        contacts: f64,
+        held: f64,
+        early: f64,
+        doubled: f64,
+    }
+    #[derive(Default, Clone, Copy)]
+    struct Drop {
+        n: f64,
+        press: f64,
+        sacks: f64,
+        epa: f64,
+        scr: f64,
+        thrown: f64,
+        ttt: f64,
+        comp: f64,
+        yards: f64,
+        ints: f64,
+    }
+    #[derive(Default, Clone, Copy)]
+    struct Runs {
+        n: f64,
+        yards: f64,
+        lost: f64,
+        stuffed: f64,
+        ten: f64,
+    }
+    let mut cells = [[Cell::default(); 6]; 5];
+    // Dropbacks by the defense's rush call, and the rushers it sent.
+    const RUSH: [&str; 6] =
+        ["four-man rush", "linebacker blitz", "DB blitz", "double-A blitz", "simulated pressure", "fire zone"];
+    let mut by_call = [Drop::default(); 6];
+    let mut by_call_n = [0.0f64; 6];
+    // The blitzers on each call by who picked them up, and their sacks; the
+    // dropbacks a back pass blocked on, and the ones he ran a route on.
+    let mut call_by = [[[0.0f64; 2]; 6]; 6];
+    let mut free_names: HashMap<String, [u32; 3]> = HashMap::new();
+    let mut back_blocked = [[0.0f64; 3]; 6];
+    // Scrambles: all, stopped behind the line, at it, and the men who made
+    // the stop behind it by group (line, linebackers, backs).
+    let mut scr = [0.0f64; 3];
+    let mut scr_by = [0.0f64; 3];
+    // Edge rushes and the ones nobody touched, by the offense's call:
+    // screens, RPOs, boots, other play action, straight drops.
+    let mut edge_calls = [[0.0f64; 2]; 5];
+    let mut edge_names: HashMap<String, u32> = HashMap::new();
+    // Sacks by when the passer went down: under 2.0 s, to 2.5, 3.0, 3.5,
+    // 4.5 and later, and the seconds summed.
+    let mut sack_t = [0.0f64; 7];
+    let mut by_n = [Drop::default(); 5];
+    let mut by_flag = [Drop::default(); 2];
+    let mut runs = [Runs::default(); 2];
+    let tg = 2.0 * results.len() as f64;
+    use afm_engine::game::scrimmage::DSlot;
+    const LB_SPOTS: [DSlot; 3] = [DSlot::Sam, DSlot::Mike, DSlot::Will];
+    let mut lb_spot = [[0.0f64; 3]; 3];
+    for (g, r) in results.iter().enumerate() {
+        let (h, a) = pairs[g];
+        let ts = [h, a];
+        for p in r.stats.plays.iter().filter(|p| !p.nullified) {
+            if p.kind == PlayType::Run {
+                let x = &mut runs[p.blitz as usize];
+                x.n += 1.0;
+                x.yards += p.yards;
+                x.lost += p.lost() as u8 as f64;
+                x.stuffed += (p.yards <= 0.0) as u8 as f64;
+                x.ten += (p.yards >= 10.0) as u8 as f64;
+                continue;
+            }
+            if !matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble) || p.rushed == 0 {
+                continue;
+            }
+            let (ot, dt) = (ts[p.offense], ts[1 - p.offense]);
+            if p.kind == PlayType::Scramble {
+                scr[0] += 1.0;
+                if p.yards < 0.0 {
+                    scr[1] += 1.0;
+                    match p.tacklers.first().and_then(|id| who[dt].get(id)) {
+                        Some(P::EDGE | P::DT) => scr_by[0] += 1.0,
+                        Some(P::LB) => scr_by[1] += 1.0,
+                        Some(P::CB | P::S) => scr_by[2] += 1.0,
+                        _ => {}
+                    }
+                } else if p.yards < 0.5 {
+                    scr[2] += 1.0;
+                }
+            }
+            if p.kind == PlayType::Sack {
+                let t = p.time_to_throw;
+                let k = [2.0, 2.5, 3.0, 3.5, 4.5].iter().position(|&x| t < x).unwrap_or(5);
+                sack_t[k] += 1.0;
+                sack_t[6] += t;
+            }
+            let n = p.rushed.count_ones() as usize;
+            let thrown = p.kind == PlayType::Pass;
+            let add = |d: &mut Drop| {
+                d.n += 1.0;
+                d.press += p.pressured as u8 as f64;
+                d.sacks += (p.kind == PlayType::Sack) as u8 as f64;
+                d.epa += p.epa;
+                d.scr += (p.kind == PlayType::Scramble) as u8 as f64;
+                if thrown {
+                    d.thrown += 1.0;
+                    d.ttt += p.time_to_throw;
+                    d.comp += p.complete as u8 as f64;
+                    d.yards += if p.complete { p.yards } else { 0.0 };
+                    d.ints += p.interception as u8 as f64;
+                }
+            };
+            add(&mut by_n[n.clamp(3, 7) - 3]);
+            add(&mut by_flag[p.blitz as usize]);
+            // The defense's rush call, as the play record names it.
+            let k = RUSH.iter().position(|x| p.defense_call.split(", ").nth(1) == Some(*x)).unwrap_or(0);
+            add(&mut by_call[k]);
+            by_call_n[k] += n as f64;
+            let call = k;
+            back_blocked[call][0] += 1.0;
+            if p.blocks.iter().any(|b| b.2 && who[ot].get(&b.0) == Some(&P::RB)) {
+                back_blocked[call][1] += 1.0;
+            }
+            if p.on_field[0].iter().any(|id| who[ot].get(id) == Some(&P::RB)) {
+                back_blocked[call][2] += 1.0;
+            }
+            let share = if p.sackers.len() > 1 { 0.5 } else { 1.0 };
+            for (k, id) in p.on_field[1].iter().enumerate() {
+                if p.rushed >> k & 1 == 0 {
+                    continue;
+                }
+                let w = match who[dt].get(id) {
+                    Some(P::EDGE) => 0,
+                    Some(P::DT) => 1,
+                    Some(P::LB) => 2,
+                    Some(P::CB) => 3,
+                    Some(P::S) => 4,
+                    _ => continue,
+                };
+                // The first kind of blocker on him: a lineman before a back
+                // before anyone else (a block is logged when it ends, so the
+                // log's order isn't the snap's).
+                let touched = p.contact.iter().find(|x| x.0 == *id);
+                // The line chart's read of the snap: a blocker was given him.
+                let picked = p.line.as_ref().is_some_and(|c| {
+                    c.rush.iter().any(|x| x.id == *id && x.flags & afm_engine::game::chart::Rusher::PICKED != 0)
+                });
+                let mut by = if touched.is_some() {
+                    3
+                } else if picked {
+                    4
+                } else {
+                    5
+                };
+                for b in p.blocks.iter().filter(|b| b.1 == *id && b.2) {
+                    by = by.min(match who[ot].get(&b.0) {
+                        Some(P::OT | P::IOL) => 0,
+                        Some(P::RB) => 1,
+                        _ => 2,
+                    });
+                }
+                if w == 0 {
+                    // An edge nobody touched, by the offense's call.
+                    let kind = if p.call.contains("screen") {
+                        0
+                    } else if p.call.contains(" with ") {
+                        1
+                    } else if p.call.contains("boot") || p.call.contains("naked") {
+                        2
+                    } else if p.play_action {
+                        3
+                    } else {
+                        4
+                    };
+                    edge_calls[kind][0] += 1.0;
+                    edge_calls[kind][1] += (by >= 4) as u8 as f64;
+                    if by >= 4 && std::env::var("AFM_BLITZ").is_ok_and(|v| v == "2") {
+                        *edge_names.entry(format!("{} | {}", p.call, p.defense_call)).or_insert(0u32) += 1;
+                    }
+                }
+                let c = &mut cells[w][by];
+                c.n += 1.0;
+                let sacked = p.sackers.iter().take(2).any(|s| s == id);
+                if w >= 2 {
+                    call_by[call][by][0] += 1.0;
+                    call_by[call][by][1] += if sacked { share } else { 0.0 };
+                    if std::env::var("AFM_BLITZ").is_ok_and(|v| v == "2") {
+                        let key =
+                            format!("{} | {}{}", RUSH[call], p.call, if p.play_action { " (play action)" } else { "" });
+                        let e = free_names.entry(key).or_insert([0u32; 3]);
+                        e[0] += 1;
+                        e[1] += (by >= 5) as u32;
+                        e[2] += (by >= 5 && sacked) as u32;
+                    }
+                }
+                c.press += p.pressures.contains(id) as u8 as f64;
+                c.hits += p.hits.contains(id) as u8 as f64;
+                // As Pro Football Reference counts a pressure: a hurry, a
+                // knockdown or a sack.
+                let any = p.pressures.contains(id) || p.hits.contains(id) || sacked;
+                c.any += any as u8 as f64;
+                // A linebacker by the spot he plays (the Sam, the Mike, the Will).
+                if w == 2
+                    && let Some(j) = p.roles[1].get(k).and_then(|&x| LB_SPOTS.iter().position(|d| *d as u8 == x))
+                {
+                    lb_spot[j][0] += 1.0;
+                    lb_spot[j][1] += any as u8 as f64;
+                    lb_spot[j][2] += if sacked { share } else { 0.0 };
+                }
+                if sacked {
+                    c.sacks += share;
+                }
+                if let Some(x) = touched {
+                    c.contact += x.1 as f64;
+                    c.contacts += 1.0;
+                }
+                c.held += p.time_to_throw;
+                c.early += (p.time_to_throw < 2.0) as u8 as f64;
+                // Two blockers on him when a pass block of his ended.
+                c.doubled +=
+                    p.line.as_ref().is_some_and(|l| l.reps.iter().any(|x| x.defender == *id && x.pass() && x.double()))
+                        as u8 as f64;
+            }
+        }
+    }
+    let et: Value = serde_json::from_str(include_str!("../../../../data/real-world/engine_targets.json")).unwrap();
+    let bz: Value = serde_json::from_str(include_str!("../../../../data/real-world/blitz.json")).unwrap();
+    let f = |x: &Value| x.as_f64().unwrap_or(0.0);
+    println!("\n=== The blitz (AFM_BLITZ) {tg:.0} team games ===");
+    let drops: f64 = by_n.iter().map(|d| d.n).sum();
+    println!(
+        "dropbacks by rushers, engine (real NFL 2021-25): share | pressured | sacked | EPA | time to throw | complete | yards an attempt"
+    );
+    for (k, d) in by_n.iter().enumerate() {
+        let name = ["3 or fewer", "4", "5", "6", "7 or more"][k];
+        let rv = &et["dropbacks"]["pressure_rate_by_rushers"][["3", "4", "5", "6", "7"][k]];
+        let n = d.n.max(1.0);
+        println!(
+            "  {name:<10} {:.3} ({:.3}) | {:.3} ({:.3}) | {:.3} ({:.3}) | {:+.3} ({:+.3}) | {:.2} ({:.2}) | {:.3} | {:.2}",
+            d.n / drops.max(1.0),
+            f(&rv["share"]),
+            d.press / n,
+            f(&rv["pressure"]),
+            d.sacks / n,
+            f(&rv["sack_rate"]),
+            d.epa / n,
+            f(&rv["epa"]),
+            d.ttt / d.thrown.max(1.0),
+            f(&rv["time_to_throw"]),
+            d.comp / d.thrown.max(1.0),
+            d.yards / d.thrown.max(1.0),
+        );
+    }
+    let rb = &et["ftn_flags"]["blitz_any"];
+    println!(
+        "a blitz called on {:.3} of dropbacks (real {:.3}): sacked | complete | yards an attempt | picked | scrambles | EPA | pressured | time to throw",
+        by_flag[1].n / drops.max(1.0),
+        f(&rb["rate_of_dropbacks"]),
+    );
+    for (k, name) in [(1, "with"), (0, "without")] {
+        let d = by_flag[k];
+        let rv = &rb[name];
+        let n = d.n.max(1.0);
+        println!(
+            "  {name:<8} {:.3} ({:.3}) | {:.3} ({:.3}) | {:.2} ({:.2}) | {:.3} ({:.3}) | {:.3} ({:.3}) | {:+.3} ({:+.3}) | {:.3} | {:.2}",
+            d.sacks / n,
+            f(&rv["sack_rate"]),
+            d.comp / d.thrown.max(1.0),
+            f(&rv["comp"]),
+            d.yards / d.thrown.max(1.0),
+            f(&rv["ypa"]),
+            d.ints / d.thrown.max(1.0),
+            f(&rv["int_rate"]),
+            d.scr / n,
+            f(&rv["scramble_rate"]),
+            d.epa / n,
+            f(&rv["epa"]),
+            d.press / n,
+            d.ttt / d.thrown.max(1.0),
+        );
+    }
+    println!(
+        "dropbacks by the defense's rush call: a team game (share) | rushers | pressured | sacked | time to throw | complete | yards an attempt"
+    );
+    for (k, name) in RUSH.iter().enumerate() {
+        let d = by_call[k];
+        let n = d.n.max(1.0);
+        println!(
+            "  {name:<20} {:.2} ({:.3}) | {:.2} | {:.3} | {:.3} | {:.2} | {:.3} | {:.2}",
+            d.n / tg,
+            d.n / drops.max(1.0),
+            by_call_n[k] / n,
+            d.press / n,
+            d.sacks / n,
+            d.ttt / d.thrown.max(1.0),
+            d.comp / d.thrown.max(1.0),
+            d.yards / d.thrown.max(1.0),
+        );
+    }
+    println!(
+        "blitzers on each call by who picked them up: share of the call's blitzers (his sacks a 100) | a back pass blocked on, of dropbacks with a back"
+    );
+    for (k, name) in RUSH.iter().enumerate() {
+        let all: f64 = call_by[k].iter().map(|x| x[0]).sum();
+        if all < 1.0 {
+            continue;
+        }
+        let cells: Vec<String> = call_by[k]
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x[0] > 0.0)
+            .map(|(b, x)| format!("{} {:.3} ({:.1})", BY[b], x[0] / all, 100.0 * x[1] / x[0]))
+            .collect();
+        println!("  {name:<20} {} | {:.3}", cells.join("; "), back_blocked[k][1] / back_blocked[k][2].max(1.0));
+    }
+    if !free_names.is_empty() {
+        let mut v: Vec<(String, [u32; 3])> = free_names.into_iter().collect();
+        v.sort_by(|a, b| b.1[1].cmp(&a.1[1]));
+        println!(
+            "  blitzers nobody had, by the rush call and the offense's call: blitzers | free | his sacks when free"
+        );
+        for (k, n) in v.iter().take(45) {
+            println!(
+                "    {k:<70} {:>5} | {:.3} | {:.3}",
+                n[0],
+                n[1] as f64 / n[0] as f64,
+                n[2] as f64 / n[1].max(1) as f64
+            );
+        }
+    }
+    println!(
+        "  a back pass blocked on {:.3} of all dropbacks with a back on the field",
+        back_blocked.iter().map(|x| x[1]).sum::<f64>() / back_blocked.iter().map(|x| x[2]).sum::<f64>().max(1.0)
+    );
+    println!(
+        "who came and who picked him up: rushes a team game (share) | pressures a rush as the book keeps them | as PFR does (a hurry, a hit or a sack) | hits a rush | sacks a 100 rushes | sacks a team game | first contact, s | the passer had the ball, s (under 2.0 s) | two blockers on him"
+    );
+    for (w, name) in WHO.iter().enumerate() {
+        let all = cells[w].iter().fold(Cell::default(), |mut x, c| {
+            x.n += c.n;
+            x.press += c.press;
+            x.any += c.any;
+            x.sacks += c.sacks;
+            x.hits += c.hits;
+            x.contact += c.contact;
+            x.contacts += c.contacts;
+            x.held += c.held;
+            x.early += c.early;
+            x.doubled += c.doubled;
+            x
+        });
+        let line = |label: &str, c: &Cell| {
+            let n = c.n.max(1.0);
+            println!(
+                "  {label:<30} {:6.2} ({:.3}) | {:.3} | {:.3} | {:.3} | {:5.2} | {:.3} | {:.2} | {:.2} ({:.3}) | {:.3}",
+                c.n / tg,
+                c.n / all.n.max(1.0),
+                c.press / n,
+                c.any / n,
+                c.hits / n,
+                100.0 * c.sacks / n,
+                c.sacks / tg,
+                c.contact / c.contacts.max(1.0),
+                c.held / n,
+                c.early / n,
+                c.doubled / n,
+            );
+        };
+        line(name, &all);
+        for (k, by) in BY.iter().enumerate() {
+            if cells[w][k].n > 0.0 {
+                line(&format!("  {by}"), &cells[w][k]);
+            }
+        }
+        if w == 2 {
+            let spot = |j: usize| {
+                let x = lb_spot[j];
+                format!(
+                    "{} {:.2} rushes a team game, {:.3} pressures a rush, {:.2} sacks a 100",
+                    ["Sam", "Mike", "Will"][j],
+                    x[0] / tg,
+                    x[1] / x[0].max(1.0),
+                    100.0 * x[2] / x[0].max(1.0)
+                )
+            };
+            println!("    by his spot (pressures as PFR counts them): {} | {} | {}", spot(0), spot(1), spot(2));
+        }
+        let rv = &bz["groups"][*name];
+        if rv["blitzes_a_team_game"].is_number() {
+            println!(
+                "    real NFL 2018-24 (PFR): {:.2} blitzes a team game, {:.3} pressures a blitz, {:.2} sacks a 100 blitzes, {:.3} sacks a team game",
+                f(&rv["blitzes_a_team_game"]),
+                f(&rv["pressures_a_blitz"]),
+                100.0 * f(&rv["sacks_a_blitz"]),
+                f(&rv["sacks_a_team_game"]),
+            );
+        }
+    }
+    let sacks: f64 = sack_t[..6].iter().sum();
+    println!(
+        "sacks by when he went down: under 2.0 s {:.3}, to 2.5 {:.3}, to 3.0 {:.3}, to 3.5 {:.3}, to 4.5 {:.3}, later {:.3} | the average {:.2} s",
+        sack_t[0] / sacks.max(1.0),
+        sack_t[1] / sacks.max(1.0),
+        sack_t[2] / sacks.max(1.0),
+        sack_t[3] / sacks.max(1.0),
+        sack_t[4] / sacks.max(1.0),
+        sack_t[5] / sacks.max(1.0),
+        sack_t[6] / sacks.max(1.0),
+    );
+    let g = &bz["groups"];
+    println!(
+        "    real NFL 2018-24 sacks a team game: ends {:.3}, tackles {:.3}, edges listed as linebackers {:.3}, off-ball linebackers {:.3}, backs {:.3}; all {:.3}",
+        f(&g["ends"]["sacks_a_team_game"]),
+        f(&g["tackles"]["sacks_a_team_game"]),
+        f(&g["edges_listed_linebacker"]["sacks_a_team_game"]),
+        f(&g["linebackers"]["sacks_a_team_game"]),
+        f(&g["backs"]["sacks_a_team_game"]),
+        f(&bz["sacks_a_team_game_all_rows"]),
+    );
+    println!(
+        "an edge nobody touched, by the offense's call (share of edge rushes on it): screens {:.3} of {:.2} a team game, RPOs {:.3} of {:.2}, boots {:.3} of {:.2}, other play action {:.3} of {:.2}, straight drops {:.3} of {:.2}",
+        edge_calls[0][1] / edge_calls[0][0].max(1.0),
+        edge_calls[0][0] / tg,
+        edge_calls[1][1] / edge_calls[1][0].max(1.0),
+        edge_calls[1][0] / tg,
+        edge_calls[2][1] / edge_calls[2][0].max(1.0),
+        edge_calls[2][0] / tg,
+        edge_calls[3][1] / edge_calls[3][0].max(1.0),
+        edge_calls[3][0] / tg,
+        edge_calls[4][1] / edge_calls[4][0].max(1.0),
+        edge_calls[4][0] / tg,
+    );
+    if !edge_names.is_empty() {
+        let mut v: Vec<(&String, &u32)> = edge_names.iter().collect();
+        v.sort_by(|a, b| b.1.cmp(a.1));
+        for (name, n) in v.iter().take(40) {
+            println!("    {n:6} {name}");
+        }
+    }
+    println!(
+        "scrambles {:.2} a team game: stopped behind the line {:.3} (the books keep those as sacks; by the first man in on it: line {:.3}, linebackers {:.3}, backs {:.3}), within half a yard past it {:.3}",
+        scr[0] / tg,
+        scr[1] / tg,
+        scr_by[0] / tg,
+        scr_by[1] / tg,
+        scr_by[2] / tg,
+        scr[2] / tg,
+    );
+    let all_runs = (runs[0].n + runs[1].n).max(1.0);
+    for (k, name) in [(1, "with a blitz called"), (0, "without")] {
+        let x = runs[k];
+        let n = x.n.max(1.0);
+        println!(
+            "runs {name}: {:.3} of runs | {:.2} yards a carry | lost half a yard or more {:.3} | no gain or less {:.3} | 10 or more {:.3}",
+            x.n / all_runs,
+            x.yards / n,
+            x.lost / n,
+            x.stuffed / n,
+            x.ten / n,
         );
     }
 }

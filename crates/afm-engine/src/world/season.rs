@@ -1888,6 +1888,9 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::chemistry::apply(w, &mut team, super::chemistry::Unit::College);
     team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);
+    // His division's own typical men this season (realism audit, the run
+    // lean), once the season has worked them out.
+    team.league = w.college.as_ref().and_then(|c| super::college::league_of(w, c, prog.id));
     Some(team)
 }
 

@@ -61,18 +61,22 @@ fn the_rule_books_read_in_plain_words() {
 /// The CFL and arena books on the engine score like their leagues (the
 /// engine's NFL runs a little high on synthetic rosters, so the bands are
 /// wide; `match_check cfl` and `match_check arena` measure them closely).
+/// Every pair of the eight teams plays once each way: twelve games of four
+/// pairs read the CFL book at 40.2 points a team game where 112 games on the
+/// same teams read 37.1 (8.9 a team game from game to game), so any small
+/// change to the engine could carry the reading over its band.
 #[test]
 fn the_cfl_and_arena_books_score_like_their_leagues() {
     let teams = synthetic_league(Level::NFL, 8, 21);
+    let pairs: Vec<(usize, usize)> =
+        (0..8).flat_map(|h| (0..8).filter(move |&a| a != h).map(move |a| (h, a))).collect();
     for (book, year, lo, hi) in [(Book::Cfl, 2024, 18.0, 40.0), (Book::Arena, 2015, 36.0, 68.0)] {
-        let games = 12;
         let mut pts = 0.0;
-        for g in 0..games {
-            let (h, a) = (2 * (g % 4), 2 * (g % 4) + 1);
+        for (g, &(h, a)) in pairs.iter().enumerate() {
             let r = quick_game_book(&teams[h], &teams[a], book, year, 4_400_017 + g as u64, Venue::default(), false);
             pts += (r.stats.score[0] + r.stats.score[1]) as f64;
         }
-        let per = pts / (2 * games) as f64;
+        let per = pts / (2 * pairs.len()) as f64;
         assert!((lo..hi).contains(&per), "{book:?}: {per:.1} points a team game");
     }
 }

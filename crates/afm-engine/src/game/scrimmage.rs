@@ -1142,7 +1142,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     fk.man = man;
                 }
             } else {
-                pass_protection(&mut sim, off_n);
+                pass_protection(&mut sim, off_n, &slot_of, by);
             }
             if boot && fake_back.is_some() {
                 boot_protection(&mut sim, off_n, &role_of, side, by);
@@ -1572,6 +1572,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 sim.agents[i].job = Job::RunBlock { target: Some(lb), pull: false };
             }
         }
+        if pass.is_some() {
+            late_help(&mut sim, off_n);
+        }
         // ---- offense
         for i in 0..off_n {
             if !sim.agents[i].up(t) || sim.agents[i].engaged.is_some() {
@@ -1831,10 +1834,29 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             // bug 406).
                             let dp = sim.agents[d].pos;
                             let dv = sim.agents[d].vel;
+                            let me = sim.agents[i].pos;
+                            // The vertical set (realism audit item 3, the
+                            // four-man rush): against a man coming round the
+                            // edge a lineman kicks back to his set point on
+                            // the line from the rusher to the launch point
+                            // and lets him come (`set_spot`).
+                            let arc = matches!(sim.agents[d].job, Job::Rush { contain, .. } if contain != 0.0);
+                            if arc
+                                && is_line(sim.agents[i].label)
+                                && let Some(p) = pass.as_ref()
+                                && let Some(spot) = set_spot(los, p.drop_to, dp)
+                            {
+                                let gap = spot - me;
+                                let pace = SET_PACE * sim.agents[i].vmax;
+                                sim.steer(i, gap.norm().scale(pace.min(3.0 * gap.len())));
+                                if sq_lt(me.dist_sq(dp), 1.5) && sim.can_square(i, d, q) {
+                                    sim.engage(i, d, true);
+                                }
+                                continue;
+                            }
                             let spot = dp + (q - dp).norm().scale(1.0) + dv.scale(0.15);
                             let set = los - PASS_SET;
                             let spot = v2(spot.x.min(set), spot.y);
-                            let me = sim.agents[i].pos;
                             let want = dv.scale(0.8) + (spot - me).scale(3.0);
                             sim.steer(i, hold_at(want, me.x, set, sim.agents[i].brake()));
                             // (On the square, `sq_lt`: the same answer.)
@@ -1847,7 +1869,25 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             // The same tests on the squares (`sq_lt`) and the
                             // same pick as `min_by` on the distance to the
                             // quarterback (`Nearest`; world speed lane).
+                            // A man a teammate is on his way to is not free
+                            // (realism audit item 3, the four-man rush): the
+                            // spare guard went after the end while his
+                            // tackle set back for him, and left the inside.
+                            // The plan's star is the exception: the spare
+                            // slides to him (A8). A man who beat his blocker
+                            // is free again.
                             let me = sim.agents[i].pos;
+                            let star = sim.help_on;
+                            let spoken = |d: usize| {
+                                Some(d) != star
+                                    && (0..off_n).any(|o| {
+                                        o != i
+                                            && sim.agents[o].up(t)
+                                            && sim.agents[o].engaged.is_none()
+                                            && matches!(sim.agents[o].job, Job::PassBlock { target: Some(x) } if x == d)
+                                            && sim.agents[o].beat_by != Some(d)
+                                    })
+                            };
                             let mut near = Nearest::default();
                             for d in off_n..sim.agents.len() {
                                 let a = &sim.agents[d];
@@ -1856,6 +1896,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     && a.engaged.is_none()
                                     && sq_lt(a.pos.dist_sq(me), 4.5)
                                     && sim.can_square(i, d, q)
+                                    && !spoken(d)
                                 {
                                     near.offer(d, a.pos.dist_sq(q));
                                 }
@@ -1864,10 +1905,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             if let Some(d) = threat {
                                 sim.agents[i].job = Job::PassBlock { target: Some(d) };
                             } else {
-                                // Help the nearest teammate's block; the rusher
-                                // the plan slides to (A8) from farther, and
-                                // before anyone else.
-                                let star = sim.help_on;
+                                // Help a teammate's block: the rusher the plan
+                                // slides to (A8) from farther and before
+                                // anyone else, then a block the rusher is
+                                // winning (`LATE_HELP`), then the nearest,
+                                // inside `HELP_REACH` (realism audit item 3,
+                                // the four-man rush).
                                 let help = sim
                                     .eng
                                     .iter()
@@ -1879,14 +1922,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     .filter_map(|(k, e)| {
                                         let on_star = Some(e.defender) == star;
                                         let sq = sim.agents[e.defender].pos.dist_sq(me);
-                                        if sq_lt(sq, if on_star { 4.5 } else { 2.5 }) {
-                                            Some((k, sq.sqrt(), on_star))
+                                        if sq_lt(sq, if on_star { 4.5 } else { HELP_REACH }) {
+                                            Some((k, sq.sqrt(), on_star, e.w > LATE_HELP))
                                         } else {
                                             None
                                         }
                                     })
-                                    .min_by(|a, b| b.2.cmp(&a.2).then(a.1.total_cmp(&b.1)))
-                                    .map(|(k, d, _)| (k, d));
+                                    .min_by(|a, b| b.2.cmp(&a.2).then(b.3.cmp(&a.3)).then(a.1.total_cmp(&b.1)))
+                                    .map(|(k, d, _, _)| (k, d));
                                 if let Some((k, d)) = help {
                                     if d < 1.4 {
                                         let def = sim.eng[k].defender;
@@ -3142,13 +3185,30 @@ fn assign_defense(
     };
     let flip = if travel { -1.0 } else { 1.0 };
     let cb_side = |d: DSlot| flip * if d == DSlot::CBL { 1.0 } else { -1.0 };
+    // How far out the widest man on the line stands on each side of the
+    // ball (the offense's right, then its left): a blitzing back comes
+    // round him.
+    let mut end_out = [LAUNCH_NO_END; 2];
+    let mut seen = [false; 2];
+    for i in off_n..n {
+        if slots[i].is_some_and(|d| d.is_line()) {
+            let off = sim.agents[i].pos.y - by;
+            let k = usize::from(off > 0.0);
+            end_out[k] = if seen[k] { end_out[k].max(off.abs()) } else { off.abs() };
+            seen[k] = true;
+        }
+    }
     for i in off_n..n {
         let d = slots[i].unwrap();
         if d.is_line() && Some(d) != dropper || blitzers.contains(&d) {
             let side = if sim.agents[i].pos.y > by { 1.0 } else { -1.0 };
-            let edge = matches!(d, DSlot::LE | DSlot::RE) || d.is_db();
-            sim.agents[i].job =
-                Job::Rush { lane: sim.agents[i].pos.y, contain: if edge { side } else { 0.0 }, mv: Move::Speed };
+            let (lane, contain) = if d.is_line() {
+                (sim.agents[i].pos.y, if matches!(d, DSlot::LE | DSlot::RE) { side } else { 0.0 })
+            } else {
+                let end = if side > 0.0 { end_out[1] } else { end_out[0] };
+                blitz_launch(sim, i, d, (los, by), side, end)
+            };
+            sim.agents[i].job = Job::Rush { lane, contain, mv: Move::Speed };
             continue;
         }
         if Some(d) == dropper {
@@ -3459,6 +3519,50 @@ fn assign_defense(
 /// him (scheme-fit item 21). Proposed, not confirmed.
 const BLITZ_JUMP: f64 = 0.1;
 
+/// The blitz's creep (realism audit item 3, the pass rush lane; sizes
+/// proposed, not confirmed). A blitzer walks up through the cadence, as
+/// every blitz is coached: a linebacker to `LAUNCH_LB` yards off the ball in
+/// his own gap, a nickel or a corner to `LAUNCH_BACK` yards off it and a
+/// safety to `LAUNCH_SAFETY`. A back who stands wider than the end on his
+/// side comes in to `LAUNCH_WIDE` yards outside him, and his lane is
+/// `BACK_LANE` outside the end, so he turns the corner as an end does.
+/// `LAUNCH_NO_END` is the end's spot on a side with no man on the line.
+///
+/// A blitzer used to start flat-footed from his coverage spot, 4.5 to 12.5
+/// yards off the ball and a nickel 8 yards wide, and a back ran straight up
+/// the field in his own lane before he turned in: a free linebacker reached
+/// the passer about 2.0 s after the snap and a free nickel about 2.4 s,
+/// when the ball was gone.
+const LAUNCH_LB: f64 = 3.0;
+const LAUNCH_BACK: f64 = 2.5;
+const LAUNCH_SAFETY: f64 = 3.0;
+const LAUNCH_WIDE: f64 = 3.0;
+const BACK_LANE: f64 = 0.8;
+const LAUNCH_NO_END: f64 = 3.0;
+
+/// Moves blitzer `i` to where he comes from (`LAUNCH_LB` and the rest) and
+/// gives his lane and the side he keeps contain on (0 inside the end):
+/// `spot` is the line of scrimmage and the ball's spot across the field,
+/// `side` his side of the ball and `end` how far out the end on it stands.
+fn blitz_launch(sim: &mut Sim, i: usize, d: DSlot, spot: (f64, f64), side: f64, end: f64) -> (f64, f64) {
+    let (los, by) = spot;
+    let a = &mut sim.agents[i];
+    let depth = a.pos.x - los;
+    if d.is_lb() {
+        a.pos.x = los + depth.min(LAUNCH_LB);
+        return (a.pos.y, 0.0);
+    }
+    let to = if matches!(d, DSlot::FS | DSlot::SS) { LAUNCH_SAFETY } else { LAUNCH_BACK };
+    a.pos.x = los + depth.min(to);
+    let out = (a.pos.y - by) * side;
+    if out <= end {
+        // Inside the end: he comes through his own gap.
+        return (a.pos.y, 0.0);
+    }
+    a.pos.y = by + side * out.min(end + LAUNCH_WIDE);
+    (by + side * (end + BACK_LANE).min(out), side)
+}
+
 /// Timing the snap (scheme-fit item 21): a blitzer who times the cadence
 /// is already moving at the snap, `BLITZ_JUMP` seconds of his sprint a ten
 /// points of Blitzing over his level's typical man at his position, and one
@@ -3618,9 +3722,23 @@ fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
     Job::Man { target: r, cushion, lag }
 }
 
-/// Pass protection: each lineman takes the rusher across from him; extra
-/// blockers help, backs pick up blitzers.
-fn pass_protection(sim: &mut Sim, off_n: usize) {
+/// Pass protection, big on big: the linemen take the men rushing from the
+/// line of scrimmage in order across the formation, no two crossing, the
+/// pairing that leaves the least ground to cover, so the widest rusher is
+/// the tackle's however wide he lines up and a guard is never sent outside
+/// his tackle. A lineman left without one takes a blitzer coming through
+/// his reach; backs and tight ends kept in take what is left, and a man
+/// left after that is free, the quarterback's hot. A lineman who busts
+/// leaves his man to nobody.
+///
+/// Each lineman used to take the nearest man not yet taken, from one
+/// sideline to the other and only inside `PRO_REACH`: against an over front
+/// a tackle took the 3-technique, the guard beside him was sent out to the
+/// end, and a wide end was nobody's. On the world's NFL clubs no blocker
+/// was given the edge on 14% of his rushes, and those rushes held 0.35 of
+/// the edges' 0.81 sacks a team game (realism audit item 3, the blitz
+/// lane).
+fn pass_protection(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64) {
     let n = sim.agents.len();
     let mut rushers: Vec<usize> = (off_n..n).filter(|&i| matches!(sim.agents[i].job, Job::Rush { .. })).collect();
     rushers.sort_by(|&a, &b| sim.agents[a].pos.y.total_cmp(&sim.agents[b].pos.y));
@@ -3629,24 +3747,77 @@ fn pass_protection(sim: &mut Sim, off_n: usize) {
         .collect();
     blockers.sort_by(|&a, &b| sim.agents[a].pos.y.total_cmp(&sim.agents[b].pos.y));
     let mut taken = vec![false; n];
-    for &b in &blockers {
+    let ys = |sim: &Sim, v: &[usize]| v.iter().map(|&i| sim.agents[i].pos.y).collect::<Vec<f64>>();
+    let on_line = |r: usize| slots[r].is_some_and(|d| d.is_line());
+    // The men on the line of scrimmage first.
+    let down: Vec<usize> = rushers.iter().copied().filter(|&r| on_line(r)).collect();
+    let pairs = pair_in_order(&ys(sim, &blockers), &ys(sim, &down), None, ball_y);
+    let mut spare: Vec<usize> = Vec::new();
+    for (k, &b) in blockers.iter().enumerate() {
         if sim.agents[b].bust {
             continue;
         }
-        let by = sim.agents[b].pos.y;
-        let best = rushers
-            .iter()
-            .copied()
-            .filter(|&r| !taken[r])
-            .min_by(|&x, &y| (sim.agents[x].pos.y - by).abs().total_cmp(&(sim.agents[y].pos.y - by).abs()));
-        if let Some(r) = best
-            && (sim.agents[r].pos.y - by).abs() < PRO_REACH
-        {
-            taken[r] = true;
-            sim.agents[b].job = Job::PassBlock { target: Some(r) };
+        match pairs[k] {
+            Some(j) => {
+                taken[down[j]] = true;
+                sim.agents[b].job = Job::PassBlock { target: Some(down[j]) };
+            }
+            None => spare.push(b),
+        }
+    }
+    // A lineman with no man on the line takes a blitzer through his reach.
+    let blitz: Vec<usize> = rushers.iter().copied().filter(|&r| !on_line(r)).collect();
+    let pairs = pair_in_order(&ys(sim, &spare), &ys(sim, &blitz), Some(PRO_REACH), ball_y);
+    for (k, &b) in spare.iter().enumerate() {
+        if let Some(j) = pairs[k] {
+            taken[blitz[j]] = true;
+            sim.agents[b].job = Job::PassBlock { target: Some(blitz[j]) };
         }
     }
     protect_rest(sim, off_n, &rushers, &mut taken);
+}
+
+/// Blockers and rushers paired in order across the formation (each list's
+/// spots across the field, sorted the same way), nobody crossing a
+/// teammate: as many rushers taken as the blockers can take, then the least
+/// ground to cover in all. `reach` is how far across a blocker goes for his
+/// man (none: as far as it takes); a rusher left over is the one farthest
+/// from the ball at `ball_y`, the inside men being the nearer danger. Gives
+/// each blocker's rusher, as his place in `rush`.
+pub(crate) fn pair_in_order(block: &[f64], rush: &[f64], reach: Option<f64>, ball_y: f64) -> Vec<Option<usize>> {
+    let (m, k) = (block.len(), rush.len());
+    // A rusher left free costs more than any ground covered, the wider man
+    // a little less.
+    let left = |j: usize| 1000.0 - (rush[j] - ball_y).abs();
+    let step = |i: usize, j: usize| {
+        let d = (block[i] - rush[j]).abs();
+        if reach.is_some_and(|r| d >= r) { f64::INFINITY } else { d }
+    };
+    // cost[i][j]: the first i blockers against the first j rushers.
+    let mut cost = vec![vec![0.0f64; k + 1]; m + 1];
+    for j in 1..=k {
+        cost[0][j] = cost[0][j - 1] + left(j - 1);
+    }
+    for i in 1..=m {
+        for j in 1..=k {
+            cost[i][j] =
+                (cost[i - 1][j - 1] + step(i - 1, j - 1)).min(cost[i - 1][j]).min(cost[i][j - 1] + left(j - 1));
+        }
+    }
+    let mut out = vec![None; m];
+    let (mut i, mut j) = (m, k);
+    while i > 0 && j > 0 {
+        if cost[i][j] == cost[i - 1][j - 1] + step(i - 1, j - 1) {
+            out[i - 1] = Some(j - 1);
+            i -= 1;
+            j -= 1;
+        } else if cost[i][j] == cost[i - 1][j] {
+            i -= 1;
+        } else {
+            j -= 1;
+        }
+    }
+    out
 }
 
 /// Backs and tight ends in protection take what's left, inside first.
@@ -3667,10 +3838,119 @@ fn protect_rest(sim: &mut Sim, off_n: usize, rushers: &[usize], taken: &mut [boo
             sim.agents[b].job = Job::PassBlock { target: Some(r) };
         }
     }
+    // A back on a check-release has the first man still free, the nearest
+    // to him (he stands behind the ball, so from the inside out): he steps
+    // up and blocks him when he reads that he is coming (`picks_up`), and
+    // runs his route when nobody is left or he misses it (realism audit item
+    // 3, the pass rush). He used to read only a man already within a few
+    // yards of him and the passer while he waited (`blitz_threat`), so a
+    // linebacker the line left him came free on one blitz in nine. A back
+    // whose route is in the call (the angle, the flat) runs it, and the
+    // passer throws hot (`hot_snap`).
+    let checks: Vec<usize> =
+        (0..off_n).filter(|&i| matches!(sim.agents[i].job, Job::Route { name: "check-release", .. })).collect();
+    for b in checks {
+        let by = sim.agents[b].pos.y;
+        let Some(r) = rushers
+            .iter()
+            .copied()
+            .filter(|&r| !taken[r])
+            .min_by(|&x, &y| (sim.agents[x].pos.y - by).abs().total_cmp(&(sim.agents[y].pos.y - by).abs()))
+        else {
+            break;
+        };
+        if !sim.agents[b].bust && picks_up(sim, b, r) {
+            taken[r] = true;
+            sim.agents[b].job = Job::PassBlock { target: Some(r) };
+        }
+    }
 }
 
 /// How far across a pass blocker reaches for his man at the snap, yards.
 const PRO_REACH: f64 = 3.2;
+
+/// The vertical set (realism audit item 3, the four-man rush): where a pass
+/// blocker sets against a man coming round the edge. He kicks back to
+/// `SET_DEPTH` of the way from the line of scrimmage at `los` to the depth
+/// of the passer's launch point `launch`, onto the line from the rusher at
+/// `rusher` to it, and lets him come (the offense's backfield is below
+/// `los`). None once the rusher is within half a yard of that depth: the
+/// blocker then takes him where he is, mirroring him as before.
+///
+/// He used to mirror an end from the snap at the line, as he mirrors a man
+/// over him: on world seed 321's NFL clubs the two met 0.8 s after the snap
+/// with the end 0.65 yards past the line and 6.8 from the passer, and an
+/// end who won came off 5.5 yards from him, in front of his eyes, so he
+/// threw. Ends had 2.7 pressures and 0.53 sacks a team game as PFR counts
+/// them (real 4.7 and 1.27, ends with edges listed as linebackers) and
+/// tackles 4.3 and 0.83 (2.1 and 0.52). Real tackles set back against a
+/// wide rusher, and the two meet two or three yards behind the line. At
+/// 0.3 they meet 1.2 s after the snap, the end 2.1 yards past the line.
+/// Deeper sets gave the ends more, but the world's long-armed power end ran
+/// further past the best real seasons: 22.7 sacks a season at 0.3, 23.6 at
+/// 0.35 and 29.7 at 0.4 (19.2 before), the best season a year 23.9, 25.8
+/// and 30.1 (23.8 before, real 19.4). Proposed, not confirmed.
+pub(crate) fn set_spot(los: f64, launch: V2, rusher: V2) -> Option<V2> {
+    let at = los - SET_DEPTH * (los - launch.x).max(0.0);
+    if rusher.x <= at + 0.5 {
+        return None;
+    }
+    let k = (rusher.x - at) / (rusher.x - launch.x).max(0.1);
+    Some(v2(at, rusher.y + k * (launch.y - rusher.y)))
+}
+
+/// The vertical set's depth, a share of the way from the line to the
+/// launch point (`set_spot`), and the pace he kicks back at, a share of his
+/// top speed (proposed, not confirmed).
+const SET_DEPTH: f64 = 0.3;
+const SET_PACE: f64 = 0.4;
+
+/// The spare man in pass protection helps where the trouble is (realism
+/// audit item 3, the four-man rush): a block whose rusher has w above
+/// `LATE_HELP` comes before the nearest when a free blocker picks one to
+/// help, inside `HELP_REACH` yards of him (2.5 before); and a man helping
+/// on a double team that is not the plan's star comes off it for a block
+/// inside `LATE_REACH` yards whose rusher is winning, by `LATE_MARGIN` more
+/// than his own (`late_help`). Big on big leaves one lineman over against
+/// four rushers, and he helped the block nearest him all play: a team's
+/// second tackle had a guard alone, and tackles took 0.83 sacks a team game
+/// on world seed 321's NFL clubs (real 0.52), the best of them 20 a
+/// season. Proposed, not confirmed.
+const LATE_HELP: f64 = 0.2;
+const LATE_MARGIN: f64 = 0.5;
+const LATE_REACH: f64 = 2.5;
+const HELP_REACH: f64 = 3.5;
+
+/// A man helping on a double team comes off it for a block in trouble near
+/// him (`LATE_HELP`): the rusher there winning his block and by
+/// `LATE_MARGIN` more than the man he is doubling. He is then free, and
+/// takes the block in trouble as a free blocker does. Never off the plan's
+/// star.
+fn late_help(sim: &mut Sim, off_n: usize) {
+    for i in 0..off_n {
+        let Some(k) = sim.agents[i].engaged else { continue };
+        let e = &sim.eng[k];
+        if e.over || !e.pass || e.helper != Some(i) || Some(e.defender) == sim.help_on {
+            continue;
+        }
+        let me = sim.agents[i].pos;
+        let own = e.w;
+        let trouble = sim.eng.iter().enumerate().any(|(j, x)| {
+            j != k
+                && !x.over
+                && x.pass
+                && x.helper.is_none()
+                && x.w > LATE_HELP
+                && x.w > own + LATE_MARGIN
+                && sq_lt(sim.agents[x.defender].pos.dist_sq(me), LATE_REACH)
+        });
+        if trouble {
+            sim.eng[k].helper = None;
+            sim.agents[i].engaged = None;
+            sim.agents[i].job = Job::PassBlock { target: None };
+        }
+    }
+}
 
 /// The play fake's protection when the back stays in (scheme-fit item 3):
 /// a half-slide, the way real staffs build it so that the back's fake path
@@ -3719,7 +3999,7 @@ fn pa_protection(
         if let Some(b) = line
             .iter()
             .copied()
-            .filter(|&b| side(sim, b) > MAN_SIDE && !has[b] && (sim.agents[b].pos.y - ry).abs() < PRO_REACH)
+            .filter(|&b| side(sim, b) > MAN_SIDE && !has[b])
             .min_by(|&a, &b| (sim.agents[a].pos.y - ry).abs().total_cmp(&(sim.agents[b].pos.y - ry).abs()))
         {
             give(sim, &mut taken, &mut has, b, r);
@@ -5085,6 +5365,10 @@ const RED_ZONE_TRUST: f64 = 0.8;
 /// takes, `PA_TIME`: the fake's first read came at 2.05 s on a five-step
 /// drop, so its hot read never came).
 const HOT_BY: f64 = 2.0;
+/// The soonest he can throw hot off the snap, seconds: the snap is in his
+/// hands and his feet are under him, the time the bubble takes (its set and
+/// his first look, `READ_START`).
+const HOT_FROM: f64 = 0.85;
 
 // Minor bugs batch 9 (the A/B tests, 2026-11-07; sizes proposed, not
 // confirmed, each fitted so `ab_check` lands in the real band or spread).
@@ -5681,6 +5965,8 @@ fn quarterback(
     let mut threat = V2::default();
     // How soon the first free rusher he knows about will be on him, seconds.
     let mut soon = f64::INFINITY;
+    // The same for the first of them he knew of from the snap, his hot.
+    let mut soon_hot = f64::INFINITY;
     // He feels the rush he can't see (pocket presence); what he knows
     // (football IQ) sets his hot reads.
     // Drops his eyes to the rush (individual practice): once a rusher is
@@ -5718,8 +6004,9 @@ fn quarterback(
             // typical starter: he felt nearly every blind-side rusher within
             // two tenths and got rid of it, and NFL sacks ran a third short.
             // His hot (`hot_men`) he knows of from the snap.
+            let known = d < 32 && (ps.hot_men >> d) & 1 == 1;
             let seen = sim.sees(qb, a.pos)
-                || (d < 32 && (ps.hot_men >> d) & 1 == 1)
+                || known
                 || sim.rng.chance(FEEL_UNSEEN * (1.0 + FEEL_SLOPE * (feel - ts_feel) / 10.0));
             if seen && dist < 4.5 {
                 pressure += (4.5 - dist) / 4.5;
@@ -5727,7 +6014,11 @@ fn quarterback(
             }
             if seen {
                 let closing = a.vel.dot((me - a.pos).norm()).max(3.0);
-                soon = soon.min((dist - 1.0).max(0.0) / closing);
+                let at = (dist - 1.0).max(0.0) / closing;
+                soon = soon.min(at);
+                if known {
+                    soon_hot = soon_hot.min(at);
+                }
             }
         } else if winning > 0.0 && dist < 3.0 {
             let feel = POCKET_FEEL * winning * (3.0 - dist) / 3.0;
@@ -5820,7 +6111,8 @@ fn quarterback(
         * ((1.0 - BLITZ_ID_LOOK) * (aw - ts(Attr::FootballIq))
             + BLITZ_ID_LOOK * (sim.agents[qb].a(Attr::PlayRecognition) - ts(Attr::PlayRecognition)))
         / 10.0;
-    let urgent = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_WAIT * legs + blitz_id && !screen;
+    let wait = 0.85 - 0.004 * (poise - 60.0) - LEGS_WAIT * legs + blitz_id;
+    let urgent = soon < wait && !screen;
     let urgent_run = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_RUN * LEGS_WAIT * legs + blitz_id && !screen;
     // Hot off the fake (scheme-fit item 3): once his eyes are back from
     // the mesh he can throw before he sets, to beat a free man (`urgent`).
@@ -5832,7 +6124,16 @@ fn quarterback(
     // is live: it goes as any other does, even if the free man is picked up
     // before it comes out (it used to wait for the set and go then to
     // wherever its man had got to). He reads nothing new until he sets.
-    let early = t < ps.set_at + READ_START && !hot_off_fake;
+    // Hot off the snap (realism audit item 3, the pass rush): the free man
+    // he knew of from the snap (`hot_men`) is the one the protection gives
+    // him, and he beats him with the ball before he sets too, once it has
+    // been in his hands long enough to throw (`HOT_FROM`; under center his
+    // back is to the field a beat longer). He read nothing until the top of
+    // his drop, so on a five- or seven-step drop a blitzer he had counted
+    // before the snap was on him before his first look: a free linebacker
+    // got home on eight or nine of ten such dropbacks.
+    let hot_snap = !screen && ps.fake.is_none() && soon_hot < wait && t >= HOT_FROM + eyes;
+    let early = t < ps.set_at + READ_START && !hot_off_fake && !hot_snap;
     if (early && ps.commit.is_none()) || ps.reads.is_empty() {
         return None;
     }

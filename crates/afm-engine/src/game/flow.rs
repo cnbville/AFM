@@ -330,11 +330,7 @@ pub struct GameSetup<'a> {
 
 impl<'a> GameSetup<'a> {
     pub fn new(home: &'a GameTeam, away: &'a GameTeam, level: Level, seed: u64) -> GameSetup<'a> {
-        // Two-way play: small high schools only (fix list 3.10, 3.11).
-        let margin = match level {
-            Level::HS => 4.0,
-            _ => 99.0,
-        };
+        let margin = two_way_margin(level);
         GameSetup {
             home,
             away,
@@ -353,6 +349,16 @@ impl<'a> GameSetup<'a> {
             kickoff: 0.0,
             indoor: false,
         }
+    }
+}
+
+/// Rating points a player from the other side of the ball must beat a
+/// starter by to play both ways at a level: small high schools only (fix
+/// list 3.10, 3.11).
+pub fn two_way_margin(level: Level) -> f64 {
+    match level {
+        Level::HS => 4.0,
+        _ => 99.0,
     }
 }
 
@@ -803,26 +809,39 @@ impl<'a> Side<'a> {
             .filter(|&i| matches!(self.job[i], Some(Spot::FS | Spot::SS)) && !self.out[i])
             .map(|i| super::scrimmage::hitter(level, &self.team.players[i]))
             .collect();
-        // Read against the level's typical pair, so a typical FS and SS
-        // call the safeties' shells as before.
-        let typ = 0.5
-            * (super::synthetic::typical_hitter(level, Spot::FS) + super::synthetic::typical_hitter(level, Spot::SS));
+        // Read against the typical pair, so a typical FS and SS call the
+        // safeties' shells as before: his league's own when the world gave
+        // it one (realism audit, the run lean), since a league whose safeties
+        // are all faster than the test league's would read every pair as
+        // rangy, else the level's.
+        let league = |spot: Spot| self.team.league.as_deref().and_then(|l| l.hitter_at(spot));
+        let typ = match (league(Spot::FS), league(Spot::SS)) {
+            (Some(fs), Some(ss)) => 0.5 * (fs + ss),
+            _ => {
+                0.5 * (super::synthetic::typical_hitter(level, Spot::FS)
+                    + super::synthetic::typical_hitter(level, Spot::SS))
+            }
+        };
         if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 - typ }
     }
 
     /// The blitz lean from the weight of his named linebackers and corners
-    /// over his level's typical men (L1, C1), in blitz-rate points.
+    /// over the typical men at their positions (L1, C1), in blitz-rate
+    /// points: his league's own when the world gave it one (realism audit,
+    /// the run lean), else his level's.
     fn blitz_lean(&self, level: Level) -> f64 {
         let mean = |pos: Position| {
             let v: Vec<f64> = (0..self.team.players.len())
                 .filter(|&i| self.job[i].is_some_and(|s| s.position() == pos) && !self.out[i])
                 .map(|i| self.team.players[i].weight)
                 .collect();
-            if v.is_empty() {
-                0.0
-            } else {
-                (v.iter().sum::<f64>() / v.len() as f64 - super::synthetic::typical_body(level, pos).1) / 10.0
-            }
+            let typ = self
+                .team
+                .league
+                .as_deref()
+                .and_then(|l| l.weight_at(pos))
+                .unwrap_or_else(|| super::synthetic::typical_body(level, pos).1);
+            if v.is_empty() { 0.0 } else { (v.iter().sum::<f64>() / v.len() as f64 - typ) / 10.0 }
         };
         clamp(BLITZ_LEAN * (mean(Position::LB) + mean(Position::CB)), -0.06, 0.06)
     }
@@ -7775,7 +7794,7 @@ impl<'a> Game<'a> {
         {
             return f;
         }
-        let f = roster_fit::OffFit::of(&side.team.players, &men, self.rules().level);
+        let f = roster_fit::OffFit::of(&side.team.players, &men, self.rules().level, side.team.league.as_deref());
         side.off_memo.set(Some((men, f)));
         f
     }
@@ -7789,7 +7808,7 @@ impl<'a> Game<'a> {
         {
             return f;
         }
-        let f = roster_fit::DefFit::of(&side.team.players, &men, self.rules().level);
+        let f = roster_fit::DefFit::of(&side.team.players, &men, self.rules().level, side.team.league.as_deref());
         side.def_memo.set(Some((men, f)));
         f
     }
@@ -7820,7 +7839,8 @@ impl<'a> Game<'a> {
         let th = if side.frozen { 0.0 } else { side.threshold(Position::RB) };
         let list = side.depth.list(Position::RB);
         let first = list.iter().copied().find(|&i| side.can_go(i))?;
-        let value = |i: usize| roster_fit::back_value(&side.team.players[i], level, short);
+        let league = side.team.league.as_deref();
+        let value = |i: usize| roster_fit::back_value(&side.team.players[i], level, league, short);
         let best = list
             .iter()
             .copied()
@@ -8428,6 +8448,53 @@ pub(crate) fn kick_add() -> f64 {
 /// Standard normal CDF.
 fn phi(x: f64) -> f64 {
     crate::athlete::phi(x)
+}
+
+/// A team's men at the roster lean's slots as its play caller reads them at
+/// kickoff with everyone dressed: the offense's by the depth chart
+/// (`Side::off_men`), the defense's by the jobs its staff names
+/// (`Side::def_men`).
+pub fn kickoff_men(team: &GameTeam, level: Level) -> roster_fit::Men {
+    let side = Side::new(team, two_way_margin(level), 3);
+    let mut m = side.off_men(None);
+    let d = side.def_men();
+    for s in roster_fit::Slot::ALL {
+        if !s.offense() {
+            m[s as usize] = d[s as usize];
+        }
+    }
+    m
+}
+
+/// A defense's two body reads at kickoff with everyone dressed: its
+/// safeties' hitter read and the blitz lean from its linebackers' and
+/// corners' weight (tests).
+#[cfg(test)]
+pub(crate) fn body_leans(team: &GameTeam, level: Level) -> (f64, f64) {
+    let side = Side::new(team, two_way_margin(level), 3);
+    (side.safety_hitter(level), side.blitz_lean(level))
+}
+
+/// A league's own typical men (realism audit, the run lean): each team's
+/// men at the roster lean's slots as its play caller reads them at kickoff
+/// with everyone dressed (`Side::off_men`, `Side::def_men`), averaged over
+/// the league's teams (`roster_fit::LeagueSum`). A team that can't
+/// dress a side counts for nothing.
+pub fn league_men(teams: &[&GameTeam], level: Level) -> roster_fit::LeagueMen {
+    let mut sum = roster_fit::LeagueSum::default();
+    league_add(&mut sum, teams, level);
+    sum.finish(level)
+}
+
+/// Adds a batch of a league's teams to its sum, in order: each read on all
+/// cores, then summed one by one.
+pub fn league_add(sum: &mut roster_fit::LeagueSum, teams: &[&GameTeam], level: Level) {
+    use rayon::prelude::*;
+    let dressed: Vec<&GameTeam> = teams.iter().copied().filter(|t| t.players.len() >= 22).collect();
+    let men: Vec<roster_fit::Men> = dressed.par_iter().map(|t| kickoff_men(t, level)).collect();
+    for (t, m) in dressed.iter().zip(&men) {
+        sum.add(&t.players, m, level);
+    }
 }
 
 /// Play a game on a fixed neutral field, mostly for tools and tests.

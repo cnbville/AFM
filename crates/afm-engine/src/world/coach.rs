@@ -222,6 +222,14 @@ impl Job {
             self.since + 1
         }
     }
+
+    /// Which of his seasons in the job `season` is: 1 in his first. Read
+    /// this, not `season - since`, while a season is being played: the
+    /// label is the season before his first for an offseason hire, so the
+    /// difference is already 1 in a first season.
+    pub fn season_no(&self, season: i32) -> i32 {
+        (season - self.first_season() + 1).max(1)
+    }
 }
 
 /// A junior post (C36): the first rung below the coaching staff, held by

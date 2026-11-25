@@ -425,10 +425,10 @@ Each lane is its own thread. Order by proxy: the bug, then the measure, then the
 ## Not measured
 
 - How many lesson points a season pays today.
-- What any rating but play calling is worth in wins, signings or growth. RE0 measured it on a small world (`docs/coach-check.md`); the published world's run is to come.
+- What any rating but play calling is worth in wins, signings or growth. RE0 measured it on a small world and on the published seed 321 world (`docs/coach-check.md`): play calling when you call your offense and sim is +3 to +4.5 percent of wins for 5 points; a high school head coach's teaching is +4 percent growth; nothing else clearly pays.
 - A season's worth of reps for each ability. The counts above are estimates; RE1 counts them on a small world before the curve is fixed.
 - What "better prepared in a situation" is worth on the field. RE0's first read: 5 points of a game-day rating are under a point a game today (`docs/coach-check.md`), so RE3 sets its size on a path of its own.
-- How many coaches in a world meet each feat, and in which season a typical head coach does. RE0's world read measures it; the feats' sizes move until the shares in section 10 hold.
+- How many coaches in a world meet each feat, and in which season a typical head coach does. RE0's world read measured it on the published world: six of the seven feats it can read are the wrong size (Mastermind 80% to 96% of head coaches, Builder 34% to 48%, Standard Setter nobody; only Sideline General fits). The feats' sizes move until the shares in section 10 hold: a round with Cain before RE1.
 
 ## Decided by Cain
 
@@ -485,3 +485,5 @@ Cain was asleep with full proxy. These are his to change. The lane built the mea
 6. **The feats** are read as section 5 writes them. What the world does not keep (System Builder, the high school and NFL forms of Trail Boss and Pro Factory) is listed as not read, never guessed.
 7. **The heavy run went ahead without a yes on cost**: the Coach check workflow on the published seed 321 world, one GitHub runner for about three hours. Why: he asked not to be waited on, and the run only reads. The small world's seed is new (331).
 8. **What the first numbers mean for the lanes** (proposed, not confirmed): five points of a game-day rating are worth under a point a game today, so RE3 needs a path of its own for each game-day ability; a high school head coach's teaching is the one clear effect in a year; RE1 needs three stores the world lacks before it can award every feat. Results: `docs/coach-check.md`.
+9. **The second run on the published world** went ahead the same way after its first run stopped on two bugs. One was the game's own: a high school career ended in its first practice week at most schools. It was fixed and merged on green as a small root-cause fix (the practice week read a high school seat's school as a college). Why: it stopped real careers, and the fix changes nothing for a college or NFL seat.
+10. **What the published world's numbers mean for the lanes** (proposed, not confirmed): the feats in section 5 need new sizes before RE1 (a round for Cain; the measure's starting points are in `docs/coach-check.md`); RE3's own paths matter most for the by-hand column and for a head coach whose coordinators call, where nothing pays today; a high school coach's network and a college head coach's relationships need tracing before any lane sizes them (`GAPS.md`).

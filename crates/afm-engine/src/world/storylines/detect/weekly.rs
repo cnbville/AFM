@@ -824,9 +824,11 @@ pub(crate) fn seat_look(w: &mut World, t: TeamKey, c: usize, push: bool) {
                 || (prove && losses >= wins);
             (hot, (-2.5 * vs + if ten >= 3 { 0.15 } else { 0.0 } + if prove { 0.3 } else { 0.0 }) as f32)
         }
-        TeamKey::Nfl(_) => {
+        TeamKey::Nfl(n) => {
             let pct = if games == 0 { 0.5 } else { wins as f64 / games as f64 };
-            let hot = (ten >= 2 && games >= 6 && pct < 0.36)
+            // The owner's own seat (`staff::midseason`) is always a story.
+            let hot = w.folk.staff.seat(n as usize, c).is_some()
+                || (ten >= 2 && games >= 6 && pct < 0.36)
                 || (ten >= 1 && games >= 8 && pct <= 0.25)
                 || (push && ten >= 2 && pct < 0.42);
             (hot, ((0.45 - pct) * 3.0 + if ten >= 4 { 0.1 } else { 0.0 }) as f32)

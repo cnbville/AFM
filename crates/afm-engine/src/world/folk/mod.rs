@@ -560,6 +560,20 @@ pub fn after_load(w: &mut World) {
         w.folk.mine = Mine { team: Team::seat(w), since: Some(w.today.add(-60)), ..Default::default() };
         network::build(w);
     }
+    // A career that took an NFL club with games left and an interim for
+    // them, saved before your first season was counted as the next one.
+    if let Some(you) = w.career.as_ref().map(|c| c.coach)
+        && let Some(tk) = w.folk.takeover.as_ref()
+        && tk.interim.is_some()
+        && tk.nfl_at.is_some()
+        && let Some(Team::Nfl(t)) = tk.team
+        && let Some(j) = w.coaches[you].job.as_mut()
+        && j.employer == super::coach::Employer::Nfl(t)
+        && j.role == super::coach::Role::HeadCoach
+        && j.first == j.since
+    {
+        j.first = j.since + 1;
+    }
 }
 
 /// One day on the clock: the world's people (weekly and yearly steps) and

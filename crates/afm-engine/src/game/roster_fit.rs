@@ -21,9 +21,13 @@
 //! rating at a slot adds to the call (the table's own unit: yards to 40,
 //! less 45 for a turnover). Each call's weights are pooled with the calls
 //! of its kind and kept only past the noise (`data/roster_values.csv`).
-//! The men are read about the level's typical man at their place on a
-//! depth chart (`synthetic::typical_at`), so the one table serves every
-//! level and a team like the level's typical one leans nowhere.
+//! The men are read about the typical man at their place on a depth chart
+//! in their own league this season (`LeagueMen`, the world's, handed to the
+//! engine with each team), so the one table serves every level and a team
+//! like its league's typical one leans nowhere; a team with no league of
+//! its own (the test leagues and the tools) is read about the level's
+//! synthetic typical man (`synthetic::typical_at`), as the table was
+//! measured.
 //!
 //! The callers lean on it as they lean on the look table, by their
 //! creativity (topic 6.2: "calls that fit his players"): a sharp one leans
@@ -187,8 +191,182 @@ pub fn reference(level: Level, slot: Slot, f: u8) -> f64 {
 
 /// How far a man sits from the typical man at the slot in a feature.
 pub fn deviation(level: Level, slot: Slot, p: &GamePlayer, f: u8) -> f64 {
+    deviation_in(level, None, slot, p, f)
+}
+
+/// How far a man sits from the typical man at the slot in a feature in his
+/// own league (`LeagueMen`), or at the level when he has none.
+pub fn deviation_in(level: Level, league: Option<&LeagueMen>, slot: Slot, p: &GamePlayer, f: u8) -> f64 {
     let v = if f == WEIGHT { p.weight } else { p.a(Attr::ALL[f as usize]) };
-    v - reference(level, slot, f)
+    v - reference_in(level, league, slot, f)
+}
+
+/// The typical man's number in a feature at a slot in a league: its own
+/// typical man when the world gave it one, else the level's.
+pub fn reference_in(level: Level, league: Option<&LeagueMen>, slot: Slot, f: u8) -> f64 {
+    match league.and_then(|l| l.get(slot, f)) {
+        Some(v) => v,
+        None => reference(level, slot, f),
+    }
+}
+
+/// One slot's row in `LeagueMen`: his ratings in `Attr::ALL` order, then
+/// his weight.
+const ROW: usize = crate::attributes::ATTRIBUTE_COUNT + 1;
+
+/// A league's own typical men this season (realism audit, the run lean):
+/// the mean ratings and weight of the man at each slot as the league's play
+/// callers read their own men at kickoff with everyone dressed
+/// (`flow::league_men`). A play caller knows what his back's speed is worth
+/// against the backs his league plays with and the defenders it plays
+/// against, not against a test league's: world seed 321's FBS backs and
+/// receivers are 12 to 17 points faster than the FBS test league's typical
+/// men, so on the test league's men every staff leaned to the wide runs (32%
+/// of its backs' runs called outside, 26% with the lean off). The world
+/// works one out for each league on its first game day of the season and
+/// hands it to the engine with each team (`GameTeam::league`), so a save, a
+/// replay and a game played live read the same men.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct LeagueMen {
+    /// Each slot's typical man in `Slot::ALL` order, `cols` numbers a slot
+    /// (the ratings' own f32).
+    men: Vec<f32>,
+    /// The numbers a slot when it was worked out: a table from before a
+    /// new rating is read as no table (the level's typical men).
+    cols: u16,
+    /// The teams it was read from.
+    pub teams: u32,
+    /// The mean weight of the league's men at each position, every man on
+    /// the teams' rosters (`Position::ALL` order), as
+    /// `synthetic::typical_body` reads the level's: the blitz lean's
+    /// linebackers and corners sit about them.
+    #[serde(default)]
+    weight: Vec<f32>,
+    /// The mean hitter read of the men listed at free safety and at strong
+    /// safety (`scrimmage::hitter`), as `synthetic::typical_hitter` reads
+    /// the level's: the safeties' shell lean sits about them.
+    #[serde(default)]
+    hit: Vec<f32>,
+}
+
+/// A league's typical men being summed, team by team in the league's order,
+/// so a world reads the same table on any machine and core count, and a
+/// league too big to hold every team at once (a state's high schools) adds
+/// them a batch at a time (`flow::league_add`).
+#[derive(Clone, Debug, Default)]
+pub struct LeagueSum {
+    sum: Vec<f64>,
+    n: [u32; SLOTS],
+    body: Vec<(f64, u32)>,
+    hit: [(f64, u32); 2],
+    teams: u32,
+}
+
+impl LeagueSum {
+    /// Adds one team: its players and its men at the slots on both sides of
+    /// the ball.
+    pub fn add(&mut self, players: &[GamePlayer], men: &Men, level: Level) {
+        use crate::positions::{POSITION_COUNT, Position};
+        if self.sum.is_empty() {
+            self.sum = vec![0.0; SLOTS * ROW];
+            self.body = vec![(0.0, 0); POSITION_COUNT];
+        }
+        for s in Slot::ALL {
+            let Some(p) = men[s as usize].and_then(|i| players.get(i)) else { continue };
+            let row = &mut self.sum[s as usize * ROW..(s as usize + 1) * ROW];
+            for a in Attr::ALL {
+                row[a.index()] += p.a(a);
+            }
+            row[ROW - 1] += p.weight;
+            self.n[s as usize] += 1;
+        }
+        for p in players {
+            let b = &mut self.body[p.position.index()];
+            b.0 += p.weight;
+            b.1 += 1;
+            let k = match p.spot {
+                crate::spots::Spot::FS => 0,
+                crate::spots::Spot::SS => 1,
+                _ => continue,
+            };
+            if p.position == Position::S {
+                self.hit[k].0 += super::scrimmage::hitter(level, p);
+                self.hit[k].1 += 1;
+            }
+        }
+        self.teams += 1;
+    }
+
+    /// The teams added so far.
+    pub fn teams(&self) -> u32 {
+        self.teams
+    }
+
+    /// The mean man at each slot over the teams added. A slot no team fills
+    /// keeps the level's typical man, and so does a position or a safety job
+    /// nobody holds.
+    pub fn finish(&self, level: Level) -> LeagueMen {
+        use crate::positions::Position;
+        let mut men = vec![0.0f32; SLOTS * ROW];
+        for s in Slot::ALL {
+            for c in 0..ROW {
+                let k = s as usize * ROW + c;
+                let f = if c == ROW - 1 { WEIGHT } else { c as u8 };
+                let v = match self.n[s as usize] {
+                    0 => reference(level, s, f),
+                    m => self.sum[k] / m as f64,
+                };
+                men[k] = v as f32;
+            }
+        }
+        let weight = Position::ALL
+            .iter()
+            .map(|&pos| match self.body.get(pos.index()).copied().unwrap_or_default() {
+                (_, 0) => super::synthetic::typical_body(level, pos).1 as f32,
+                (w, m) => (w / m as f64) as f32,
+            })
+            .collect();
+        let hit = [crate::spots::Spot::FS, crate::spots::Spot::SS]
+            .iter()
+            .zip(self.hit)
+            .map(|(&spot, h)| match h {
+                (_, 0) => super::synthetic::typical_hitter(level, spot) as f32,
+                (v, m) => (v / m as f64) as f32,
+            })
+            .collect();
+        LeagueMen { men, cols: ROW as u16, teams: self.teams, weight, hit }
+    }
+}
+
+impl LeagueMen {
+    /// The mean weight of the league's men at a position (None for a table
+    /// from before it kept them).
+    pub fn weight_at(&self, pos: crate::positions::Position) -> Option<f64> {
+        match self.weight.len() {
+            crate::positions::POSITION_COUNT => Some(self.weight[pos.index()] as f64),
+            _ => None,
+        }
+    }
+
+    /// The mean hitter read of the men the league lists at free safety
+    /// (`Spot::FS`) or strong safety (anything else), None for a table from
+    /// before it kept them.
+    pub fn hitter_at(&self, spot: crate::spots::Spot) -> Option<f64> {
+        match self.hit.len() {
+            2 => Some(self.hit[if spot == crate::spots::Spot::FS { 0 } else { 1 }] as f64),
+            _ => None,
+        }
+    }
+
+    /// The typical man's number in a feature at a slot (None for a table
+    /// from before a new rating).
+    pub fn get(&self, slot: Slot, f: u8) -> Option<f64> {
+        if self.cols as usize != ROW {
+            return None;
+        }
+        let c = if f == WEIGHT { ROW - 1 } else { f as usize };
+        self.men.get(slot as usize * ROW + c).map(|&v| v as f64)
+    }
 }
 
 // ------------------------------------------------------------------ cells
@@ -355,8 +533,8 @@ fn parse(csv: &str) -> Table {
 pub type Men = [Option<usize>; SLOTS];
 
 /// Each read man's deviation for every pair the table reads (zero for a
-/// slot nobody fills).
-fn deviations(players: &[GamePlayer], men: &Men, level: Level, offense: bool) -> Vec<f64> {
+/// slot nobody fills), about his league's typical man.
+fn deviations(players: &[GamePlayer], men: &Men, level: Level, league: Option<&LeagueMen>, offense: bool) -> Vec<f64> {
     table()
         .pairs
         .iter()
@@ -364,7 +542,7 @@ fn deviations(players: &[GamePlayer], men: &Men, level: Level, offense: bool) ->
             if slot.offense() != offense {
                 return 0.0;
             }
-            men[slot as usize].map_or(0.0, |i| deviation(level, slot, &players[i], f))
+            men[slot as usize].map_or(0.0, |i| deviation_in(level, league, slot, &players[i], f))
         })
         .collect()
 }
@@ -395,8 +573,10 @@ pub struct DefFit {
 }
 
 impl OffFit {
-    pub fn of(players: &[GamePlayer], men: &Men, level: Level) -> OffFit {
-        let dev = deviations(players, men, level, true);
+    /// What each call gains from these men, read about the typical men of
+    /// the team's league (`league`; None: the level's).
+    pub fn of(players: &[GamePlayer], men: &Men, level: Level, league: Option<&LeagueMen>) -> OffFit {
+        let dev = deviations(players, men, level, league, true);
         let mut f = OffFit::default();
         for i in 0..PASS_N {
             f.pass[i] = value(&dev, Cell::Pass(i, false));
@@ -418,8 +598,10 @@ impl OffFit {
 }
 
 impl DefFit {
-    pub fn of(players: &[GamePlayer], men: &Men, level: Level) -> DefFit {
-        let dev = deviations(players, men, level, false);
+    /// What each look gives up with these men, read about the typical men
+    /// of the team's league (`league`; None: the level's).
+    pub fn of(players: &[GamePlayer], men: &Men, level: Level, league: Option<&LeagueMen>) -> DefFit {
+        let dev = deviations(players, men, level, league, false);
         let mut f = DefFit::default();
         for c in 0..LOOKS {
             f.look[c] = value(&dev, Cell::Look(c));
@@ -470,14 +652,14 @@ pub const SIT_EDGE: f64 = 0.01;
 
 /// A back's worth on short yardage (true) or a passing down: how much more
 /// often the snap converts with him on the field than with the typical
-/// starting back (item 11).
-pub fn back_value(p: &GamePlayer, level: Level, short: bool) -> f64 {
+/// starting back of his league (item 11; `league` None: the level's).
+pub fn back_value(p: &GamePlayer, level: Level, league: Option<&LeagueMen>, short: bool) -> f64 {
     let t = table();
     t.cells[Cell::Sit(short).id()]
         .iter()
         .map(|&(k, w)| {
             let (slot, f) = t.pairs[k as usize];
-            if slot == Slot::Rb { w as f64 * deviation(level, Slot::Rb, p, f) } else { 0.0 }
+            if slot == Slot::Rb { w as f64 * deviation_in(level, league, Slot::Rb, p, f) } else { 0.0 }
         })
         .sum()
 }

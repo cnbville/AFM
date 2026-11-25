@@ -54,7 +54,32 @@ pub fn synthetic(level: Level, seed: u32) -> Vec<Squad> {
 /// A world's 32 NFL clubs as they would dress today (a world file).
 pub fn world_nfl(path: &str) -> Vec<Squad> {
     let w = afm_engine::save::read_world(std::path::Path::new(path)).expect("read the world file");
-    (0..w.nfl.len()).filter_map(|t| w.debug_nfl_team(t)).map(|(team, people)| Squad { team, people }).collect()
+    let mut v: Vec<Squad> =
+        (0..w.nfl.len()).filter_map(|t| w.debug_nfl_team(t)).map(|(team, people)| Squad { team, people }).collect();
+    let mut teams: Vec<GameTeam> = v.iter().map(|s| s.team.clone()).collect();
+    own_league(&mut teams, afm_engine::player::Level::NFL);
+    for (s, t) in v.iter_mut().zip(teams) {
+        s.team.league = t.league;
+    }
+    v
+}
+
+/// A world's teams read as their own league (realism audit, the run lean):
+/// teams that came without their league's typical men (a world file from
+/// before them, or a world read before its season's first game) get the
+/// typical men of the teams read here, as the world works them out
+/// (`game::league_men`). AFM_LEAGUE=off reads every team about the level's
+/// synthetic typical men instead, as before.
+pub fn own_league(teams: &mut [GameTeam], level: afm_engine::player::Level) {
+    if std::env::var("AFM_LEAGUE").is_ok_and(|v| v == "off") {
+        teams.iter_mut().for_each(|t| t.league = None);
+        return;
+    }
+    if teams.is_empty() || teams.iter().all(|t| t.league.is_some()) {
+        return;
+    }
+    let men = std::sync::Arc::new(afm_engine::game::league_men(&teams.iter().collect::<Vec<_>>(), level));
+    teams.iter_mut().for_each(|t| t.league = Some(men.clone()));
 }
 
 /// A world's college programs in one division (`FBS`, `FCS`, ...) as its
@@ -80,6 +105,12 @@ pub fn world_college(path: &str, division: &str) -> CollegeTeams {
         .filter(|g| g.3)
         .filter_map(|(h, a, _, _)| Some((*at.get(&h)?, *at.get(&a)?)))
         .collect();
+    let level = w
+        .programs
+        .iter()
+        .find(|p| p.division.name() == division)
+        .map(|p| afm_engine::world::division_level(p.division));
+    own_league(&mut teams, level.unwrap_or(afm_engine::player::Level::FBS));
     (teams, conf, games)
 }
 

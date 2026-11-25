@@ -36,7 +36,8 @@ pub mod win_chance;
 pub use books::Book;
 pub use calling::Film;
 pub use flow::{
-    GameResult, GameSetup, Venue, play_game, play_game_ctl, quick_game, quick_game_book, quick_game_in, quick_game_with,
+    GameResult, GameSetup, Venue, league_men, play_game, play_game_ctl, quick_game, quick_game_book, quick_game_in,
+    quick_game_with,
 };
 pub use replay::ReplaySetup;
 pub use roster::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff};

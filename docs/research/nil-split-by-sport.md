@@ -281,6 +281,37 @@ The first-line rows are the same men on both paydays, joined by id (the tool's o
 - **A rival's bid reads lower on the real bar.** The market check's price for the men who started last season (the best rival's top bid, the day before): QB $1.41M (was $1.99M), EDGE $746K ($987K), OT $677K ($830K), WR $579K ($745K). July pays a starter a median 1.23 times it.
 - **Seed 1's class of 2026 holds no signing deals** (the world file is older than they are), so its Power 4 five-stars take the school's share alone that July: a median $182K (before $299K).
 
+## Deals in later years, built and measured (2026-11-25)
+
+The second PR of the thread "Refit third-party NIL market", on Cain's proxy (picks in `docs/decisions.md`, "Deals in later years"). How it works: `docs/reference/how-it-works/recruiting.md`, "Deals in later years". Every size proposed, not confirmed.
+
+Seed 1, played on the engine from the same June 29, 2026 save to the July 2027 payday, once on the refit (before) and once on this lane (after); `nil_scheme run <save> 2027 8`, then `nil_scheme market`. About 32 minutes a side. Raw output in the project folder at `afm/nil-market/`.
+
+Power 4 revenue share among the paid:
+
+| Spot | 10th pct before | after | real | Median before | after | real |
+|---|---|---|---|---|---|---|
+| QB | $10K | $25K | $17.5-25K | $202K | $223K | $230K |
+| RB | $10K | $19K | | $49K | $60K | $108.5K |
+| WR | $10K | $23K | | $68K | $71K | $112.5K |
+| TE | $9K | $22K | | $75K | $78K | $93K |
+| OL | $10K | $22K | | $85K | $111K | $133K |
+| DL | $10K | $22K | | $98K | $119K | $150K |
+| LB | $10K | $22K | | $71K | $80K | $112.5K |
+| DB | $9K | $21K | | $63K | $76K | $115K |
+
+Who the school pays (Power 4): last season's redshirts 10% before and 82% after (a median $31K); men with no deal 5% and 50%; two-star newcomers 87% and 29%; three-stars 94% and 73% (a median $21K and $30K); four-stars 90% and 91% ($60K and $97K); walk-ons paid anything 590 of 766 and 218.
+
+The whole Power 4 roster: 21% under $10K before and 18% after (real 25-30%); 86% and 87% paid anything (real 75%); 40% and 41% at $100K or more (real 35-45%). Of the 87%, 897 men are paid by the third party alone: 580 signees with a deal outside the school's set, 241 keep-him holders, 52 transfers.
+
+The first line with a college season, whole pay: QB $2.32M before and $2.37M after (real $2M), OT $971K and $896K ($907K), EDGE $910K and $884K ($929K), WR $714K and $676K ($726K), CB $603K and $589K ($572K), RB $553K and $551K ($527K), IOL $591K and $596K ($525K). The biggest checks: $7.32M, $5.77M, $4.95M before; $5.67M, $5.62M, $4.82M after.
+
+Keep-him offers before the 2027 window: Power 4 4,740 before and 3,740 after (a median $28K and $47K), Group of 5 4,893 and 2,759 ($2K and $11K), FCS 8,463 and 4,936. FBS portal entries by February 1: starters 4.2%, the rotation 7.5%, backups 21.4% on both.
+
+The Group of 5: 62% of a roster paid anything before and 44% after (the school pays 29% and 33%); FCS 62% and 46%.
+
+Why the medians at four spots still read low: a Power 4 school has 19.1 of last season's starters back in July 2027 against 12.9 in the July 2026 file, so starters take more of the school's pot. On the July 2026 payday the same split read RB $100K, WR $90K, LB $109K, DB $122K. Not traced (`GAPS.md`).
+
 ## Sources
 
 - Opendorse, College Football Kickoff (Aug 2025): https://biz.opendorse.com/wp-content/uploads/2025/08/College-Football-Kickoff-How-NIL-is-Reshaping-the-Game-in-2025-August-2025.pdf (not opened; via the coverage below)
