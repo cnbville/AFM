@@ -39,22 +39,11 @@ pub const OLD_HC_TIME: f64 = 0.6;
 /// Item 4: an old recruiting bond keeps this share of itself each year.
 pub const OLD_TIE_FADE: f64 = 0.85;
 
-/// Measuring pass knobs.
-pub fn hc_bond() -> f64 {
-    crate::knob!("hc_bond", HC_BOND)
-}
-pub fn pc_bond() -> f64 {
-    crate::knob!("pc_bond", PC_BOND)
-}
-pub fn head_record_weight() -> f64 {
-    crate::knob!("head_record", HEAD_RECORD)
-}
-
 /// How fast a coach's recruiting builds a bond (item 3, Cain 2026-11-24):
 /// 1 at a skill of 8, three times that at 18 (an 18 recruiter builds a
 /// bond about three times as fast as an 8), 1.25 at 10, 1.73 at 13.
 pub fn bond_rate(skill: f64) -> f64 {
-    crate::knob!("bond_base", 3.0).powf((skill - 8.0) / 10.0)
+    3f64.powf((skill - 8.0) / 10.0)
 }
 
 /// The college seasons a stint covers: from the season after its label
@@ -125,7 +114,7 @@ pub fn pipeline(w: &World, j: usize, year: i32) -> f64 {
                 return here;
             }
             match elsewhere.next() {
-                Some((x, season)) => (1.0 - crate::knob!("coach_pipeline", COACH_PIPELINE)) * here + crate::knob!("coach_pipeline", COACH_PIPELINE) * picks_in(w, x, season + 1),
+                Some((x, season)) => (1.0 - COACH_PIPELINE) * here + COACH_PIPELINE * picks_in(w, x, season + 1),
                 None => here,
             }
         })
@@ -179,8 +168,8 @@ pub fn transfer_bond(w: &World, i: usize, j: usize) -> (f64, f64) {
     let hc = prog.head_coach;
     let pc = prog.position_coaches[group as usize];
     let pc_skill = |c: usize| w.coaches[c].ability().recruiting;
-    let calls = crate::knob!("portal_hc", PORTAL_HC_TIME) * hc_bond() * bond_rate(hc.map_or(9.0, |c| head_skill(w, c)))
-        + crate::knob!("portal_pc", PORTAL_PC_TIME) * pc_bond() * bond_rate(pc.map_or(9.0, pc_skill));
+    let calls = PORTAL_HC_TIME * HC_BOND * bond_rate(hc.map_or(9.0, |c| head_skill(w, c)))
+        + PORTAL_PC_TIME * PC_BOND * bond_rate(pc.map_or(9.0, pc_skill));
     // His recruiting fall: the season before his class enrolled.
     let recruited = p.class_of - 1;
     let signed = p.cal.signed.map(|s| s.program);
@@ -192,9 +181,9 @@ pub fn transfer_bond(w: &World, i: usize, j: usize) -> (f64, f64) {
     let old = fade
         * (hc
             .filter(|&c| recruited_him(c, Role::HeadCoach))
-            .map_or(0.0, |c| crate::knob!("old_hc", OLD_HC_TIME) * hc_bond() * bond_rate(head_skill(w, c)))
+            .map_or(0.0, |c| OLD_HC_TIME * HC_BOND * bond_rate(head_skill(w, c)))
             + pc.filter(|&c| recruited_him(c, Role::PositionCoach(group)))
-                .map_or(0.0, |c| pc_bond() * bond_rate(pc_skill(c))));
+                .map_or(0.0, |c| PC_BOND * bond_rate(pc_skill(c))));
     (calls, old)
 }
 
