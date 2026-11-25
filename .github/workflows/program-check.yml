@@ -2,33 +2,29 @@ name: Program fortunes check
 # The program fortunes measuring pass (docs/design/program-fortunes.md):
 # stand-in worlds on several seeds, one machine a world, each read with the
 # World Reader's program check (`afm_read <book> program_check`) against the
-# real 2001-2025 table. An arm is a line of ARMS: its name, the commit that
-# builds the world (empty: this one), the world's scale and AFM_TUNE (the
-# pass's knobs, `afm_engine::tune`; empty: the sizes as built). The reader
-# is always this commit's. A full-size 30-year stand-in world takes about
-# four and a half hours of a job's six; a quarter-size one about an hour and
-# a half. Each world's page is in the run's summary and its artifacts, with
-# the star mix check. Runs on a push that changes this file,
-# or by hand.
+# real 2001-2025 table. An arm is a line of ARMS (or a part between
+# semicolons of the `arms` input): its name, the commit that builds the
+# world (empty: this one) and the world's scale. The reader is always this
+# commit's. A full-size stand-in world of 28 years takes 3.3 to 5.3 hours
+# of a job's six, and 30 years as much as 5.6; a quarter-size one of 30
+# years about two. Each world's page is in the run's summary and its
+# artifact, with the star mix check; `program-collect.yml` prints the pages
+# of a run in one log. Run by hand, at most about 8 worlds at once.
 on:
-  push:
-    paths:
-      - .github/workflows/program-check.yml
   workflow_dispatch:
     inputs:
       arms:
-        description: "Arms, one a line: name|commit|scale|AFM_TUNE"
+        description: "Arms, split by semicolons: name|commit|scale"
         default: ""
       seeds:
         description: "Seeds, space separated"
         default: ""
       years:
         description: "Years of history"
-        default: "30"
+        default: ""
 env:
   ARMS: |
-    a-s100||1.0|bond_base=100,hc_bond=0.0043,pc_bond=0.0022
-    a-s30x4||1.0|bond_base=30,hc_bond=0.0427,pc_bond=0.0213
+    head||1.0
   # Years of history, and the first season the late page reads (the first
   # classes of a short history are the seeded rosters').
   YEARS: "28"
@@ -49,7 +45,7 @@ jobs:
         run: |
           arms="${IN_ARMS:-$ARMS}"
           seeds="${IN_SEEDS:-$SEEDS}"
-          arms_json=$(printf '%s\n' "$arms" | awk -F'|' 'NF>=3 && $1!="" {printf "{\"name\":\"%s\",\"ref\":\"%s\",\"scale\":\"%s\",\"tune\":\"%s\"}\n",$1,$2,$3,$4}' | jq -sc .)
+          arms_json=$(printf '%s\n' "$arms" | tr ';' '\n' | awk -F'|' 'NF>=3 && $1!="" {gsub(/^ +| +$/,"",$1); printf "{\"name\":\"%s\",\"ref\":\"%s\",\"scale\":\"%s\"}\n",$1,$2,$3}' | jq -sc .)
           echo "arms=$arms_json" >> "$GITHUB_OUTPUT"
           echo "refs=$(echo "$arms_json" | jq -c '[.[].ref] | unique')" >> "$GITHUB_OUTPUT"
           echo "seeds=$(echo "$seeds" | tr ' ' '\n' | grep . | jq -sc .)" >> "$GITHUB_OUTPUT"
@@ -119,7 +115,6 @@ jobs:
       - run: chmod +x tools/*
       - name: The world (${{ matrix.arm.name }}, seed ${{ matrix.seed }}, scale ${{ matrix.arm.scale }})
         env:
-          AFM_TUNE: ${{ matrix.arm.tune }}
           AFM_SAVE: out/world.afmworld
         run: |
           SECONDS=0
@@ -133,7 +128,7 @@ jobs:
           tools/afm_read "$b" program_check | tee program_check.txt
           tools/afm_read "$b" program_check "from=$FROM" > program_check_from.txt
           {
-            echo "## ${{ matrix.arm.name }}, seed ${{ matrix.seed }}, scale ${{ matrix.arm.scale }}, tune '${{ matrix.arm.tune }}'"
+            echo "## ${{ matrix.arm.name }}, seed ${{ matrix.seed }}, scale ${{ matrix.arm.scale }}"
             echo '```'; cat program_check.txt; echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4

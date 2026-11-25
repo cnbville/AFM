@@ -1,6 +1,6 @@
 # The rise and fall of programs (realism audit item 2)
 
-Design, 2026-11-24. Thread "Design rise and fall of programs". Lanes P1 and P2 built 2026-11-24; P0 not yet.
+Design, 2026-11-24. Thread "Design rise and fall of programs". Lanes P0, P1 and P2 built 2026-11-24. The measuring pass ran 2026-11-25 ("The measuring pass" below): it sized the bond's curve, two marks are still not met, and question 11 is open.
 
 ## Cain's answer (2026-11-24)
 
@@ -79,6 +79,98 @@ What already exists and is not the cause: booster arrivals and exits (`program.r
 Pass marks, set before: win share 10 years on under 0.27 and 20 years on under 0.25 on every seed; strength 10 years on under 0.60; the best 25-year record under .870; at most two long-time programs under .330; no 20-year run without a winning season; unbeaten seasons 0.6 to 1.0 a year; 15 or more programs in both the bottom and the top quarter in some 5-year span; head coach's share of class swings 20 to 35%. Cain's NIL-era title call stays: 9 to 10 champions in 15 years.
 
 Not questions yet: if the top still goes unbeaten too often after P1 and P2 (Texas-like records, the 65-game streak), the upset rate at the top is an engine question for its own thread. The athletic director's own skill at reading candidates waits for the AD layer design.
+
+## The measuring pass (2026-11-25, seeds 341, 351, 361 and 371)
+
+Thread "Measure program fortunes on four seeds", under Cain's sleep proxy. Every choice it made for him is under "Decided by proxy" below.
+
+How it was read: full-size worlds with their games on the stand-in (`star_mix build`), one machine a world on GitHub (`.github/workflows/program-check.yml`), each read with `afm_read <book> program_check`. A stand-in world can't judge the win marks: its win share falls off far faster than an engine world's (1 year on 0.35 to 0.41, the seed 321 engine world 0.60, real 0.54), so unbeaten seasons, the best record and the win-share marks wait for an engine world. Roster strength and class hauls read the same on both (strength 1, 10 and 24 or 25 years on: 0.88, 0.78 and 0.77 here before the lanes, 0.90, 0.79 and 0.76 on seed 321).
+
+### Before and after lanes P1 and P2, at the sizes they proposed
+
+30 years of history, read over 2001-2025. Before is main before both lanes (`8f0ba00`).
+
+| Seed | Strength 10 years on, before | after | Head coach's share of class swings, before | after |
+|---|---|---|---|---|
+| 341 | 0.78 | 0.78 | -1% | 4% |
+| 351 | 0.78 | 0.77 | 1% | 6% |
+| 361 | 0.79 | 0.76 | 5% | 3% |
+| 371 | 0.77 | 0.77 | 4% | 2% |
+| Real | 0.49 | | 29% | |
+
+At those sizes the two lanes moved nothing that can be measured. Seven quarter-size arms on seed 341 (the bond at 4 times, heavier title and pipeline grades, a faster name, a faster recent grade, and all together) left the coach's share between -4% and 6%.
+
+### Why the size of the bond was not the lever
+
+Replays of one recruiting year from a saved world (`fortunes_ab`), the same recruits under each arm:
+
+- The bond is the coach's rate times his time on the recruit. The rate was 3^((skill - 8) / 10), and FBS head coaches' skill is 15.5 with a spread (SD) of 2.1, so a coach one spread better built 26% more bond. His time on the same recruit is 1.4 in his own state against 0.85 outside it, 1.0 visited against 0.4 not, 1.0 an own target against 0.35. So where the recruit lives and whether he visits move the bond three times over, the coach's skill by a quarter.
+- A bigger bond therefore made home count more, not the coach. At 16 times, 92% of signees changed schools, in-state signings went from 52% to 63%, the link between a program's name and its class fell from 0.78 to 0.24, and the coach's skill still read 0.05 to 0.18 against the change in his class.
+- A steeper curve at the same average bond did what item 3 asks. With each point of skill worth 40% more bond (base 30) and the average bond unchanged, the coach's skill read 0.30 against the change in his class's best ten (0.09 before), with in-state signings and the name's link unchanged.
+
+### Fitting the curve (seed 341, full size, 20 years, read over 2006-2025)
+
+| Arm | Strength 1, 5, 10 years on | Win share 1, 5, 10 years on | Coach's share of class swings | Programs in both the bottom and top quarter |
+|---|---|---|---|---|
+| The lanes' sizes (base 3) | 0.88, 0.80, 0.76 | 0.35, 0.28, 0.27 | 6% | 11 |
+| Base 10, same average bond | 0.89, 0.80, 0.77 | 0.39, 0.31, 0.30 | 4% | 14 |
+| Base 30, same average bond | 0.88, 0.77, 0.70 | 0.39, 0.30, 0.19 | 14% | 15 |
+| Base 30, twice the average bond | 0.87, 0.72, 0.64 | 0.45, 0.24, 0.17 | 11% | 21 |
+| Base 30, four times | 0.86, 0.65, 0.54 | 0.48, 0.28, 0.18 | 23% | 19 |
+| Base 100, same average bond | 0.87, 0.74, 0.65 | 0.41, 0.25, 0.16 | 18% | 16 |
+| Base 100, twice | 0.87, 0.72, 0.63 | 0.46, 0.32, 0.19 | 17% | 26 |
+| Real | 0.74, 0.55, 0.49 | 0.54, 0.28, 0.21 | 29% | 27 |
+
+Base 30 at four times the average bond met every mark a stand-in world can read, but its Group of 5 won 5 of 20 titles (FIU three). Base 100 at the same average bond moved strength half as far, with no bigger bond for an average coach.
+
+### The fitted sizes on the four seeds
+
+28 years of history (30 ran to 335 of a job's 355 minutes), read over 2001-2025 like the worlds above. Fitted is base 100 at the same average bond: `BOND_BASE` 100, `HC_BOND` 0.0043, `PC_BOND` 0.0022 (`world/fortunes.rs`).
+
+| Seed | Strength 10 years on: before | lanes' sizes | fitted | Coach's share of class swings: before | lanes' sizes | fitted |
+|---|---|---|---|---|---|---|
+| 341 | 0.78 | 0.78 | 0.70 | -1% | 4% | 13% |
+| 351 | 0.78 | 0.77 | 0.71 | 1% | 6% | 15% |
+| 361 | 0.79 | 0.76 | 0.67 | 5% | 3% | 9% |
+| 371 | 0.77 | 0.77 | 0.69 | 4% | 2% | 16% |
+| Real | 0.49 | | | 29% | | |
+
+With the fitted sizes on the four seeds:
+
+- Strength 5 years on 0.74 to 0.76 (before 0.79 to 0.82, real 0.55) and 20 years on 0.65 to 0.69 (before 0.75 to 0.79, real 0.49).
+- Programs in both the bottom and the top quarter in some 5-year span: 21 to 26 (the lanes' sizes 14 and 15 on the two seeds read, real 27, the mark 15 or more). 5-year blocks that moved .150 or more: 21 to 23% (before 16 to 18%, real 36%).
+- Win share 1 year on 0.42 to 0.45 (before 0.38 to 0.41, real 0.54): eras now last through a coach's years. The other win marks wait for an engine world.
+- No Group of 5 champion in 112 seasons. The average coach's bond is unchanged, so in-state signings and the name's link to a class stay where they were (the replays above).
+- A famous former player's name adds up to 3 points to his skill in his first season as head coach, which is now up to 4 times the bond (1.4 times before).
+
+Two marks are still not met: strength 10 years on (0.69, the mark under 0.60) and the head coach's share of class swings (13%, the mark 20 to 35%). The fit moved strength a third of the way to real and the coach's share two fifths.
+
+The stronger arm (base 30 at four times the average bond) on the same four seeds: strength 10 years on 0.53 to 0.61 and the coach's share 11 to 22%, but the Group of 5 won 3 to 5 titles in 28 seasons on every seed, and the best long record in FBS was Middle Tennessee's on seed 351 (.775) and Troy's on seed 361 (.752). A bond that large is worth more than the whole step between a Group of 5 school and a national name, so it was not taken.
+
+### What is left (proposed, not confirmed)
+
+The rest is not a size. A top recruiter's bond can only grow until it outweighs the step between levels, and that step is small in a recruit's read: about 0.5 between a Group of 5 school and a national name (from the terms of `utility_fit`, not measured), where base 30 at four times gives a head coach at 19 a bond of 1.8 against a typical 0.55.
+
+**11. Should a coach's bond win battles between schools of the same standing before it can lift a school over a level?** A recruit weighs the bond in full against schools at or below the level of the best school recruiting him, and less against a school a level above.
+- Example: a Group of 5 head coach at 19 fights Alabama for a 4-star. Today, with a bond strong enough to make eras at the top, he wins him, and his school wins titles. After, he wins nearly every fight with other Group of 5 schools and the weaker Power 4 ones, and builds the best Group of 5 class, as real risers do.
+- In games: your recruiting rating decides the battles at your level; moving up a level takes wins, a name and a bigger job.
+- My pick: yes, as its own lane with a measuring pass on these four seeds. It would let the stronger bond be used (strength 10 years on 0.58, the coach's share 16%).
+
+Also still open: lanes P1's other sizes and P2's sizes stay as proposed. The quarter-size arms that moved the grades, the name and the recent grade moved no mark; P2's sizes were not tested on their own.
+
+### Decided by proxy (2026-11-25, Cain asleep: "i'm giving you permission to make decisions for me als long as you note them down")
+
+1. **Seeds**: 341, 351, 361 and 371 (331 went to the GM tenure lane).
+2. **Stand-in games, on GitHub**: the pass ran on full-size stand-in worlds, one machine a world. An engine-game world of this length needs two jobs of about five hours each. The win marks wait for an engine world.
+3. **Before**: main before both lanes (`8f0ba00`).
+4. **Two workflows, run by hand**: `program-check.yml` builds the worlds and reads them, `program-collect.yml` prints their pages in one log.
+5. **Test knobs**: sizes were read from an `AFM_TUNE` setting during the pass and taken out before the merge. The game reads no such setting.
+6. **Smaller rounds for test arms**: quarter-size worlds and 20-year full-size worlds on seed 341; the last round at 28 years, not 30.
+7. **The curve, not the bond's size**: an 18 recruiter's bond is 100 times an 8's (1.58 times a point), not "about 3 times". The typical FBS head coach builds what he built before.
+8. **The careful arm**: base 100 at the same average bond, not base 30 at four times, which met the strength mark but gave the Group of 5 title runs.
+9. **Stopped with two marks unmet** and wrote question 11, instead of pushing the size further.
+10. **The other sizes stay as proposed**: no arm on them moved a mark.
+11. **Merged on green**: sizing these lanes is what the pass was agreed for.
 
 ## Questions
 

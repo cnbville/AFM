@@ -20,12 +20,22 @@ pub const HEAD_RECORD: f64 = 2.0;
 /// Item 2: head-coaching seasons his record above his rosters reads.
 pub const HEAD_RECORD_SEASONS: usize = 3;
 /// Item 3: the bond a head coach builds over a recruit's year on him at a
-/// recruiting skill of 8, a recruit's own target he has visited (before:
-/// 0.025 at a skill of 10, and 0.006 a point either side).
-pub const HC_BOND: f64 = 0.06;
-/// Item 3: the same for his position coach (before: 0.003 a point of
-/// recruiting either side of 10).
-pub const PC_BOND: f64 = 0.03;
+/// recruiting skill of 8, a recruit's own target he has visited. With
+/// [`BOND_BASE`] that is 0.136 at 15.5, a typical FBS head coach as a
+/// recruit feels him, the same as the lane's first sizes gave there (0.06
+/// at 8 on a base of 3), 0.43 at 18 and 0.03 at 12. Sized on the measuring
+/// pass (2026-11-25, `docs/design/program-fortunes.md`): proposed, not
+/// confirmed.
+pub const HC_BOND: f64 = 0.0043;
+/// Item 3: the same for his position coach.
+pub const PC_BOND: f64 = 0.0022;
+/// Item 3: how much faster a coach ten points better builds a bond: each
+/// point of recruiting is worth 58% more. On a base of 3 a head coach one
+/// spread better than the typical one (2.1 points) built 26% more bond,
+/// while where the recruit lives and whether he visited moved the same
+/// bond three times over, so classes didn't follow the coach at any size
+/// of the bond. Sized on the measuring pass: proposed, not confirmed.
+pub const BOND_BASE: f64 = 100.0;
 /// Item 4: a transfer's few weeks in the portal, as a share of a
 /// recruit's year: the head coach's calls (a recruit who isn't his own
 /// target gets 0.35 of him) and the position coach's (0.75, a recruit who
@@ -40,10 +50,10 @@ pub const OLD_HC_TIME: f64 = 0.6;
 pub const OLD_TIE_FADE: f64 = 0.85;
 
 /// How fast a coach's recruiting builds a bond (item 3, Cain 2026-11-24):
-/// 1 at a skill of 8, three times that at 18 (an 18 recruiter builds a
-/// bond about three times as fast as an 8), 1.25 at 10, 1.73 at 13.
+/// 1 at a skill of 8, [`BOND_BASE`] times that at 18, so 1.58 times a
+/// point: 6.3 at 12, 31.6 at 15.5, 100 at 18.
 pub fn bond_rate(skill: f64) -> f64 {
-    3f64.powf((skill - 8.0) / 10.0)
+    BOND_BASE.powf((skill - 8.0) / 10.0)
 }
 
 /// The college seasons a stint covers: from the season after its label
@@ -192,13 +202,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_eighteen_recruiter_builds_a_bond_three_times_as_fast_as_an_eight() {
+    fn each_point_of_recruiting_builds_the_bond_faster() {
         assert!((bond_rate(8.0) - 1.0).abs() < 1e-12);
-        assert!((bond_rate(18.0) / bond_rate(8.0) - 3.0).abs() < 1e-9);
-        assert!(bond_rate(13.0) > bond_rate(10.0));
-        // An 18 against an 8 on an own target is worth more than two of a
-        // recruit's own feel for a school (SD 0.07); before it was 0.06.
-        assert!(HC_BOND * (bond_rate(18.0) - bond_rate(8.0)) > 2.0 * 0.05);
+        assert!((bond_rate(18.0) / bond_rate(8.0) - BOND_BASE).abs() < 1e-9);
+        assert!((bond_rate(13.0) / bond_rate(12.0) - BOND_BASE.powf(0.1)).abs() < 1e-9);
+        // A typical FBS head coach (15.5) builds what the lane's first
+        // sizes gave him: 0.06 at 8 on a base of 3.
+        let before = 0.06 * 3f64.powf(0.75);
+        assert!((HC_BOND * bond_rate(15.5) - before).abs() < 0.002);
+        // A head coach one spread better (2.1 points) is worth more on an
+        // own target than a recruit's own feel for a school (SD 0.07).
+        assert!(HC_BOND * (bond_rate(17.6) - bond_rate(15.5)) > 0.07);
     }
 
     #[test]
