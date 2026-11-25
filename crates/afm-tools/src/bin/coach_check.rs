@@ -868,7 +868,8 @@ fn feats(args: &[String]) {
             tallied += g.len();
             let fit = power::solve(&g, &HashMap::new(), 1.0);
             for x in &g {
-                let Some(won) = x.won else { continue };
+                // A tie (2) is nobody's win.
+                let Some(won) = x.won.filter(|&s| s < 2) else { continue };
                 let home = power::win_chance(fit.margin(x.teams[0], x.teams[1], x.neutral), 14.0);
                 let chance = if won == 0 { home } else { 1.0 - home };
                 let e = mk(x.teams[won as usize] as usize);

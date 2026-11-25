@@ -6,8 +6,9 @@ name: Coach check (world)
 # own teams (coach_check game), and what a head coach's rating is worth in a
 # played year (coach_check year: the world played on twice from the same
 # morning, games on the stand-in).
-# By hand only. One runner, about three hours. Nothing is published: the
-# reports go to the run's summary and an artifact.
+# By hand only. One runner, about four hours for every part ("parts" picks
+# some). Nothing is published: the reports go to the run's summary and an
+# artifact.
 on:
   workflow_dispatch:
     inputs:
@@ -20,6 +21,9 @@ on:
       games:
         description: "Games an arm on game day (a multiple of 40)"
         default: "2400"
+      parts:
+        description: "The parts to run (world, year, game)"
+        default: "world year game"
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -49,12 +53,13 @@ jobs:
           done
           ls -la && du -sh ./* && df -h / /mnt
       - name: The feats on the world's history
+        if: ${{ contains(inputs.parts, 'world') }}
         run: |
           f=$(realpath "$(ls out/*.afmworld | head -1)")
           target/release/coach_check world "$f" 2>&1 | tee coach-world.txt
           { echo '```'; cat coach-world.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: A played year, twice
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && contains(inputs.parts, 'year') }}
         env:
           DAYS: ${{ inputs.days }}
         run: |
@@ -62,7 +67,7 @@ jobs:
           target/release/coach_check year "$f" "days=$DAYS" 2>&1 | tee coach-year.txt
           { echo '```'; cat coach-year.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Game day, both ways of playing
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && contains(inputs.parts, 'game') }}
         env:
           GAMES: ${{ inputs.games }}
         run: |
