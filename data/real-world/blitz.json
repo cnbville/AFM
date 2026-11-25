@@ -1,0 +1,106 @@
+{
+ "source": "Pro Football Reference advanced defense through nflverse-data (release pfr_advstats), regular seasons",
+ "seasons": [
+  2018,
+  2024
+ ],
+ "team_games": 3712,
+ "note": "A blitz is a rush by a man who is not a down lineman. Pressures are hurries, knockdowns and sacks. Sacks a blitz reads every sack he had against his blitzes. Edges listed as linebackers rush far more often than PFR counts blitzes for them, so only their sacks a team game are kept.",
+ "groups": {
+  "linebackers": {
+   "player_seasons": 1296,
+   "sacks_a_team_game": 0.358,
+   "blitzes_a_team_game": 7.17,
+   "pressures_a_team_game": 1.236,
+   "pressures_a_blitz": 0.172,
+   "sacks_a_blitz": 0.0499,
+   "sacks_a_pressure": 0.289,
+   "starters": {
+    "player_seasons": 501,
+    "blitzes_a_game_p10_p50_p90": [
+     1.06,
+     2.44,
+     4.69
+    ],
+    "sacks_a_season": 2.01,
+    "pressures_a_season": 6.75
+   }
+  },
+  "corners": {
+   "player_seasons": 909,
+   "sacks_a_team_game": 0.046,
+   "blitzes_a_team_game": 0.88,
+   "pressures_a_team_game": 0.159,
+   "pressures_a_blitz": 0.181,
+   "sacks_a_blitz": 0.0522,
+   "sacks_a_pressure": 0.288,
+   "starters": {
+    "player_seasons": 455,
+    "blitzes_a_game_p10_p50_p90": [
+     0.0,
+     0.13,
+     0.93
+    ],
+    "sacks_a_season": 0.26,
+    "pressures_a_season": 0.88
+   }
+  },
+  "safeties": {
+   "player_seasons": 707,
+   "sacks_a_team_game": 0.1,
+   "blitzes_a_team_game": 2.39,
+   "pressures_a_team_game": 0.379,
+   "pressures_a_blitz": 0.159,
+   "sacks_a_blitz": 0.0417,
+   "sacks_a_pressure": 0.263,
+   "starters": {
+    "player_seasons": 432,
+    "blitzes_a_game_p10_p50_p90": [
+     0.19,
+     0.82,
+     2.54
+    ],
+    "sacks_a_season": 0.71,
+    "pressures_a_season": 2.74
+   }
+  },
+  "backs": {
+   "player_seasons": 2526,
+   "sacks_a_team_game": 0.187,
+   "blitzes_a_team_game": 4.47,
+   "pressures_a_team_game": 0.727,
+   "pressures_a_blitz": 0.162,
+   "sacks_a_blitz": 0.0419,
+   "sacks_a_pressure": 0.258,
+   "starters": {
+    "player_seasons": 971,
+    "blitzes_a_game_p10_p50_p90": [
+     0.0,
+     0.4,
+     2.0
+    ],
+    "sacks_a_season": 0.49,
+    "pressures_a_season": 1.85
+   }
+  },
+  "edges_listed_linebacker": {
+   "player_seasons": 423,
+   "sacks_a_team_game": 0.512,
+   "pressures_a_team_game": 1.809,
+   "sacks_a_pressure": 0.283
+  },
+  "ends": {
+   "player_seasons": 867,
+   "sacks_a_team_game": 0.753,
+   "pressures_a_team_game": 2.929,
+   "sacks_a_pressure": 0.257
+  },
+  "tackles": {
+   "player_seasons": 1073,
+   "sacks_a_team_game": 0.52,
+   "pressures_a_team_game": 2.096,
+   "sacks_a_pressure": 0.248
+  }
+ },
+ "sacks_a_team_game_all_rows": 2.406
+}

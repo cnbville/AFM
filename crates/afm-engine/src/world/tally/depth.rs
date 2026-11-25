@@ -764,9 +764,15 @@ fn pass_play(m: &mut Dense, r: &PlayRecord, o: usize, d: usize, level: Level, te
     if let Some(p) = r.interceptor {
         m.one(d, p, Dc::IntA);
     }
-    // Coverage snaps: every defender who didn't rush.
-    for &id in &r.on_field[1] {
-        if !r.pressures.contains(&id) && !r.sackers.contains(&id) && !r.blocks.iter().any(|b| b.1 == id && b.2) {
+    // Coverage snaps: every defender who didn't rush (`PlayRecord::rushed`,
+    // and for plays kept before it no pressure, sack or pass block on him).
+    for (k, &id) in r.on_field[1].iter().enumerate() {
+        let rushed = k < 16 && (r.rushed >> k) & 1 == 1;
+        if !rushed
+            && !r.pressures.contains(&id)
+            && !r.sackers.contains(&id)
+            && !r.blocks.iter().any(|b| b.1 == id && b.2)
+        {
             m.one(d, id, Dc::CovSnaps);
         }
     }
@@ -848,9 +854,21 @@ fn blocks_and_rush(m: &mut Dense, r: &PlayRecord, o: usize, d: usize, dropback: 
     if !dropback {
         return;
     }
-    // The pass rush: every man blocked on a pass, who pressured or sacked.
-    let mut rushers: Vec<u32> = r.blocks.iter().filter(|b| b.2).map(|b| b.1).collect();
+    // The pass rush: every man who rushed (`PlayRecord::rushed`), with every
+    // man blocked on a pass, who pressured, hit or sacked for plays kept
+    // before it. It read only the last three, so a blitzer nobody blocked
+    // who didn't get there was never counted, and pressures a blitz read
+    // high (realism audit item 3, the pass rush).
+    let mut rushers: Vec<u32> = r.on_field[1]
+        .iter()
+        .take(16)
+        .enumerate()
+        .filter(|&(k, _)| (r.rushed >> k) & 1 == 1)
+        .map(|(_, &id)| id)
+        .collect();
+    rushers.extend(r.blocks.iter().filter(|b| b.2).map(|b| b.1));
     rushers.extend(r.pressures.iter().copied());
+    rushers.extend(r.hits.iter().copied());
     rushers.extend(r.sackers.iter().copied());
     rushers.sort_unstable();
     rushers.dedup();
@@ -883,8 +901,10 @@ fn blocks_and_rush(m: &mut Dense, r: &PlayRecord, o: usize, d: usize, dropback: 
             m.put(s, id, Dc::GetOff, t as f64);
             m.one(s, id, Dc::GetOffN);
         }
+        // A pressure is a hurry, a hit or a sack, as the box score's `book`
+        // keeps it.
         let sacked = r.sackers.iter().take(2).any(|&x| x == id);
-        let pressured = sacked || r.pressures.contains(&id);
+        let pressured = sacked || r.pressures.contains(&id) || r.hits.contains(&id);
         if !pressured {
             continue;
         }
