@@ -1,10 +1,12 @@
 //! Pass protection (realism audit item 3, the pass rush lane): the linemen
 //! take the men on the line in order across the formation, so the tackle
 //! has the end however wide he lines up, and a lineman left over or a back
-//! takes a blitzer.
+//! takes a blitzer. The four-man rush lane: against a man coming round the
+//! edge the tackle sets back and lets him come.
 
 use crate::game::chart::Rusher;
-use crate::game::scrimmage::{DSlot, pair_in_order};
+use crate::game::geom::v2;
+use crate::game::scrimmage::{DSlot, pair_in_order, set_spot};
 use crate::game::stats::PlayType;
 use crate::game::synthetic::synthetic_league;
 use crate::game::{GameSetup, play_game};
@@ -95,4 +97,65 @@ fn a_blocker_has_the_end_at_the_snap() {
     }
     assert!(ends >= 300, "only {ends} end rushes in four games");
     assert!(had as f64 >= 0.97 * ends as f64, "a blocker had {had} of {ends} ends at the snap");
+}
+
+#[test]
+fn the_tackle_sets_back_on_the_line_to_the_passer() {
+    // A seven-step drop from the line at 30: the passer sets up at 23, and
+    // the tackle kicks back 0.3 of the way, to 27.9, onto the line from the
+    // end to the passer.
+    let launch = v2(23.0, 0.0);
+    let end = v2(30.6, 8.0);
+    let spot = set_spot(30.0, launch, end).expect("a set point");
+    assert!((spot.x - 27.9).abs() < 1e-9, "{spot:?}");
+    let (a, b) = (spot - end, launch - end);
+    assert!((a.x * b.y - a.y * b.x).abs() < 1e-9, "{spot:?} is off the line to the passer");
+    assert!(spot.y > launch.y && spot.y < end.y, "{spot:?}");
+    // A quick drop of 4 yards sets shallower: 1.2 yards back.
+    let quick = set_spot(30.0, v2(26.0, 0.0), end).expect("a set point");
+    assert!((quick.x - 28.8).abs() < 1e-9, "{quick:?}");
+    // Once the end is within half a yard of the set depth the tackle takes
+    // him where he is.
+    assert!(set_spot(30.0, launch, v2(28.3, 6.0)).is_none());
+    assert!(set_spot(30.0, launch, v2(28.5, 6.0)).is_some());
+}
+
+/// On a straight dropback the end meets his blocker behind the line, well
+/// after the men inside meet theirs. The tackle used to mirror him from the
+/// snap at the line, as he mirrors a man over him (`set_spot`). In these
+/// four games the ends meet theirs 1.02 s after the snap and the inside men
+/// 0.22 s; with the set turned off, 0.61 s.
+#[test]
+fn the_end_meets_his_blocker_behind_the_line() {
+    let t = synthetic_league(Level::NFL, 4, 71);
+    let (mut ends, mut inside) = (Vec::new(), Vec::new());
+    for k in 0..4u64 {
+        let (h, a) = if k % 2 == 0 { (0, 1) } else { (2, 3) };
+        let mut s = GameSetup::new(&t[h], &t[a], Level::NFL, 900 + k);
+        s.keep = true;
+        let r = play_game(&s);
+        for p in &r.stats.plays {
+            let dropback = matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+            if !dropback
+                || ["screen", "boot", "naked", " with "].iter().any(|x| p.call.contains(x))
+                || p.roles[1].len() != p.on_field[1].len()
+            {
+                continue;
+            }
+            for (i, id) in p.on_field[1].iter().enumerate() {
+                let Some(&(_, at)) = p.contact.iter().find(|c| c.0 == *id) else { continue };
+                let role = p.roles[1][i];
+                if role == DSlot::LE as u8 || role == DSlot::RE as u8 {
+                    ends.push(at as f64);
+                } else if [DSlot::DTL, DSlot::DTR, DSlot::NT].iter().any(|s| role == *s as u8) {
+                    inside.push(at as f64);
+                }
+            }
+        }
+    }
+    let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len().max(1) as f64;
+    let (e, n) = (mean(&ends), mean(&inside));
+    assert!(ends.len() >= 300 && inside.len() >= 300, "{} ends and {} inside men blocked", ends.len(), inside.len());
+    assert!(e >= 0.8, "the end met his blocker {e:.2} s after the snap");
+    assert!(e >= n + 0.5, "the end met his blocker at {e:.2} s, the men inside at {n:.2} s");
 }
