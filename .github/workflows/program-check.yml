@@ -27,18 +27,13 @@ on:
         default: "30"
 env:
   ARMS: |
-    f-proposed||1.0|
-    f-s10||1.0|bond_base=10,hc_bond=0.0243,pc_bond=0.0122
-    f-s30||1.0|bond_base=30,hc_bond=0.0107,pc_bond=0.0053
-    f-s30x2||1.0|bond_base=30,hc_bond=0.0213,pc_bond=0.0107
-    f-s30x4||1.0|bond_base=30,hc_bond=0.0427,pc_bond=0.0213
-    f-s100||1.0|bond_base=100,hc_bond=0.0043,pc_bond=0.0022
-    f-s100x2||1.0|bond_base=100,hc_bond=0.0087,pc_bond=0.0043
+    a-s100||1.0|bond_base=100,hc_bond=0.0043,pc_bond=0.0022
+    a-s30x4||1.0|bond_base=30,hc_bond=0.0427,pc_bond=0.0213
   # Years of history, and the first season the late page reads (the first
   # classes of a short history are the seeded rosters').
-  YEARS: "20"
-  FROM: "2009"
-  SEEDS: "341"
+  YEARS: "28"
+  FROM: "2006"
+  SEEDS: "341 351 361 371"
 jobs:
   plan:
     runs-on: ubuntu-latest
