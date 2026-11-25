@@ -15,6 +15,7 @@ on:
 env:
   RUNS: "45506695888 45524401404"
   SKIP: ""
+  FULL: ""
 jobs:
   collect:
     runs-on: ubuntu-latest
@@ -35,9 +36,11 @@ jobs:
               case " $SKIP " in *" $name "*) continue;; esac
               gh api "repos/${{ github.repository }}/actions/artifacts/$id/zip" > a.zip
               echo "=== $name ($(unzip -p a.zip time.txt | tr '\n' ' '))"
-              unzip -p a.zip program_check.txt
-              echo "--- star mix, titles"
-              unzip -p a.zip star_mix.txt | grep -i -A12 "dynasty\|titles" | head -40
+              # FULL=1 prints the whole page; else its key lines, squeezed.
+              if [ -n "$FULL" ]; then unzip -p a.zip program_check.txt; else
+                unzip -p a.zip program_check.txt | grep -E "^(1|5|10|20) +[0-9-]|best record|worst record|at \.300|longest run|unbeaten seasons \(|5-year block's|moved \.150|both the bottom|class hauls|Pass marks met|long-time programs" | tr -s ' '
+              fi
+              unzip -p a.zip star_mix.txt | grep -E "^titles|^by group|^most titles" | tr -s ' '
               rm -f a.zip
             done < list.txt
           done
