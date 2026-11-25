@@ -730,8 +730,11 @@ fn afternoon(w: &mut World, d: Date, y: &YearDates) {
     if d.weekday() == Weekday::Sun && (4..=10).any(|k| y.cfb_weeks.get(k).is_some_and(|s| d == s.add(1))) {
         staff::in_season_firings(w);
     }
-    // The NFL's (realism audit items 7 and 8): the Mondays after weeks 4-15.
-    if d.weekday() == Weekday::Mon && (3..=14).any(|k| y.nfl_weeks.get(k).is_some_and(|s| d == s.add(1))) {
+    // The NFL's (realism audit items 7 and 8): the Mondays after week 4
+    // through the next-to-last week (Kelly, Ryan and Hackett went with one
+    // or two games left).
+    let last = y.nfl_weeks.len().saturating_sub(2);
+    if d.weekday() == Weekday::Mon && (3..=last).any(|k| y.nfl_weeks.get(k).is_some_and(|s| d == s.add(1))) {
         staff::nfl_in_season(w);
     }
     // And the high schools' (item 8): fall Mondays from mid-September.
