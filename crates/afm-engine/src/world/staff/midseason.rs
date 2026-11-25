@@ -44,14 +44,14 @@ const COLLEGE_COORD: f64 = 0.007;
 const COLLEGE_POSITION: f64 = 0.001;
 /// An NFL head coach's chance on one Monday from a hot seat, at the base
 /// heat (the owner's read 0.2 over the line).
-const NFL_HEAD: f64 = 0.06;
+const NFL_HEAD: f64 = 0.035;
 /// The benefit of the doubt an owner gives his head coach, in games of
 /// .500 football added to the record he reads, by the coach's season in
 /// the job (first, second, later): he hired the man, so a season has to go
 /// wrong for a long time before it reads as the coach (2008-24: 3 of 36
 /// in-season firings came in a first season, none before game 11; 6 in a
 /// second; 27 later). An owner in a hurry gives less.
-const BENEFIT: [f64; 3] = [12.0, 12.0, 1.5];
+const BENEFIT: [f64; 3] = [12.0, 8.0, 3.0];
 /// The read where talk of the head coach's job starts: the seat is hot.
 const SEAT_HOT: f64 = 0.25;
 /// The read where it stops again.

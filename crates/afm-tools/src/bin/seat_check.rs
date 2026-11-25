@@ -32,7 +32,8 @@ fn main() {
     if let Some(f) = rows.as_mut() {
         let _ = writeln!(f, "season\tday\tteam\tcoach\tnth\twins\tlosses\tties\texpect\tlast\thurry\tbad\traw\thot");
     }
-    // Team -> the day its head coach's seat went hot.
+    // Head coach -> the day his seat went hot (a club can move and change
+    // its name while he sits on it).
     let mut hot: BTreeMap<String, afm_engine::calendar::Date> = BTreeMap::new();
     let mut seen = w.news.len();
     let mut fired: Vec<(i32, u32, u32, i64, String)> = Vec::new();
@@ -70,20 +71,22 @@ fn main() {
         }
         for n in &w.news[seen..] {
             let text = &n.text;
-            let team_before =
-                |word: &str| text.strip_prefix("The ").and_then(|x| x.split(word).next()).unwrap_or("").to_string();
+            let coach_before = |word: &str| {
+                let name = text.split("head coach ").nth(1).and_then(|x| x.split(word).next()).unwrap_or("");
+                name.to_string()
+            };
             match n.kind {
                 NewsKind::CoachSeat => {
                     println!("  {today}  {text}");
                     if text.contains("on the hot seat in his") {
                         warmed += 1;
-                        hot.insert(team_before(" are "), today);
+                        hot.insert(coach_before(" is on the hot seat"), today);
                     } else if text.contains("starts it on the hot seat") {
                         carried += 1;
-                        hot.insert(team_before(" keep "), today);
+                        hot.insert(coach_before(" for a "), today);
                     } else {
                         cooled += 1;
-                        hot.remove(&team_before(" have "));
+                        hot.remove(&coach_before("'s job has quieted"));
                     }
                 }
                 NewsKind::CoachFired if text.contains(" fire head coach ") && text.contains("games into his") => {
@@ -102,7 +105,9 @@ fn main() {
                         .and_then(|x| x.split_whitespace().next())
                         .and_then(|x| x.trim_end_matches(|c: char| c.is_alphabetic()).parse().ok())
                         .unwrap_or(0);
-                    let warned = hot.remove(&team_before(" fire ")).map_or(-1, |d| d.days_to(today) as i64);
+                    let name = coach_before(" games into his");
+                    let name = name.rsplit_once(' ').map_or("", |x| x.0);
+                    let warned = hot.remove(name).map_or(-1, |d| d.days_to(today) as i64);
                     fired.push((w.dates.season, games, nth, warned, text.clone()));
                 }
                 NewsKind::CoachFired if text.contains(" fire ") && text.contains("games into the season") => {

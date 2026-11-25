@@ -485,6 +485,24 @@ Cain, 2026-11-22 21:02 UTC: "I want to massively improve the games understanding
 - **Agreed (the game reacts):** 10 the ground rule now reads "outscheming can beat a more talented team sometimes, only through what happens on the field" (it replaces "never so big that calls beat talent", Claude's wording of Cain's 2026-10-14 "rewarded without being broken", which Cain said he never meant); 11 the edge only through where men stand, who is free and who is out of position, never a bonus on ratings; 12 its size set from real upset rates; 13 scouting is a read with errors, AI coordinators break their own tendencies by creativity, defenders cheat by belief and Discipline; 14 an answer called too often becomes the tendency the AI reads; 15 luck's share of results held to real football's, a reason for every loss; 16 a scheme duel test (a sharp caller against a poor one, on even and uneven rosters) every lane of the new section must pass.
 - **Proposed, not confirmed:** every size; the section's topics and their order (designed with Cain topic by topic once the research lands).
 
+## 36. The NFL head coach's hot seat before an in-season firing (thread "Stop NFL owners firing coaches at 1-3", 2026-11-25)
+
+- **Asked:** the coordinator, from GAPS (three test careers in a row fired on 6 October at 1-3 with no warning; a January hire in his "2nd season" by October), with Cain asleep on full proxy (2026-11-24 22:54 UTC: "i'm giving you permission to make decisions for me als long as you note them down").
+- **Root causes:** `staff/midseason.rs` read `season - since` as seasons completed, but `since` is the carousel's label, the season before his first for an offseason hire, so every first-year coach had the second-year patience; and the owner's in-season draw had no link to the public hot seat, so a firing could come before any talk of one. All three careers went the same day because a world's draws are the world's: every career from one world file sees the same roll until your choices change something.
+- **Decided under Cain's proxy** (for his morning look; every size proposed, not confirmed):
+  1. An owner fires his head coach in season only from a hot seat that has been public for a week. Every club and your own coach are on the same rule.
+  2. The owner's read gives a coach he hired the benefit of the doubt: 12 games of .500 football beside the record in his first season, 8 in his second, 3 after, less for an owner in a hurry. Tenure works through this, not through a flat factor.
+  3. Last season counts only when it was his: not in his first season, and in his second as softly as it read then.
+  4. The seat goes hot at a read of 0.25 and cools at 0.12; from a hot seat the chance is 0.035 a Monday at the base heat.
+  5. A coach kept on Black Monday after a chance of 0.2 or more starts the next season on the hot seat, in public that day.
+  6. The firing Mondays run from week 4 through the next-to-last week (they stopped after week 15; Kelly, Ryan and Hackett went with one or two games left).
+  7. You hear it from the owner as a line in your inbox that stops your day, with the news and the hot-seat story beside it. A real talk with the owner about your seat would be a design of its own: not built.
+  8. A career that takes an NFL club on 1 January with an interim for its last games counts the next season as its first.
+  9. The same count fixed where it was read the same way: coordinators' first-season factor (NFL and college), the high school head coach "in his third season or later", the late-season hot-seat games.
+  10. Not changed: Black Monday's sizes, the college AD's in-season firings (no public seat first there yet, in `GAPS.md`).
+- **Measured:** MEASURED
+- How it works: `docs/reference/how-it-works/staff-and-coaches.md`, "Firings during the season".
+
 ## Superseded decisions
 
 | Old | Replaced by | When |
