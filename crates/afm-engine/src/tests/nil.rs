@@ -1196,6 +1196,17 @@ fn the_july_split_pays_the_chart_up_to_its_market() {
         }
     }
     assert!(paid >= 3, "{paid}");
+    // A deal that stands takes its money first; the rest of the year's
+    // money goes to the rest, and the holder's row still carries his own
+    // split of it, the going rate a desk shows beside his deal.
+    let star = roster[0];
+    let held = rec::roster_split(&w, j, &roster, 20.0e6, 0.2, true, &medians, &bars, year, &chart, |_, i| {
+        if i == star { rec::NilHeld::Fixed(3.0e6) } else { rec::NilHeld::None }
+    });
+    assert_eq!(held[0].fixed, Some(3.0e6));
+    assert!(held[0].school + held[0].coll > 0.0, "a deal holder's own split");
+    let rest: f64 = held.iter().filter(|r| r.fixed.is_none()).map(|r| r.school + r.coll).sum();
+    assert!((rest - 17.0e6).abs() < 1.0, "{rest}");
 }
 
 /// 2026-11-18: a recruit's stars are read at the school's money level, its

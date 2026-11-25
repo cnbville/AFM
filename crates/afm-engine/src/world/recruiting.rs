@@ -10642,22 +10642,47 @@ pub(crate) struct SplitRow {
 /// Before, the pot was split by a payroll weight of its own, whatever the
 /// school paid the same man (`nil_bid::market_unit`).
 pub(crate) fn fill_to_market(school: &[f64], price: &[f64], pot: f64) -> Vec<f64> {
-    let total: f64 = price.iter().filter(|x| **x > 0.0).sum();
-    if pot <= 0.0 || total <= 0.0 {
-        return vec![0.0; school.len()];
+    let fill = Fill::read(school, price, pot);
+    school.iter().zip(price).map(|(s, v)| fill.pays(*s, *v)).collect()
+}
+
+/// The multiple of his market price a third party fills a roster's men to
+/// (`fill_to_market`), so one more man can be read on it: what a deal
+/// holder's split would be without his deal.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Fill {
+    /// The multiple of his price each priced man is filled to.
+    mu: f64,
+    /// The last rounding, so the pot is spent to the dollar.
+    trim: f64,
+}
+
+impl Fill {
+    /// The fill that spends `pot` over the men of `school` and `price`.
+    pub(crate) fn read(school: &[f64], price: &[f64], pot: f64) -> Fill {
+        let total: f64 = price.iter().filter(|x| **x > 0.0).sum();
+        if pot <= 0.0 || total <= 0.0 {
+            return Fill { mu: 0.0, trim: 0.0 };
+        }
+        let filled = |mu: f64| -> f64 {
+            school.iter().zip(price).filter(|x| *x.1 > 0.0).map(|(s, v)| (mu * v - s).max(0.0)).sum()
+        };
+        // At `hi` every priced man is over his share by the whole pot or more.
+        let under: f64 = school.iter().zip(price).filter(|x| *x.1 > 0.0).map(|x| *x.0).sum();
+        let (mut lo, mut hi) = (0.0, (pot + under) / total);
+        for _ in 0..60 {
+            let mu = 0.5 * (lo + hi);
+            if filled(mu) > pot { hi = mu } else { lo = mu }
+        }
+        let got = filled(hi);
+        Fill { mu: hi, trim: if got > 0.0 { pot / got } else { 0.0 } }
     }
-    let filled =
-        |mu: f64| -> f64 { school.iter().zip(price).filter(|x| *x.1 > 0.0).map(|(s, v)| (mu * v - s).max(0.0)).sum() };
-    // At `hi` every priced man is over his share by the whole pot or more.
-    let under: f64 = school.iter().zip(price).filter(|x| *x.1 > 0.0).map(|x| *x.0).sum();
-    let (mut lo, mut hi) = (0.0, (pot + under) / total);
-    for _ in 0..60 {
-        let mu = 0.5 * (lo + hi);
-        if filled(mu) > pot { hi = mu } else { lo = mu }
+
+    /// What the third party pays a man the school pays `school`, at market
+    /// price `price` (0: no third-party money for him).
+    pub(crate) fn pays(&self, school: f64, price: f64) -> f64 {
+        if price > 0.0 { self.trim * (self.mu * price - school).max(0.0) } else { 0.0 }
     }
-    let got = filled(hi);
-    let fix = if got > 0.0 { pot / got } else { 0.0 };
-    school.iter().zip(price).map(|(s, v)| if *v > 0.0 { fix * (hi * v - s).max(0.0) } else { 0.0 }).collect()
 }
 
 /// The July split an AI school makes (the new NIL scheme, items 5, 9 and
@@ -10795,8 +10820,10 @@ pub(crate) fn roster_split(
     let keep = if shares_left > left { left / shares_left } else { 1.0 };
     let (rest_school, rest_price): (Vec<f64>, Vec<f64>) =
         (0..roster.len()).map(|k| if fixed[k].is_none() { (keep * school[k], price[k]) } else { (0.0, 0.0) }).unzip();
-    let rest = fill_to_market(&rest_school, &rest_price, left - keep * shares_left);
-    (0..roster.len()).map(|k| row(k, rest_school[k], rest[k], fixed[k])).collect()
+    let fill = Fill::read(&rest_school, &rest_price, left - keep * shares_left);
+    // A deal holder's row carries his own split of what is left too, the
+    // going rate your desk shows beside his deal.
+    (0..roster.len()).map(|k| row(k, keep * school[k], fill.pays(keep * school[k], price[k]), fixed[k])).collect()
 }
 
 /// The share of a collective's money its July split pays the roster before
