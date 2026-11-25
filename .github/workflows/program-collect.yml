@@ -14,8 +14,8 @@ on:
         default: ""
 env:
   RUNS: "45506695888"
-  SKIP: "program-check-proposed-371 program-check-before-351 program-check-proposed-351"
-  FULL: ""
+  SKIP: "program-check-proposed-371 program-check-before-351 program-check-proposed-351 program-check-before-361 program-check-proposed-361 program-check-before-371"
+  FULL: "1"
 jobs:
   collect:
     runs-on: ubuntu-latest
