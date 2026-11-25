@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.697", date: "25 Nov", title: "NIL pay by player value and 2 more",
+    notes: [
+      "College coaching pay now follows each school's money, so a Group of 5 head coach earns about what his real counterpart does.",
+      "A MAC, Sun Belt or Conference USA head coach now makes around a million a year, not three or four.",
+      "Power 4 head coaches stay in the five to ten million range.",
+      "A small school can still give a hot coach a raise, but only so far before a bigger school's money wins.",
+      "Your coach's ratings now count everywhere the moment they change. Your read of people and your recruiting pitch follow the ratings on your profile.",
+      "Your one-on-ones, recruiting talks and hand-offs read your ratings as they are today, not as they were the day you started.",
+    ],
+  },
+  {
     v: "0.2.694", date: "25 Nov", title: "Fix NFL GM tenure (realism audit item 12) and 1 more",
     notes: [
       "College run games now play much closer to real football. Defenders hold up against run blocks the way their size and strength say they should, so backs no longer run wild.",
