@@ -496,7 +496,7 @@ fn shown(w: &World, t: &Talk, g: Group, truth: Took) -> Took {
 fn catches(w: &World, coach: Option<usize>, salt: u64) -> bool {
     let r = match coach {
         Some(c) => w.coaches[c].ability().relationships,
-        None => w.career.as_ref().map_or(10.0, |c| c.you.relationships),
+        None => w.your_ability().map_or(10.0, |a| a.relationships),
     };
     let p = CATCH.0 + (CATCH.1 - CATCH.0) * ((r - 1.0) / 19.0).clamp(0.0, 1.0);
     super::roll(w, 0xCA7C ^ salt, w.today.0 as u64) < p
@@ -2230,7 +2230,7 @@ pub(crate) fn hand_pitch(w: &World, s: &Scene) -> Option<HandPitch> {
     let t = talk(w, s)?;
     let st = St::of(s);
     let caller = dialogue::caller(w, t.i, t.j);
-    let you = &w.career.as_ref()?.you;
+    let you = w.your_ability()?;
     // With nobody else at the seat, the talk is handed to your own coach
     // record: no read, you know your own ratings.
     let is_you = caller == w.career.as_ref().map(|c| c.coach);

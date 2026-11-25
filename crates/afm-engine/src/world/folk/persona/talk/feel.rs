@@ -65,8 +65,7 @@ pub fn repeat_wear(relationships: f32) -> f32 {
 /// Your Relationships rating (1-20): your coach's in the world, 10 with no
 /// career.
 pub fn your_relationships(w: &World) -> f32 {
-    let Some(c) = w.career.as_ref() else { return 10.0 };
-    w.coaches.get(c.coach).map_or(c.you.relationships, |co| co.ability().relationships) as f32
+    w.your_ability().map_or(10.0, |a| a.relationships) as f32
 }
 
 /// How a talk heats him up and wears him down (lane N1's to size).

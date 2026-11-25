@@ -44,6 +44,8 @@ These read the setup-day copy, so they never see your growth or your decline:
 
 Your profile shows the coach record. So the number you see grows, and the number your talks use doesn't. Root cause: two stores with no single owner. The fix is one store (the coach record) and `career.you` kept only as the setup record.
 
+**Fixed 2026-11-25 (lane RE-bug).** Your coach record is the one store. The career keeps who you are (`world/seat.rs`, `Me`: name, birthday, home, road, profile, Aura) and the setup page's numbers as a private record (`Setup`, read only through `Me::at_setup`). The compiler now refuses `career.you.relationships`: a rating can only be read from the coach record (`World::your_ability`, `your_extra`, `your_coach`). Every reader above moved, with your best teaching group (`legacy/guys.rs`, `best_group`) and three more the list missed: the reason on a job offer (`front_office/market.rs`, `offer`), your tone on camera (`stories/media.rs`, `your_tone`) and the live talk's fallback (`persona/talk/feel.rs`). Your style and reputation are read from the coach record too. The three writers of the copy are gone (`storylines/credit.rs`). A save keeps its shape: `Me` is written as the setup form, so old files load unchanged and their stale copy is simply never read. Tests: `tests/one_store.rs`.
+
 ### What each rating reads, seat by seat
 
 "Dead" means no code reads it for you in that seat.
@@ -115,16 +117,6 @@ Cain's point, checked in the code. A live game stops for you and records what th
 
 So a hands-on player's game-day ratings do nothing, and a player who sims never sees them work. A skill that pays in only one way of playing is wrong. Section 2 below is the fix.
 
-
-## Playing a game yourself and simming it (the code today)
-
-Cain's point, checked in the code. A live game stops for you and records what the staff would do (`game/live.rs`, `LiveGame`; `docs/match-engine.md`, "Live games, officials and the toss"). "A call you pick replaces the staff's." So:
-
-- When you call a snap yourself, your play calling, adaptation and game management read nothing on that snap. Your pick is the call.
-- When a snap doesn't stop for you, when you watch, or when you let the staff coach it, the side you call is called by your own ratings (`season.rs`, `coach_caller`, `your_calls`) and the other side by its coordinator.
-- Your fourth-down and two-point charts decide the snaps that don't stop for you.
-
-So a hands-on player's game-day ratings do nothing, and a player who sims never sees them work. A skill that pays in only one way of playing is wrong. Section 2 below is the fix.
 
 ## The loop
 
@@ -418,7 +410,7 @@ Each lane is its own thread. Order by proxy: the bug, then the measure, then the
 
 | Lane | What | Files | Waits for |
 |---|---|---|---|
-| RE-bug | One store for your ratings | `folk/talks.rs`, `pitch.rs`, `takeover.rs`, `handoff.rs`, `front_office/preview.rs`, `legacy/guys.rs` | Nothing |
+| RE-bug | One store for your ratings. **Built 2026-11-25** | `world/seat.rs` (`Me`, `Setup`), `folk/talks.rs`, `pitch.rs`, `takeover.rs`, `handoff.rs`, `front_office/preview.rs`, `legacy/guys.rs` | Nothing |
 | RE0 | `coach_check`, both ways of playing, and its world read (archetype shares, the climb) | `afm-tools` | RE-bug |
 | RE1 | The store: abilities, reps, tiers, the pace, rust, the road's start and first archetype, ratings as road plus earned; the ladder, feats, unlocks and banked reps; age growth and lesson points out | `world/coach.rs`, a new `world/coach_ladder.rs`, `setup.rs`, `storylines/credit.rs`, `legacy/` | RE-bug |
 | RE2 | The full perk list (159) written into this doc, then the perk gates on the screens | this doc, `afm-game` | RE1 |
@@ -470,3 +462,14 @@ Cain was asleep and gave the proxy ("make decisions for me als long as you note 
 20. **Coach level**: tiers out of 100, no names. Why: the archetype is the title now.
 21. **Order**: the bug first, then the measure, then the store, each lane in its own thread, with no size final until `coach_check` has measured it. Why: the bug is real whatever the design, and the measure protects realism.
 22. **The perk list**: lane RE2 writes all 159 into this doc and builds them without a separate round. Why: he asked not to be waited on; each perk shows only ranges, words and tendencies.
+
+## Decided by proxy in lane RE-bug (2026-11-25)
+
+Cain was asleep with full proxy ("make decisions for me als long as you note them down"). These are his to change.
+
+1. **The type, not a rule.** The career's copy of your ratings became a private record the compiler guards, instead of a sync on every write. Why: a sync is a second writer to forget; with one store there is nothing to keep in step.
+2. **The setup record is kept.** The numbers from the setup page stay in the save, unread. Why: lane RE1 shows a rating as road plus earned, and the road is this record.
+3. **Old files.** No file version change: the career is written in the same shape as before. In a file from before the fix the record also holds the lesson points placed before its last save (they were written to both stores), so RE1 must not treat an old file's record as the pure road. Why: the points can't be told apart from the road after the fact, and nothing reads the record today.
+4. **Style, reputation and birthday** are read from the coach record as well. Why: the same cause (two stores), and the coach record is the one the world moves.
+5. **A coined nickname's chance to stick** (`stories/nick.rs`, `coin`) read your reputation (1-20) as if it were 0-1, so it sat at its 85% cap for every coach and a nickname could never flop. It now reads reputation / 20: a coach at 9 lands at about 53% before the player's ego. Why: the line read the frozen copy and had to change; the scale was plainly a slip (its own default is 0.4). Size as written in the code before, not tuned.
+
