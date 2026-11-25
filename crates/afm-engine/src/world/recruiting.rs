@@ -1835,7 +1835,50 @@ pub(crate) fn draft_value(w: &World, run: &DraftRun, t: usize, i: usize, pick: u
     // The man a club hunts (SK67): it takes him at its pick, and trades up
     // for him, more readily.
     let hunt = if run.hunts.contains(&(t, i)) { super::hunt::HUNT_EDGE } else { 0.0 };
-    Some((g + pv + need - damp + hunt, pv, need, g))
+    // The one franchise chance: rounds 1-2, a club without a young
+    // franchise quarterback (`career::need`'s -8).
+    let scarce =
+        if pos == Position::QB && round <= 2 && need_here > -7.0 { qb_scarcity(w, run, b, i, g, rf) } else { 0.0 };
+    Some((g + pv + need - damp + hunt + scarce, pv + scarce, need, g))
+}
+
+/// How much of the drop to the next quarterback a club without a franchise
+/// quarterback adds to the class's best one on its board (proposed, not
+/// confirmed: half lifted every quarterback in turn, 4.4 in round one
+/// against a real 3.0, so it now stops once the first is taken).
+const QB_SCARCITY: f64 = 1.0;
+
+/// The one franchise chance (realism audit item 4). A starting quarterback
+/// almost never reaches free agency, so a club without one gets him in the
+/// draft or not at all, and the class's best quarterback is worth to it
+/// what it loses by settling for the next one: his value over the second
+/// quarterback left on its own board, in grade and position value. Only
+/// the best quarterback on its board, only until the draft's first
+/// quarterback is taken (then the chance is gone: the next is not the
+/// class's one); the caller asks only in the first two rounds and only for
+/// a club whose own starter is not a young franchise quarterback
+/// (`career::need`'s -8). The other positions have a market,
+/// so a club that misses one signs a veteran instead.
+fn qb_scarcity(w: &World, run: &DraftRun, b: &super::pro::scouts::Board, i: usize, g: f64, rf: f64) -> f64 {
+    if run.picked.iter().any(|x| w.people[x.0].player.position == Position::QB) {
+        return 0.0;
+    }
+    let mut next: Option<f64> = None;
+    for &(j, _) in &run.pool {
+        if j == i || w.people[j].player.position != Position::QB || b.dnd.contains(&j) {
+            continue;
+        }
+        let Some(&h) = b.grade.get(&j) else { continue };
+        if h > g {
+            return 0.0;
+        }
+        if next.is_none_or(|n| h > n) {
+            next = Some(h);
+        }
+    }
+    let Some(h) = next else { return 0.0 };
+    let worth = |x: f64| x + draft_position_value(Position::QB, x) * rf;
+    QB_SCARCITY * (worth(g) - worth(h)).max(0.0)
 }
 
 /// One pick. `choice` is the player your war room took (a place in the
