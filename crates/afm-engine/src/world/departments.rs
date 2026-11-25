@@ -1038,8 +1038,18 @@ pub fn game_guard(w: &World, who: Who, lab: f64) -> f64 {
 
 /// Your seat's team for the departments, if it has them.
 pub fn seat_team(w: &World) -> Option<Who> {
-    let s = w.seat?;
-    s.nfl_team.map(Who::Club).or(s.program.map(Who::Prog))
+    seat_who(&w.seat?)
+}
+
+/// A seat's team for the departments. A high school has none: its seat
+/// keeps the school in `program`, which is no college's index.
+pub(crate) fn seat_who(s: &super::Seat) -> Option<Who> {
+    use crate::calendar::Level;
+    match s.level {
+        Level::Nfl => s.nfl_team.map(Who::Club),
+        Level::College => s.program.map(Who::Prog),
+        _ => None,
+    }
 }
 
 /// Everyone in a team's departments, for the staff screen and the tools.
