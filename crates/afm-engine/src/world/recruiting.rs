@@ -11222,6 +11222,8 @@ pub(crate) struct PaidLine {
     gate: bool,
     /// The school's money level (`nil_bid::level`).
     level: usize,
+    /// The season the set is read for (the July it pays).
+    season: i32,
     /// Its first quarterback among `keys` (`first_quarterback`): his
     /// place there, his standing and his weight were he not the first.
     first: Option<(usize, f64, f64)>,
@@ -11281,7 +11283,24 @@ impl PaidLine {
         let first = qb.map(|k| (k, men[k].3, share_weight(Position::QB, men[k].3, level, false)));
         let frac = if level == 0 { NIL_PAID_P4 } else { NIL_PAID_OTHER };
         let pot = super::ncaa::school_pot(prog, Date::ymd(sign_year, 7, 1));
-        PaidLine { places: (frac * july).round(), keys, deals: deals as f64, gate, pot, level, first }
+        PaidLine {
+            places: (frac * july).round(),
+            keys,
+            deals: deals as f64,
+            gate,
+            pot,
+            level,
+            season: sign_year,
+            first,
+        }
+    }
+
+    /// Whether the set takes a man of the school's own roster, at his
+    /// standing for the season it pays (`share_standing`); never a walk-on.
+    /// The gate on December's keep-him offers (`nil_bid::keep_offers`).
+    pub(crate) fn takes(&self, p: &Person, share: &super::nil_bid::ShareBars) -> bool {
+        let at = share_standing(p, self.level, self.season, share);
+        !p.walk_on && self.pays(at, p.player.overall(), p.player.position).is_some()
     }
 
     /// A recruit's standing in this school's July split: his stars as its
@@ -11335,6 +11354,26 @@ impl PaidLine {
         others += left.max(0.0) * arrival_weight();
         Some(self.pot * mine / (mine + others).max(1e-9))
     }
+}
+
+/// Every program's July paid set for the coming money year as its staff
+/// reads it today (`PaidLine`; its roster and plan as `class_outlook` reads
+/// them, its signees' deals as the last signing stage left them): who a
+/// school pays at all, for December's keep-him offers.
+pub(crate) fn paid_lines(w: &World) -> Vec<PaidLine> {
+    let sign_year = next_class(w);
+    let read = RosterRead::today(w, sign_year);
+    let told = super::folk::roster_call::told_ids(w);
+    let share = super::nil_bid::share_bars(w);
+    w.programs
+        .par_iter()
+        .enumerate()
+        .map(|(j, prog)| {
+            let plan = class_plan(prog, &w.people, &[], sign_year, w.options.seed as u64, w.draft_bars, read, &told);
+            let deals = w.nil_book.signed_paid.get(j).copied().unwrap_or(0) as usize;
+            PaidLine::read(prog, &w.people, &[], sign_year, w.draft_bars, read, &plan, deals, &told, &share)
+        })
+        .collect()
 }
 
 /// What program `j`'s July split would pay recruit `i` (`PaidLine::pays`),
