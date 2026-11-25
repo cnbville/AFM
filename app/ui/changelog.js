@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.709", date: "25 Nov", title: "The four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3) and 2 more",
+    notes: [
+      "Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down.",
+      "A coordinator compares his backs, receivers and passers with the rest of his own league, not with a fixed yardstick, before he leans his calls toward them.",
+      "College offenses run outside about a sixth less often, and run games and deep throws land closer to real numbers.",
+      "Defenses weigh their linebackers, corners and safeties against their own league when they pick blitzes and coverages.",
+      "Saved games and replays keep the same reads.",
+      "The top quarterback in a draft class now goes where real ones do, usually first overall when the team picking needs one.",
+    ],
+  },
+  {
     v: "0.2.706", date: "25 Nov", title: "NFL head coaches: a public hot seat before any in-season firing and 1 more",
     notes: [
       "Blitzes now get home like real ones, and pass protection blocks the way real lines are taught.",

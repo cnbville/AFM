@@ -3262,6 +3262,20 @@
   "title": "Get blitzes home: big-on-big protection, the blitzer's creep and the hot throw (realism audit item 3, the pass rush)",
   "tldr": "Blitzes now get home like real ones, and pass protection blocks the way real lines are taught."
  },
+ "660": {
+  "auto": false,
+  "bullets": [
+   "A coordinator compares his backs, receivers and passers with the rest of his own league, not with a fixed yardstick, before he leans his calls toward them.",
+   "College offenses run outside about a sixth less often, and run games and deep throws land closer to real numbers.",
+   "Defenses weigh their linebackers, corners and safeties against their own league when they pick blitzes and coverages.",
+   "Saved games and replays keep the same reads."
+  ],
+  "h": "a0e09afe4ada",
+  "look": "a college offense with a fast running back, and how often it runs outside against its league.",
+  "players": true,
+  "title": "Read the calls' leans about each league's own typical men (realism audit, the run lean)",
+  "tldr": "Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down."
+ },
  "661": {
   "auto": true,
   "bullets": [
@@ -3273,5 +3287,32 @@
   "players": true,
   "title": "coach_check on the published seed 321 world: game day and the feats",
   "tldr": "Docs only."
+ },
+ "662": {
+  "auto": false,
+  "bullets": [
+   "Teams without a franchise quarterback now see the class's best one as their one real chance, and take him early.",
+   "A team that already has a young starter passes on him.",
+   "Weak quarterback classes still let a great edge rusher or corner go first."
+  ],
+  "h": "b843a7bed681",
+  "look": "the first picks of the next draft and the reasons the teams give.",
+  "players": true,
+  "title": "Give the class's best QB the one franchise chance on draft day (audit item 4)",
+  "tldr": "The top quarterback in a draft class now goes where real ones do, usually first overall when the team picking needs one."
+ },
+ "663": {
+  "auto": false,
+  "bullets": [
+   "Tackles take a vertical set against a man rushing round the edge, and meet him two yards behind the line.",
+   "An end who beats his man now does it close to the quarterback, so it shows up as pressure.",
+   "The spare lineman in a four-man rush helps the block that is losing, not just the one nearest him.",
+   "Inside tackles no longer get a free single block on every snap, so edges out-sack them as in the real game."
+  ],
+  "h": "a66685b32215",
+  "look": "your edge rushers' pressures and sacks on the Data page, and the league's sack leaders.",
+  "players": true,
+  "title": "The four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3)",
+  "tldr": "Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is."
  }
 }
