@@ -8,8 +8,16 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
-## 0.2.709 (25 Nov, shipped): read the calls' leans about each league's own typical men (realism audit, the run lean) (PR #660), give the class's best QB the one franchise chance on draft day (audit item 4) (PR #662), the four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3) (PR #663)
-**TLDR:** 3 changes ship together. Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down. The top quarterback in a draft class now goes where real ones do, usually first overall when the team picking needs one. Plus 1 more below.
+## 0.2.709 (25 Nov, shipped): the four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3) (PR #663)
+**TLDR:** Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is.
+- Tackles take a vertical set against a man rushing round the edge, and meet him two yards behind the line. (PR #663)
+- An end who beats his man now does it close to the quarterback, so it shows up as pressure. (PR #663)
+- The spare lineman in a four-man rush helps the block that is losing, not just the one nearest him. (PR #663)
+- Inside tackles no longer get a free single block on every snap, so edges out-sack them as in the real game. (PR #663)
+- Look at: your edge rushers' pressures and sacks on the Data page, and the league's sack leaders. (PR #663)
+
+## 0.2.708 (25 Nov, shipped): read the calls' leans about each league's own typical men (realism audit, the run lean) (PR #660), give the class's best QB the one franchise chance on draft day (audit item 4) (PR #662)
+**TLDR:** 2 changes ship together. Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down. The top quarterback in a draft class now goes where real ones do, usually first overall when the team picking needs one.
 - Read the calls' leans about each league's own typical men (realism audit, the run lean) (PR #660): Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down.
 - A coordinator compares his backs, receivers and passers with the rest of his own league, not with a fixed yardstick, before he leans his calls toward them. (PR #660)
 - College offenses run outside about a sixth less often, and run games and deep throws land closer to real numbers. (PR #660)
@@ -19,12 +27,7 @@ The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-wri
 - Teams without a franchise quarterback now see the class's best one as their one real chance, and take him early. (PR #662)
 - A team that already has a young starter passes on him. (PR #662)
 - Weak quarterback classes still let a great edge rusher or corner go first. (PR #662)
-- The four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3) (PR #663): Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is.
-- Tackles take a vertical set against a man rushing round the edge, and meet him two yards behind the line. (PR #663)
-- An end who beats his man now does it close to the quarterback, so it shows up as pressure. (PR #663)
-- The spare lineman in a four-man rush helps the block that is losing, not just the one nearest him. (PR #663)
-- Inside tackles no longer get a free single block on every snap, so edges out-sack them as in the real game. (PR #663)
-- Look at: a college offense with a fast running back, and how often it runs outside against its league. (PR #660) the first picks of the next draft and the reasons the teams give. (PR #662) your edge rushers' pressures and sacks on the Data page, and the league's sack leaders. (PR #663)
+- Look at: a college offense with a fast running back, and how often it runs outside against its league. (PR #660) the first picks of the next draft and the reasons the teams give. (PR #662)
 
 ## 0.2.706 (25 Nov, shipped): get blitzes home: big-on-big protection, the blitzer's creep and the hot throw (realism audit item 3, the pass rush) (PR #659), NFL head coaches: a public hot seat before any in-season firing (PR #657)
 **TLDR:** 2 changes ship together. Blitzes now get home like real ones, and pass protection blocks the way real lines are taught. Your NFL owner no longer fires you out of the blue. If your seat gets hot he tells you first, and you get at least a week to turn it around.

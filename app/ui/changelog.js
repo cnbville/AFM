@@ -17,7 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
-    v: "0.2.709", date: "25 Nov", title: "The four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3) and 2 more",
+    v: "0.2.709", date: "25 Nov", title: "The four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3)",
+    notes: [
+      "Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is.",
+      "Tackles take a vertical set against a man rushing round the edge, and meet him two yards behind the line.",
+      "An end who beats his man now does it close to the quarterback, so it shows up as pressure.",
+      "The spare lineman in a four-man rush helps the block that is losing, not just the one nearest him.",
+      "Inside tackles no longer get a free single block on every snap, so edges out-sack them as in the real game.",
+    ],
+  },
+  {
+    v: "0.2.708", date: "25 Nov", title: "Give the class's best QB the one franchise chance on draft day (audit item 4) and 1 more",
     notes: [
       "Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down.",
       "A coordinator compares his backs, receivers and passers with the rest of his own league, not with a fixed yardstick, before he leans his calls toward them.",
