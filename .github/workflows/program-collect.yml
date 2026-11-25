@@ -12,6 +12,9 @@ on:
       runs:
         description: "Run ids, space separated"
         default: ""
+      only:
+        description: "Print only artifacts whose name holds this text"
+        default: ""
 env:
   RUNS: "45567583894"
   SKIP: ""
@@ -27,6 +30,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           IN_RUNS: ${{ inputs.runs }}
+          ONLY: ${{ inputs.only || 'f-s30-341' }}
         run: |
           cd /mnt 2>/dev/null && sudo mkdir -p c && sudo chown "$(id -u)" c && cd c || cd "$RUNNER_TEMP"
           for run in ${IN_RUNS:-$RUNS}; do
@@ -34,6 +38,7 @@ jobs:
               --jq '.artifacts[] | select(.name | startswith("program-check-")) | "\(.id) \(.name)"' > list.txt
             while read -r id name; do
               case " $SKIP " in *" $name "*) continue;; esac
+              case "$name" in *"$ONLY"*) ;; *) continue;; esac
               gh api "repos/${{ github.repository }}/actions/artifacts/$id/zip" > a.zip
               echo "=== $name ($(unzip -p a.zip time.txt | tr '\n' ' '))"
               # FULL=1 prints the whole page; else its key lines, squeezed.
