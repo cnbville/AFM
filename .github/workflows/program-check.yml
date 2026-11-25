@@ -27,12 +27,13 @@ on:
         default: "30"
 env:
   ARMS: |
-    bond2||1.0|hc_bond=0.12,pc_bond=0.06
-    bond4||1.0|hc_bond=0.24,pc_bond=0.12
-    grades||1.0|u_title=1.0,u_pipe=0.5
-    name||1.0|lived_share=0.8,prest_trad=0.35
-    recent||1.0|prest_recent=0.5,recent_rate=0.15
-    combo||1.0|hc_bond=0.12,pc_bond=0.06,u_title=1.0,u_pipe=0.5,prest_recent=0.5,recent_rate=0.15
+    q-before|8f0ba00885222d61882eefb242f9996118f5386e|0.25|
+    q-proposed||0.25|
+    q-bond4||0.25|hc_bond=0.24,pc_bond=0.12
+    q-grades||0.25|u_title=1.0,u_pipe=0.5
+    q-name||0.25|lived_share=0.8,prest_trad=0.35
+    q-recent||0.25|prest_recent=0.5,recent_rate=0.15
+    q-combo||0.25|hc_bond=0.12,pc_bond=0.06,u_title=1.0,u_pipe=0.5,prest_recent=0.5,recent_rate=0.15
   SEEDS: "341"
 jobs:
   plan:
