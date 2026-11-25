@@ -167,3 +167,36 @@ fn a_fake_punt_is_played_by_the_punt_units() {
         assert!(fakes >= 4, "{level:?}: only {fakes} fake punts in 16 games");
     }
 }
+
+/// Kickoffs are covered by the bench (realism audit item 3): the men who
+/// run the kick down and tackle in space, picked on Speed first, and a
+/// starter only when the bench runs out of men who can. Block Shedding used
+/// to count a quarter and a starter gave up 10 points, so starting edges
+/// and tackles covered kicks and the best of them added 10 to 16 tackles a
+/// season there.
+#[test]
+fn kickoffs_are_covered_by_the_bench() {
+    use crate::game::flow::{kick_unit_with, starters_of};
+    for level in [Level::FBS, Level::NFL] {
+        let teams = synthetic_league(level, 32, 7);
+        let (mut spots, mut starters, mut blockers, mut tackles) = (0, 0, 0, 0);
+        for t in &teams {
+            let first = starters_of(t);
+            let on = kick_unit_with(t, &[], &[], false, 11);
+            assert_eq!(on.len(), 11, "{level:?}: {}", t.name);
+            assert_eq!(t.players[on[0]].position, Position::K, "{level:?}: the kicker first");
+            for &i in &on[1..] {
+                spots += 1;
+                starters += first.contains(&i) as u32;
+                blockers += matches!(t.players[i].position, Position::OT | Position::IOL) as u32;
+                tackles += (t.players[i].position == Position::DT) as u32;
+            }
+        }
+        // A healthy roster has the bench for it: 0 and 1 starters in 320
+        // spots on these leagues, no blocker, and a backup tackle in 19 and
+        // 8 of them.
+        assert!(starters * 50 <= spots, "{level:?}: {starters} starters in {spots} coverage spots");
+        assert_eq!(blockers, 0, "{level:?}: offensive linemen cover kickoffs");
+        assert!(tackles * 10 <= spots, "{level:?}: {tackles} tackles in {spots} coverage spots");
+    }
+}
