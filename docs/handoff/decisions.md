@@ -500,7 +500,7 @@ Cain, 2026-11-22 21:02 UTC: "I want to massively improve the games understanding
   8. A career that takes an NFL club on 1 January with an interim for its last games counts the next season as its first.
   9. The same count fixed where it was read the same way: coordinators' first-season factor (NFL and college), the high school head coach "in his third season or later", the late-season hot-seat games.
   10. Not changed: Black Monday's sizes, the college AD's in-season firings (no public seat first there yet, in `GAPS.md`).
-- **Measured:** MEASURED
+- **Measured** (seed 391, scale 0.02, 20 seasons played on, `seat_check`): 30 head coaches fired in season, 1.5 a season (real 2.1); 3 in a first season (0-7, 3-11, 1-10), 2 in a second, 25 later. The same Mondays replayed 200 times give 2.0 a season and 2.5% / 5.0% / 7.6% of first-, second- and later-season coaches (real 2.7 / 7.0 / 7.7). Every firing came from a seat public for a week or more (median 28 days). The first sizing (0.06 a Monday, 12 / 12 / 1.5 games) played 3.2 a season, so pick 2 and pick 4 were sized a second time. Still off: too few firings after four or five games (10%, real 25%) and too few second-year coaches in the played world (2 of 30).
 - How it works: `docs/reference/how-it-works/staff-and-coaches.md`, "Firings during the season".
 
 ## Superseded decisions

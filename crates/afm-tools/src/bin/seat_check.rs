@@ -35,6 +35,10 @@ fn main() {
     // Head coach -> the day his seat went hot (a club can move and change
     // its name while he sits on it).
     let mut hot: BTreeMap<String, afm_engine::calendar::Date> = BTreeMap::new();
+    // Seats carried in before the first day read here.
+    for x in &w.folk.staff.seats {
+        hot.insert(w.coaches[x.coach as usize].name.clone(), x.since);
+    }
     let mut seen = w.news.len();
     let mut fired: Vec<(i32, u32, u32, i64, String)> = Vec::new();
     let (mut warmed, mut carried, mut cooled, mut coords) = (0u32, 0u32, 0u32, 0u32);
