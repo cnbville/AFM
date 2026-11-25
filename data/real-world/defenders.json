@@ -1,7 +1,7 @@
 {
- "source": "ESPN college box scores (sportsdataverse-data espn_cfb_player_box) 2024-2025 with CollegeFootballData rosters (cfbfastR-data); nflverse weekly defense lines and Pro Football Reference snap counts 2021-2024",
+ "source": "ESPN college box scores (sportsdataverse-data espn_cfb_player_box) 2024-2025 with CollegeFootballData rosters (cfbfastR-data); nflverse weekly defense lines and Pro Football Reference snap counts 2021-2024; nflverse play-by-play and participation 2023-2024 (every play's tacklers, the 22 men on the field, both sides' personnel and the rushers)",
  "holes": "College defensive boxes are complete from 2024 only. No college snap counts. Rosters list many edges LB and many backs DB, and the NFL's weekly lines list 3-4 edges as LB, so the groups are the listed ones. NFL names are joined to snap counts by name, team and week (94% of tackles match).",
- "note": "Tackles are solo plus assists. Seasons are every game a team played (FBS: bowls and FCS games too; NFL: the 17-game regular season). Means over the seasons read.",
+ "note": "FBS tackles are solo plus assists, as the boxes print them. An NFL tackle counts a solo, a tackle with an assist and an assist one each, as the league's combined tackles add up. Seasons are every game a team played (FBS: bowls and FCS games too; NFL: the 17-game regular season). Means over the seasons read.",
  "fbs": {
   "seasons": [
    2024,
@@ -231,6 +231,85 @@
    },
    "note": "a_team_game is tackles, sacks, tackles for loss"
   },
+  "by_margin": {
+   "note": "Games between two FBS teams by the final margin (from the boxes' touchdowns and kicking points): 0-7, 8-16, 17-27, 28 or more.",
+   "columns": [
+    "share_of_games",
+    "men_with_a_tackle",
+    "top_man_tackles",
+    "top_man_share",
+    "top_11_share",
+    "tackles"
+   ],
+   "won": [
+    [
+     0.335,
+     19.577,
+     9.94,
+     0.15,
+     0.826,
+     66.711
+    ],
+    [
+     0.217,
+     19.699,
+     9.51,
+     0.149,
+     0.822,
+     64.502
+    ],
+    [
+     0.246,
+     20.383,
+     8.774,
+     0.143,
+     0.799,
+     61.979
+    ],
+    [
+     0.201,
+     23.334,
+     7.704,
+     0.126,
+     0.734,
+     61.504
+    ]
+   ],
+   "lost": [
+    [
+     0.335,
+     19.568,
+     10.115,
+     0.149,
+     0.826,
+     67.996
+    ],
+    [
+     0.218,
+     19.94,
+     10.106,
+     0.15,
+     0.817,
+     67.974
+    ],
+    [
+     0.246,
+     20.831,
+     9.806,
+     0.144,
+     0.8,
+     68.219
+    ],
+    [
+     0.201,
+     22.206,
+     9.501,
+     0.138,
+     0.77,
+     69.36
+    ]
+   ]
+  },
   "linebackers_by_weight": {
    "0-225": {
     "tackles": 4.653,
@@ -288,7 +367,7 @@
    2024
   ],
   "per_team_game": {
-   "tackles": 56.54,
+   "tackles": 62.02,
    "solo": 33.82,
    "sacks": 2.4,
    "tfl": 4.64
@@ -328,15 +407,15 @@
     4.75
    ],
    "tackles": [
-    167.0,
-    155.5,
-    150.75,
-    144.5,
-    129.5,
-    109.25,
-    92.25,
-    71.25,
-    52.25
+    183.0,
+    176.25,
+    168.0,
+    160.25,
+    145.25,
+    120.5,
+    101.75,
+    78.75,
+    57.25
    ]
   },
   "a_year_at_or_over": {
@@ -353,10 +432,10 @@
     "30": 0.0
    },
    "tackles": {
-    "100": 35.25,
-    "120": 17.0,
-    "130": 10.25,
-    "150": 3.25
+    "100": 52.0,
+    "120": 25.5,
+    "130": 17.75,
+    "150": 7.5
    }
   },
   "team_leader": {
@@ -377,129 +456,129 @@
     "count": 13.453
    },
    "tackles": {
-    "share": 0.121,
-    "share_p10": 0.097,
-    "share_p50": 0.121,
-    "share_p90": 0.149,
+    "share": 0.122,
+    "share_p10": 0.098,
+    "share_p50": 0.12,
+    "share_p90": 0.151,
     "share_max": 0.165,
-    "count": 116.344
+    "count": 128.844
    }
   },
   "tackles_by_season_ranks": {
    "ranks_1_11": [
-    0.121,
+    0.122,
     0.098,
     0.082,
-    0.072,
+    0.071,
     0.064,
     0.058,
     0.053,
     0.048,
     0.045,
     0.041,
-    0.038
+    0.037
    ],
-   "top_11": 0.718,
-   "next_11": 0.231,
+   "top_11": 0.719,
+   "next_11": 0.232,
    "rest": 0.05,
-   "men_with_a_tackle": 43.008
+   "men_with_a_tackle": 43.32
   },
   "tackles_by_game_ranks": {
    "ranks_1_11": [
-    0.163,
-    0.128,
-    0.107,
-    0.092,
+    0.16,
+    0.126,
+    0.106,
+    0.091,
     0.08,
     0.07,
     0.062,
     0.054,
-    0.047,
+    0.048,
     0.041,
-    0.035
+    0.036
    ],
-   "top_11": 0.878,
-   "next_11": 0.122,
+   "top_11": 0.874,
+   "next_11": 0.126,
    "rest": 0.0,
-   "men_with_a_tackle": 16.45
+   "men_with_a_tackle": 16.788
   },
   "by_group": {
    "line": {
     "a_team_game": [
-     12.98,
+     14.44,
      1.4,
      2.08
     ],
     "game_ranks_1_8": [
-     4.34,
-     3.02,
-     2.19,
-     1.55,
-     0.99,
-     0.55,
-     0.25,
-     0.08
+     4.74,
+     3.32,
+     2.44,
+     1.74,
+     1.14,
+     0.64,
+     0.3,
+     0.1
     ],
-    "men_with_a_tackle": 5.38,
+    "men_with_a_tackle": 5.56,
     "season_ranks_1_6_a_team_game": [
-     3.07,
-     2.43,
-     1.95,
-     1.58,
-     1.26,
-     0.94
+     3.41,
+     2.71,
+     2.18,
+     1.76,
+     1.4,
+     1.04
     ]
    },
    "linebackers": {
     "a_team_game": [
-     18.65,
+     20.69,
      0.83,
      1.66
     ],
     "game_ranks_1_8": [
-     8.28,
-     5.35,
-     2.68,
-     1.37,
-     0.64,
-     0.25,
-     0.07,
+     9.09,
+     5.99,
+     2.97,
+     1.53,
+     0.72,
+     0.29,
+     0.08,
      0.02
     ],
-    "men_with_a_tackle": 4.24,
+    "men_with_a_tackle": 4.32,
     "season_ranks_1_6_a_team_game": [
-     6.64,
-     4.75,
-     2.62,
-     1.77,
-     1.16,
-     0.85
+     7.38,
+     5.28,
+     2.91,
+     1.96,
+     1.29,
+     0.94
     ]
    },
    "backs": {
     "a_team_game": [
-     24.06,
+     26.02,
      0.18,
      0.9
     ],
     "game_ranks_1_8": [
-     7.38,
-     5.45,
-     4.24,
-     3.22,
-     2.21,
-     1.1,
-     0.37,
-     0.08
+     7.88,
+     5.87,
+     4.58,
+     3.52,
+     2.42,
+     1.21,
+     0.42,
+     0.1
     ],
-    "men_with_a_tackle": 6.06,
+    "men_with_a_tackle": 6.13,
     "season_ranks_1_6_a_team_game": [
-     5.21,
-     4.2,
-     3.48,
-     2.97,
-     2.5,
-     1.94
+     5.66,
+     4.57,
+     3.77,
+     3.2,
+     2.68,
+     2.07
     ]
    },
    "note": "a_team_game is tackles, sacks, tackles for loss; 3-4 edges are listed LB"
@@ -564,38 +643,568 @@
   "per_100_defense_snaps": {
    "CB": {
     "snaps_a_team_game": 174.4,
-    "tackles": 6.34,
+    "tackles": 6.83,
     "sacks": 0.038,
     "tfl": 0.249,
-    "tackles_with_50_snaps_in_the_game": 6.16
+    "tackles_with_50_snaps_in_the_game": 6.63
    },
    "DE": {
     "snaps_a_team_game": 98.6,
-    "tackles": 5.4,
+    "tackles": 5.96,
     "sacks": 0.768,
     "tfl": 1.049,
-    "tackles_with_50_snaps_in_the_game": 5.31
+    "tackles_with_50_snaps_in_the_game": 5.86
    },
    "DT": {
     "snaps_a_team_game": 111.9,
-    "tackles": 6.11,
+    "tackles": 6.82,
     "sacks": 0.458,
     "tfl": 0.798,
-    "tackles_with_50_snaps_in_the_game": 5.88
+    "tackles_with_50_snaps_in_the_game": 6.62
    },
    "LB": {
     "snaps_a_team_game": 194.1,
-    "tackles": 9.47,
+    "tackles": 10.52,
     "sacks": 0.45,
     "tfl": 0.87,
-    "tackles_with_50_snaps_in_the_game": 10.25
+    "tackles_with_50_snaps_in_the_game": 11.38
    },
    "S": {
     "snaps_a_team_game": 145.4,
-    "tackles": 7.91,
+    "tackles": 8.6,
     "sacks": 0.069,
     "tfl": 0.282,
-    "tackles_with_50_snaps_in_the_game": 7.83
+    "tackles_with_50_snaps_in_the_game": 8.52
+   }
+  },
+  "pbp": {
+   "seasons": [
+    2023,
+    2024
+   ],
+   "note": "Regular seasons; scrimmage plays are runs and dropbacks without kneels, spikes and tries. Every credit counts one.",
+   "scrimmage": {
+    "plays_a_team_game": 61.74,
+    "credits_a_team_game": 62.13,
+    "tackled_plays_a_team_game": 47.65,
+    "two_or_more": 0.303
+   },
+   "untackled_a_team_game": {
+    "incomplete": 10.78,
+    "touchdown": 2.41,
+    "out_of_bounds": 0.62,
+    "other": 0.28
+   },
+   "out_of_bounds": {
+    "a_team_game": 6.67,
+    "with_a_tackler": 0.904
+   },
+   "by_play": {
+    "columns": [
+     "a_team_game",
+     "tackled",
+     "credits_a_play",
+     "two_or_more"
+    ],
+    "runs": [
+     24.23,
+     0.959,
+     1.373,
+     0.431
+    ],
+    "scrambles": [
+     1.93,
+     0.964,
+     1.069,
+     0.108
+    ],
+    "sacks": [
+     2.5,
+     0.994,
+     1.131,
+     0.134
+    ],
+    "catches": [
+     21.54,
+     0.905,
+     1.084,
+     0.197
+    ],
+    "interceptions": [
+     0.75,
+     0.758,
+     0.812,
+     0.071
+    ]
+   },
+   "on_the_field": {
+    "DE": 1.51,
+    "DT": 1.68,
+    "OLB": 1.27,
+    "LB": 1.66,
+    "CB": 2.64,
+    "S": 2.22
+   },
+   "credits_a_100_snaps": {
+    "columns": [
+     "all",
+     "runs",
+     "dropbacks"
+    ],
+    "DE": [
+     6.79,
+     12.62,
+     3.05
+    ],
+    "DT": [
+     7.28,
+     13.97,
+     2.15
+    ],
+    "OLB": [
+     8.9,
+     14.24,
+     5.56
+    ],
+    "LB": [
+     13.77,
+     18.92,
+     10.19
+    ],
+    "CB": [
+     7.86,
+     6.36,
+     8.75
+    ],
+    "S": [
+     9.86,
+     11.95,
+     8.58
+    ]
+   },
+   "defensive_backs_on_the_field": {
+    "3": 0.009,
+    "4": 0.22,
+    "5": 0.66,
+    "6": 0.103,
+    "7": 0.005
+   },
+   "safeties_on_the_field": {
+    "0": 0.003,
+    "1": 0.041,
+    "2": 0.713,
+    "3": 0.215,
+    "4": 0.026
+   },
+   "inside_linebackers_on_the_field": {
+    "0": 0.051,
+    "1": 0.305,
+    "2": 0.58,
+    "3": 0.063,
+    "4": 0.001
+   },
+   "kicks": {
+    "plays_a_team_game": 9.02,
+    "credits_a_team_game": 3.78,
+    "a_team_game": {
+     "kickoff": 5.06,
+     "punt": 3.96
+    },
+    "kicking_team_by_position": {
+     "kickoff": {
+      "CB": 2.01,
+      "ILB": 1.74,
+      "FS": 1.16,
+      "OLB": 1.1,
+      "SS": 1.03,
+      "K": 1.0,
+      "RB": 0.72,
+      "WR": 0.71,
+      "TE": 0.51,
+      "MLB": 0.4,
+      "DE": 0.37,
+      "FB": 0.16,
+      "DT": 0.03,
+      "DB": 0.03,
+      "LB": 0.02
+     },
+     "punt": {
+      "ILB": 1.86,
+      "TE": 1.28,
+      "CB": 1.08,
+      "OLB": 1.06,
+      "P": 1.0,
+      "LS": 1.0,
+      "SS": 0.8,
+      "FS": 0.73,
+      "RB": 0.7,
+      "WR": 0.55,
+      "MLB": 0.39,
+      "DE": 0.26,
+      "FB": 0.24,
+      "LB": 0.02,
+      "DT": 0.02,
+      "QB": 0.02,
+      "DB": 0.01
+     }
+    },
+    "credits_a_team_game_by_position": {
+     "kickoff": {
+      "ILB": 0.398,
+      "CB": 0.29,
+      "FS": 0.224,
+      "OLB": 0.222,
+      "SS": 0.184,
+      "RB": 0.134,
+      "WR": 0.097,
+      "TE": 0.085,
+      "MLB": 0.055,
+      "DE": 0.051,
+      "K": 0.03,
+      "FB": 0.021,
+      "P": 0.004,
+      "DT": 0.003,
+      "LB": 0.002
+     },
+     "punt": {
+      "ILB": 0.357,
+      "CB": 0.278,
+      "SS": 0.207,
+      "FS": 0.189,
+      "TE": 0.189,
+      "OLB": 0.18,
+      "WR": 0.158,
+      "LS": 0.128,
+      "RB": 0.122,
+      "MLB": 0.082,
+      "DE": 0.033,
+      "FB": 0.032,
+      "P": 0.019,
+      "QB": 0.002,
+      "LB": 0.002
+     }
+    }
+   },
+   "packages": {
+    "note": "Shares of 4, 5 and 6 or more defensive backs and the snaps, by the offense's wide receivers (1 or none, 2, 3, 4 or more), for first and second down, then third and fourth with 1-2, 3-6 and 7 or more to go; snaps inside the 3 left out. three_or_more_safeties: their share of the snaps with five backs and with six or more, by the same receivers.",
+    "1": [
+     [
+      0.839,
+      0.154,
+      0.007,
+      3370
+     ],
+     [
+      0.897,
+      0.098,
+      0.005,
+      574
+     ],
+     [
+      0.628,
+      0.327,
+      0.044,
+      113
+     ],
+     [
+      0.725,
+      0.188,
+      0.087,
+      80
+     ]
+    ],
+    "2": [
+     [
+      0.544,
+      0.436,
+      0.019,
+      17052
+     ],
+     [
+      0.541,
+      0.423,
+      0.036,
+      745
+     ],
+     [
+      0.161,
+      0.663,
+      0.176,
+      522
+     ],
+     [
+      0.074,
+      0.537,
+      0.389,
+      475
+     ]
+    ],
+    "3": [
+     [
+      0.039,
+      0.882,
+      0.079,
+      29657
+     ],
+     [
+      0.058,
+      0.847,
+      0.095,
+      1968
+     ],
+     [
+      0.012,
+      0.707,
+      0.281,
+      4241
+     ],
+     [
+      0.007,
+      0.546,
+      0.448,
+      6089
+     ]
+    ],
+    "4": [
+     [
+      0.016,
+      0.88,
+      0.103,
+      368
+     ],
+     [
+      0.059,
+      0.824,
+      0.118,
+      17
+     ],
+     [
+      0.0,
+      0.77,
+      0.23,
+      87
+     ],
+     [
+      0.0,
+      0.476,
+      0.524,
+      145
+     ]
+    ],
+    "three_or_more_safeties": {
+     "five_backs": [
+      0.445,
+      0.376,
+      0.195,
+      0.213
+     ],
+     "six_backs": [
+      0.923,
+      0.74,
+      0.725,
+      0.765
+     ]
+    },
+    "teams": {
+     "note": "Team seasons (a defense's season): the league's share, the 10th percentile, the median and the 90th of the teams' shares, their spread on the log odds with the sampling noise taken out, and the team seasons with 40 snaps or more.",
+     "columns": [
+      "league",
+      "p10",
+      "median",
+      "p90",
+      "spread_on_the_log_odds",
+      "team_seasons"
+     ],
+     "five_or_more": [
+      0.776,
+      0.693,
+      0.765,
+      0.887,
+      0.638,
+      64
+     ],
+     "six_or_more": [
+      0.111,
+      0.01,
+      0.08,
+      0.232,
+      1.334,
+      64
+     ],
+     "five_or_more_one_receiver_early": [
+      0.161,
+      0.03,
+      0.122,
+      0.337,
+      1.142,
+      48
+     ],
+     "five_or_more_two_receivers_early": [
+      0.456,
+      0.175,
+      0.431,
+      0.775,
+      1.291,
+      64
+     ],
+     "five_or_more_three_receivers_early": [
+      0.961,
+      0.911,
+      0.974,
+      0.996,
+      1.076,
+      64
+     ],
+     "six_three_receivers_early": [
+      0.079,
+      0.006,
+      0.041,
+      0.204,
+      1.427,
+      64
+     ],
+     "six_three_receivers_third_and_7": [
+      0.448,
+      0.04,
+      0.435,
+      0.908,
+      2.115,
+      64
+     ],
+     "third_safety_with_five_backs": [
+      0.233,
+      0.0,
+      0.126,
+      0.671,
+      2.398,
+      64
+     ],
+     "third_safety_with_six_backs": [
+      0.728,
+      0.141,
+      0.881,
+      1.0,
+      2.666,
+      45
+     ],
+     "five_with_six_r": 0.37,
+     "season_to_season_r": {
+      "five_or_more": 0.45,
+      "six_or_more": 0.19
+     }
+    },
+    "rush": {
+     "note": "Dropbacks with a charted rush by the defense's backs on the field (4, 5, 6 or more): their share, the rushers, five or more rushing, FTN's pressure flag (a wider count than PFR's) and sacks.",
+     "columns": [
+      "share_of_dropbacks",
+      "rushers",
+      "five_or_more",
+      "pressured",
+      "sacked"
+     ],
+     "four_backs": [
+      0.151,
+      4.47,
+      0.417,
+      0.282,
+      0.056
+     ],
+     "five_backs": [
+      0.69,
+      4.23,
+      0.231,
+      0.296,
+      0.065
+     ],
+     "six_backs": [
+      0.159,
+      4.15,
+      0.226,
+      0.345,
+      0.086
+     ],
+     "all": [
+      1.0,
+      4.26,
+      0.258,
+      0.302,
+      0.067
+     ]
+    }
+   },
+   "depths": {
+    "columns": [
+     "share",
+     "two_or_more",
+     "out_of_bounds"
+    ],
+    "runs_by_yards": {
+     "-99_0": [
+      0.097,
+      0.311,
+      0.027
+     ],
+     "0_3": [
+      0.339,
+      0.479,
+      0.023
+     ],
+     "3_6": [
+      0.3,
+      0.469,
+      0.038
+     ],
+     "6_10": [
+      0.16,
+      0.403,
+      0.08
+     ],
+     "10_20": [
+      0.082,
+      0.352,
+      0.17
+     ],
+     "20_999": [
+      0.022,
+      0.182,
+      0.298
+     ]
+    },
+    "catches_by_yards_after_the_catch": {
+     "-99_3": [
+      0.443,
+      0.117,
+      0.179
+     ],
+     "3_6": [
+      0.207,
+      0.237,
+      0.181
+     ],
+     "6_10": [
+      0.174,
+      0.272,
+      0.228
+     ],
+     "10_20": [
+      0.137,
+      0.268,
+      0.289
+     ],
+     "20_999": [
+      0.038,
+      0.201,
+      0.294
+     ]
+    }
+   },
+   "carried_out_of_bounds": {
+    "a_team_game": 5.8,
+    "credits": {
+     "0": 0.101,
+     "1": 0.839,
+     "2": 0.06
+    }
    }
   }
  }

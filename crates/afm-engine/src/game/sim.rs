@@ -2118,6 +2118,37 @@ pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool:
 /// may have been picked up after the hit.
 pub static FIRST_TACKLE_BLOCK: [std::sync::atomic::AtomicU64; 5] = [const { std::sync::atomic::AtomicU64::new(0) }; 5];
 
+/// Turns on the tackle debug counts (`FALL_NEAR`, `FIGHT_LEN`); `match_check`
+/// sets it with `AFM_DEFENDERS`. Off, nothing is counted.
+pub static TACKLE_DIAG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Debug counts for who makes the tackle (realism audit item 3): on a tackle
+/// by one man, the nearest other defender's closest approach to the carrier
+/// over the next `FALL_LOOK` seconds on today's speeds, in the bins of
+/// `FALL_BINS` (the last bin is farther or nobody), for [a designed run
+/// with a free man, a designed run with a man in a block, a catch with a
+/// free man, a catch with a man in a block]. Pure reads: nothing here draws
+/// or moves anyone.
+pub static FALL_NEAR: [[std::sync::atomic::AtomicU64; 8]; 4] =
+    [const { [const { std::sync::atomic::AtomicU64::new(0) }; 8] }; 4];
+/// The bins' upper edges for `FALL_NEAR`, in yards.
+pub const FALL_BINS: [f64; 7] = [0.8, 1.2, 1.6, 2.0, 2.5, 3.0, 4.0];
+/// The look ahead for `FALL_NEAR`, in seconds.
+pub const FALL_LOOK: f64 = 0.3;
+/// Debug counts of how long a tackle by one man held before the carrier went
+/// down (from the first hit), on [designed runs, catches], in bins up to 0.1,
+/// 0.2, 0.3, 0.5, 0.8 seconds and past it.
+pub static FIGHT_LEN: [[std::sync::atomic::AtomicU64; 6]; 2] =
+    [const { [const { std::sync::atomic::AtomicU64::new(0) }; 6] }; 2];
+
+/// How near the nearest free defender must be to a carrier who goes out of
+/// bounds for the scorer to credit him with forcing him out, in yards
+/// (realism audit item 3): sized so a tackler is credited as often as real.
+/// On world seed 321's NFL clubs 90.3% of the runs and catches that end out
+/// of bounds credited a tackler at 6 yards and 87.7% at 5 when it was sized,
+/// and 90.0% do with the rest of the lane built (real NFL 2023-24: 89.9%;
+/// 56.4% before the credit). Proposed, not confirmed.
+pub const OOB_CREDIT_REACH: f64 = 6.0;
+
 /// Normal draw.
 #[inline]
 pub fn gauss(rng: &mut Rng) -> f64 {
@@ -4609,7 +4640,46 @@ impl<'a> Sim<'a> {
         false
     }
 
+    /// `FALL_NEAR` and `FIGHT_LEN` for a tackle by one man (debug counts,
+    /// only with `TACKLE_DIAG`: pure reads).
+    fn fall_diag(&self, c: usize) {
+        use std::sync::atomic::Ordering::Relaxed;
+        if !TACKLE_DIAG.load(Relaxed) || self.fight.len() != 1 || self.agents[c].side != 0 {
+            return;
+        }
+        let run = self.designed_run;
+        let catch = !run && self.caught > 0.0;
+        if !run && !catch {
+            return;
+        }
+        let t = self.t;
+        let (cp, cv) = (self.agents[c].pos, self.agents[c].vel);
+        let (mut free, mut held) = (f64::INFINITY, f64::INFINITY);
+        for (i, d) in self.agents.iter().enumerate() {
+            if d.side == 0 || !d.up(t) || self.fight.contains(&i) {
+                continue;
+            }
+            let rel = d.pos - cp;
+            let rv = (d.vel - cv).scale(FALL_LOOK);
+            let back = if rv.len() > 1e-6 { clamp(-rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
+            let dist = (rel + rv.scale(back)).len();
+            if d.engaged.is_some() {
+                held = held.min(dist);
+            } else {
+                free = free.min(dist);
+            }
+        }
+        let bin = |x: f64| FALL_BINS.iter().position(|&e| x < e).unwrap_or(FALL_BINS.len());
+        let k = if run { 0 } else { 2 };
+        FALL_NEAR[k][bin(free)].fetch_add(1, Relaxed);
+        FALL_NEAR[k + 1][bin(held)].fetch_add(1, Relaxed);
+        let held_for = t - self.fight_since;
+        let b = [0.1, 0.2, 0.3, 0.5, 0.8].iter().position(|&e| held_for < e).unwrap_or(5);
+        FIGHT_LEN[(!run) as usize][b].fetch_add(1, Relaxed);
+    }
+
     pub fn tackled(&mut self, c: usize) {
+        self.fall_diag(c);
         // The tackle goes in the book as scorers keep it: the first man and
         // the first to help him, never a third (realism audit item 3; the
         // NCAA's and the NFL's count credit two men at most). It named every
@@ -5285,6 +5355,26 @@ impl<'a> Sim<'a> {
             let side = a.side;
             self.notes.tend.stepped_out =
                 self.agents.iter().any(|d| d.side != side && d.up(self.t) && d.pos.dist(p) < 3.5);
+            // Forced out (realism audit item 3, who makes the tackle): the
+            // scorer credits the man who drove him out, as he does a tackle.
+            // The men already on him have it; else the nearest free man
+            // within `OOB_CREDIT_REACH`. Real NFL 2023-24 runs and catches
+            // that end out of bounds credit a tackler 90% of the time (the
+            // rest stepped out with nobody near); the engine credited 56%.
+            if self.notes.tacklers.is_empty() {
+                let near = self
+                    .agents
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, d)| d.side != side && d.up(self.t) && d.engaged.is_none())
+                    .map(|(i, d)| (d.pos.dist(p), i))
+                    .filter(|x| x.0 < OOB_CREDIT_REACH)
+                    .min_by(|a, b| a.0.total_cmp(&b.0));
+                if let Some((_, i)) = near {
+                    let id = self.agents[i].id;
+                    self.notes.tacklers.push(id);
+                }
+            }
             self.out_of_bounds = true;
             self.dead = true;
             let x = if (p.x - self.progress) * self.goal > 0.0 { p.x } else { self.progress };

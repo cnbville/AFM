@@ -452,6 +452,17 @@ pub fn set_spot(p: &mut Player, s: Spot) {
     p.spots_played |= s.bit();
 }
 
+/// The safeties a staff teaches the nickel as well as their own spot when
+/// it sets its spots (realism audit item 3, who makes the tackle): the
+/// third and fourth by overall, the men its five- and six-back packages
+/// bring on when one fits the job better than a corner (`game/flow.rs`,
+/// `lineup`). Their places in `players`.
+pub fn sub_safeties(players: &[&Player]) -> Vec<usize> {
+    let mut idx: Vec<usize> = (0..players.len()).filter(|&i| players[i].position == Position::S).collect();
+    idx.sort_by(|&a, &b| players[b].overall().total_cmp(&players[a].overall()));
+    idx.into_iter().skip(2).take(2).collect()
+}
+
 /// The best way to put `list` at `spots` (at most one man a spot): for
 /// each spot, in order, the man who plays it. Every arrangement is tried
 /// (at most 5 men); ties keep the given order.

@@ -85,9 +85,13 @@ fn a_four_three_team_still_goes_to_nickel_against_three_receivers() {
     staff.guide.front = Want::new(BaseFront::FourTwoFive, Firm::Firm);
     let (_, two) = calls(&staff, Personnel::P12, 9);
     assert!(two > 0.5, "a 4-2-5 base is in nickel against 12 personnel: {two:.2}");
+    // With no front guideline a staff answers two receivers as real NFL
+    // staffs do (realism audit item 3, `PACKAGES`: a nickel on 44% of early
+    // downs, more on third and medium), well under a nickel base.
     staff.guide.front = Want::default();
     let (_, base) = calls(&staff, Personnel::P12, 9);
-    assert!(base < 0.2, "a staff with no front guideline stays in base against 12: {base:.2}");
+    assert!((0.35..0.6).contains(&base), "a staff with no front guideline plays the real mix against 12: {base:.2}");
+    assert!(base < two - 0.2, "and well under a 4-2-5 base: {base:.2} against {two:.2}");
 }
 
 /// Every staff drafts a call sheet (Cain's rule: the same rules for every
@@ -123,4 +127,37 @@ fn every_team_calls_from_a_sheet() {
             }
         }
     }
+}
+
+/// The backs a staff plays follow the real NFL's table by the receivers and
+/// the down (realism audit item 3, `PACKAGES`): against three receivers a
+/// nickel on early downs and a dime on 45% of third and longs, against four
+/// a nickel mostly (it used to be a dime always).
+#[test]
+fn the_backs_follow_the_receivers_and_the_down() {
+    let staff = Staff::average(OffScheme::WestCoast);
+    let mem = Memory::default();
+    let share = |personnel: Personnel, down: u8, togo: f64, seed: u32| {
+        let mut rng = Rng::new(seed);
+        let off = Formation::plain(personnel, Backfield::Shotgun, 1.0);
+        let mut n = [0usize; 3];
+        for _ in 0..4000 {
+            let c = call_defense(&staff, &mem, &sit(down, togo, 60.0), &off, &DefCtx::default(), &mut rng);
+            match c.personnel {
+                DefPersonnel::Dime => n[2] += 1,
+                DefPersonnel::Nickel => n[1] += 1,
+                _ => n[0] += 1,
+            }
+        }
+        n.map(|x| x as f64 / 4000.0)
+    };
+    let early = share(Personnel::P11, 1, 10.0, 3);
+    println!("11 personnel, 1st and 10: {early:.3?}");
+    assert!(early[1] > 0.8 && early[2] < 0.15, "a nickel on early downs against three: {early:.3?}");
+    let long = share(Personnel::P11, 3, 9.0, 4);
+    println!("11 personnel, 3rd and 9: {long:.3?}");
+    assert!((0.35..0.55).contains(&long[2]), "a dime on 45% of third and longs: {long:.3?}");
+    let four = share(Personnel::P10, 1, 10.0, 5);
+    println!("10 personnel, 1st and 10: {four:.3?}");
+    assert!(four[1] > 0.75, "a nickel mostly against four receivers: {four:.3?}");
 }

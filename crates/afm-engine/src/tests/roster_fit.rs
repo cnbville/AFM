@@ -236,8 +236,16 @@ fn a_league_rides_with_the_team() {
 fn a_league_reads_its_own_defenders() {
     use crate::positions::Position;
     let level = Level::NFL;
-    let plain: Vec<GameTeam> =
+    let mut plain: Vec<GameTeam> =
         (0..6).map(|k| synthetic_team(&format!("T{k}"), level, 0.0, OffScheme::WestCoast, 80 + k)).collect();
+    // A safety his staff taught the nickel (`spots::sub_safeties`) can be
+    // listed among the corners at no cost (`GamePlayer::cross_cost`), and
+    // slowing him takes him off that list: one team's named corners change,
+    // which is not the league-wide shift this test reads. So no safety here
+    // has been taught it.
+    for p in plain.iter_mut().flat_map(|t| t.players.iter_mut()).filter(|p| p.position == Position::S) {
+        p.spots_played &= !crate::spots::Spot::NB.bit();
+    }
     let mut moved = plain.clone();
     for t in moved.iter_mut() {
         for p in t.players.iter_mut() {
