@@ -464,15 +464,11 @@ fn tally(w: &mut World, season: i32, good: bool) {
     }
 }
 
-/// Your reputation moves (your coach and your profile together).
+/// Your reputation moves: on your coach record, the one place it lives.
 pub(crate) fn reputation(w: &mut World, by: f64) {
     let Some(c) = super::super::stories::seat_coach(w) else { return };
     let co = &mut w.coaches[c];
     co.reputation = (co.reputation + by).clamp(1.0, 20.0);
-    let r = co.reputation;
-    if let Some(k) = w.career.as_mut() {
-        k.you.reputation = r;
-    }
 }
 
 /// Your boss's trust moves on the stories he cares about.
@@ -835,10 +831,6 @@ fn place_teach(w: &mut World, g: usize) {
         let v = &mut w.coaches[c].ability.teaching[g];
         *v = (*v + 1.0).clamp(1.0, 20.0);
     }
-    if let Some(k) = w.career.as_mut() {
-        let v = &mut k.you.teaching[g];
-        *v = (*v + 1.0).clamp(1.0, 20.0);
-    }
 }
 
 /// Every bank a lesson letter offers: ratings by index, teaching groups
@@ -879,23 +871,6 @@ fn place(w: &mut World, r: Rating) {
         let mut y = co.yours;
         r.add(&mut co.ability, y.as_mut(), 1.0);
         co.yours = y;
-    }
-    if let Some(k) = w.career.as_mut() {
-        let y = &mut k.you;
-        let v = match r {
-            Rating::Motivation => &mut y.motivation,
-            Rating::Discipline => &mut y.discipline,
-            Rating::Relationships => &mut y.relationships,
-            Rating::Recruiting => &mut y.recruiting,
-            Rating::Network => &mut y.network,
-            Rating::GameManagement => &mut y.game_management,
-            Rating::Scheme => &mut y.scheme,
-            Rating::PlayCalling => &mut y.yours.play_calling,
-            Rating::Adaptation => &mut y.yours.adaptation,
-            Rating::Evaluation => &mut y.yours.evaluation,
-            Rating::Negotiating => &mut y.yours.negotiating,
-        };
-        *v = (*v + 1.0).clamp(1.0, 20.0);
     }
 }
 

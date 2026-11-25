@@ -3260,6 +3260,7 @@ pub fn you(w: &World) -> Value {
     let co = &w.coaches[c.coach];
     let Some(ab) = w.your_ability() else { return Value::Null };
     let y = &c.you;
+    let style = co.style();
     let (wn, l) = w.career_record(c.coach);
     // A photo is shown only if it is a plain JPEG (a shared save can't
     // carry anything else into the page).
@@ -3282,7 +3283,7 @@ pub fn you(w: &World) -> Value {
         })),
         "profile": profile,
         "home_state": w.states.get(y.home_state).map(|s| state_name(&s.code)),
-        "style": { "risk": y.style.risk, "freedom": y.style.freedom, "physical": y.style.physical, "ball_hunting": y.style.ball_hunting, "mould": y.style.mould },
+        "style": { "risk": style.risk, "freedom": style.freedom, "physical": style.physical, "ball_hunting": style.ball_hunting, "mould": style.mould },
         "history": coach(w, c.coach).map(|v| v["history"].clone()).unwrap_or(Value::Null),
         "title": crate::lane_frontoffice::setup::title_line(w),
         "family": crate::lane_frontoffice::setup::family_json(w),

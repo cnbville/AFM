@@ -1288,7 +1288,7 @@ fn coaches(w: &mut World, level: Level) {
         }
         let (wins, losses) = w.stint_record(c);
         let you = Some(c) == super::seat_coach(w);
-        let style = if you { w.career.as_ref().map(|x| x.you.style) } else { w.coaches.get(c).map(|x| x.style()) };
+        let style = w.coaches.get(c).map(|x| x.style());
         let Some(style) = style else { continue };
         let theme = if (you && w.stories.nfl.go_rate(year).is_some_and(|r| r >= 0.6)) || style.risk >= 17.0 {
             "aggressive"
@@ -1427,7 +1427,9 @@ pub fn give(w: &mut World, id: u32, name: &str) -> Result<String, String> {
     }
     let seed = w.options.seed;
     let year = w.year;
-    let rep = w.career.as_ref().map_or(0.4, |c| c.you.reputation);
+    // Your standing today, 0-1 (reputation is 1-20; read whole it put the
+    // chance at its cap for every coach).
+    let rep = w.your_coach().map_or(0.4, |c| c.reputation / 20.0);
     let t = w.people[i].player.personality.traits;
     let buy_in = 0.5 + 0.03 * (t.ego as f64 - 10.0);
     let chance = (0.25 + 0.4 * rep + 0.2 * buy_in).clamp(0.1, 0.85);

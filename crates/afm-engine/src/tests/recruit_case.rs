@@ -413,7 +413,8 @@ fn the_recruit_projection_names_which_way_the_talks_go_three_in_four() {
 fn after_three_talks_your_file_beats_the_free_guess_and_reading_people_helps() {
     let run = |reading: f64| -> (usize, usize, usize) {
         let (mut w, mine, kids) = recruits(120);
-        w.career.as_mut().unwrap().you.relationships = reading;
+        let me = w.career.as_ref().unwrap().coach;
+        w.coaches[me].ability.relationships = reading;
         // Your area recruiter's call to his coaches: the free guess.
         let today = w.today;
         for &i in &kids {

@@ -24,9 +24,17 @@ fn long_snapper_is_on_the_kicking_units() {
             let snappers = [h, a].map(|t| {
                 teams[t].players.iter().filter(|p| p.position == Position::LS).map(|p| p.id).collect::<Vec<u32>>()
             });
-            // A snapper hurt in the game is replaced (the next best snap), so
-            // only a healthy one must be on the unit.
-            let hurt: HashSet<u32> = res.injuries.iter().map(|(_, i)| i.id).collect();
+            // A snapper who leaves the game is replaced (the next best snap),
+            // so only one who played it through must be on the unit: not one
+            // who was hurt, pulled for a concussion check (he may come back
+            // cleared a few snaps on) or thrown out.
+            let left: HashSet<u32> = res
+                .injuries
+                .iter()
+                .map(|(_, i)| i.id)
+                .chain(res.checks.iter().map(|c| c.1))
+                .chain(s.plays.iter().flat_map(|r| r.fire.ejected.iter().copied()))
+                .collect();
             let mut kicked = [false; 2];
             for r in &s.plays {
                 if !matches!(r.kind, PlayType::FieldGoal | PlayType::ExtraPoint | PlayType::Punt) {
@@ -37,7 +45,7 @@ fn long_snapper_is_on_the_kicking_units() {
                 let distinct: HashSet<u32> = on.iter().copied().collect();
                 assert_eq!(on.len(), 11, "{level:?} game {g}: {:?} unit has {} men", r.kind, on.len());
                 assert_eq!(distinct.len(), 11, "{level:?} game {g}: a man listed twice on the {:?} unit", r.kind);
-                if level != Level::HS && snappers[r.offense].iter().all(|id| !hurt.contains(id)) {
+                if level != Level::HS && snappers[r.offense].iter().all(|id| !left.contains(id)) {
                     assert!(
                         snappers[r.offense].iter().any(|id| on.contains(id)),
                         "{level:?} game {g}: no long snapper on the {:?} unit",

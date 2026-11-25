@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.687", date: "24 Nov", title: "Let a live talk raise or let go a graduate assistant, analyst or QC coach and 1 more",
+    notes: [
+      "When you take over a program or club, the old staff's graduate assistants, analysts and quality-control coaches now come up in the holdover meeting, so you can keep them or clear them out on day one.",
+      "The holdover meeting lists every junior coach left from the last staff",
+      "\"Clean house\" lets them all go; \"Keep the recruiters\" keeps those whose room's coach stays",
+      "NFL clubs get their own meeting for quality-control coaches",
+      "You can now sit down with a graduate assistant, analyst or quality-control coach and give him a raise or let him go in the talk itself.",
+      "Your juniors are people you can talk to like the rest of your staff.",
+    ],
+  },
+  {
     v: "0.2.685", date: "23 Nov", title: "Make a recruit sound like his standing, and read an honest call fairly",
     notes: [
       "Recruits now sound like where they really stand: a kid with no offers is thrilled when a big program calls, and an honest read of his game with a plan to fix it counts as the pitch it is.",

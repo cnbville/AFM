@@ -3036,7 +3036,9 @@ impl<'a> Sim<'a> {
         // mass, not the bench press alone.
         if !pass {
             // The drive is the legs, the fit and the control the upper body
-            // (physical study item 4b).
+            // (physical study item 4b). The defender's shed reads the same
+            // body (`shed_power`): keep the two alike, or rosters with more
+            // body than technique tilt to one side (realism audit item 1).
             return 0.45 * a.a(Attr::RunBlocking)
                 + 0.14 * a.a(Attr::LowerBody)
                 + 0.06 * a.a(Attr::Strength)
@@ -3085,14 +3087,32 @@ impl<'a> Sim<'a> {
             }
     }
 
+    /// How well a defender plays off a run block, on the rating scale:
+    /// stack (hands and anchor), read, then shed, on the same body the
+    /// blocker brings (`block_base`'s run block: 0.14 Lower Body, 0.06
+    /// Strength, 0.1 Balance, 0.1 Acceleration), with his technique and read
+    /// the other 0.6 as the blocker's are. Realism audit item 1
+    /// (2026-11-24): it read 0.4 Block Shedding, 0.2 Hand Use, 0.15 Anchor,
+    /// 0.15 Play Recognition and only 0.1 Strength of his body against the
+    /// blocker's 0.4, so two men who were each other's equals in body and
+    /// in technique were even only on rosters whose bodies and technique
+    /// rate alike, as the test leagues' do. A world's college men have more
+    /// body than technique (athletes first), so its FBS blockers stood 6.5
+    /// points further ahead on the typical block than the test league's
+    /// (its NFL clubs' 3.5), which `SHED_EDGE` turned into half the sheds:
+    /// 5.71 yards a carry on world seed 321's FBS teams (real 5.12), 5.36
+    /// with this; its NFL clubs 4.62 to 4.47 (real 4.50); the test leagues
+    /// where they were (NFL 4.48, FBS 4.87). Proposed, not confirmed.
     fn shed_power(&self, d: usize) -> f64 {
         let a = &self.agents[d];
-        // Stack (hands and anchor), read, then shed.
-        0.4 * a.a(Attr::BlockShedding)
-            + 0.2 * a.a(Attr::HandUse)
-            + 0.15 * a.a(Attr::Anchor)
-            + 0.1 * a.a(Attr::Strength)
-            + 0.15 * a.a(Attr::PlayRecognition)
+        0.27 * a.a(Attr::BlockShedding)
+            + 0.13 * a.a(Attr::HandUse)
+            + 0.1 * a.a(Attr::Anchor)
+            + 0.1 * a.a(Attr::PlayRecognition)
+            + 0.14 * a.a(Attr::LowerBody)
+            + 0.06 * a.a(Attr::Strength)
+            + 0.1 * a.a(Attr::Balance)
+            + 0.1 * a.a(Attr::Acceleration)
             + (a.mass - 280.0) * 0.08
     }
 
