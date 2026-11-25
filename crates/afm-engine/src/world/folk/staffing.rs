@@ -43,6 +43,18 @@ pub struct Deal {
     pub buyout: f32,
 }
 
+/// A head coach's hot seat with his owner.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Seat {
+    pub team: u32,
+    pub coach: u32,
+    /// The day it became public.
+    pub since: Date,
+    /// Carried in from Black Monday: kept after a year that nearly cost
+    /// him the job.
+    pub carried: bool,
+}
+
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct Staffs {
@@ -73,6 +85,10 @@ pub struct Staffs {
     /// This season's NFL interim head coaches: (team, coach, the team's
     /// wins and losses when he took over; realism audit item 7).
     pub interims: Vec<(u32, u32, u32, u32)>,
+    /// NFL head coaches on the hot seat with their owner: public the day
+    /// it starts, and an owner fires in season only from a seat at least a
+    /// week old (`staff::midseason`).
+    pub seats: Vec<Seat>,
     /// Raises you gave your graduate assistants, analysts and
     /// quality-control coaches (coach, the season his post began, dollars a
     /// year): a junior post has no deal, its pay is the post's until you
@@ -140,6 +156,10 @@ pub fn my_juniors(w: &World) -> Vec<usize> {
 }
 
 impl Staffs {
+    /// The hot seat of club `team`'s head coach `coach`, if he is on it.
+    pub fn seat(&self, team: usize, coach: usize) -> Option<&Seat> {
+        self.seats.iter().find(|x| x.team as usize == team && x.coach as usize == coach)
+    }
     pub fn deal(&self, c: usize) -> Option<&Deal> {
         self.deals.iter().find(|d| d.coach == c)
     }

@@ -250,6 +250,15 @@ fn post(w: &mut World, d: Date, level: Level, text: String, decision: bool) {
     w.calendar.post(e);
 }
 
+/// Word from your boss about your seat (`staff::midseason`): it stops
+/// your day and stays in your career's log.
+pub(crate) fn seat_word(w: &mut World, text: String) {
+    let Some(job) = your_job(w) else { return };
+    let today = w.today;
+    log(w, text.clone());
+    post(w, today, level_of(job.employer), text, true);
+}
+
 fn level_of(e: Employer) -> Level {
     match e {
         Employer::HighSchool(_) => Level::HighSchool,

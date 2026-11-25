@@ -936,6 +936,16 @@ fn nfl_interim(w: &mut World, t: usize) {
     }
     let at = (s.wins[t], s.losses[t], s.ties[t]);
     let best = nfl_coordinator(w, t);
+    // The interim has this season's games: your first season is the next
+    // one (`hire` read a man who joined with games left as coaching them).
+    if best.is_some()
+        && let Some(you) = w.career.as_ref().map(|c| c.coach)
+        && let Some(j) = w.coaches[you].job.as_mut()
+        && j.employer == crate::world::coach::Employer::Nfl(t)
+        && j.first == j.since
+    {
+        j.first = j.since + 1;
+    }
     if let Some(tk) = w.folk.takeover.as_mut() {
         tk.interim = best;
         tk.nfl_at = Some(at);

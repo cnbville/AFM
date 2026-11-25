@@ -55,6 +55,7 @@ mod growth_reps;
 mod haggling;
 mod handoff;
 mod hiring;
+mod hot_seat;
 mod hs_playoffs;
 mod hunt;
 mod jan1;

@@ -2619,8 +2619,8 @@ fn stakes(w: &mut World, k: usize, d: Date) {
         let games = s.wins[t] + s.losses[t] + s.ties[t];
         let pct = wins(t) / games.max(1) as f64;
         let last = w.nfl[t].win_share.last().copied().unwrap_or(0.5);
-        let tenure = w.nfl[t].head_coach.and_then(|c| w.coaches[c].job).map_or(0, |j| w.year - j.since);
-        k + 2 >= n_weeks && tenure >= 2 && games >= 10 && pct < 0.4 && last < 0.45
+        let his = w.nfl[t].head_coach.and_then(|c| w.coaches[c].job).map_or(1, |j| j.season_no(s.year));
+        k + 2 >= n_weeks && his >= 3 && games >= 10 && pct < 0.4 && last < 0.45
     };
     let mut huge: Vec<(usize, usize, [bool; 2], Moment)> = Vec::new();
     for (g, &(h, a)) in s.weeks[k].iter().enumerate() {

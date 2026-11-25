@@ -41,6 +41,9 @@ pub enum NewsKind {
     Camp,
     /// A team found practising past the rules (section 6b topic 3).
     PracticeCase,
+    /// A head coach's hot seat: it starts, carries into a new season or
+    /// cools (`staff::midseason`).
+    CoachSeat,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

@@ -19,6 +19,7 @@ use crate::rng::{Rng, clamp};
 use super::front_office::{market, school};
 
 mod midseason;
+pub use midseason::SeatRead;
 pub(crate) mod pay;
 
 /// The coaches the hiring searches walk (world speed lane): those not
@@ -1169,6 +1170,7 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
         if market::spared(w, c, "fired") {
             return;
         }
+        midseason::clear_seat(w, t);
         leave(w, c, "fired");
         w.coaches[c].recent.clear();
         openings.push(Opening { employer: Employer::Nfl(t), role: Role::HeadCoach, prestige: 1.0 });
@@ -1196,6 +1198,9 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
             }
         }
     } else {
+        // Kept after a year that nearly cost him the job: he starts the
+        // next season on the hot seat, in public.
+        midseason::carry_seat(w, c, t, p);
         pay::nfl_kept(w, c, last);
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
             let p = clamp((0.42 - last) * 1.5, 0.0, 0.35);
@@ -2511,7 +2516,7 @@ pub(crate) fn in_season_firings(w: &mut World) {
 }
 
 /// The NFL's firings during the season (realism audit items 7 and 8): the
-/// Mondays after weeks 4-15 (`midseason::nfl_week`).
+/// Mondays after week 4 through the next-to-last week (`midseason::nfl_week`).
 pub(crate) fn nfl_in_season(w: &mut World) {
     midseason::nfl_week(w);
 }
