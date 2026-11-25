@@ -8,8 +8,16 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
-## 0.2.697 (25 Nov, shipped): coach pay reads what the department earns (realism audit item 9) (PR #642), one store for your coach's ratings (coach ratings lane RE-bug) (PR #648), NIL pay by player value (PR #649)
-**TLDR:** 3 changes ship together. College coaching pay now follows each school's money, so a Group of 5 head coach earns about what his real counterpart does. Your coach's ratings now count everywhere the moment they change. Your read of people and your recruiting pitch follow the ratings on your profile. Plus 1 more below.
+## 0.2.697 (25 Nov, shipped): NIL pay by player value (PR #649)
+**TLDR:** College players are now paid by what each one is worth to his team, not a flat rate for his role. Your stars earn far more than your depth, and a deep backup's going rate is a small one.
+- A school's revenue share reads each player's own play against his level's starters, his class year and, for a newcomer, his stars. (PR #649)
+- Deep backups and low-rated signees get a small share, as at real programs, and the money that frees up goes to the players who carry the team. (PR #649)
+- Your starting quarterback's going rate sits well above every other player's. His backup's does not. (PR #649)
+- A two-star or three-star recruit no longer expects a starter's money from a power school because the depth chart is thin at his spot. (PR #649)
+- Look at: the roster split on your NIL desk before July 1, and what rival schools offer your three-star targets. (PR #649)
+
+## 0.2.696 (25 Nov, shipped): coach pay reads what the department earns (realism audit item 9) (PR #642), one store for your coach's ratings (coach ratings lane RE-bug) (PR #648)
+**TLDR:** 2 changes ship together. College coaching pay now follows each school's money, so a Group of 5 head coach earns about what his real counterpart does. Your coach's ratings now count everywhere the moment they change. Your read of people and your recruiting pitch follow the ratings on your profile.
 - Coach pay reads what the department earns (realism audit item 9) (PR #642): College coaching pay now follows each school's money, so a Group of 5 head coach earns about what his real counterpart does.
 - A MAC, Sun Belt or Conference USA head coach now makes around a million a year, not three or four. (PR #642)
 - Power 4 head coaches stay in the five to ten million range. (PR #642)
@@ -19,12 +27,7 @@ The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-wri
 - The job preview and job offers read today's ratings too. (PR #648)
 - A nickname you give a player can now fall flat. Before, nearly every one stuck. (PR #648)
 - Old saves load as they are and pick up the fix at once. (PR #648)
-- NIL pay by player value (PR #649): College players are now paid by what each one is worth to his team, not a flat rate for his role. Your stars earn far more than your depth, and a deep backup's going rate is a small one.
-- A school's revenue share reads each player's own play against his level's starters, his class year and, for a newcomer, his stars. (PR #649)
-- Deep backups and low-rated signees get a small share, as at real programs, and the money that frees up goes to the players who carry the team. (PR #649)
-- Your starting quarterback's going rate sits well above every other player's. His backup's does not. (PR #649)
-- A two-star or three-star recruit no longer expects a starter's money from a power school because the depth chart is thin at his spot. (PR #649)
-- Look at: a Group of 5 head coach's contract on his staff page. (PR #642) your profile's Relationships and Recruiting, then a one-on-one or a recruit's call after a season or two. (PR #648) the roster split on your NIL desk before July 1, and what rival schools offer your three-star targets. (PR #649)
+- Look at: a Group of 5 head coach's contract on his staff page. (PR #642) your profile's Relationships and Recruiting, then a one-on-one or a recruit's call after a season or two. (PR #648)
 - Docs and tooling merged too, no game change: Coach ratings design, version 5: the archetype ladder (decided by proxy) (PR #647).
 
 ## 0.2.694 (25 Nov, shipped): add the program check page to the World Reader (lane P0) (PR #638), count a defender's body off a run block as the blocker's (realism audit item 1: FBS rushing) (PR #641), fix NFL GM tenure (realism audit item 12) (PR #645)
