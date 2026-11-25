@@ -1,0 +1,75 @@
+name: Future read
+# Reads the future run's book (future-run.yml) and prints what it says into the
+# job's log, round after round: the job fetches `.github/scripts/future-queries.sql`
+# from the branch it was started on every minute and runs it again whenever
+# it changes (a line `-- stop` ends the job), so the 8 GB book comes down once.
+# One query a line; a line starting `--` is a heading, a line starting `page `
+# prints a book page (`page money limit=300`), anything else is SQL for
+# `afm_read sql`. Reading the book only; nothing is changed or published.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The worlds page release holding the book (future-seed321-...)"
+        default: ""
+      minutes:
+        description: "Minutes to wait for new queries after each round"
+        default: "150"
+jobs:
+  book:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile the reader
+        run: cargo build --release -p afm-reader --bin afm_read
+      - name: Download the book
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          cd out
+          gh release download "$TAG" --repo cnbville/afm-worlds --pattern '*.afmbook.zst*'
+          ls -la
+          f=$(ls | sed -n 's/\(.*\.afmbook\.zst\)\.[0-9]*$/\1/p' | head -1)
+          if [ -n "$f" ]; then cat "$f".[0-9][0-9][0-9] | unzstd -T0 -c > "${f%.zst}" && rm "$f".[0-9][0-9][0-9]
+          else unzstd -T0 --rm ./*.afmbook.zst; fi
+          ls -la && df -h / /mnt
+      - name: Read it
+        env:
+          BRANCH: ${{ github.ref_name }}
+          MINUTES: ${{ inputs.minutes }}
+        run: |
+          b=$(realpath out/*.afmbook)
+          q=.github/scripts/future-queries.sql
+          run_round() {
+            echo "######## ROUND $1 $(date -u +%H:%M)"
+            while IFS= read -r line; do
+              case "$line" in
+                "") ;;
+                "-- stop") ;;
+                --*) echo; echo "=== ${line#-- }" ;;
+                "page "*) echo; echo ">>> $line"; target/release/afm_read "$b" ${line#page } 2>&1 | head -c 60000 || true ;;
+                *) echo; echo ">>> $line"; target/release/afm_read "$b" sql "$line" 2>&1 | head -c 30000 || true ;;
+              esac
+            done < "$q"
+            echo "######## END ROUND $1"
+          }
+          round=1
+          run_round $round
+          last=$(sha256sum "$q" | cut -d' ' -f1)
+          end=$((SECONDS + MINUTES * 60))
+          while [ $SECONDS -lt $end ]; do
+            grep -qx -- '-- stop' "$q" && break
+            sleep 45
+            git fetch -q origin "$BRANCH" && git checkout -q FETCH_HEAD -- "$q" || continue
+            now=$(sha256sum "$q" | cut -d' ' -f1)
+            if [ "$now" != "$last" ]; then
+              last=$now; round=$((round+1)); run_round $round
+              end=$((SECONDS + MINUTES * 60))
+            fi
+          done

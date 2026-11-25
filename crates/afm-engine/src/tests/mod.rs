@@ -117,6 +117,7 @@ mod praise;
 mod pro_role;
 mod progression;
 mod promises;
+mod protection;
 mod public_bar;
 mod pull_file;
 mod ratings;

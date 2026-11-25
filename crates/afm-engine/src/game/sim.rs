@@ -1682,6 +1682,34 @@ pub(crate) fn reach_memo() -> [std::cell::Cell<Option<(f64, f64, f64)>>; MAX_AGE
     [const { std::cell::Cell::new(None) }; MAX_AGENTS]
 }
 
+/// The men a tackle is credited to at most (`Sim::tackled`).
+const TACKLE_CREDIT: usize = 2;
+
+/// How a block reads a rating gap (realism audit item 3, defenders' freak
+/// seasons): the edge bent on a log curve, sign × `BLOCK_BEND` × ln(1 +
+/// |edge| / `BLOCK_BEND`). On an even block it is the edge itself (its
+/// slope is 1 at zero) and it never stops rising, so every point still
+/// helps the better man, each a little less than the last: 5 points count
+/// 4.5, 10 count 8.1, 20 count 13.9 and 30 count 18.3. Nothing is capped.
+///
+/// A block's drift was straight in the edge (`update_blocks`), which fits
+/// the middle and runs away at the top. On world seed 321's FBS teams the
+/// 19 edges who stand 10 to 20 points over the typical blocker won 52% to
+/// 65% of their pass rushes inside 2.5 seconds, 73% to 87% of them against
+/// one man, and had 11.8 to 15.4 sacks in 13 games each: the 2nd and the
+/// 10th best sack seasons a year were 25.6 and 15.8 (real FBS 2024-25:
+/// 15.5 and 10.8). The best real rushers win about one rush in four. Bent,
+/// the same men win 38% to 48% and get 7.5 to 9.7 sacks, and the ladder
+/// reads 15.5 and 11.4. The pass rush, the run block and the shed's pull
+/// (`SHED_EDGE`) all read the bent edge: it is one block. Proposed, not
+/// confirmed.
+const BLOCK_BEND: f64 = 20.0;
+
+/// The edge as a block reads it (`BLOCK_BEND`).
+fn bend(edge: f64) -> f64 {
+    edge.signum() * BLOCK_BEND * (1.0 + edge.abs() / BLOCK_BEND).ln()
+}
+
 /// How much a run block's outcome leans on the strength gap per point.
 /// Fitted (dynasty item 1, 2026-10-15) so FBS team-season yards per carry
 /// spread like real FBS (offense and defense sd about 0.64, cfbfastR
@@ -1696,8 +1724,12 @@ const RUN_EDGE: f64 = 0.035;
 /// starting further ahead (`RUN_BLOCK_START`), so inside runs gain more
 /// (NFL test rosters inside the tackles 3.08 to 3.64 a carry, real 4.05)
 /// with linemen still making 40% of first tackles (real 43%; proposed, not
-/// confirmed).
-const SHED_RUNNER: f64 = 0.9;
+/// confirmed). Realism audit item 3: back to 1.0 with the block's bend
+/// (`BLOCK_BEND`), which takes sheds from the men far ahead on their
+/// blocks: at 0.9 world seed 321's FBS teams gained 5.45 a carry and its
+/// NFL clubs 4.57 on the bent edge (5.36 and 4.46 before it), at 1.0 5.36
+/// and 4.49.
+const SHED_RUNNER: f64 = 1.0;
 /// Where a run block starts, w (minor bug 253; -0.4 before): the blocker
 /// further ahead, so a lineman who makes the stop does it 2.3 yards on
 /// (real 2.5; 2.0 before). On the NFL test rosters with the force fit
@@ -1735,7 +1767,10 @@ const SHED_SECOND_RANGE: f64 = 3.5;
 /// Shedding), now 0.065 (0.058 at 12). On world seed 1's NFL clubs their
 /// lasting spread from one 204-carry block to the next is 0.37 a carry
 /// (0.32 before; real true spread 0.36 between backs' seasons, PFR
-/// 2018-25). Proposed, not confirmed.
+/// 2018-25). Proposed, not confirmed. Since realism audit item 3 the edge
+/// it reads is the bent one (`BLOCK_BEND`), so the pull is (1 + |edge| /
+/// 20)^(20 / 9) either way: 2.3 times at 9 points and 4.2 at 18, where
+/// the straight edge gave 2.7 and 7.4.
 const SHED_EDGE: f64 = 9.0;
 /// A man on a block he is winning gets an arm out for the runner with
 /// chance `ARM_OUT` × w a try, and one on a block he isn't winning (w at 0
@@ -2631,7 +2666,13 @@ impl<'a> Sim<'a> {
         let heft = if pass && !edge_rusher {
             let (_, wt, _) = super::synthetic::typical_body(self.level, self.player(d).position);
             let two_gap = if self.player(d).position == crate::positions::Position::DT { TWO_GAP } else { 0.0 };
-            (0.64 + two_gap) * k_acc * (de.mass - wt)
+            // The two-gap read is what a tackle's weight says of the job he
+            // is given, fitted on real tackles (270 to 350 lb): it stops at
+            // his level's typical edge's weight, the lightest men that fit
+            // saw. Below it only the body's own first step counts (the 0.64).
+            let (_, ew, _) = super::synthetic::typical_body(self.level, crate::positions::Position::EDGE);
+            let over = de.mass - wt;
+            (0.64 * over + two_gap * over.max((ew - wt).min(0.0))) * k_acc
         } else {
             0.0
         };
@@ -3249,7 +3290,7 @@ impl<'a> Sim<'a> {
                     0.032
                 } else {
                     RUN_EDGE
-                } * edge;
+                } * bend(edge);
             // Re-fits his hands (individual practice): a pass rep that
             // started to go wrong, won back with the hands.
             if e.pass && e.w > 0.3 {
@@ -3309,7 +3350,7 @@ impl<'a> Sim<'a> {
                 if second {
                     pull += 2.0 * SHED_SECOND * (0.5 + e.w).max(0.2);
                 }
-                mu += pull * (edge / SHED_EDGE).exp();
+                mu += pull * (bend(edge) / SHED_EDGE).exp();
             }
             if TRACE.load(std::sync::atomic::Ordering::Relaxed) && (t - e.start) < DT * 1.5 {
                 println!(
@@ -4569,7 +4610,12 @@ impl<'a> Sim<'a> {
     }
 
     pub fn tackled(&mut self, c: usize) {
-        self.notes.tacklers = self.fight.iter().map(|&i| self.agents[i].id).collect();
+        // The tackle goes in the book as scorers keep it: the first man and
+        // the first to help him, never a third (realism audit item 3; the
+        // NCAA's and the NFL's count credit two men at most). It named every
+        // man in the pile, three or more on 7% of FBS tackles, so a team's
+        // tackles ran 69.0 a game on world seed 321's FBS teams, real 65.9.
+        self.notes.tacklers = self.fight.iter().take(TACKLE_CREDIT).map(|&i| self.agents[i].id).collect();
         let x = self.agents[c].pos.x;
         if (x - self.progress) * self.goal > 0.0 {
             self.progress = x;

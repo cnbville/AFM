@@ -259,7 +259,7 @@ pub fn adv(g: &GameStats) -> [Adv; 2] {
             x.success_epa += p.epa as f32;
         }
         x.explosive += ((p.kind == PlayType::Run && p.yards >= 10.0) || p.yards >= 20.0) as u32;
-        let tfl = p.kind == PlayType::Run && p.yards < 0.0 && !p.tacklers.is_empty();
+        let tfl = p.kind == PlayType::Run && p.lost() && !p.tacklers.is_empty();
         if tfl || !p.sackers.is_empty() || p.interception || p.forced_fumble.is_some() || p.pbu.is_some() {
             a[1 - o].havoc += 1;
         }

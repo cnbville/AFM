@@ -117,6 +117,27 @@ const EDGE_ALLOW: f64 = 600.0;
 const DT_WAVE_SPREAD: f64 = 40.0;
 const DT_WAVE_STAY: f64 = 2.0;
 
+/// What a kickoff coverage man is picked on: Speed, Tackling and Block
+/// Shedding (realism audit item 3). It was 0.4, 0.35 and 0.25 with a
+/// starter counted 10 points less, and Block Shedding is a lineman's
+/// rating: on world seed 321's NFL clubs edges made 24% of the tackles on
+/// kicks and tackles 7%, 31% of them by men who start on defense, and the
+/// best edges and tackles added 10 to 16 tackles a season there. Real
+/// coverage units are linebackers, backs, receivers and tight ends off the
+/// bench. Now edges make 14% and tackles 3%, starters 17% (linebackers and
+/// corners: the punt team's, and the third linebacker and the nickel, who
+/// are bench men to the depth chart), and the best linemen none. Proposed,
+/// not confirmed.
+const KICK_COVER: [f64; 3] = [0.6, 0.3, 0.1];
+/// How many points worse at it a backup must be before a starter takes his
+/// place on a kickoff or kickoff return unit (10 before; the same audit
+/// item). At 20 a thin roster's best linebackers still covered kicks: on
+/// the NFL test league, whose backups fall off steeply, the best one added
+/// 16 tackles a season on kickoffs. At 30 a starter covers only when the
+/// bench runs out of men who can (40 and over play the same games).
+/// Proposed, not confirmed.
+const KICK_UNIT_STARTER: f64 = 30.0;
+
 /// The play clock after an administrative stoppage such as a penalty,
 /// from the ready signal (40 seconds otherwise, from the end of the play).
 const ADMIN_PLAY_CLOCK: f64 = 25.0;
@@ -720,23 +741,24 @@ impl<'a> Side<'a> {
         let starters: Vec<usize> =
             [Position::QB].iter().flat_map(|p| self.depth.list(*p).iter().take(1).copied()).collect();
         pool.retain(|i| !starters.contains(i));
-        // A starter only beats a backup who is clearly worse (part C 3: real
-        // units are mostly backups and young players; proposed, not
-        // confirmed: a starter counts 10 points less).
+        // A starter only beats a backup who is far worse at it (part C 3:
+        // real units are backups and young players; `KICK_UNIT_STARTER`).
         // A return unit wants men who can block in space (tight ends,
         // linebackers, fullbacks; under the 2025 NFL kickoff, bigger bodies
-        // in the setup zone); a coverage unit wants speed, tackling and the
-        // hands to get off a block (proposed, not confirmed: both used to
-        // pick by speed, tackling and blocking alike).
+        // in the setup zone); a coverage unit wants men who run the kick
+        // down and tackle in space, with a little for the hands to get off
+        // a block (`KICK_COVER`).
         let score: Vec<f64> = (0..ps.len())
             .map(|i| {
                 let p = &ps[i];
                 let skill = if receiving {
                     0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::BlockingInSpace) + 0.3 * p.whole()
                 } else {
-                    0.4 * p.a(Attr::Speed) + 0.35 * p.a(Attr::Tackling) + 0.25 * p.a(Attr::BlockShedding)
+                    KICK_COVER[0] * p.a(Attr::Speed)
+                        + KICK_COVER[1] * p.a(Attr::Tackling)
+                        + KICK_COVER[2] * p.a(Attr::BlockShedding)
                 };
-                skill - if self.starts(i) { 10.0 } else { 0.0 }
+                skill - if self.starts(i) { KICK_UNIT_STARTER } else { 0.0 }
             })
             .collect();
         pool.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
@@ -7512,6 +7534,13 @@ pub(crate) fn kick_unit_men(team: &GameTeam, out: &[usize]) -> [usize; 3] {
         side.out[i] = true;
     }
     [side.fg_kicker(), side.punter(), side.snapper()]
+}
+
+/// Tests only: the men who start at their own position on a healthy team.
+#[cfg(test)]
+pub(crate) fn starters_of(team: &GameTeam) -> Vec<usize> {
+    let side = Side::new(team, 99.0, 3);
+    (0..team.players.len()).filter(|&i| side.starts(i)).collect()
 }
 
 /// A kick unit of `n` with some men hurt and some pulled in a decided game.

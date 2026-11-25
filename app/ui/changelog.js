@@ -17,6 +17,27 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.697", date: "25 Nov", title: "NIL pay by player value",
+    notes: [
+      "College players are now paid by what each one is worth to his team, not a flat rate for his role. Your stars earn far more than your depth, and a deep backup's going rate is a small one.",
+      "A school's revenue share reads each player's own play against his level's starters, his class year and, for a newcomer, his stars.",
+      "Deep backups and low-rated signees get a small share, as at real programs, and the money that frees up goes to the players who carry the team.",
+      "Your starting quarterback's going rate sits well above every other player's. His backup's does not.",
+      "A two-star or three-star recruit no longer expects a starter's money from a power school because the depth chart is thin at his spot.",
+    ],
+  },
+  {
+    v: "0.2.696", date: "25 Nov", title: "One store for your coach's ratings (coach ratings lane RE-bug) and 1 more",
+    notes: [
+      "College coaching pay now follows each school's money, so a Group of 5 head coach earns about what his real counterpart does.",
+      "A MAC, Sun Belt or Conference USA head coach now makes around a million a year, not three or four.",
+      "Power 4 head coaches stay in the five to ten million range.",
+      "A small school can still give a hot coach a raise, but only so far before a bigger school's money wins.",
+      "Your coach's ratings now count everywhere the moment they change. Your read of people and your recruiting pitch follow the ratings on your profile.",
+      "Your one-on-ones, recruiting talks and hand-offs read your ratings as they are today, not as they were the day you started.",
+    ],
+  },
+  {
     v: "0.2.694", date: "25 Nov", title: "Fix NFL GM tenure (realism audit item 12) and 1 more",
     notes: [
       "College run games now play much closer to real football. Defenders hold up against run blocks the way their size and strength say they should, so backs no longer run wild.",

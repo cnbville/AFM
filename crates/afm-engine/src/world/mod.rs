@@ -2138,7 +2138,9 @@ impl World {
                 a.set(x, (v * 0.8).max(1.0));
             }
         }
-        p.player.position = pos;
+        // His sport's spot, on his card with its spot and its weight (it was
+        // written over his position alone: see `athlete::set_position`).
+        crate::athlete::set_position(&mut p.player, pos);
         let start = self.people.len();
         self.people.push(p);
         // He is on the team from today, so his state's season start develops

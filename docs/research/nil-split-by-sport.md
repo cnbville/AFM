@@ -140,7 +140,7 @@ Cain answered "sure" on 2026-11-24 to the first five picks (items 1, 2, 3, 4 and
 2. **Keep football's share of the revenue-share cap at 0.75 and the third-party pot as football's part.** Nothing found changes it.
 3. **Measure the whole paid roster before changing anything.** Done (above), on seed 1. One repeat on seed 321 is still open because its file is not reachable here; Cain's call whether to wait for it or size the lane on seed 1 and check it on the rebuild.
 4. **Spread the revenue share inside each role by the man's own value** (play against his level, stars while he has no season, class year), medians kept at the CSC's, tail fitted to the CSC's (10th percentile $17,500-$25,000; offensive line 90th percentile 3.8 times the median; quarterback 7 times, 75th percentile $675K). Item 3 confirms the cause, so this is ready for a lane. My pick: yes, one lane, Opus, measured on the paid roster with this tool. **Built 2026-11-25** (below, "Item 4, built and measured"); every size in it is proposed, not confirmed.
-5. **Leave the star levels' offers alone until item 4 is in, then measure again.** Five-star medians sit at $600K against $750K-$1M and the floor will move them; no source gives the other star levels. **After item 4** (seed 1's class of 2027): five-stars sign for a median $622K (before $600K). The floor did not move them, because the third party's top bid sets a five-star's offer. Four-stars take $122K (before $172K), three-stars $30K ($122K) and two-stars $10K ($111K). The five-star gap is the third party's to close: for Cain, with its refit.
+5. **Leave the star levels' offers alone until item 4 is in, then measure again.** Five-star medians sit at $600K against $750K-$1M and the floor will move them; no source gives the other star levels. **After item 4** (seed 1's class of 2027): five-stars sign for a median $622K (before $600K). The floor did not move them, because the third party's top bid sets a five-star's offer. Four-stars take $122K (before $172K), three-stars $30K ($122K) and two-stars $10K ($111K). The five-star gap is the third party's to close: for Cain, with its refit. **The refit** (below, "The third party's refit") read NIL Go's range on the bidding market; the class of 2027's five-stars are read on the played second season there.
 6. **The paid share (81% against 75%)**: decide after item 4 lands, since deal holders past the set are paid on top of it by design (`recruiting.rs`, `DEAL_FIRST`). No change now. **After item 4:** the school pays 75% of a Power 4 roster by construction. With third parties' money 79% are paid anything on July 2026 and 85% on July 2027 (85% on main too): a deal holder past the set is paid by the collective alone. My pick: leave it.
 
 ## Item 4, built and measured (2026-11-25)
@@ -236,14 +236,81 @@ July 2027's payday follows a 2026 season played on the stand-in. Power 4 revenue
 - **The medians are unread on a played second season.** The stand-in's July 2027 can't judge them (above). One `nil_scheme run <world> 2027 8` with its games on the engine would, at about an hour of machine time.
 - **A deal holder's revenue share is his deal in the program's ratio**, not his standing's share, so the paid 10th percentile falls to $9-11K once a class holds deals, and a transfer who lands in the rotation makes his deal, a median $92K, where a kept man in the rotation makes $178K.
 - **A keep-him offer takes a place first**: the second-year men without a deal are shut out of the paid set (above).
-- **A starting quarterback's whole pay is $2.73M against The NIL Standard's $2M, and the top is $9.7M against a real $4-7.5M.** The third party's quarterback market (`nil_fit` 3.2) was fitted while the school paid a starting quarterback about half of what it pays him now. The CSC's own figures put a first quarterback at about $1.5M from the school and about $1M from third parties [estimated from its 90th percentiles: a first quarterback is about one paid quarterback in five], so the two real sources disagree at the median; the top agrees with neither. The lane left the third party alone.
-- **The third party's bar still counts newcomers' high school roles** (the trace above): its starters' medians read 7-13 points low in July (Power 4 quarterbacks 49.6 against 61.1 on men with a college season) and 1.5-7 points low in February. Fixing it needs a refit of the third party's weights, so it is its own lane.
+- **Refitted 2026-11-25 (below): $2.21-2.29M on the depth chart's first line, the top $6.2M.** A starting quarterback's whole pay is $2.73M against The NIL Standard's $2M, and the top is $9.7M against a real $4-7.5M. The third party's quarterback market (`nil_fit` 3.2) was fitted while the school paid a starting quarterback about half of what it pays him now. The CSC's own figures put a first quarterback at about $1.5M from the school and about $1M from third parties [estimated from its 90th percentiles: a first quarterback is about one paid quarterback in five], so the two real sources disagree at the median; the top agrees with neither. The lane left the third party alone.
+- **Fixed 2026-11-25 (the third party's refit, below).** The third party's bar still counts newcomers' high school roles (the trace above): its starters' medians read 7-13 points low in July (Power 4 quarterbacks 49.6 against 61.1 on men with a college season) and 1.5-7 points low in February. Fixing it needs a refit of the third party's weights, so it is its own lane.
 - **Five-stars** sign for $622K against a real $750K-$1M (item 5).
 - **Two medians run a fifth under on the 2026 payday**: receivers $89K (real $112.5K) and the defensive line $117K ($150K). Each room's median reads its own mix of starters, backups and newcomers in the paid set; a refit of the position ladder was tried and dropped, because it moves the tails off real.
 - **The quarterbacks' 75th percentile** is $558K against $675K.
 - **Specialists** have no real figure; at 0.4 of a receiver they take a paid median $125K.
 - **The portal's small move** (2.1 fewer transfers a Power 4 school) is not traced.
 - **Seed 321** is still unread: its file is not reachable from a thread container.
+
+## The third party's refit, built and measured (2026-11-25)
+
+Built in the thread "Refit third-party NIL market" on Cain's proxy (every pick is in `docs/decisions.md`, "The third party's NIL market refit"). How it works, with every function, is in `docs/reference/how-it-works/recruiting.md`, "The third party's market". Every size is **proposed, not confirmed**. No constant was fitted: the lane removed the third party's fitted position factors and reads the bidding market's own spot shares, which are The NIL Standard's ratios.
+
+**The causes.** Three, each traced on seed 1's July 2026 payday.
+
+1. **The starters' bar counted high school roles.** `nil_medians`, `bid_lifts` and the star lifts read anyone on a college roster whose last role was a starter's, and a signee carries his high school role until his first fall camp. In July 60% of the Power 4's "starters" had no college season and the bar sat 7-13 points low (quarterbacks 49.6 against 61.1), so 43% of last season's real starters read as 10 or more points over a median starter (13% on the real bar).
+2. **The third party had a second market.** It split its pot by a payroll weight with a fitted factor a position (quarterbacks 3.2), whatever the school paid the same man. It was fitted when the school paid a first quarterback about half of what item 4 pays him.
+3. **July read last season's roles.** A Power 4 school had 12.9 of last season's starters on its roster and 8.4 of them on the first line of the chart fall camp would set, of 24. Most starting jobs had nobody priced as a starter, and the pot went to the few who were.
+
+**The fix.** One market for every third party's dollar: a man's market price at his school is its year of money × his spot's share × his talent, the school's top bid for him. On July 1 the school pays his revenue share, and the third party fills every man from his revenue share up to the same multiple of his price, the multiple that spends its pot. His role is today's depth chart's. The bars read only men who started a season at their school. A man with no college season and no deal gets no third-party money. NIL Go's range reads the same market.
+
+**Measured** on seed 1 played on the engine from the shipped world to July 2, 2026 (`nil_scheme market`; main b7da97c against the lane; brand deals included).
+
+Power 4 starters' whole pay, medians:
+
+| | QB | EDGE | OT | WR | CB | RB | IOL |
+|---|---|---|---|---|---|---|---|
+| The NIL Standard, 2026 | $2.0M | $929K | $907K | $726K | $572K | $527K | $525K |
+| The chart's first line, before | $2.07M | $643K | $614K | $467K | $428K | $474K | $427K |
+| The chart's first line, after | $2.21M | $890K | $925K | $727K | $596K | $551K | $514K |
+| Started last season, before | $2.73M | $926K | $809K | $693K | $530K | $580K | $592K |
+| Started last season, after | $1.80M | $722K | $630K | $613K | $476K | $445K | $513K |
+
+The first-line rows are the same men on both paydays, joined by id (the tool's own read of the whole first line after: QB $2.29M, RB $557K, the rest as above). The earlier lanes read "started last season"; a third of those men are no longer on the first line in July, so the first line is the like-for-like read of The NIL Standard's starters.
+
+- **Every spot but quarterback is within 5% of real** on the first line (10-36% under before). Quarterbacks are 11-14% over.
+- **Inside the first line the pot is spread, not piled.** Returning starters on it took a median $5.13M at quarterback before and the other men $1.19M; now $3.27M and $1.94M. At receiver $859K and $280K, now $839K and $589K.
+- **The top.** The biggest checks were $9.49M, $8.85M and $8.45M; now $6.20M, $5.94M and $5.31M (real stars about $4-7.5M). The 90th percentile among quarterbacks who started last season fell from $7.89M to $5.13M. Texas's returning quarterback (his play 62.1, a point over the Power 4's median starter): $8.45M to $4.98M.
+- **The revenue share and the whole roster are where they were.** Paid medians QB $223K, OL $149K, DL $117K, WR $90K. A whole Power 4 roster: 26% under $10K (before 25%, real 25-30%), 76% paid anything (79%, real about 75%), 43% at $100K or more (44%, real 35-45%).
+- **Who the third party pays.** A median 25.5 men of a Power 4 roster, 28% of its money. By last season's role, starters take 43% of all the money (52% before), the rotation 16% (12%) and everyone else 42% (36%); by the chart, starters 69%, the rotation 11%, everyone else 20%.
+- **Below the Power 4.** The Group of 5 pays 36% of its men anything (52% before; the school pays 29%). The revenue share is unchanged (QB $52K, $29-43K elsewhere). The first line makes $88K at quarterback and $35-55K at the other spots. FCS: 37% paid anything (50%).
+- **NIL Go** on the same unit had denied 7.6% of 2026's reviewed deals by July 2 and 18% of their dollars (real 7.9% and 23%).
+- **A rival's bid reads lower on the real bar.** The market check's price for the men who started last season (the best rival's top bid, the day before): QB $1.41M (was $1.99M), EDGE $746K ($987K), OT $677K ($830K), WR $579K ($745K). July pays a starter a median 1.23 times it.
+- **Seed 1's class of 2026 holds no signing deals** (the world file is older than they are), so its Power 4 five-stars take the school's share alone that July: a median $182K (before $299K).
+
+## Deals in later years, built and measured (2026-11-25)
+
+The second PR of the thread "Refit third-party NIL market", on Cain's proxy (picks in `docs/decisions.md`, "Deals in later years"). How it works: `docs/reference/how-it-works/recruiting.md`, "Deals in later years". Every size proposed, not confirmed.
+
+Seed 1, played on the engine from the same June 29, 2026 save to the July 2027 payday, once on the refit (before) and once on this lane (after); `nil_scheme run <save> 2027 8`, then `nil_scheme market`. About 32 minutes a side. Raw output in the project folder at `afm/nil-market/`.
+
+Power 4 revenue share among the paid:
+
+| Spot | 10th pct before | after | real | Median before | after | real |
+|---|---|---|---|---|---|---|
+| QB | $10K | $25K | $17.5-25K | $202K | $223K | $230K |
+| RB | $10K | $19K | | $49K | $60K | $108.5K |
+| WR | $10K | $23K | | $68K | $71K | $112.5K |
+| TE | $9K | $22K | | $75K | $78K | $93K |
+| OL | $10K | $22K | | $85K | $111K | $133K |
+| DL | $10K | $22K | | $98K | $119K | $150K |
+| LB | $10K | $22K | | $71K | $80K | $112.5K |
+| DB | $9K | $21K | | $63K | $76K | $115K |
+
+Who the school pays (Power 4): last season's redshirts 10% before and 82% after (a median $31K); men with no deal 5% and 50%; two-star newcomers 87% and 29%; three-stars 94% and 73% (a median $21K and $30K); four-stars 90% and 91% ($60K and $97K); walk-ons paid anything 590 of 766 and 218.
+
+The whole Power 4 roster: 21% under $10K before and 18% after (real 25-30%); 86% and 87% paid anything (real 75%); 40% and 41% at $100K or more (real 35-45%). Of the 87%, 897 men are paid by the third party alone: 580 signees with a deal outside the school's set, 241 keep-him holders, 52 transfers.
+
+The first line with a college season, whole pay: QB $2.32M before and $2.37M after (real $2M), OT $971K and $896K ($907K), EDGE $910K and $884K ($929K), WR $714K and $676K ($726K), CB $603K and $589K ($572K), RB $553K and $551K ($527K), IOL $591K and $596K ($525K). The biggest checks: $7.32M, $5.77M, $4.95M before; $5.67M, $5.62M, $4.82M after.
+
+Keep-him offers before the 2027 window: Power 4 4,740 before and 3,740 after (a median $28K and $47K), Group of 5 4,893 and 2,759 ($2K and $11K), FCS 8,463 and 4,936. FBS portal entries by February 1: starters 4.2%, the rotation 7.5%, backups 21.4% on both.
+
+The Group of 5: 62% of a roster paid anything before and 44% after (the school pays 29% and 33%); FCS 62% and 46%.
+
+Why the medians at four spots still read low: a Power 4 school has 19.1 of last season's starters back in July 2027 against 12.9 in the July 2026 file, so starters take more of the school's pot. On the July 2026 payday the same split read RB $100K, WR $90K, LB $109K, DB $122K. Not traced (`GAPS.md`).
 
 ## Sources
 

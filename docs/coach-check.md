@@ -169,4 +169,44 @@ Not read, because the world does not keep it by season: System Builder (who sign
 
 ## The published world (seed 321)
 
-Not run yet. The Coach check workflow runs `world`, `year` and `game` at 2,400 games an arm on the published seed 321 world; its results go here.
+The Coach check workflow runs `world`, `year` and `game` at 2,400 games an arm on the published seed 321 world (`world-2026-seed321-jan2026`). The first run (2026-11-25) finished the played year. Its other two parts stopped on two bugs, both fixed since, and are running again; their results go below.
+
+What the first run found in the code:
+
+- **A high school career ended the game in its first practice week at most schools.** The practice week read your seat's support departments, and a high school seat keeps its school where a college seat keeps its program. So the game read a college's dietitians for a school with a low number and stopped for a school numbered past the last college (1,181 colleges, most schools). The small world never showed it: its middle school's number is low. Fixed: a high school seat has no departments (`world/departments.rs`, `seat_who`).
+- **The feats part stopped on a tied game** (the tool read a tie as a third team's win). Fixed in the tool: a tie is nobody's win.
+
+### A played year on the published world: 400 days from 1 January 2026
+
+Two runs, 44 minutes. The lifted teams' change against themselves in the plain run, then the untouched teams' change the same way (the noise).
+
+| Level | Measure | Rating lifted | Change | Untouched |
+|---|---|---|---|---|
+| High school (3,520 schools an arm) | Growth, overall points a player (base 2.18) | Teaching | +0.076 (0.003) | -0.011 (0.002) |
+| High school | Growth | Network | -0.012 (0.002) | |
+| High school | Growth | Relationships | -0.009 (0.002) | |
+| High school | Players signed by colleges (base 2.67) | Network | -0.070 (0.014) | -0.028 (0.015) |
+| High school | Players signed by colleges | Relationships | -0.049 (0.015) | |
+| High school | Players signed by colleges | Teaching | -0.040 (0.015) | |
+| High school | Win share (base 0.49) | Teaching | +0.007 (0.001) | -0.002 (0.001) |
+| High school | Win share | Network, relationships | -0.004, -0.001 (0.001) | |
+| College (34 FBS programs an arm) | Growth (base 2.67) | Teaching | +0.028 (0.017) | -0.004 (0.020) |
+| College | Growth | Recruiting, relationships | +0.019 (0.019), -0.034 (0.021) | |
+| College | High school signees (base 30.6) | Recruiting | -0.15 (0.85) | +0.64 (1.01) |
+| College | High school signees | Relationships | -2.68 (0.86) | |
+| College | Signees' stars, summed (base 72) | Recruiting | +0.3 (2.2) | +1.6 (2.9) |
+| College | Signees' stars, summed | Relationships | -6.6 (2.3) | |
+| College | Players lost to the portal (base 20) | Relationships | +2.3 (1.1) | -0.4 (1.2) |
+| College | Players lost to the portal | Recruiting, teaching | +1.1 (1.6), +0.9 (1.1) | |
+| College | Win share, points margin a game | each | inside +/-0.03 (0.03), +/-0.9 (0.7) | +0.002 (0.032), +0.16 (0.61) |
+| NFL (8 clubs an arm) | Growth (base 0.32) | Teaching, motivation, discipline | -0.036, +0.019, -0.037 (0.02) | -0.020 (0.028) |
+| NFL | Win share | Teaching, motivation, discipline | +0.051 (0.046), -0.007 (0.048), -0.044 (0.018) | +0.000 (0.022) |
+
+What it says, with the why:
+
+- **A high school head coach's teaching is real, and the full world agrees with the small one**: 5 points is +0.087 overall points a player a year over the untouched schools (the small world: +0.087), 4 percent more growth, at about 25 errors. It reaches the field in the same year: +0.9 points of win share, six errors. Why: a high school has the smallest staff, so the head coach is the largest share of who teaches, and the stand-in reads the roster's overall.
+- **A high school head coach's network and relationships do nothing in a year.** Growth sits on the untouched schools' own change, and no arm gets more players signed (network is -0.04 against the untouched schools, two errors the wrong way). Why: not traced yet. It is a gap: the one rating a high school coach has for getting his players signed shows no worth (in `GAPS.md`).
+- **A college head coach's teaching is still not visible** (+0.03 against the untouched programs, one error) and the recruiting rating shows nothing at all (signees -0.8, stars -1.3 against the untouched programs, inside one error). Why for teaching: position coaches and coordinators do the teaching there. Why for recruiting: not known. With 34 programs an arm, a rating worth under about 2 signees or 6 stars a class can't be seen in one year; a second run would cut that by a third.
+- **A college head coach's relationships went the wrong way**: 3.3 fewer high school signees (2.5 errors), 8 fewer stars (2.2 errors) and 2.7 more players lost to the portal (1.7 errors) than the untouched programs. The small world said the opposite (+0.9 stars at two errors). Fifteen college cells make one or two cells at two errors likely by chance, but three cells that move together are worth a second run from another morning before any lane sizes this rating. No why yet: it is in `GAPS.md` to trace.
+- **Nothing an NFL head coach's rating does shows in a year.** Eight clubs an arm can only see a change of about 0.1 of win share. Discipline's -0.044 is 1.5 errors against the untouched clubs.
+- **Untouched teams move too** (high school growth -0.011 at five errors): lifting a quarter of the coaches changes who signs where and who a player is read against, so the untouched column is the baseline and not zero.
