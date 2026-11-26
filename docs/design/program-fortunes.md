@@ -172,6 +172,16 @@ Also still open: lanes P1's other sizes and P2's sizes stay as proposed. The qua
 10. **The other sizes stay as proposed**: no arm on them moved a mark.
 11. **Merged on green**: sizing these lanes is what the pass was agreed for.
 
+## Lane P3: a coach's bond wins at his level first (2026-11-26, question 11, Cain "yes")
+
+Built 2026-11-26 (thread "Make recruiter pull win at its level"). How it works: `docs/reference/how-it-works/recruiting.md`, "A school's level holds a great recruiter's bond in check".
+
+- **Cause**: a recruit's utility adds each school's bond with no look at who else is in the field, so a bond big enough to make eras at the top (base 30 at 4 times the typical bond: strength 10 years on 0.53 to 0.61, the coach's share 11 to 22%) also lets a Group of 5 head coach at 19 beat Alabama for a 4-star, and the Group of 5 won 3 to 5 titles in 28 seasons on every seed.
+- **Rule**: the bond a coach builds up to a typical FBS head coach's rate (skill 15.5) is the same against every school. The part above it counts in full against schools at his own level and below and less against a school above. A school's standing is its level (Power 4 1.0, Group of 5 0.85, FCS 0.55) times 0.6 plus 0.4 of its name (capped where the name stops growing, `NAME_TIE`): 0.94 for a national name, 0.71 for the best Group of 5 name. A recruit's field is the five schools he likes best before any bond; a school keeps 1 minus the gap to the best standing in that field over 0.25 of its coach's bond above the typical one (from all of it to none). The gap closes as the school's name grows with its wins, so moving up a level takes years of winning.
+- **Sizes taken** (proposed, not confirmed until measured): `BOND_BASE` 30, `HC_BOND` 0.0425, `PC_BOND` 0.0217 (the stronger arm, 4 times the typical bond), `LEVEL_STEP` 0.25, the field of five (`BOND_FIELD`), the standing 0.6 level + 0.4 name.
+- **A transfer's bond is unchanged** (the measuring pass's base 100 and sizes, `PORTAL_BASE`): the portal has no field of schools at the time a bond is built; a level rule there needs the suitors known first (`GAPS.md`).
+- **Marks to read** (the pass's): strength 10 years on under 0.60 (real 0.49), the head coach's share of class swings 20 to 35% (real 29%), programs in both quarters 15 or more (real 27), and no Group of 5 champion run (the stronger arm: 3 to 5 titles in 28 seasons).
+
 ## Questions
 
 **1. Should the name a recruit reads come from the results he has lived through?** Tradition becomes half a slow all-time part (the titles and history it holds today) and half the program's results over about the last 20 seasons, recent ones weighing more (a season's weight halves in about seven years). Today tradition keeps 99.5% of itself a year and only titles add to it. This keeps the confirmed rule that tradition is a steady grade.

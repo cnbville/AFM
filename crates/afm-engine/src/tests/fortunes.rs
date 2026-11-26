@@ -178,3 +178,43 @@ fn a_coach_who_recruited_him_out_of_high_school_starts_ahead_in_the_portal() {
     let (better, _) = fortunes::transfer_bond(&w, i, j);
     assert!(better > calls);
 }
+
+/// Lane P3 (question 11): a school's standing for a coach's bond is its
+/// level and its name, so a Group of 5 school with the biggest name in its
+/// league stands below a Power 4 school with a middling one, and a name
+/// that grows with wins closes the gap.
+#[test]
+fn a_school_stands_by_its_level_and_its_name() {
+    use crate::world::recruiting::bond_standing;
+    let w = world();
+    let (j, _) = two_fbs(&w);
+    let year = 2030;
+    let mut power = w.programs[j].clone();
+    power.conference = "SEC".into();
+    power.real_name = "Test State".into();
+    let mut group_five = power.clone();
+    group_five.conference = "Sun Belt".into();
+    let mut fcs = power.clone();
+    fcs.division = Division::FCS;
+    power.prestige_rel = 0.5;
+    group_five.prestige_rel = 0.6;
+    fcs.prestige_rel = 1.0;
+    assert!(power.power_conference(year) && !group_five.power_conference(year));
+    // The best Group of 5 name stands below a middling Power 4 one, and
+    // the best FCS name below the Group of 5's.
+    assert!(bond_standing(&group_five, year) < bond_standing(&power, year));
+    assert!(bond_standing(&fcs, year) < bond_standing(&group_five, year));
+    // The national names stand alike, and the gap a great Group of 5
+    // recruiter faces against one takes nearly all of his bond above the
+    // typical coach's.
+    power.prestige_rel = 0.9;
+    let mut other = power.clone();
+    other.prestige_rel = 1.0;
+    assert_eq!(bond_standing(&power, year), bond_standing(&other, year));
+    let before = bond_standing(&group_five, year);
+    assert!(fortunes::held_bond(bond_standing(&power, year) - before) < 0.25);
+    // A bigger name moves it up, and the gap closes with it.
+    group_five.prestige_rel = 0.85;
+    assert!(bond_standing(&group_five, year) > before);
+    assert!(fortunes::held_bond(bond_standing(&power, year) - bond_standing(&group_five, year)) > 0.4);
+}

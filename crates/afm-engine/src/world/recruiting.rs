@@ -3678,6 +3678,23 @@ fn recruit_level(prog: &Program, year: i32) -> f64 {
 /// proposed, not confirmed.
 const GROUP_OF_FIVE_LEVEL: f64 = 0.85;
 
+/// Where a school stands against the others a recruit is choosing between,
+/// for how much of a coach's bond counts (program fortunes lane P3,
+/// question 11, Cain 2026-11-26): its level times its name, 0.6 for the
+/// level alone and 0.4 more for a national name (a name stops growing at
+/// `NAME_TIE`, so every blue blood stands the same). A Group of 5 school
+/// with the biggest name in its league reads about 0.71 and the best
+/// Power 4 names 0.94, so the first has to win its way up through its name
+/// before a great recruiter's bond counts against the second. Proposed, not
+/// confirmed.
+pub(crate) fn bond_standing(prog: &Program, year: i32) -> f64 {
+    recruit_level(prog, year) * (0.6 + 0.4 * prog.prestige_rel.min(NAME_TIE))
+}
+
+/// How many of a recruit's favourite schools (his official visits) are the
+/// field a bond is read against.
+const BOND_FIELD: usize = OFFICIAL_VISITS;
+
 /// How much a system that shows a recruit off counts, at full fit (S7;
 /// a third of the childhood lean, proposed, not confirmed).
 const SHOWCASE: f64 = 0.06;
@@ -6575,6 +6592,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     };
     // Per recruit: (program, relationship), and the money of the schools
     // recruiting him, the field a clear top offer is read against (F3).
+    let standing: Vec<f64> = programs.iter().map(|x| bond_standing(x, year)).collect();
     let (relationships, fields): (Vec<Vec<(usize, f64)>>, Vec<TopTwo>) = {
         targets
             .par_iter()
@@ -6642,6 +6660,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     }
                 }
                 let known = clamp(0.35 + 0.65 * pool[k].visibility, 0.35, 1.0);
+                // The best school in his field: a coach's bond above the
+                // typical one counts in full against schools at his own
+                // level and below and less against one above (lane P3,
+                // question 11).
+                let field_top = liked.iter().take(BOND_FIELD).map(|x| standing[x.1]).fold(0.0, f64::max);
                 let built = list
                     .iter()
                     .map(|&(j, own, _)| {
@@ -6696,11 +6719,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             None => 0.0,
                         };
                         // Each coach's recruiting sets how fast his bond
-                        // grows (program fortunes item 3, Cain 2026-11-24):
-                        // an 18 three times as fast as an 8.
+                        // grows (program fortunes item 3, Cain 2026-11-24),
+                        // and the part above a typical coach's counts in
+                        // full only against schools at his own level and
+                        // below (lane P3, question 11).
+                        let held = super::fortunes::held_bond(field_top - standing[j]);
                         let rel = known
-                            * (super::fortunes::HC_BOND * hc_time * super::fortunes::bond_rate(hc_skill)
-                                + super::fortunes::PC_BOND * pc_time * super::fortunes::bond_rate(pc_skill))
+                            * (super::fortunes::HC_BOND * hc_time * super::fortunes::bond_rate_held(hc_skill, held)
+                                + super::fortunes::PC_BOND * pc_time * super::fortunes::bond_rate_held(pc_skill, held))
                             + 0.03 * tie
                             + babysat
                             + early_offer
