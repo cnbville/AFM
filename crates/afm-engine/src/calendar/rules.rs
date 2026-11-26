@@ -19,6 +19,7 @@
 
 use super::anchors::{CfbPostseason, cfb_postseason, nfl_regular_weeks};
 use crate::rng::Rng;
+use crate::world::finance::data::league_revenue;
 
 /// How players change schools in an era.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -118,25 +119,36 @@ const SALARY_CAP: [(i32, f64); 33] = [
     (2026, 301.2),
 ];
 
-/// The cap after 2026 (section 5 topic 2, Cain's rule): 8% a year, and in
-/// a year a new media deal starts, the average of the last three media-deal
-/// jumps (real: 2006 +19.3%, 2014 +8.1%, 2022 +14.1%). The deals run eight
-/// years like the real ones, so the next starts in 2030 (proposed, not
-/// confirmed); the average rolls forward with the world's own deals.
+/// The cap after 2026 (future run item 1, Cain 2026-11-26: the cap follows
+/// league revenue, one cap for every club): the league year's projected
+/// revenue, the whole league's (national and local, as the CBA's "all
+/// revenue" counts it), times the share the last real cap took of it, over
+/// 32 clubs. The real cap is set the same way each March, a fixed share of
+/// projected league revenue less benefits split equally, so every club
+/// gets the same cap whatever its own income; the cash floor
+/// (`market::cash_floor`) and the equal national money keep the poorer
+/// clubs spending. The share is 2026's (the $301.2M cap over the world's
+/// $26.0B), so the line has no step at the handover (proposed, not
+/// confirmed; 2024's share would be 35.5% against 2026's 37.1%). It
+/// replaces the old rule (Cain 2026-10-16: 8% a year, the average media
+/// jump in a deal year), which outgrew revenue by about 4% a year and took
+/// players' pay from 44% of club revenue in 2026 to 55% by 2034 on the
+/// seed 321 future run. A media deal now lifts the cap only through the
+/// revenue it brings.
 pub fn future_cap(season: i32) -> f64 {
-    let mut cap = 301.2e6;
-    let mut jumps = [0.193, 0.081, 0.141];
-    for y in 2027..=season {
-        if (y - 2022) % 8 == 0 {
-            let jump = jumps.iter().sum::<f64>() / 3.0;
-            jumps = [jumps[1], jumps[2], jump];
-            cap *= 1.0 + jump;
-        } else {
-            cap *= 1.08;
-        }
-    }
-    cap
+    future_cap_share() * league_revenue(season) / CAP_CLUBS
 }
+
+/// The clubs the cap divides league revenue among (the real 32).
+const CAP_CLUBS: f64 = 32.0;
+
+/// The share of league revenue the cap took in the last real year.
+pub fn future_cap_share() -> f64 {
+    LAST_REAL_CAP * CAP_CLUBS / league_revenue(LAST_REAL_CAP_YEAR)
+}
+
+const LAST_REAL_CAP_YEAR: i32 = 2026;
+const LAST_REAL_CAP: f64 = 301.2e6;
 
 /// Whether a new media deal starts this season (real 1998, 2006, 2014, 2022; then every eight years).
 pub fn media_deal_year(season: i32) -> bool {
@@ -597,6 +609,19 @@ mod tests {
         assert_eq!(RuleBook::era(2012).fcs_playoff, 20);
         assert_eq!(RuleBook::era(2013).fcs_playoff, 24);
         assert!(!RuleBook::era(2016).early_signing && RuleBook::era(2017).early_signing);
+    }
+
+    #[test]
+    fn future_cap_follows_revenue() {
+        use crate::world::finance::data::league_revenue;
+        // No step at the handover: 2026's share of revenue carries on.
+        assert!((future_cap(2026) - 301.2e6).abs() < 1.0);
+        // The cap keeps the same share of league revenue every year after.
+        for y in 2027..=2045 {
+            let share = future_cap(y) * 32.0 / league_revenue(y);
+            assert!((share - future_cap_share()).abs() < 1e-9, "{y}: {share}");
+            assert!(future_cap(y) > future_cap(y - 1), "{y}: the cap grows with revenue");
+        }
     }
 
     /// Practice squads keep each era's real size until a vote changes it.
