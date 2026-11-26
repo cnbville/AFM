@@ -1,2 +1,2 @@
-select season, count(*) g, round(avg(coalesce(site__indoor,0)),3) indoor, round(avg(coalesce(weather__indoor,0)),3) w_indoor, round(avg(conditions__temperature),1) temp, round(avg(conditions__wind),2) wind, round(avg(coalesce(conditions__rain,0)),3) rain, round(avg(coalesce(conditions__snow,0)),3) snow, round(avg(conditions__altitude),1) alt, round(avg(conditions__crowd),3) crowd from log_games where stream='nfl' and coalesce(kind,'regular')='regular' group by season order by season
-select season, conditions__turf, count(*) from log_games where stream='nfl' and coalesce(kind,'regular')='regular' group by season, conditions__turf order by conditions__turf, season
+rsql select k.key, substr(k.value,1,200) from log_clubs lc, json_each(more('log_clubs', lc._more), '$') k where lc._row = (select min(_row) from log_clubs where season = 2034)
+rsql select season, count(*) from log_clubs group by season
