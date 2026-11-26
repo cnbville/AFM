@@ -8,6 +8,10 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.713 (26 Nov, shipped): no game change
+**TLDR:** Nothing new in the game in this version, so there is no need to update for the game's sake.
+- Docs and tooling merged too, no game change: Future run read (realism audit item 25): the report, raw reads and new gaps (PR #667).
+
 ## 0.2.712 (26 Nov, shipped): the helper in the pile: the blocked man a runner falls into is in on the tackle in the NFL's book (realism audit item 3, the front seven's share) (PR #666)
 **TLDR:** Pro box scores now credit the lineman or linebacker a runner falls into in his block, the way NFL scorers do, so the front seven's tackle totals look like real ones.
 - A shared tackle in the pros can now be a tackle with an assist: the man who made it keeps his solo tackle and the man beside him gets the assist. (PR #666)
