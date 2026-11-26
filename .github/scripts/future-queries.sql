@@ -1,18 +1,21 @@
--- how many checks carry a year series
-select count(*), sum(years_sql is not null and years_sql <> '') from checks
--- schemas
-select 'nil_book', group_concat(name, ', ') from pragma_table_info('nil_book')
-select 'finance__college__years', group_concat(name, ', ') from pragma_table_info('finance__college__years')
-select 'finance__nfl__years', group_concat(name, ', ') from pragma_table_info('finance__nfl__years')
-select 'people', group_concat(name, ', ') from pragma_table_info('people')
-select 'portal_market__medians', group_concat(name, ', ') from pragma_table_info('portal_market__medians')
-select * from nil_book limit 4
-select * from portal_market__medians limit 6
--- rating drift: mean overall and share at 90+ by level and playing year
-select year, level, count(*) n, round(avg(overall),2) mean_overall, round(100.0*avg(overall>=90),2) pct90, round(100.0*avg(overall>=80),2) pct80, round(avg(level_rating),2) mean_lr from (select p.class_of + h.age - 18 as year, h.level, h.overall, h.level_rating from people__player__history h join people p on p._row = h._parent union all select a.class_of + h.age - 18, h.level, h.overall, h.level_rating from alumni__player__history h join alumni a on a._row = h._parent) where year between 2018 and 2035 and level in ('NFL','FBS') group by level, year order by level, year
--- rating drift by age, NFL: the 2022-2025 seasons against the 2032-2035 seasons
-select age, period, count(*) n, round(avg(overall),2) mean_overall, round(avg(overall - overall_start),2) mean_gain from (select h.age, case when p.class_of + h.age - 18 between 2022 and 2025 then 'a 2022-25' when p.class_of + h.age - 18 between 2032 and 2035 then 'b 2032-35' end as period, h.overall, h.overall_start, h.level from people__player__history h join people p on p._row = h._parent union all select h.age, case when a.class_of + h.age - 18 between 2022 and 2025 then 'a 2022-25' when a.class_of + h.age - 18 between 2032 and 2035 then 'b 2032-35' end, h.overall, h.overall_start, h.level from alumni__player__history h join alumni a on a._row = h._parent) where period is not null and level = 'NFL' and age between 21 and 36 group by age, period order by age, period
--- panels: league money, club money, ratings by age
-select id, cols, substr(rows,1,7000) as rows from panels where id in ('N30.league','N30.per_club','N30.ticket','N9.flow','P12.gain_by_age','P8.overall_by_level','P8.position_overall')
+-- columns that carry NIL, collective, budget, revenue, cap or wage
+select m.name || '.' || p.name from sqlite_master m, pragma_table_info(m.name) p where m.type = 'table' and m.name not like 'calendar%' and m.name not like '%refs' and (p.name like '%nil%' or p.name like '%collective%' or p.name like '%budget%' or p.name like '%revenue%' or p.name like '%cap%' or p.name like '%wage%') order by 1
+select 'log_history', group_concat(name, ', ') from pragma_table_info('log_history')
+select 'programs__seasons', group_concat(name, ', ') from pragma_table_info('programs__seasons')
+select 'people__pro__seasons', group_concat(name, ', ') from pragma_table_info('people__pro__seasons')
+-- FBS program strength by year and level
+select s.year, p.division, count(*) n, round(avg(s.strength),2) mean_strength, round(max(s.strength),1) top, round(min(s.strength),1) bottom from programs__seasons s join programs p on p._row = s._parent where s.year >= 2018 and p.division in ('FBS','FCS') group by p.division, s.year order by p.division, s.year
+-- NFL starters (8+ starts): mean overall by year, people and alumni together
+select year, count(*) n, round(avg(overall),2) mean_overall from (select s.year, h.overall from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where s.starts >= 8 and h.level = 'NFL' union all select s.year, h.overall from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where s.starts >= 8 and h.level = 'NFL') where year between 2012 and 2035 group by year order by year
+-- NFL draftees: mean overall in their first NFL season, by draft year and round band
+select year, case when rnd = 1 then 'round 1' when rnd <= 3 then 'rounds 2-3' else 'rounds 4-7' end band, count(*) n, round(avg(overall),2) mean_overall, round(avg(age),2) mean_age from (select s.year, json_extract(p.pro__draft,'$[1]') rnd, h.overall, h.age from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where json_extract(p.pro__draft,'$[0]') = s.year and h.level = 'NFL' union all select s.year, json_extract(a.pro__draft,'$[1]'), h.overall, h.age from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where json_extract(a.pro__draft,'$[0]') = s.year and h.level = 'NFL') where year between 2018 and 2035 and rnd between 1 and 7 group by year, band order by band, year
+-- national titles since 2026
+select p.real_name, count(*) titles from programs__seasons s join programs p on p._row = s._parent where s.year >= 2026 and s.national_title and s.national_title <> 0 group by p.real_name order by titles desc limit 14
+-- FBS conference titles since 2026, most
+select p.real_name, p.conference, count(*) titles from programs__seasons s join programs p on p._row = s._parent where s.year >= 2026 and p.division = 'FBS' and s.conference_title and s.conference_title <> 0 group by p.real_name order by titles desc limit 12
+-- college books by tier and year: revenue and cost a school, $M
+with cy as (select y.year, y._parent prog, (select sum(j.value) from json_each(y.l) j where j.key < 11) rev, (select sum(j.value) from json_each(y.l) j where j.key >= 11) cost from finance__college__years y) select cy.year, case when p.division = 'FBS' and p.conference in ('SEC','Big Ten') then '1 SEC and Big Ten' when p.division = 'FBS' and (p.conference in ('ACC','Big 12','Pac-12') or p.real_name = 'Notre Dame') then '2 ACC Big 12' when p.division = 'FBS' then '3 Group of 5' else '4 ' || p.division end grp, count(*) n, round(avg(rev)/1e6,1) rev_m, round(avg(cost)/1e6,1) cost_m from cy join programs p on p._row = cy.prog where cy.year >= 2021 group by 2, 1 order by 2, 1
+-- NFL clubs: average revenue and cost a club, $M, and player share of revenue
+with ny as (select y.year, (select sum(j.value) from json_each(y.l) j where j.key < 10) rev, (select sum(j.value) from json_each(y.l) j where j.key >= 10) cost, json_extract(y.l,'$[10]') + json_extract(y.l,'$[11]') pay from finance__nfl__years y) select year, count(*) n, round(avg(rev)/1e6,1) rev_m, round(avg(cost)/1e6,1) cost_m, round(100.0*sum(pay)/sum(rev),1) player_share from ny where year >= 2015 group by year order by year
 -- every check's own year series
 years %

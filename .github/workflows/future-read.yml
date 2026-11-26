@@ -81,9 +81,9 @@ jobs:
           }
           # each round's text goes to the branch too (a running job's log can't be read)
           push_round() {
-            mkdir -p future-out && head -c 900000 "round-$1.txt" > "future-out/round-$1.txt"
+            mkdir -p future-out && head -c 900000 "round-$1.txt" > "future-out/r${GITHUB_RUN_ID}-$1.txt"
             git config user.name future-read && git config user.email future-read@users.noreply.github.com
-            git add future-out && git commit -q -m "Future read: round $1 output" || return 0
+            git add future-out && git commit -q -m "Future read: run ${GITHUB_RUN_ID} round $1 output" || return 0
             for i in 1 2 3 4; do
               git pull -q --rebase --autostash origin "$BRANCH" && git push -q origin "HEAD:$BRANCH" && break
               sleep 5
