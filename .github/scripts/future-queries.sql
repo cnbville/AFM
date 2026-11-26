@@ -1,11 +1,13 @@
--- levels in history rows
-select level, count(*) from people__player__history group by level
-select playing_time, count(*) from people__player__history where level like 'FBS%' group by playing_time
--- FBS roster rows by season and role (people and alumni)
-select year, playing_time, count(*) n from (select p.class_of - 18 + h.age year, h.playing_time from people__player__history h join people p on p._row = h._parent where h.level like 'FBS%' union all select a.class_of - 18 + h.age, h.playing_time from alumni__player__history h join alumni a on a._row = h._parent where h.level like 'FBS%') where year between 2021 and 2035 group by playing_time, year order by playing_time, year
--- FBS roster rows by season, all roles, and by age
-select year, count(*) n, round(avg(age),2) mean_age from (select p.class_of - 18 + h.age year, h.age from people__player__history h join people p on p._row = h._parent where h.level like 'FBS%' union all select a.class_of - 18 + h.age, h.age from alumni__player__history h join alumni a on a._row = h._parent where h.level like 'FBS%') where year between 2021 and 2035 group by year order by year
--- FBS entrants by year and power group of the school he left
-select e.year, case when p.conference in ('SEC','Big Ten','Big 12','ACC','Pac-12') then 'P4' else 'G5' end grp, count(*) n from recruiting_log__portal e join programs p on p._row = e.from_program where e."from" = 'FBS' and e.year between 2021 and 2035 group by grp, e.year order by grp, e.year
--- FBS entrants by year and the classes' age at entry (people only: those still in the book)
-select year, count(*) n from recruiting_log__portal where "from" = 'FBS' and "to" is not null and year between 2021 and 2035 group by year order by year
+-- END state (1 Jan 2036): FBS college players by last role
+select p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(sum(p.cal__lean),1) lean_sum, round(avg(p.college_seasons),2) seasons, round(avg(p.walk_on),3) walk_on, round(avg(p.x_overall),2) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by p.last_role
+-- END: FBS roster size by program
+select count(*) programs, round(avg(n),1) mean, min(n) lo, max(n) hi from (select pr._row, count(*) n from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by pr._row)
+-- END: FBS players by seasons used and role
+select p.college_seasons seasons, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+-- END: FBS players by class year and role
+select p.class_of, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(avg(p.x_overall),1) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+-- START state (1 Jan 2026): the same four
+@start select p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(sum(p.cal__lean),1) lean_sum, round(avg(p.college_seasons),2) seasons, round(avg(p.walk_on),3) walk_on, round(avg(p.x_overall),2) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by p.last_role
+@start select count(*) programs, round(avg(n),1) mean, min(n) lo, max(n) hi from (select pr._row, count(*) n from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by pr._row)
+@start select p.college_seasons seasons, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+@start select p.class_of, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(avg(p.x_overall),1) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
