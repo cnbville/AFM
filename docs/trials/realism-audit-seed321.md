@@ -130,6 +130,24 @@ Under the same permission. Each is proposed, not confirmed, and his to change.
 7. **The order after it, in the same thread**: the college side (the fight read against the level, now on the charting's count of contact, too many tackles in close FBS games, two men at the catch), then the small lane on men out of position, then items 6, 7, 8, 16 and 19, then the tables once.
 8. **No world run.** Everything was measured with `match_check` on the seed 321 world file and the three test leagues.
 
+### Decisions taken for Cain under his proxy (the college side, 2026-11-26)
+
+Under the same permission. Each is proposed, not confirmed, and his to change. The numbers are in `GAPS.md`.
+
+1. **The fight's read against the level is not built.** Read against the level, the fight puts the world's FBS backs' yards after contact at 2.22 a carry (the NFL clubs' 2.11) and, with the helper credited, two men on 30.4% of the tackled plays (real 30.1%, 30.2% today). But FBS rushing falls from 5.21 a carry to 4.75 (real 5.12) and points from 26.4 to 24.2 a team game (27.0). No real college number checks the yards after contact, while the rushing and the points are real numbers, so the change would trade a measured gap for an unmeasured one.
+2. **The long runs come first.** With the read on, the backs' runs come near real at every length but 21 yards or more (2.1% of carries, real 3.6%), worth about half a yard a carry, the size of the read's cost. So the read comes after the long runs and is measured with them.
+3. **Its form when it comes**: technique only (the tackler's Tackling, the carrier's Leg Drive and Elusiveness), read against the league's own men (`roster_fit::LeagueMen`) as the calls are. Reading strength, balance and weight against the level too changed nothing (2.25 after contact, 4.76 a carry); Tackling is most of it. Its main reason is the read by rating: below the pull's floor Tackling doesn't count, which takes in most high school tacklers.
+4. **The helper's credit at college and high school waits with it.** Without the read the college book already shares tackles at real (30.2%), and with the helper and no read it went to 71.1 tackles a team game on the defenders' lines alone (the boxes count 65.9 with every man's).
+5. **Talent gaps were ruled out** for the missing long runs: real FBS games between teams within 50 points of pregame Elo still have 3.8% of the backs' carries go 20 or more (cfbfastR 2024).
+6. **The run read, the broken tackle and the missed dive read against the level were ruled out**: each moved the runs of 20 or more by a tenth of a point or less. Each level's hash marks are already in.
+7. **Misread fits are logged, not built.** They come on 40% of the world's FBS runs and cost almost nothing, since the rest of the defense closes the gap. They go in the second level's lane ("Safeties and linebackers end the wrong runs"), measured at FBS as well as the NFL.
+8. **College quarterback runs are logged**: the world's FBS backs carry 29.8 times a team game (real 23.7) and everyone else 3.2 (real quarterbacks 7.0, receivers 1.1). Only the spread option and air raid call a quarterback run.
+9. **The close games' extra tackles were traced, not fixed.** The engine credits a man on nearly every play that could end in a tackle, about 55 a team game with the returns, where the college boxes credit at most 50.7; the men on each tackled play are at real. The likely missing plays (slides, kneels, runners down untouched, out of bounds untouched) come with the quarterback runs.
+10. **A reading note**: the defenders' lines count only men with a defensive snap, so at FBS they leave out most kick tackles, which the college boxes count. Every man's tackles are about 71 a team game (real 66), not 67.3.
+11. **The trial code is kept, not merged**: the switches, their read-outs and the arms are in the project folder at `afm/item3-college/` (`college-trials.patch`, `README.md`).
+12. **The order after it, in the same thread**: two men at the catch, then the second level (linebackers who fill downhill, the back who presses the hole, the climber's whiff, misread fits that open the field), then college quarterback runs, then the fight read with the helper's credit at college and high school, then the small lane on men out of position, then items 6, 7, 8, 16 and 19, then the tables once.
+13. **No world run.** Everything was measured with `match_check` on the seed 321 world file and the three test leagues.
+
 ## What was read
 
 - The world: seed 321, 30 seasons of history (1996-2025), stopped on 1 January 2026, built 2026-11-22 on main `094635f` (after every scheme-fit and engine-gaps lane). Release `world-2026-seed321-jan2026-094635f` on the worlds page.
