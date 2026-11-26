@@ -1,0 +1,197 @@
+######## ROUND 3 20:30
+
+=== columns
+
+>>> select 'people__player__history', group_concat(name, ', ') from pragma_table_info('people__player__history')
+'people__player__history' | group_concat(name, ', ')
+people__player__history | _row, _parent, _i, age, level, position, playing_time, overall_start, overall, potential, performance, level_rating, level_rating_end, coaching, events, games_missed, adjustment, spring_gain, results, team, depth, spring_open
+
+>>> select 'alumni__player__history', group_concat(name, ', ') from pragma_table_info('alumni__player__history')
+'alumni__player__history' | group_concat(name, ', ')
+alumni__player__history | _row, _parent, _i, age, level, position, playing_time, overall_start, overall, potential, performance, level_rating, level_rating_end, coaching, events, games_missed, adjustment, results, spring_gain, spring_open, team, depth
+
+>>> select 'people__pro__seasons', group_concat(name, ', ') from pragma_table_info('people__pro__seasons')
+'people__pro__seasons' | group_concat(name, ', ')
+people__pro__seasons | _row, _parent, _i, year, team, games, starts, snaps, opp, ps_weeks, ir_weeks, full_pay_weeks, pay, pro_bowl, all_pro, elevations, stats__games, stats__snaps_off, stats__snaps_def, stats__snaps_st, stats__att, stats__cmp, stats__pass_yds, stats__pass_td, stats__int, stats__sacked, stats__sack_yds, stats__dropbacks, stats__pressured, stats__air_yds_att, stats__ttt, stats__pass_epa, stats__pass_success, stats__x_cmp, stats__big_time, stats__turnover_worthy, stats__pa_att, stats__pa_yds, stats__blitz_att, stats__blitz_yds, stats__deep_att, stats__deep_cmp, stats__throw_aways, stats__rush, stats__rush_yds, stats__rush_td, stats__rush_long, stats__ybc, stats__yaco, stats__forced_missed, stats__explosive_runs, stats__stuffs, stats__rush_success, stats__rush_first, stats__rush_epa, stats__scrambles, stats__scramble_yds, stats__scramble_epa, stats__fumbles, stats__fumbles_lost, stats__targets, stats__rec, stats__rec_yds, stats__rec_td, stats__rec_long, stats__drops, stats__tgt_air, stats__yac, stats__sep_sum, stats__routes, stats__contested_tgt, stats__contested_rec, stats__rec_first, stats__rec_epa, stats__pb_snaps, stats__pb_wins, stats__pressures_allowed, stats__sacks_allowed, stats__rb_snaps, stats__rb_wins, stats__rush_snaps, stats__rush_wins, stats__sacks, stats__qb_hits, stats__hurries, stats__pressures, stats__speed_wins, stats__power_wins, stats__finesse_wins, stats__ttp_sum, stats__tackles, stats__assists, stats__tfl, stats__stops, stats__missed, stats__forced_fumbles, stats__fumble_rec, stats__cov_snaps, stats__tgt_allowed, stats__cmp_allowed, stats__yds_allowed, stats__td_allowed, stats__ints, stats__pbus, stats__sep_allowed, stats__freelance, stats__freelance_won, stats__fg_att, stats__fg_made, stats__fg_long, stats__clutch_att, stats__clutch_made, stats__xp_att, stats__xp_made, stats__punts, stats__punt_yds, stats__punt_net, stats__punt_in20, stats__punt_tb, stats__hang_sum, stats__kickoffs, stats__ko_tb, stats__kr, stats__kr_yds, stats__kr_td, stats__pr, stats__pr_yds, stats__pr_td, stats__st_tackles, stats__penalties, stats__penalty_yds, stats__busts, stats__grade_sum, stats__graded, stats__top_speed, playoff_starts, field_starts, playoffs__games, playoffs__snaps_off, playoffs__snaps_def, playoffs__snaps_st, playoffs__att, playoffs__cmp, playoffs__pass_yds, playoffs__pass_td, playoffs__int, playoffs__sacked, playoffs__sack_yds, playoffs__dropbacks, playoffs__pressured, playoffs__air_yds_att, playoffs__ttt, playoffs__pass_epa, playoffs__pass_success, playoffs__x_cmp, playoffs__big_time, playoffs__turnover_worthy, playoffs__pa_att, playoffs__pa_yds, playoffs__blitz_att, playoffs__blitz_yds, playoffs__deep_att, playoffs__deep_cmp, playoffs__throw_aways, playoffs__rush, playoffs__rush_yds, playoffs__rush_td, playoffs__rush_long, playoffs__ybc, playoffs__yaco, playoffs__forced_missed, playoffs__explosive_runs, playoffs__stuffs, playoffs__rush_success, playoffs__rush_first, playoffs__rush_epa, playoffs__scrambles, playoffs__scramble_yds, playoffs__scramble_epa, playoffs__fumbles, playoffs__fumbles_lost, playoffs__targets, playoffs__rec, playoffs__rec_yds, playoffs__rec_td, playoffs__rec_long, playoffs__drops, playoffs__tgt_air, playoffs__yac, playoffs__sep_sum, playoffs__routes, playoffs__contested_tgt, playoffs__contested_rec, playoffs__rec_first, playoffs__rec_epa, playoffs__pb_snaps, playoffs__pb_wins, playoffs__pressures_allowed, playoffs__sacks_allowed, playoffs__rb_snaps, playoffs__rb_wins, playoffs__rush_snaps, playoffs__rush_wins, playoffs__sacks, playoffs__qb_hits, playoffs__hurries, playoffs__pressures, playoffs__speed_wins, playoffs__power_wins, playoffs__finesse_wins, playoffs__ttp_sum, playoffs__tackles, playoffs__assists, playoffs__tfl, playoffs__stops, playoffs__missed, playoffs__forced_fumbles, playoffs__fumble_rec, playoffs__cov_snaps, playoffs__tgt_allowed, playoffs__cmp_allowed, playoffs__yds_allowed, playoffs__td_allowed, playoffs__ints, playoffs__pbus, playoffs__sep_allowed, playoffs__freelance, playoffs__freelance_won, playoffs__fg_att, playoffs__fg_made, playoffs__fg_long, playoffs__clutch_att, playoffs__clutch_made, playoffs__xp_att, playoffs__xp_made, playoffs__punts, playoffs__punt_yds, playoffs__punt_net, playoffs__punt_in20, playoffs__punt_tb, playoffs__hang_sum, playoffs__kickoffs, playoffs__ko_tb, playoffs__kr, playoffs__kr_yds, playoffs__kr_td, playoffs__pr, playoffs__pr_yds, playoffs__pr_td, playoffs__st_tackles, playoffs__penalties, playoffs__penalty_yds, playoffs__busts, playoffs__grade_sum, playoffs__graded, playoffs__top_speed, awards
+
+>>> select 'alumni cols', group_concat(name, ', ') from pragma_table_info('alumni') where name like '%position%' or name like 'class_of' or name like '%body__%' or name like 'pro__%'
+'alumni cols' | group_concat(name, ', ')
+alumni cols | position, class_of, player__position, player__body__height, player__body__weight, player__body__arm, player__body__hand, player__body__wingspan, player__body__frame_weight, player__body__left_handed, player__body__left_footed, player__prog__body_years, player__prog__body_used, player__prog__body_lbs, player__prog__body_yours, pro__status, pro__accrued, pro__credited, pro__draft, pro__first_year, pro__earnings, pro__agent, pro__sharpness, pro__weeks_unsigned, pro__out_weeks, pro__out_days, pro__pup, pro__ir_out, pro__teams, pro__alumnus, pro__paid, pro__new_team, pro__ps_seasons, pro__tags, pro__preseason, pro__trust, pro__hold, pro__wants_out, pro__expired, pro__on_waivers, pro__ipp, pro__spring_snaps, pro__suspended, pro__exempt, pro__role_from, pro__ideal__apy, pro__ideal__gtd, pro__ideal__years, pro__ideal__start, pro__ideal__opened, pro__ideal__best, pro__former, pro__case__kind, pro__case__day, pro__case__games, pro__case__again, pro__promise
+
+>>> select 'people cols pro', group_concat(name, ', ') from pragma_table_info('people') where name like 'pro__%' or name like 'class_of' or name like 'player__spot%'
+'people cols pro' | group_concat(name, ', ')
+people cols pro | player__spot, player__spots_played, class_of, pro__status, pro__accrued, pro__credited, pro__draft, pro__first_year, pro__earnings, pro__agent, pro__sharpness, pro__weeks_unsigned, pro__out_weeks, pro__out_days, pro__pup, pro__ir_out, pro__teams, pro__alumnus, pro__paid, pro__new_team, pro__ps_seasons, pro__tags, pro__preseason, pro__ideal__apy, pro__ideal__gtd, pro__ideal__years, pro__ideal__start, pro__ideal__opened, pro__trust, pro__hold, pro__wants_out, pro__former, pro__expired, pro__on_waivers, pro__ipp, pro__spring_snaps, pro__suspended, pro__exempt, pro__role_from, pro__team, pro__contract__team, pro__contract__kind, pro__contract__signed, pro__contract__signing_bonus, pro__contract__no_trade, pro__contract__offsets, pro__contract__new_from, pro__case__kind, pro__case__day, pro__case__games, pro__case__again, pro__ideal__best, pro__contract__option, pro__status__Other
+
+=== NFL starters (8+ starts) overall by position and year
+
+>>> select year, pos, count(*) n, round(avg(overall),2) mean_overall from (select s.year, p.player__position pos, h.overall from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where s.starts >= 8 and h.level = 'NFL' union all select s.year, a.player__position, h.overall from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where s.starts >= 8 and h.level = 'NFL') where year between 2024 and 2035 group by year, pos order by pos, year
+year | pos | n | mean_overall
+2024 | CB | 67 | 80.76
+2025 | CB | 66 | 80.5
+2026 | CB | 70 | 80.76
+2027 | CB | 69 | 80.7
+2028 | CB | 72 | 80.22
+2029 | CB | 74 | 79.98
+2030 | CB | 73 | 81.04
+2031 | CB | 71 | 80.83
+2032 | CB | 74 | 80.45
+2033 | CB | 70 | 80.73
+2034 | CB | 72 | 79.89
+2035 | CB | 62 | 80.25
+2024 | DT | 68 | 81.22
+2025 | DT | 69 | 80.95
+2026 | DT | 70 | 80.98
+2027 | DT | 74 | 80.77
+2028 | DT | 72 | 80.91
+2029 | DT | 78 | 80.97
+2030 | DT | 75 | 80.93
+2031 | DT | 76 | 80.75
+2032 | DT | 75 | 80.84
+2033 | DT | 72 | 80.25
+2034 | DT | 75 | 80.26
+2035 | DT | 63 | 80.49
+2024 | EDGE | 68 | 80.12
+2025 | EDGE | 71 | 79.94
+2026 | EDGE | 70 | 79.85
+2027 | EDGE | 71 | 79.98
+2028 | EDGE | 69 | 79.8
+2029 | EDGE | 69 | 80.1
+2030 | EDGE | 76 | 79.52
+2031 | EDGE | 73 | 79.17
+2032 | EDGE | 75 | 79.69
+2033 | EDGE | 69 | 79.93
+2034 | EDGE | 70 | 79.08
+2035 | EDGE | 61 | 79.8
+2024 | IOL | 103 | 80.27
+2025 | IOL | 101 | 80.45
+2026 | IOL | 107 | 81.02
+2027 | IOL | 107 | 80.84
+2028 | IOL | 110 | 80.99
+2029 | IOL | 112 | 80.89
+2030 | IOL | 109 | 80.96
+2031 | IOL | 109 | 81.36
+2032 | IOL | 113 | 81.25
+2033 | IOL | 105 | 81.51
+2034 | IOL | 108 | 81.34
+2035 | IOL | 91 | 81.81
+2024 | K | 33 | 84.22
+2025 | K | 35 | 83.95
+2026 | K | 34 | 83.45
+2027 | K | 36 | 83.56
+2028 | K | 36 | 83.96
+2029 | K | 36 | 84.17
+2030 | K | 36 | 84.11
+2031 | K | 34 | 84.36
+2032 | K | 36 | 83.48
+2033 | K | 35 | 83.61
+2034 | K | 33 | 83.7
+2035 | K | 32 | 83.28
+2024 | LB | 64 | 79.99
+2025 | LB | 69 | 79.75
+2026 | LB | 66 | 79.94
+2027 | LB | 68 | 79.92
+2028 | LB | 70 | 80.34
+2029 | LB | 74 | 80.31
+2030 | LB | 72 | 80.13
+2031 | LB | 75 | 79.92
+2032 | LB | 75 | 79.39
+2033 | LB | 70 | 79.16
+2034 | LB | 79 | 79.63
+2035 | LB | 62 | 80.44
+2024 | LS | 31 | 83.59
+2025 | LS | 32 | 84.12
+2026 | LS | 34 | 83.89
+2027 | LS | 31 | 83.87
+2028 | LS | 35 | 84.09
+2029 | LS | 35 | 83.67
+2030 | LS | 35 | 83.93
+2031 | LS | 34 | 84.33
+2032 | LS | 34 | 84.85
+2033 | LS | 35 | 84.98
+2034 | LS | 35 | 84.91
+2035 | LS | 29 | 84.98
+2024 | OT | 65 | 83.42
+2025 | OT | 67 | 83.31
+2026 | OT | 70 | 83.32
+2027 | OT | 68 | 82.91
+2028 | OT | 66 | 83.39
+2029 | OT | 67 | 83.22
+2030 | OT | 69 | 83.74
+2031 | OT | 72 | 83.61
+2032 | OT | 68 | 84.1
+2033 | OT | 65 | 83.1
+2034 | OT | 66 | 82.99
+2035 | OT | 62 | 83.49
+2024 | P | 31 | 83.26
+2025 | P | 32 | 82.84
+2026 | P | 31 | 83.77
+2027 | P | 32 | 84.19
+2028 | P | 31 | 84.69
+2029 | P | 31 | 84.59
+2030 | P | 33 | 84.1
+2031 | P | 33 | 84.07
+2032 | P | 29 | 84.93
+2033 | P | 33 | 84.29
+2034 | P | 33 | 84.73
+2035 | P | 30 | 85.57
+2024 | QB | 31 | 85.12
+2025 | QB | 36 | 84.99
+2026 | QB | 34 | 84.54
+2027 | QB | 30 | 85.05
+2028 | QB | 29 | 84.02
+2029 | QB | 30 | 84.98
+2030 | QB | 29 | 84.03
+2031 | QB | 31 | 84.3
+2032 | QB | 32 | 83.49
+2033 | QB | 26 | 84.49
+2034 | QB | 30 | 83.98
+2035 | QB | 27 | 83.1
+2024 | RB | 32 | 78.73
+2025 | RB | 31 | 78.64
+2026 | RB | 32 | 78.29
+2027 | RB | 33 | 78.03
+2028 | RB | 31 | 77.85
+2029 | RB | 35 | 77.46
+2030 | RB | 34 | 78.82
+2031 | RB | 37 | 78.37
+2032 | RB | 38 | 78.48
+2033 | RB | 33 | 77.96
+2034 | RB | 36 | 79.36
+2035 | RB | 29 | 79.62
+2024 | S | 68 | 79.74
+2025 | S | 69 | 79.69
+2026 | S | 68 | 80.15
+2027 | S | 71 | 79.47
+2028 | S | 69 | 80.09
+2029 | S | 74 | 79.9
+2030 | S | 76 | 79.77
+2031 | S | 73 | 79.47
+2032 | S | 76 | 79.62
+2033 | S | 77 | 78.95
+2034 | S | 80 | 79.12
+2035 | S | 64 | 78.86
+2024 | TE | 36 | 79.3
+2025 | TE | 36 | 80.11
+2026 | TE | 37 | 80.59
+2027 | TE | 36 | 80.8
+2028 | TE | 38 | 81.0
+2029 | TE | 38 | 80.01
+2030 | TE | 42 | 80.97
+2031 | TE | 39 | 80.69
+2032 | TE | 38 | 80.54
+2033 | TE | 42 | 80.21
+2034 | TE | 36 | 79.96
+2035 | TE | 33 | 80.18
+2024 | WR | 104 | 80.18
+2025 | WR | 104 | 79.86
+2026 | WR | 107 | 80.66
+2027 | WR | 109 | 80.6
+2028 | WR | 110 | 80.91
+2029 | WR | 119 | 80.82
+2030 | WR | 123 | 80.68
+2031 | WR | 114 | 80.55
+2032 | WR | 112 | 81.02
+2033 | WR | 112 | 80.43
+2034 | WR | 115 | 80.17
+2035 | WR | 96 | 80.09
+######## END ROUND 3
