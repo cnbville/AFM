@@ -108,7 +108,7 @@ pub fn talk_block(w: &World, s: &Scene) -> Option<Value> {
                     Seat::Family => "His family.",
                     _ => "",
                 };
-                json!({ "lead": k == 0, "name": name, "ini": ini, "tag": seat(p.seat), "line": line })
+                json!({ "lead": k == 0, "name": name, "link": super::super::links::them(w, p.who), "ini": ini, "tag": seat(p.seat), "line": line })
             })
             .collect();
         t["room"] = Value::Array(people);

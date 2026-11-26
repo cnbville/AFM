@@ -1,0 +1,102 @@
+######## ROUND 5 21:14
+
+=== NFL run concept shares by season and yards by concept
+
+>>> rsql with r as (select lp.season s, json_extract(j.value,'$.call') c, json_extract(j.value,'$.yards') y, json_extract(j.value,'$.before_contact') ybc from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run'), k as (select s, y, ybc, case when c like '%outside zone%' then 'outside zone' when c like '%inside zone%' then 'inside zone' when c like '%zone read%' then 'zone read' when c like '%QB%' then 'QB design' when c like '%jet sweep%' or c like '%sweep%' then 'sweep' when c like '%toss%' then 'toss' when c like '%counter%' then 'counter' when c like '%power%' then 'power' when c like '%draw%' then 'draw' when c like '%duo%' then 'duo' when c like '%trap%' then 'trap' when c like '%dive%' then 'dive' else 'other' end fam from r) select fam, case when s <= 2028 then 'early' when s >= 2032 then 'late' else 'mid' end per, count(*) n, round(avg(y),3) yards, round(avg(ybc),3) ybc from k where s >= 2026 group by fam, per order by fam, per
+# SQL
+
+## with r as (select lp.season s, json_extract(j.value,'$.call') c, json_extract(j.value,'$.yards') y, json_extract(j.value,'$.before_contact') ybc from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run'), k as (select s, y, ybc, case when c like '%outside zone%' then 'outside zone' when c like '%inside zone%' then 'inside zone' when c like '%zone read%' then 'zone read' when c like '%QB%' then 'QB design' when c like '%jet sweep%' or c like '%sweep%' then 'sweep' when c like '%toss%' then 'toss' when c like '%counter%' then 'counter' when c like '%power%' then 'power' when c like '%draw%' then 'draw' when c like '%duo%' then 'duo' when c like '%trap%' then 'trap' when c like '%dive%' then 'dive' else 'other' end fam from r) select fam, case when s <= 2028 then 'early' when s >= 2032 then 'late' else 'mid' end per, count(*) n, round(avg(y),3) yards, round(avg(ybc),3) ybc from k where s >= 2026 group by fam, per order by fam, per
+fam           per    n      yards  ybc
+QB design     early  689    2.49   1.5
+QB design     late   934    2.91   1.8
+QB design     mid    805    3.17   1.84
+counter       early  3539   4.7    2.67
+counter       late   4382   4.86   2.72
+counter       mid    3537   4.85   2.85
+draw          early  6070   4.12   2.27
+draw          late   8283   4.21   2.35
+draw          mid    5657   3.83   2.02
+duo           early  2508   3.79   2.05
+duo           late   3199   4.02   2.29
+duo           mid    2331   4.1    2.39
+inside zone   early  21012  4.07   2.24
+inside zone   late   26953  4.32   2.47
+inside zone   mid    19141  4.14   2.34
+other         early  1081   2.92   1.36
+other         late   1282   3.38   1.74
+other         mid    944    3.23   1.57
+outside zone  early  7904   4.7    2.71
+outside zone  late   10926  4.88   2.85
+outside zone  mid    8913   4.7    2.79
+power         early  4783   4.55   2.62
+power         late   6399   4.63   2.61
+power         mid    4605   4.46   2.6
+sweep         early  2555   9.92   8.07
+sweep         late   3421   9.99   8.11
+sweep         mid    2521   9.78   8.03
+toss          early  2156   9.15   6.84
+toss          late   3409   9.19   7
+toss          mid    2492   8.87   6.72
+trap          early  1165   4.38   2.56
+trap          late   1544   4.45   2.63
+trap          mid    1106   4.33   2.52
+zone read     early  1940   3.73   1.91
+zone read     late   4265   3.91   2.06
+zone read     mid    3119   4.09   2.28
+
+=== share by family each season
+
+>>> rsql with r as (select lp.season s, json_extract(j.value,'$.call') c from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run'), k as (select s, case when c like '%outside zone%' then 'outside zone' when c like '%inside zone%' then 'inside zone' when c like '%zone read%' then 'zone read' when c like '%QB%' then 'QB design' when c like '%jet sweep%' or c like '%sweep%' then 'sweep' when c like '%toss%' then 'toss' when c like '%counter%' then 'counter' when c like '%power%' then 'power' when c like '%draw%' then 'draw' when c like '%duo%' then 'duo' when c like '%trap%' then 'trap' when c like '%dive%' then 'dive' else 'other' end fam from r) select s, round(avg(fam='outside zone'),4) oz, round(avg(fam='inside zone'),4) iz, round(avg(fam='zone read'),4) zr, round(avg(fam='QB design'),4) qb, round(avg(fam='sweep'),4) sweep, round(avg(fam='toss'),4) toss, round(avg(fam='counter'),4) counter, round(avg(fam='power'),4) power, round(avg(fam='draw'),4) draw, round(avg(fam='duo'),4) duo, round(avg(fam='other'),4) other from k where s >= 2026 group by s order by s
+# SQL
+
+## with r as (select lp.season s, json_extract(j.value,'$.call') c from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run'), k as (select s, case when c like '%outside zone%' then 'outside zone' when c like '%inside zone%' then 'inside zone' when c like '%zone read%' then 'zone read' when c like '%QB%' then 'QB design' when c like '%jet sweep%' or c like '%sweep%' then 'sweep' when c like '%toss%' then 'toss' when c like '%counter%' then 'counter' when c like '%power%' then 'power' when c like '%draw%' then 'draw' when c like '%duo%' then 'duo' when c like '%trap%' then 'trap' when c like '%dive%' then 'dive' else 'other' end fam from r) select s, round(avg(fam='outside zone'),4) oz, round(avg(fam='inside zone'),4) iz, round(avg(fam='zone read'),4) zr, round(avg(fam='QB design'),4) qb, round(avg(fam='sweep'),4) sweep, round(avg(fam='toss'),4) toss, round(avg(fam='counter'),4) counter, round(avg(fam='power'),4) power, round(avg(fam='draw'),4) draw, round(avg(fam='duo'),4) duo, round(avg(fam='other'),4) other from k where s >= 2026 group by s order by s
+s     oz     iz     zr     qb     sweep  toss   counter  power  draw   duo    other
+2026  0.124  0.402  0.037  0.012  0.044  0.036  0.06     0.085  0.118  0.041  0.019
+2027  0.159  0.382  0.035  0.012  0.049  0.038  0.057    0.078  0.106  0.046  0.018
+2028  0.145  0.353  0.032  0.013  0.045  0.043  0.074    0.097  0.104  0.049  0.021
+2029  0.162  0.363  0.05   0.014  0.047  0.039  0.064    0.08   0.104  0.041  0.017
+2030  0.146  0.349  0.063  0.019  0.044  0.044  0.062    0.087  0.107  0.043  0.016
+2031  0.176  0.329  0.057  0.011  0.046  0.052  0.066    0.084  0.097  0.043  0.018
+2032  0.157  0.343  0.061  0.011  0.042  0.042  0.07     0.094  0.1    0.04   0.019
+2033  0.17   0.363  0.039  0.011  0.044  0.045  0.053    0.075  0.115  0.045  0.018
+2034  0.133  0.364  0.06   0.015  0.048  0.048  0.054    0.085  0.112  0.043  0.017
+2035  0.12   0.368  0.068  0.012  0.049  0.047  0.056    0.087  0.116  0.042  0.015
+
+=== direction and audible shares
+
+>>> rsql with r as (select lp.season s, json_extract(j.value,'$.call') c, json_extract(j.value,'$.yards') y from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run') select s, round(avg(c like '%(audible)%'),4) audible, round(avg(c like '%motion%' or c like '%shift%'),4) motion, round(avg(c like 'gun%' or c like '%gun %'),4) gun, round(avg(c like '%left%'),4) left_share, round(avg(c like '%RPO%'),4) rpo from r where s >= 2026 group by s order by s
+# SQL
+
+## with r as (select lp.season s, json_extract(j.value,'$.call') c, json_extract(j.value,'$.yards') y from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run') select s, round(avg(c like '%(audible)%'),4) audible, round(avg(c like '%motion%' or c like '%shift%'),4) motion, round(avg(c like 'gun%' or c like '%gun %'),4) gun, round(avg(c like '%left%'),4) left_share, round(avg(c like '%RPO%'),4) rpo from r where s >= 2026 group by s order by s
+s     audible  motion  gun    left_share  rpo
+2026  0.103    0.536   0.467  0.478       0.029
+2027  0.096    0.536   0.422  0.484       0.025
+2028  0.081    0.548   0.409  0.484       0.026
+2029  0.079    0.542   0.426  0.48        0.029
+2030  0.063    0.535   0.438  0.486       0.03
+2031  0.067    0.544   0.392  0.483       0.028
+2032  0.074    0.537   0.409  0.492       0.03
+2033  0.074    0.541   0.415  0.483       0.026
+2034  0.082    0.535   0.449  0.48        0.03
+2035  0.085    0.535   0.465  0.492       0.032
+
+=== the first words of run calls (formation) share by season
+
+>>> rsql select substr(json_extract(j.value,'$.call'),1,8) f, count(*) n from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and lp.season = 2034 and json_extract(j.value,'$.kind') = 'Run' group by f order by n desc limit 12
+# SQL
+
+## select substr(json_extract(j.value,'$.call'),1,8) f, count(*) n from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and lp.season = 2034 and json_extract(j.value,'$.kind') = 'Run' group by f order by n desc limit 12
+f         n
+11 under  3964
+11 gun d  3451
+21 under  2530
+12 under  2204
+11 gun t  1995
+12 gun d  1329
+11 pisto  915
+11 gun b  614
+22 under  575
+11 gun s  404
+12 pisto  335
+12 gun w  248
+######## END ROUND 5

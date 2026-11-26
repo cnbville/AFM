@@ -273,14 +273,14 @@ fn room_block(
             ""
         };
         people.push(
-            json!({ "name": name, "ini": ini, "tag": tag.unwrap_or("Listening"), "tagKind": kind, "line": line }),
+            json!({ "name": name, "link": super::super::links::them(w, x), "ini": ini, "tag": tag.unwrap_or("Listening"), "tagKind": kind, "line": line }),
         );
     }
     // Your staff at the front of a position room.
     for p in room.present.iter().filter(|p| p.seat == Seat::YourStaff) {
         let name = channels::name(w, p.who);
         let ini: String = name.split_whitespace().filter_map(|c| c.chars().next()).take(2).collect();
-        people.push(json!({ "name": name, "ini": ini, "tag": "Your staff", "line": "" }));
+        people.push(json!({ "name": name, "link": super::super::links::them(w, p.who), "ini": ini, "tag": "Your staff", "line": "" }));
     }
     t["room"] = json!(people);
     t["roomN"] = json!(men.len());

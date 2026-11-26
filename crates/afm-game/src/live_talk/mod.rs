@@ -28,6 +28,7 @@ pub mod checks;
 pub mod demo;
 pub mod filter;
 pub mod key;
+pub mod links;
 pub mod persona;
 pub mod say;
 pub mod tickets;
@@ -92,6 +93,13 @@ pub fn after(g: &mut Game, cmd: &str, _args: &Value, reply: &mut Reply) {
     say::typed_lines(v);
     if let Some(inner) = v.get_mut("reply") {
         say::typed_lines(inner);
+    }
+    // Names in a talk's lines are links (`links.rs`), with or without a key.
+    if let Some(w) = g.world.as_ref() {
+        links::scene_names(w, v);
+        if let Some(inner) = v.get_mut("reply") {
+            links::scene_names(w, inner);
+        }
     }
     ask::source::sources(g, cmd, v);
     if !g.ai.usable() {

@@ -17,7 +17,7 @@ const desmond = {
       line(1, "Be straight with me. What's going on with you?", { heard: "a question about him · he opened up" }),
       line(2, "Every pass they put the back on me or slide the line my way. Thirty-something rushes Saturday and not one clean look. I'm not complaining about the work. I just want a shot at the guy.", { tell: "leans in, talks with his hands" }),
       line(1, "The chips are their call. Getting you free is ours. From Saturday we run twists with you in them, one rush in four, every game through the bowl.", { heard: "a promise about his rushes · hope, and some doubt" }),
-      line(2, "Coach Kessler barely calls twists. If that changes, I'm all in. But I'll be counting.", { tell: "half a smile: he's heard promises before" }),
+      line(2, "Coach Kessler barely calls twists. If that changes, I'm all in. But I'll be counting.", { rich: "Coach [[c:7|Kessler]] barely calls twists. If that changes, I'm all in. But I'll be counting.", tell: "half a smile: he's heard promises before" }),
     ],
     talk: { persona: true,
       channel: "In person", minutes: { left: 11, of: 25 }, week: 10,
@@ -74,7 +74,7 @@ const amari = {
     ],
     talk: {
       channel: "Their living room", minutes: { left: 22, of: 45 }, week: 10,
-      room: [{ lead: true, name: "Amari Vance", tag: "Interested", stars: "Four stars", line: "Tanner Creek HS · Greenville, SC · 6-0, 182. Weighs, as far as you know: playing early, the SEC, NIL" }, { name: "Loretta Vance", ini: "LV", tag: "Guarded", tagKind: "", line: "His grandmother. She has the final say. Weighs: close to home, a coach who stays, his grades", tone: "warm" }, { name: "Dale Pruitt", ini: "DP", tag: "Open", tagKind: "good", line: "His high school coach. Sent you two players. Weighs: being straight with the kid", tone: "cool" }],
+      room: [{ lead: true, name: "Amari Vance", tag: "Interested", stars: "Four stars", line: "Tanner Creek HS · Greenville, SC · 6-0, 182. Weighs, as far as you know: playing early, the SEC, NIL" }, { name: "Loretta Vance", ini: "LV", tag: "Guarded", tagKind: "", line: "His grandmother. She has the final say. Weighs: close to home, a coach who stays, his grades", tone: "warm" }, { name: "Dale Pruitt", link: "[[c:12|Dale Pruitt]]", ini: "DP", tag: "Open", tagKind: "good", line: "His high school coach. Sent you two players. Weighs: being straight with the kid", tone: "cool" }],
       roomActs: [{ text: "Bring in your DB coach, on the phone", cmd: "x", args: {} }, { text: "Bring in a former player from Greenville", cmd: "x", args: {} }, { text: "Ask Coach Pruitt to step out", cmd: "x", args: {} }],
       after: { 2: [{ k: "logged", badge: "Logged · a promise to Amari and his grandmother", title: "You stay South Carolina's head coach through his senior year.", facts: [{ l: "Judged on", t: "Your job. A move or a firing breaks it." }, { l: "She believes it", t: "Not yet. She's heard it before." }] }], 3: [{ k: "read", text: "Your read: he's using it. Your staff heard Georgia told him he'd compete for a start, with both their starting corners leaving." }] },
       right: [

@@ -1,0 +1,41 @@
+######## ROUND 16 21:33
+
+>>> select season, count(*) g, round(avg(coalesce(site__indoor,0)),3) indoor, round(avg(coalesce(weather__indoor,0)),3) w_indoor, round(avg(conditions__temperature),1) temp, round(avg(conditions__wind),2) wind, round(avg(coalesce(conditions__rain,0)),3) rain, round(avg(coalesce(conditions__snow,0)),3) snow, round(avg(conditions__altitude),1) alt, round(avg(conditions__crowd),3) crowd from log_games where stream='nfl' and coalesce(kind,'regular')='regular' group by season order by season
+season | g | indoor | w_indoor | temp | wind | rain | snow | alt | crowd
+2025 | 16 | 0.0 | 0.0 | 54.9 | 7.91 | 0.063 | 0.0 |  | 0.688
+2026 | 272 | 0.0 | 0.0 | 61.9 | 9.22 | 0.114 | 0.022 | 5280.0 | 0.688
+2027 | 272 | 0.0 | 0.0 | 61.6 | 9.52 | 0.096 | 0.007 | 5280.0 | 0.69
+2028 | 272 | 0.0 | 0.0 | 63.2 | 8.94 | 0.107 | 0.007 | 5280.0 | 0.69
+2029 | 272 | 0.0 | 0.0 | 62.6 | 9.63 | 0.103 | 0.011 | 5280.0 | 0.689
+2030 | 272 | 0.0 | 0.0 | 65.1 | 9.56 | 0.077 | 0.004 | 5280.0 | 0.689
+2031 | 272 | 0.0 | 0.0 | 65.1 | 9.6 | 0.085 | 0.0 | 5280.0 | 0.69
+2032 | 288 | 0.0 | 0.0 | 63.1 | 9.63 | 0.066 | 0.01 | 5280.0 | 0.692
+2033 | 288 | 0.0 | 0.0 | 64.7 | 9.18 | 0.049 | 0.017 |  | 0.691
+2034 | 288 | 0.0 | 0.0 | 66.0 | 9.5 | 0.042 | 0.01 |  | 0.69
+2035 | 262 | 0.0 | 0.0 | 65.8 | 9.48 | 0.065 | 0.004 |  | 0.689
+
+>>> select season, conditions__turf, count(*) from log_games where stream='nfl' and coalesce(kind,'regular')='regular' group by season, conditions__turf order by conditions__turf, season
+season | conditions__turf | count(*)
+2025 |  | 7
+2026 |  | 136
+2027 |  | 139
+2028 |  | 139
+2029 |  | 128
+2030 |  | 103
+2031 |  | 104
+2032 |  | 109
+2033 |  | 101
+2034 |  | 94
+2035 |  | 84
+2025 | 1 | 9
+2026 | 1 | 136
+2027 | 1 | 133
+2028 | 1 | 133
+2029 | 1 | 144
+2030 | 1 | 169
+2031 | 1 | 168
+2032 | 1 | 179
+2033 | 1 | 187
+2034 | 1 | 194
+2035 | 1 | 178
+######## END ROUND 16

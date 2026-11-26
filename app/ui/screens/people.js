@@ -269,13 +269,13 @@ screens.people_scene = async (a) => {
   // The conversation. Under your lines: how a typed line was heard (live talks).
   const ay = aiYours("scene:" + s.id);
   const lines = s.lines.map((l) => {
-    if (l.by === 0) return `<p class="pp-n">${rich(l.text)}</p>`;
+    if (l.by === 0) return `<p class="pp-n">${rich(l.rich || l.text)}</p>`;
     const cls = l.by === 1 ? "you" : l.by === 2 ? "them" : "other";
-    return `<div class="pp-say ${cls}"><b>${esc(l.name)}</b><p>${rich(l.text)}</p>${l.by === 1 ? `<div class="ai-heard">${ay(l)}</div>` : ""}${l.tell ? `<em class="pp-tell">${esc(l.tell)}</em>` : ""}</div>`;
+    return `<div class="pp-say ${cls}"><b>${l.name_rich ? rich(l.name_rich) : esc(l.name)}</b><p>${rich(l.rich || l.text)}</p>${l.by === 1 ? `<div class="ai-heard">${ay(l)}</div>` : ""}${l.tell ? `<em class="pp-tell">${esc(l.tell)}</em>` : ""}</div>`;
   }).join("");
   const docs = s.docs.map((d) => `<section class="pp-doc"><h3>${esc(d.title)}</h3>${d.note ? `<p class="muted small">${rich(d.note)}</p>` : ""}<div class="tbl warm"><table><thead><tr>${d.cols.map((c, i) => `<th class="${i === 0 || i === d.cols.length - 1 ? "l" : "l"}">${esc(c)}</th>`).join("")}</tr></thead><tbody>${d.rows.map((r) => `<tr>${r.cells.map((c) => `<td class="l wrap">${rich(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></section>`).join("");
   const outcome = s.done
-    ? `<section class="pp-end"><div class="st-label">${s.handed ? `Handed to ${esc(s.handed)}` : "How it went"}</div>${(s.outcome.length ? s.outcome : ["It's done."]).map((o) => `<p>${rich(o)}</p>`).join("")}<div class="pp-acts">${s.next ? `<button class="st-btn small primary" data-act="ppopen" data-id="${s.next.id}">Next: ${esc(plainText(s.next.title))}</button>` : ""}<button class="st-btn small glass" data-nav="people">Back to People</button></div></section>`
+    ? `<section class="pp-end"><div class="st-label">${s.handed ? `Handed to ${esc(s.handed)}` : "How it went"}</div>${(s.outcome.length ? s.outcome_rich || s.outcome : ["It's done."]).map((o) => `<p>${rich(o)}</p>`).join("")}<div class="pp-acts">${s.next ? `<button class="st-btn small primary" data-act="ppopen" data-id="${s.next.id}">Next: ${esc(plainText(s.next.title))}</button>` : ""}<button class="st-btn small glass" data-nav="people">Back to People</button></div></section>`
     : "";
   // Your moves.
   let moves = "";
@@ -305,7 +305,7 @@ screens.people_scene = async (a) => {
   // Who's in the room.
   const side = ppSide(s, lead, pp, cast);
   return `<div class="pp-room" style="--c1:${colors[0]};--c2:${colors[1] || colors[0]}">
-    <header class="pp-roomhead"><div class="st-label">${esc(s.kindName)} · ${esc(s.dateText)}${s.place ? ` · ${esc(s.place)}` : ""}</div><h1>${rich(s.title)}</h1>${s.team ? `<div class="pp-roomteam">${rich(s.team.link)}</div>` : ""}</header>
+    <header class="pp-roomhead"><div class="st-label">${esc(s.kindName)} · ${esc(s.dateText)}${s.place ? ` · ${esc(s.place)}` : ""}</div><h1>${rich(s.title_rich || s.title)}</h1>${s.team ? `<div class="pp-roomteam">${rich(s.team.link)}</div>` : ""}</header>
     <div class="pp-stage ${s.done ? "done" : ""}">${side}<main class="pp-talk">${lines}${docs}${outcome}</main>${moves}</div></div>`;
 };
 GOTO.people_scene = () => [["People", "people"], ["Inbox", "inbox"], ["Calendar", "calendar"]];
