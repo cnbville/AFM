@@ -1,0 +1,29 @@
+######## ROUND 12 21:25
+
+>>> rsql select k.key, substr(k.value,1,160) from log_players lp, json_each(more('log_players', lp._more), '$.person.player') k where lp._row = (select min(_row) from log_players where level = 'NFL' and season = 2034 and person__player__position = 'IOL')
+# SQL
+
+## select k.key, substr(k.value,1,160) from log_players lp, json_each(more('log_players', lp._more), '$.person.player') k where lp._row = (select min(_row) from log_players where level = 'NFL' and season = 2034 and person__player__position = 'IOL')
+key                 substr(k.value,1,160)
+position            IOL
+age                 36
+attributes_x10      [388,499,565,907,805,648,403,851,273,273,225,272,204,402,400,340,175,402,222,...
+ceilings_x10        [388,499,565,907,805,648,403,851,276,362,356,383,355,470,465,622,563,420,884,...
+original_potential  82.32743
+bloom               -0.7611263
+longevity           0.17776519
+injury_proneness    9
+wear                7.5650644
+grow                0
+personality         {"work_ethic":15,"coachability":16,"competitiveness":9.359083,"love_of_game":...
+body                {"height":75.337555,"weight":326.29385,"arm":34.110252,"hand":9.698211,"wings...
+position_history    [[14,"IOL"]]
+spot                C
+spots_played        384
+history             [{"age":35,"level":"NFL","position":"IOL","playing_time":"Unsigned","overall_...
+game                {"consistency":9.420067,"temperament":13.4875,"recovery":2.9189515}
+tend                {"v_x10":[27,139,86,73,21,81,106,17,137,132,79,115,94,139,136],"was_x10":[131...
+train               {"year":{"age":35,"flags":128,"coach":94,"snaps":161,"morale":73,"physical":1...
+craft               {"items":[{"code":0,"sev":0,"prac":0,"was":0,"wk":0},{"code":0,"sev":0,"prac"...
+prog                {"drawn":true,"knack":[-1,14,-24,9,6,43,-20],"over":[19,20,126,73,31,97,47,9,...
+######## END ROUND 12
