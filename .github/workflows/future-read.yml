@@ -15,6 +15,9 @@ on:
       minutes:
         description: "Minutes to wait for new queries after each round"
         default: "150"
+      start_tag:
+        description: "Optional: the worlds page release holding the START world's book (a line starting @start runs on it)"
+        default: ""
 permissions:
   contents: write
 jobs:
@@ -41,6 +44,19 @@ jobs:
           if [ -n "$f" ]; then cat "$f".[0-9][0-9][0-9] | unzstd -T0 -c > "${f%.zst}" && rm "$f".[0-9][0-9][0-9]
           else unzstd -T0 --rm ./*.afmbook.zst; fi
           ls -la && df -h / /mnt
+      - name: Download the start book
+        if: ${{ inputs.start_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.start_tag }}
+        run: |
+          mkdir -p start && cd start
+          gh release view "$TAG" --repo cnbville/afm-worlds --json assets --jq '.assets[] | [.name,.size] | @tsv' || true
+          gh release download "$TAG" --repo cnbville/afm-worlds --pattern '*.afmbook.zst*'
+          f=$(ls | sed -n 's/\(.*\.afmbook\.zst\)\.[0-9]*$/\1/p' | head -1)
+          if [ -n "$f" ]; then cat "$f".[0-9][0-9][0-9] | unzstd -T0 -c > "${f%.zst}" && rm "$f".[0-9][0-9][0-9]
+          else unzstd -T0 --rm ./*.afmbook.zst; fi
+          ls -la
       - name: Read it
         env:
           BRANCH: ${{ github.ref_name }}
@@ -48,6 +64,7 @@ jobs:
         run: |
           b=$(realpath out/*.afmbook)
           q=.github/scripts/future-queries.sql
+          s=$(ls $(realpath start 2>/dev/null)/*.afmbook 2>/dev/null | head -1)
           run_round() {
             rn=$1
             echo "######## ROUND $rn $(date -u +%H:%M)"
@@ -56,6 +73,7 @@ jobs:
                 "") ;;
                 "-- stop") ;;
                 --*) echo; echo "=== ${line#-- }" ;;
+                "@start "*) echo; echo ">>> $line"; sqlite3 -header -separator ' | ' "$s" "${line#@start }" 2>&1 | head -c 60000 || true ;;
                 "page "*) echo; echo ">>> $line"; target/release/afm_read "$b" ${line#page } 2>&1 | head -c 40000 || true ;;
                 "years "*)
                   # years <like pattern on the check id>: each check's own year series (its years_sql), cut to 2500 characters
