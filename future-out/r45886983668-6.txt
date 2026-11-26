@@ -1,0 +1,79 @@
+######## ROUND 6 20:34
+
+=== log_players columns
+
+>>> select tbl, rows, substr(cols,1,2500) from catalog where tbl in ('log_players','log_snapshots','log_history') or tbl like 'log_players%'
+tbl | rows | substr(cols,1,2500)
+log_history | 51 | ["_row","year","system_switches","fbs_systems","games","snow_games","rain_games","freezing_games","lightning_delays","weather_moves","weather_cancels","opt_outs","bowl_practice_gain","four_game_redshirts","redshirt_tricks","spring_notices","spring_breakouts","spring_fizzles","hs_games","hs_engine_games","hs_totals__games","hs_totals__points_for","hs_totals__points_against","hs_totals__plays","hs_totals__yards","hs_totals__pass_yards","hs_totals__rush_yards","hs_totals__yards_allowed","hs_totals__att","hs_totals__cmp","hs_totals__carries","hs_totals__turnovers","hs_totals__takeaways","hs_totals__sacks","hs_totals__sacks_allowed","hs_totals__epa","hs_totals__epa_allowed","hs_totals__plays_allowed","hs_forfeits","hs_no_contests","hs_grade_outs","hs_homecomings","hs_senior_nights","hs_all_state","heat_limited_days","commits","commits_by_month","decommits","signee_releases","walk_on_scholarships","tryouts","late_pool","portal_landed_after","portal_unplaced_at_camp","graduates","graduate_transfers","flips","signed_early","signed_late","official_visits","unofficial_visits","drop_ins","early_enrollees","declared","withdrew","declared_graduates","early_drafted","portal_entries","portal_by_division","portal_landed","nil_go_reviewed","nil_go_denied","nil_go_reviewed_money","nil_go_denied_money","nil_go_moved","nil_multi","nil_multi_stars","nil_multi_money","nil_multi_bound","nil_multi_transfers","nil_buyouts","nil_buyout_money","portal_returned","whispers","sit_out_transfers","spring_ineligible","fall_ineligible","combine_invites","all_star_invites","all_star_declined","nfl_games","nfl_preseason_games","nfl_huge_by_team","medical_hardships","sixth_years","covid_returns","covid_declined","missions","enlisted","returned","moved_up_far","college_rolled","college_trouble","blue_verbal","blue_broken","bar_commits","blue_signed","blue_signed_summer","rule_changes"]
+log_players | 9122556 | ["_row","season","date","id","level","overall","potential","person__stage","person__stars","person__hs","person__class_of","person__player__position","person__player__age","_more","person__college","segment"]
+log_snapshots | 360 | ["_row","season","date","at","store","_more","segment"]
+
+=== rule changes by year
+
+>>> select year, rule_changes, nfl_games from log_history order by year
+year | rule_changes | nfl_games
+1984 |  | 233
+1985 |  | 233
+1986 |  | 233
+1987 |  | 219
+1988 |  | 233
+1989 |  | 233
+1990 |  | 235
+1991 |  | 235
+1992 |  | 235
+1993 |  | 235
+1994 |  | 235
+1995 |  | 251
+1996 |  | 251
+1997 |  | 251
+1998 |  | 251
+1999 |  | 259
+2000 |  | 259
+2001 |  | 259
+2002 |  | 267
+2003 |  | 267
+2004 |  | 267
+2005 |  | 267
+2006 |  | 267
+2007 |  | 267
+2008 |  | 267
+2009 |  | 267
+2010 |  | 267
+2011 |  | 267
+2012 |  | 267
+2013 |  | 267
+2014 |  | 267
+2015 |  | 267
+2016 |  | 267
+2017 |  | 267
+2018 |  | 267
+2019 |  | 267
+2020 |  | 269
+2021 | ["CA lets high school athletes earn NIL money."] | 285
+2022 | ["AK lets high school athletes earn NIL money.","CO lets high school athletes earn NIL money.","CT lets high school athletes earn NIL money.","DC lets high school athletes earn NIL money.","ID lets high school athletes earn NIL money.","IL lets high school athletes earn NIL money.","IA lets high school athletes earn NIL money.","KS lets high school athletes earn NIL money.","LA lets high school athletes earn NIL money.","ME lets high school athletes earn NIL money.","MA lets high school athletes earn NIL money.","MN lets high school athletes earn NIL money.","NE lets high school athletes earn NIL money.","NJ lets high school athletes earn NIL money.","NY lets high school athletes earn NIL money.","ND lets high school athletes earn NIL money.","UT lets high school athletes earn NIL money.","WA lets high school athletes earn NIL money."] | 285
+2023 | ["MD lets high school athletes earn NIL money.","NV lets high school athletes earn NIL money.","NH lets high school athletes earn NIL money.","NM lets high school athletes earn NIL money.","OK lets high school athletes earn NIL money.","OR lets high school athletes earn NIL money.","PA lets high school athletes earn NIL money.","RI lets high school athletes earn NIL money.","TN lets high school athletes earn NIL money.","VT lets high school athletes earn NIL money.","VA lets high school athletes earn NIL money."] | 285
+2024 | ["AZ lets high school athletes earn NIL money.","FL lets high school athletes earn NIL money.","GA lets high school athletes earn NIL money.","KY lets high school athletes earn NIL money.","SD lets high school athletes earn NIL money."] | 285
+2025 | ["DE lets high school athletes earn NIL money.","MT lets high school athletes earn NIL money.","NC lets high school athletes earn NIL money.","WV lets high school athletes earn NIL money.","WI lets high school athletes earn NIL money."] | 285
+2026 | ["IN lets high school athletes earn NIL money.","MI lets high school athletes earn NIL money.","OH lets high school athletes earn NIL money."] | 285
+2027 | ["The practice squad grows by one spot after an owners' vote (25-7).","Rice accepts an invitation to leave the American for the SEC, from next season.","Temple accepts an invitation to leave the American for the Big 12, from next season.","South Florida accepts an invitation to leave the American for the Big 12, from next season.","MO lets high school athletes earn NIL money.","UT tightens its high school transfer rule."] | 285
+2028 | ["The practice squad grows by one spot after an owners' vote (25-7).","Army accepts an invitation to leave the American for the Big Ten, from next season.","East Carolina accepts an invitation to leave the American for the Big 12, from next season.","FIU accepts an invitation to leave the CUSA for the Pac-12, from next season.","AR lets high school athletes earn NIL money."] | 285
+2029 | ["Middle Tennessee accepts an invitation to leave the CUSA for the Pac-12, from next season.","Liberty accepts an invitation to leave the CUSA for the Pac-12, from next season.","Washington State accepts an invitation to leave the Pac-12 for the Big 12, from next season.","San Diego State accepts an invitation to leave the Pac-12 for the Big West, from next season.","Fresno State accepts an invitation to leave the Pac-12 for the CUSA, from next season."] | 285
+2030 | ["Fresno State accepts an invitation to leave the CUSA for the Big West, from next season.","San Diego State accepts an invitation to leave the Big West for the CUSA, from next season.","TN tightens its high school transfer rule.","TX lets high school athletes earn NIL money.","WI tightens its high school transfer rule."] | 285
+2031 | ["The CBA has expired and the owners lock the players out: no free agency, trades or offseason work for 78 days.","The new CBA brings an 18-game season with two byes from 2032, approved by the owners 27-5.","San Diego State accepts an invitation to leave the CUSA for the Pac-12, from next season.","Fresno State accepts an invitation to leave the Big West for the CUSA, from next season."] | 285
+2032 | ["Jacksonville State accepts an invitation to leave the CUSA for the Pac-12, from next season.","Western Kentucky accepts an invitation to leave the CUSA for the Pac-12, from next season.","SC tightens its high school transfer rule.","UT tightens its high school transfer rule."] | 301
+2033 | ["The practice squad grows by one spot after an owners' vote (29-3).","Fresno State accepts an invitation to leave the CUSA for the Pac-12, from next season.","San Diego State accepts an invitation to leave the Pac-12 for the Big West, from next season."] | 301
+2034 | ["The owners award expansion clubs to Portland and Austin, 26-6: the Portland Steelheads and the Austin Lonestars pay $14.4 billion each and play from 2036.","OR loosens its high school transfer rule.","RI loosens its high school transfer rule."] | 301
+
+=== one play json
+
+>>> select substr(j.value, 1, 1500) from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and lp.season = 2026 limit 3
+Error: in prepare, no such function: more
+  tr(j.value, 1, 1500) from log_plays lp, json_each(more('log_plays', lp._more),
+                                      error here ---^
+
+=== plays table columns
+
+>>> select tbl, rows, substr(cols,1,800) from catalog where tbl in ('log_plays')
+tbl | rows | substr(cols,1,800)
+log_plays | 53150 | ["_row","season","stream","n","home","away","date","level","_more","segment","league"]
+######## END ROUND 6
