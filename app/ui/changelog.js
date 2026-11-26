@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.712", date: "26 Nov", title: "The helper in the pile: the blocked man a runner falls into is in on the tackle in the NFL's book (realism audit item 3, the front seven's share)",
+    notes: [
+      "Pro box scores now credit the lineman or linebacker a runner falls into in his block, the way NFL scorers do, so the front seven's tackle totals look like real ones.",
+      "A shared tackle in the pros can now be a tackle with an assist: the man who made it keeps his solo tackle and the man beside him gets the assist.",
+      "Linemen and linebackers in on short runs get the credit real scorers give them.",
+      "A shared tackle for loss goes whole to the man who made it.",
+      "Film and scouting reports still praise only the man who made the tackle.",
+    ],
+  },
+  {
     v: "0.2.711", date: "26 Nov", title: "Who is on the field and who gets the tackle: the real table of backs, the third safety, the sideline credit (realism audit item 3)",
     notes: [
       "Defenses now put the right men on the field. They answer your receivers with nickel and dime packages as often as real staffs do, and a third safety can be the extra back when he fits the job better than a corner.",

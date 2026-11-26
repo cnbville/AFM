@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.712 (26 Nov, shipped): the helper in the pile: the blocked man a runner falls into is in on the tackle in the NFL's book (realism audit item 3, the front seven's share) (PR #666)
+**TLDR:** Pro box scores now credit the lineman or linebacker a runner falls into in his block, the way NFL scorers do, so the front seven's tackle totals look like real ones.
+- A shared tackle in the pros can now be a tackle with an assist: the man who made it keeps his solo tackle and the man beside him gets the assist. (PR #666)
+- Linemen and linebackers in on short runs get the credit real scorers give them. (PR #666)
+- A shared tackle for loss goes whole to the man who made it. (PR #666)
+- Film and scouting reports still praise only the man who made the tackle. (PR #666)
+- Look at: an NFL box score's tackles for your defensive tackles and linebackers. (PR #666)
+
 ## 0.2.711 (26 Nov, shipped): who is on the field and who gets the tackle: the real table of backs, the third safety, the sideline credit (realism audit item 3) (PR #665)
 **TLDR:** Defenses now put the right men on the field. They answer your receivers with nickel and dime packages as often as real staffs do, and a third safety can be the extra back when he fits the job better than a corner.
 - Defenses match one, two, three and four receivers with four, five or six backs as real NFL defenses do on each down. (PR #665)
