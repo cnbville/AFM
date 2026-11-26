@@ -8,6 +8,13 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.715 (26 Nov, shipped): the NFL cap after 2026 follows league revenue (PR #669)
+**TLDR:** NFL salary caps in the years ahead now grow with the league's money, so club finances stay realistic in long careers.
+- From 2027 the salary cap is set from league revenue each year, one cap for every club. (PR #669)
+- The cap no longer runs away from what clubs earn, so player pay stays about the real share of revenue. (PR #669)
+- Contracts, rookie deals, tags and the minimum all move with the new cap. (PR #669)
+- Look at: the cap board and club finances a few seasons into the future. (PR #669)
+
 ## 0.2.714 (26 Nov, shipped): yards before contact as the charting keeps it, and the linebackers' first tackles traced (realism audit item 3, the front's pursuit) (PR #668)
 **TLDR:** Yards before and after contact now count the way real charting does, so a back's split reads like a real back's.
 - A defender who dives at a runner's legs from the side or behind and misses has still made contact. (PR #668)

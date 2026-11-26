@@ -17,6 +17,15 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.715", date: "26 Nov", title: "The NFL cap after 2026 follows league revenue",
+    notes: [
+      "NFL salary caps in the years ahead now grow with the league's money, so club finances stay realistic in long careers.",
+      "From 2027 the salary cap is set from league revenue each year, one cap for every club.",
+      "The cap no longer runs away from what clubs earn, so player pay stays about the real share of revenue.",
+      "Contracts, rookie deals, tags and the minimum all move with the new cap.",
+    ],
+  },
+  {
     v: "0.2.714", date: "26 Nov", title: "Yards before contact as the charting keeps it, and the linebackers' first tackles traced (realism audit item 3, the front's pursuit)",
     notes: [
       "Yards before and after contact now count the way real charting does, so a back's split reads like a real back's.",
