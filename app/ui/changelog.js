@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.711", date: "26 Nov", title: "Who is on the field and who gets the tackle: the real table of backs, the third safety, the sideline credit (realism audit item 3)",
+    notes: [
+      "Defenses now put the right men on the field. They answer your receivers with nickel and dime packages as often as real staffs do, and a third safety can be the extra back when he fits the job better than a corner.",
+      "Defenses match one, two, three and four receivers with four, five or six backs as real NFL defenses do on each down.",
+      "Every defensive coordinator has his own nickel and dime habits, so some staffs live in dime on third and long and others almost never play it.",
+      "A team's third safety now plays as the big nickel or the dime back when he is the better man for the job.",
+      "A defender who forces a runner out of bounds gets the tackle in the box score.",
+      "Kickers rarely make the tackle on a kickoff now, and punt teams line up like real ones.",
+    ],
+  },
+  {
     v: "0.2.710", date: "26 Nov", title: "Program fortunes measuring pass: size the recruiting bond's curve on four seeds",
     notes: [
       "A great recruiter now changes a program. Your head coach's and position coaches' recruiting ratings decide far more of the close battles for a recruit.",

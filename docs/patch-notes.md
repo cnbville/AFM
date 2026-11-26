@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.711 (26 Nov, shipped): who is on the field and who gets the tackle: the real table of backs, the third safety, the sideline credit (realism audit item 3) (PR #665)
+**TLDR:** Defenses now put the right men on the field. They answer your receivers with nickel and dime packages as often as real staffs do, and a third safety can be the extra back when he fits the job better than a corner.
+- Defenses match one, two, three and four receivers with four, five or six backs as real NFL defenses do on each down. (PR #665)
+- Every defensive coordinator has his own nickel and dime habits, so some staffs live in dime on third and long and others almost never play it. (PR #665)
+- A team's third safety now plays as the big nickel or the dime back when he is the better man for the job. (PR #665)
+- A defender who forces a runner out of bounds gets the tackle in the box score. (PR #665)
+- Kickers rarely make the tackle on a kickoff now, and punt teams line up like real ones. (PR #665)
+- Look at: the tackles in a box score after a game, and which backs the other defense brings on against your three-receiver sets. (PR #665)
+
 ## 0.2.710 (26 Nov, shipped): program fortunes measuring pass: size the recruiting bond's curve on four seeds (PR #664)
 **TLDR:** A great recruiter now changes a program. Your head coach's and position coaches' recruiting ratings decide far more of the close battles for a recruit.
 - Each point of recruiting skill builds a recruit's bond with a coach faster than before. (PR #664)
