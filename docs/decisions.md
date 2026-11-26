@@ -206,6 +206,9 @@ The second PR of the thread "Refit third-party NIL market" (the deals-in-later-y
 6. **87% of a Power 4 roster paid something is left for its own lane.** 580 signees hold a deal outside the school's set in July because a class's signees all read one paid set a stage (a known gap, now measured). Fixing how a class fills the set is a recruiting change past this lane.
 7. **The played second season's low medians at four spots are left as a gap.** Backs, receivers, defensive backs and linebackers read 29-45% under the Commission's medians on the July 2027 payday. The cause is 19.1 returning starters a school against 12.9 in the July 2026 file, a roster question, so the split's sizes were not refitted to it.
 
+### The NFL cap follows league revenue (2026-11-26)
+Cain, on the future run's item 1 ("how would you regulate that if teams have different revenue?", then "as long as it makes all teams follow the same rules it's good"). The cap after 2026 is the league year's revenue (the whole league's, as the CBA's "all revenue" counts it) times a fixed share, over 32: one cap for every club, as the real CBA sets it each March. It replaces the 8% rule with its media-deal jump (Cain 2026-10-16), which outgrew revenue by about 4% a year. The poorer clubs are covered by what the world already has: the equal national money (about 60% of revenue), the visiting gate pool and the cash floor (90% of four years' caps). Proposed, not confirmed: the share is 2026's (37.1% of the world's revenue), so there is no step at the handover; 2024's (35.5%) would give a 1.4% raise in 2027.
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 
