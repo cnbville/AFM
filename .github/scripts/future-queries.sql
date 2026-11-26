@@ -1,15 +1,11 @@
--- schema: portal log, history rows, log_history
-select 'recruiting_log tables', group_concat(name, ', ') from sqlite_master where type='table' and name like 'recruiting_log%'
-select 'recruiting_log__portal', group_concat(name, ', ') from pragma_table_info('recruiting_log__portal')
-select 'people__player__history', group_concat(name, ', ') from pragma_table_info('people__player__history')
-select 'programs', group_concat(name, ', ') from pragma_table_info('programs')
--- FBS entrants by year and why
-select year, why, count(*) n from recruiting_log__portal where "from" = 'FBS' and year between 2021 and 2035 group by why, year order by why, year
--- FBS entrants by year and role
-select year, role, count(*) n from recruiting_log__portal where "from" = 'FBS' and year between 2021 and 2035 group by role, year order by role, year
--- FBS entrants by year: held, returned, fell through, landed none
-select year, count(*) n, sum(held) held, sum(returned) returned, sum(fell_through) fell, sum("to" is null) none, sum("to" = 'FBS') to_fbs, sum("to" = 'FCS') to_fcs from recruiting_log__portal where "from" = 'FBS' and year between 2021 and 2035 group by year order by year
--- every division's entrants by year
-select year, "from", count(*) n from recruiting_log__portal where year between 2021 and 2035 group by "from", year order by "from", year
--- the world's yearly flows
-select year, commits, signed_early, signed_late, walk_on_scholarships, tryouts, late_pool, graduates, graduate_transfers, declared, early_drafted, portal_entries, portal_landed, portal_returned, portal_unplaced_at_camp, portal_landed_after, college_rolled, college_trouble, sit_out_transfers, opt_outs, redshirt_tricks from log_history where year between 2021 and 2035 order by year
+-- levels in history rows
+select level, count(*) from people__player__history group by level
+select playing_time, count(*) from people__player__history where level like 'FBS%' group by playing_time
+-- FBS roster rows by season and role (people and alumni)
+select year, playing_time, count(*) n from (select p.class_of - 18 + h.age year, h.playing_time from people__player__history h join people p on p._row = h._parent where h.level like 'FBS%' union all select a.class_of - 18 + h.age, h.playing_time from alumni__player__history h join alumni a on a._row = h._parent where h.level like 'FBS%') where year between 2021 and 2035 group by playing_time, year order by playing_time, year
+-- FBS roster rows by season, all roles, and by age
+select year, count(*) n, round(avg(age),2) mean_age from (select p.class_of - 18 + h.age year, h.age from people__player__history h join people p on p._row = h._parent where h.level like 'FBS%' union all select a.class_of - 18 + h.age, h.age from alumni__player__history h join alumni a on a._row = h._parent where h.level like 'FBS%') where year between 2021 and 2035 group by year order by year
+-- FBS entrants by year and power group of the school he left
+select e.year, case when p.conference in ('SEC','Big Ten','Big 12','ACC','Pac-12') then 'P4' else 'G5' end grp, count(*) n from recruiting_log__portal e join programs p on p._row = e.from_program where e."from" = 'FBS' and e.year between 2021 and 2035 group by grp, e.year order by grp, e.year
+-- FBS entrants by year and the classes' age at entry (people only: those still in the book)
+select year, count(*) n from recruiting_log__portal where "from" = 'FBS' and "to" is not null and year between 2021 and 2035 group by year order by year
