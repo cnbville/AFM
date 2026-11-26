@@ -148,6 +148,18 @@ Under the same permission. Each is proposed, not confirmed, and his to change. T
 12. **The order after it, in the same thread**: two men at the catch, then the second level (linebackers who fill downhill, the back who presses the hole, the climber's whiff, misread fits that open the field), then college quarterback runs, then the fight read with the helper's credit at college and high school, then the small lane on men out of position, then items 6, 7, 8, 16 and 19, then the tables once.
 13. **No world run.** Everything was measured with `match_check` on the seed 321 world file and the three test leagues.
 
+### Decisions taken for Cain under his proxy (two men at the catch, 2026-11-26)
+
+Under the same permission. Each is proposed, not confirmed, and his to change. The numbers are in `GAPS.md`, "Two men at a short catch".
+
+1. **Two men at the catch is traced, not built.** All of the catch's extra two men are on catches with under 3 yards after them (22.9%, real 11.7%); from 3 yards on the catch is at real. Every change on the tackle side (the man who played the ball held out, the helper kept to arm's length, the helper's own miss, free men near the fall as helpers, the rally aimed ahead of the catch, the hit's angle) also moved the runs' two men, which are already short (35.3%, real 43.1%), or cost yards. What is left is how many defenders are near a short catch, and no real number in the repo sizes it.
+2. **The scorer's form stays as it is.** A rule that writes a late man as a tackle with an assist puts the catches near real (44% to 56% of their pairs, real 39%) but the runs far over (68% to 76%, real 39%, where they are today). Real scorers write both at the same 39%, so timing can't be how they decide.
+3. **The passer's window is logged, not changed.** It reads only the defender who closes fastest (`scrimmage::window`), so a short ball goes to a man with a second defender close. Changing it moves completions and yards after the catch on every short throw, a passing lane of its own, and it needs the real second-nearest defender at the catch (tracking data, not in the repo) to size it.
+4. **The second level holds yards a carry at real without a longer fight.** The longer fight was the trial that took the catch to 30%. The second level wins its yards with linebackers who fill downhill and a back who presses the hole; if that can't hold the yards, it stops and reports, and the catch's crowd is sized first.
+5. **The trial code is kept, not merged**: the switches, their read-outs and the scripts are in the project folder at `afm/item3-catch/` (`catch-trials.patch`, `README.md`).
+6. **The order after it is unchanged**: the second level, then college quarterback runs, then the fight read with the helper's credit at college and high school, then the small lane on men out of position, then items 6, 7, 8, 16 and 19, then the tables once.
+7. **No world run.** Everything was measured with `match_check` on the seed 321 world file, 2,720 games an arm.
+
 ## What was read
 
 - The world: seed 321, 30 seasons of history (1996-2025), stopped on 1 January 2026, built 2026-11-22 on main `094635f` (after every scheme-fit and engine-gaps lane). Release `world-2026-seed321-jan2026-094635f` on the worlds page.
