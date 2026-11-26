@@ -10,6 +10,9 @@
 .cv-mid { padding: 18px 20px 14px; overflow: hidden; gap: 12px; }
 .cv *, .cv *::before, .cv *::after { box-sizing: border-box; }
 .cv a, .cv .link { color: var(--fg); }
+/* A name is a link to his page (Cain 2026-11-26): a quiet dotted line under it, solid on hover. */
+.cv a.link { border-bottom: 1px dotted color-mix(in srgb, currentColor 42%, transparent); }
+.cv a.link:hover { border-bottom: 1px solid currentColor; }
 .cv small { color: var(--fg2); }
 .cv p { margin: 0; }
 
