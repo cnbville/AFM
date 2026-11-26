@@ -1,0 +1,1958 @@
+######## ROUND 1 13:13
+
+=== columns that carry NIL, collective, budget, revenue, cap or wage
+
+>>> select m.name || '.' || p.name from sqlite_master m, pragma_table_info(m.name) p where m.type = 'table' and m.name not like 'calendar%' and m.name not like '%refs' and (p.name like '%nil%' or p.name like '%collective%' or p.name like '%budget%' or p.name like '%revenue%' or p.name like '%cap%' or p.name like '%wage%') order by 1
+m.name || '.' || p.name
+capital__donors.capacity
+capital__donors.nil_lean
+changes.revenue_factor
+clubs.captains
+engine_rules.nil
+engine_rules.revenue_sharing
+engine_rules.salary_cap
+finance__college.budget__l
+finance__college.budget__year
+finance__hs.budget__l
+finance__hs.budget__year
+finance__nfl.budget__l
+finance__nfl.budget__year
+finance__nfl.home__capacity
+finance__nfl__seasons.capacity
+finance__projects.capacity
+front_office.college__nil_rev
+log.nil_buyout_money
+log.nil_buyouts
+log.nil_go_denied
+log.nil_go_denied_money
+log.nil_go_moved
+log.nil_go_reviewed
+log.nil_go_reviewed_money
+log.nil_multi
+log.nil_multi_bound
+log.nil_multi_money
+log.nil_multi_stars
+log.nil_multi_transfers
+log_history.nil_buyout_money
+log_history.nil_buyouts
+log_history.nil_go_denied
+log_history.nil_go_denied_money
+log_history.nil_go_moved
+log_history.nil_go_reviewed
+log_history.nil_go_reviewed_money
+log_history.nil_multi
+log_history.nil_multi_bound
+log_history.nil_multi_money
+log_history.nil_multi_stars
+log_history.nil_multi_transfers
+log_news.news__kind__NilWarning__level
+market__years.cap_cuts
+market__years.cap_use
+news.kind__NilWarning__level
+people.cal__nil_buyout
+people.cal__nil_deal__amount
+people.cal__nil_deal__kind
+people.cal__nil_deal__through
+people.cal__nil_deal__year
+people.cal__nil_keep
+people.cal__nil_paid
+people.cal__nil_role
+people.cal__nil_school
+people.nil_income
+portal_market.nil_pool
+programs.captains
+programs.collective__base
+programs.collective__big_booster
+programs.collective__budget
+programs.collective__buyouts
+programs.collective__drying_years
+programs.collective__moved
+programs.collective__school
+programs.collective__trend
+programs__era__ledger.nil_budget
+real_colleges.nil_estimate_usd
+real_colleges.stadium_capacity
+real_colleges_lower.nil_estimate_usd
+real_colleges_lower.stadium_capacity
+real_hs_states.hs_nil_allowed
+real_hs_states.hs_nil_from
+real_hs_states.hs_nil_min_age
+real_hs_states.hs_nil_note
+real_hs_states.hs_nil_scope
+real_hs_states.hs_nil_source_url
+rules.nil
+rules.revenue_sharing
+rules.salary_cap
+states.hs_nil
+world.nil_rev
+
+>>> select 'log_history', group_concat(name, ', ') from pragma_table_info('log_history')
+'log_history' | group_concat(name, ', ')
+log_history | _row, year, system_switches, fbs_systems, games, snow_games, rain_games, freezing_games, lightning_delays, weather_moves, weather_cancels, opt_outs, bowl_practice_gain, four_game_redshirts, redshirt_tricks, spring_notices, spring_breakouts, spring_fizzles, hs_games, hs_engine_games, hs_totals__games, hs_totals__points_for, hs_totals__points_against, hs_totals__plays, hs_totals__yards, hs_totals__pass_yards, hs_totals__rush_yards, hs_totals__yards_allowed, hs_totals__att, hs_totals__cmp, hs_totals__carries, hs_totals__turnovers, hs_totals__takeaways, hs_totals__sacks, hs_totals__sacks_allowed, hs_totals__epa, hs_totals__epa_allowed, hs_totals__plays_allowed, hs_forfeits, hs_no_contests, hs_grade_outs, hs_homecomings, hs_senior_nights, hs_all_state, heat_limited_days, commits, commits_by_month, decommits, signee_releases, walk_on_scholarships, tryouts, late_pool, portal_landed_after, portal_unplaced_at_camp, graduates, graduate_transfers, flips, signed_early, signed_late, official_visits, unofficial_visits, drop_ins, early_enrollees, declared, withdrew, declared_graduates, early_drafted, portal_entries, portal_by_division, portal_landed, nil_go_reviewed, nil_go_denied, nil_go_reviewed_money, nil_go_denied_money, nil_go_moved, nil_multi, nil_multi_stars, nil_multi_money, nil_multi_bound, nil_multi_transfers, nil_buyouts, nil_buyout_money, portal_returned, whispers, sit_out_transfers, spring_ineligible, fall_ineligible, combine_invites, all_star_invites, all_star_declined, nfl_games, nfl_preseason_games, nfl_huge_by_team, medical_hardships, sixth_years, covid_returns, covid_declined, missions, enlisted, returned, moved_up_far, college_rolled, college_trouble, blue_verbal, blue_broken, bar_commits, blue_signed, blue_signed_summer, rule_changes
+
+>>> select 'programs__seasons', group_concat(name, ', ') from pragma_table_info('programs__seasons')
+'programs__seasons' | group_concat(name, ', ')
+programs__seasons | _row, _parent, _i, year, wins, losses, conference_title, national_title, coach, strength, totals__games, totals__points_for, totals__points_against, totals__plays, totals__yards, totals__pass_yards, totals__rush_yards, totals__yards_allowed, totals__att, totals__cmp, totals__carries, totals__turnovers, totals__takeaways, totals__sacks, totals__sacks_allowed, totals__epa, totals__epa_allowed, totals__plays_allowed, conference, division, points, conference_won
+
+>>> select 'people__pro__seasons', group_concat(name, ', ') from pragma_table_info('people__pro__seasons')
+'people__pro__seasons' | group_concat(name, ', ')
+people__pro__seasons | _row, _parent, _i, year, team, games, starts, snaps, opp, ps_weeks, ir_weeks, full_pay_weeks, pay, pro_bowl, all_pro, elevations, stats__games, stats__snaps_off, stats__snaps_def, stats__snaps_st, stats__att, stats__cmp, stats__pass_yds, stats__pass_td, stats__int, stats__sacked, stats__sack_yds, stats__dropbacks, stats__pressured, stats__air_yds_att, stats__ttt, stats__pass_epa, stats__pass_success, stats__x_cmp, stats__big_time, stats__turnover_worthy, stats__pa_att, stats__pa_yds, stats__blitz_att, stats__blitz_yds, stats__deep_att, stats__deep_cmp, stats__throw_aways, stats__rush, stats__rush_yds, stats__rush_td, stats__rush_long, stats__ybc, stats__yaco, stats__forced_missed, stats__explosive_runs, stats__stuffs, stats__rush_success, stats__rush_first, stats__rush_epa, stats__scrambles, stats__scramble_yds, stats__scramble_epa, stats__fumbles, stats__fumbles_lost, stats__targets, stats__rec, stats__rec_yds, stats__rec_td, stats__rec_long, stats__drops, stats__tgt_air, stats__yac, stats__sep_sum, stats__routes, stats__contested_tgt, stats__contested_rec, stats__rec_first, stats__rec_epa, stats__pb_snaps, stats__pb_wins, stats__pressures_allowed, stats__sacks_allowed, stats__rb_snaps, stats__rb_wins, stats__rush_snaps, stats__rush_wins, stats__sacks, stats__qb_hits, stats__hurries, stats__pressures, stats__speed_wins, stats__power_wins, stats__finesse_wins, stats__ttp_sum, stats__tackles, stats__assists, stats__tfl, stats__stops, stats__missed, stats__forced_fumbles, stats__fumble_rec, stats__cov_snaps, stats__tgt_allowed, stats__cmp_allowed, stats__yds_allowed, stats__td_allowed, stats__ints, stats__pbus, stats__sep_allowed, stats__freelance, stats__freelance_won, stats__fg_att, stats__fg_made, stats__fg_long, stats__clutch_att, stats__clutch_made, stats__xp_att, stats__xp_made, stats__punts, stats__punt_yds, stats__punt_net, stats__punt_in20, stats__punt_tb, stats__hang_sum, stats__kickoffs, stats__ko_tb, stats__kr, stats__kr_yds, stats__kr_td, stats__pr, stats__pr_yds, stats__pr_td, stats__st_tackles, stats__penalties, stats__penalty_yds, stats__busts, stats__grade_sum, stats__graded, stats__top_speed, playoff_starts, field_starts, playoffs__games, playoffs__snaps_off, playoffs__snaps_def, playoffs__snaps_st, playoffs__att, playoffs__cmp, playoffs__pass_yds, playoffs__pass_td, playoffs__int, playoffs__sacked, playoffs__sack_yds, playoffs__dropbacks, playoffs__pressured, playoffs__air_yds_att, playoffs__ttt, playoffs__pass_epa, playoffs__pass_success, playoffs__x_cmp, playoffs__big_time, playoffs__turnover_worthy, playoffs__pa_att, playoffs__pa_yds, playoffs__blitz_att, playoffs__blitz_yds, playoffs__deep_att, playoffs__deep_cmp, playoffs__throw_aways, playoffs__rush, playoffs__rush_yds, playoffs__rush_td, playoffs__rush_long, playoffs__ybc, playoffs__yaco, playoffs__forced_missed, playoffs__explosive_runs, playoffs__stuffs, playoffs__rush_success, playoffs__rush_first, playoffs__rush_epa, playoffs__scrambles, playoffs__scramble_yds, playoffs__scramble_epa, playoffs__fumbles, playoffs__fumbles_lost, playoffs__targets, playoffs__rec, playoffs__rec_yds, playoffs__rec_td, playoffs__rec_long, playoffs__drops, playoffs__tgt_air, playoffs__yac, playoffs__sep_sum, playoffs__routes, playoffs__contested_tgt, playoffs__contested_rec, playoffs__rec_first, playoffs__rec_epa, playoffs__pb_snaps, playoffs__pb_wins, playoffs__pressures_allowed, playoffs__sacks_allowed, playoffs__rb_snaps, playoffs__rb_wins, playoffs__rush_snaps, playoffs__rush_wins, playoffs__sacks, playoffs__qb_hits, playoffs__hurries, playoffs__pressures, playoffs__speed_wins, playoffs__power_wins, playoffs__finesse_wins, playoffs__ttp_sum, playoffs__tackles, playoffs__assists, playoffs__tfl, playoffs__stops, playoffs__missed, playoffs__forced_fumbles, playoffs__fumble_rec, playoffs__cov_snaps, playoffs__tgt_allowed, playoffs__cmp_allowed, playoffs__yds_allowed, playoffs__td_allowed, playoffs__ints, playoffs__pbus, playoffs__sep_allowed, playoffs__freelance, playoffs__freelance_won, playoffs__fg_att, playoffs__fg_made, playoffs__fg_long, playoffs__clutch_att, playoffs__clutch_made, playoffs__xp_att, playoffs__xp_made, playoffs__punts, playoffs__punt_yds, playoffs__punt_net, playoffs__punt_in20, playoffs__punt_tb, playoffs__hang_sum, playoffs__kickoffs, playoffs__ko_tb, playoffs__kr, playoffs__kr_yds, playoffs__kr_td, playoffs__pr, playoffs__pr_yds, playoffs__pr_td, playoffs__st_tackles, playoffs__penalties, playoffs__penalty_yds, playoffs__busts, playoffs__grade_sum, playoffs__graded, playoffs__top_speed, awards
+
+=== FBS program strength by year and level
+
+>>> select s.year, p.division, count(*) n, round(avg(s.strength),2) mean_strength, round(max(s.strength),1) top, round(min(s.strength),1) bottom from programs__seasons s join programs p on p._row = s._parent where s.year >= 2018 and p.division in ('FBS','FCS') group by p.division, s.year order by p.division, s.year
+year | division | n | mean_strength | top | bottom
+2018 | FBS | 138 | 61.24 | 70.7 | 53.5
+2019 | FBS | 138 | 61.46 | 71.4 | 55.0
+2020 | FBS | 138 | 61.32 | 71.1 | 54.9
+2021 | FBS | 138 | 62.26 | 71.0 | 55.8
+2022 | FBS | 138 | 62.61 | 72.0 | 55.6
+2023 | FBS | 138 | 62.85 | 73.6 | 56.2
+2024 | FBS | 138 | 62.32 | 70.9 | 53.4
+2025 | FBS | 138 | 61.81 | 73.0 | 54.4
+2026 | FBS | 138 | 61.71 | 72.5 | 54.4
+2027 | FBS | 138 | 62.88 | 72.6 | 56.5
+2028 | FBS | 138 | 62.99 | 73.3 | 55.3
+2029 | FBS | 138 | 62.98 | 72.3 | 56.1
+2030 | FBS | 138 | 62.66 | 72.5 | 55.5
+2031 | FBS | 138 | 62.57 | 74.9 | 53.7
+2032 | FBS | 138 | 62.57 | 74.3 | 54.9
+2033 | FBS | 138 | 62.61 | 74.7 | 54.6
+2034 | FBS | 138 | 62.56 | 73.5 | 54.0
+2035 | FBS | 138 | 62.42 | 72.3 | 53.9
+2018 | FCS | 128 | 56.34 | 60.6 | 49.0
+2019 | FCS | 128 | 56.07 | 60.2 | 48.2
+2020 | FCS | 127 | 55.81 | 60.8 | 50.5
+2021 | FCS | 127 | 57.18 | 61.4 | 50.1
+2022 | FCS | 127 | 57.24 | 61.9 | 49.2
+2023 | FCS | 127 | 57.38 | 62.5 | 51.5
+2024 | FCS | 127 | 56.73 | 61.7 | 50.6
+2025 | FCS | 128 | 56.39 | 60.6 | 49.4
+2026 | FCS | 127 | 56.34 | 60.7 | 51.0
+2027 | FCS | 127 | 56.75 | 61.1 | 51.1
+2028 | FCS | 127 | 56.78 | 61.5 | 52.7
+2029 | FCS | 127 | 56.52 | 60.6 | 51.7
+2030 | FCS | 127 | 56.21 | 59.7 | 52.0
+2031 | FCS | 128 | 56.3 | 59.9 | 50.0
+2032 | FCS | 129 | 56.32 | 60.1 | 51.1
+2033 | FCS | 130 | 56.38 | 60.0 | 50.9
+2034 | FCS | 131 | 56.25 | 62.5 | 51.7
+2035 | FCS | 131 | 56.43 | 61.4 | 52.6
+
+=== NFL starters (8+ starts): mean overall by year, people and alumni together
+
+>>> select year, count(*) n, round(avg(overall),2) mean_overall from (select s.year, h.overall from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where s.starts >= 8 and h.level = 'NFL' union all select s.year, h.overall from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where s.starts >= 8 and h.level = 'NFL') where year between 2012 and 2035 group by year order by year
+year | n | mean_overall
+2012 | 768 | 80.58
+2013 | 763 | 80.75
+2014 | 777 | 80.68
+2015 | 767 | 81.13
+2016 | 773 | 80.91
+2017 | 773 | 80.95
+2018 | 775 | 81.02
+2019 | 772 | 80.95
+2020 | 770 | 81.05
+2021 | 774 | 80.68
+2022 | 770 | 80.78
+2023 | 789 | 80.82
+2024 | 801 | 81.05
+2025 | 818 | 80.99
+2026 | 830 | 81.23
+2027 | 835 | 81.09
+2028 | 838 | 81.25
+2029 | 872 | 81.14
+2030 | 882 | 81.23
+2031 | 871 | 81.16
+2032 | 875 | 81.19
+2033 | 844 | 80.99
+2034 | 868 | 80.87
+2035 | 741 | 81.18
+
+=== NFL draftees: mean overall in their first NFL season, by draft year and round band
+
+>>> select year, case when rnd = 1 then 'round 1' when rnd <= 3 then 'rounds 2-3' else 'rounds 4-7' end band, count(*) n, round(avg(overall),2) mean_overall, round(avg(age),2) mean_age from (select s.year, json_extract(p.pro__draft,'$[1]') rnd, h.overall, h.age from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where json_extract(p.pro__draft,'$[0]') = s.year and h.level = 'NFL' union all select s.year, json_extract(a.pro__draft,'$[1]'), h.overall, h.age from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where json_extract(a.pro__draft,'$[0]') = s.year and h.level = 'NFL') where year between 2018 and 2035 and rnd between 1 and 7 group by year, band order by band, year
+year | band | n | mean_overall | mean_age
+2018 | round 1 | 29 | 79.78 | 21.41
+2019 | round 1 | 30 | 79.4 | 21.5
+2020 | round 1 | 30 | 80.41 | 21.53
+2021 | round 1 | 34 | 79.98 | 21.32
+2022 | round 1 | 28 | 79.85 | 21.71
+2023 | round 1 | 35 | 81.47 | 22.14
+2024 | round 1 | 35 | 81.87 | 21.91
+2025 | round 1 | 32 | 78.61 | 22.28
+2026 | round 1 | 32 | 80.92 | 22.03
+2027 | round 1 | 29 | 77.49 | 22.07
+2028 | round 1 | 30 | 80.4 | 22.13
+2029 | round 1 | 33 | 79.43 | 22.48
+2030 | round 1 | 32 | 81.99 | 22.22
+2031 | round 1 | 27 | 80.7 | 22.26
+2032 | round 1 | 30 | 80.17 | 22.0
+2033 | round 1 | 25 | 79.11 | 22.0
+2034 | round 1 | 30 | 81.35 | 22.27
+2035 | round 1 | 27 | 80.55 | 22.37
+2018 | rounds 2-3 | 60 | 74.08 | 22.18
+2019 | rounds 2-3 | 61 | 74.75 | 22.28
+2020 | rounds 2-3 | 61 | 74.68 | 22.08
+2021 | rounds 2-3 | 62 | 73.81 | 21.82
+2022 | rounds 2-3 | 72 | 74.38 | 22.81
+2023 | rounds 2-3 | 66 | 74.75 | 22.94
+2024 | rounds 2-3 | 73 | 75.55 | 22.7
+2025 | rounds 2-3 | 78 | 75.3 | 22.85
+2026 | rounds 2-3 | 74 | 75.95 | 22.51
+2027 | rounds 2-3 | 73 | 74.23 | 22.73
+2028 | rounds 2-3 | 64 | 75.8 | 22.63
+2029 | rounds 2-3 | 73 | 75.68 | 22.68
+2030 | rounds 2-3 | 72 | 75.48 | 22.61
+2031 | rounds 2-3 | 69 | 75.66 | 22.64
+2032 | rounds 2-3 | 66 | 75.25 | 22.59
+2033 | rounds 2-3 | 67 | 74.79 | 22.82
+2034 | rounds 2-3 | 64 | 74.96 | 22.5
+2035 | rounds 2-3 | 72 | 75.3 | 22.67
+2018 | rounds 4-7 | 145 | 71.3 | 22.63
+2019 | rounds 4-7 | 140 | 70.75 | 22.51
+2020 | rounds 4-7 | 147 | 71.4 | 22.48
+2021 | rounds 4-7 | 138 | 68.64 | 22.54
+2022 | rounds 4-7 | 140 | 70.82 | 23.3
+2023 | rounds 4-7 | 141 | 71.28 | 23.31
+2024 | rounds 4-7 | 143 | 71.78 | 22.99
+2025 | rounds 4-7 | 142 | 71.83 | 23.01
+2026 | rounds 4-7 | 150 | 72.02 | 22.73
+2027 | rounds 4-7 | 138 | 70.56 | 22.88
+2028 | rounds 4-7 | 175 | 71.8 | 22.96
+2029 | rounds 4-7 | 165 | 71.52 | 22.96
+2030 | rounds 4-7 | 156 | 72.08 | 22.93
+2031 | rounds 4-7 | 146 | 71.4 | 22.92
+2032 | rounds 4-7 | 154 | 71.79 | 22.9
+2033 | rounds 4-7 | 152 | 71.04 | 22.95
+2034 | rounds 4-7 | 160 | 71.17 | 22.94
+2035 | rounds 4-7 | 154 | 71.48 | 22.92
+
+=== national titles since 2026
+
+>>> select p.real_name, count(*) titles from programs__seasons s join programs p on p._row = s._parent where s.year >= 2026 and s.national_title and s.national_title <> 0 group by p.real_name order by titles desc limit 14
+real_name | titles
+Miami (FL) | 4
+Georgia Military | 4
+Valdosta State | 3
+Point | 3
+Western Illinois | 2
+Texas | 2
+Salisbury | 2
+Salem CC | 2
+Georgia | 2
+Blinn | 2
+Wooster | 1
+Wisconsin-Stevens Point | 1
+Wisconsin-River Falls | 1
+Winona State | 1
+
+=== FBS conference titles since 2026, most
+
+>>> select p.real_name, p.conference, count(*) titles from programs__seasons s join programs p on p._row = s._parent where s.year >= 2026 and p.division = 'FBS' and s.conference_title and s.conference_title <> 0 group by p.real_name order by titles desc limit 12
+real_name | conference | titles
+Miami (FL) | ACC | 7
+Hawaii | Mountain West | 6
+Maryland | Big Ten | 5
+Georgia | SEC | 4
+Texas | SEC | 3
+Fresno State | Pac-12 | 3
+Central Michigan | MAC | 3
+Washington State | Big 12 | 2
+Texas Tech | Big 12 | 2
+San Diego State | Big West | 2
+Navy | American | 2
+Middle Tennessee | Pac-12 | 2
+
+=== college books by tier and year: revenue and cost a school, $M
+
+>>> with cy as (select y.year, y._parent prog, (select sum(j.value) from json_each(y.l) j where j.key < 11) rev, (select sum(j.value) from json_each(y.l) j where j.key >= 11) cost from finance__college__years y) select cy.year, case when p.division = 'FBS' and p.conference in ('SEC','Big Ten') then '1 SEC and Big Ten' when p.division = 'FBS' and (p.conference in ('ACC','Big 12','Pac-12') or p.real_name = 'Notre Dame') then '2 ACC Big 12' when p.division = 'FBS' then '3 Group of 5' else '4 ' || p.division end grp, count(*) n, round(avg(rev)/1e6,1) rev_m, round(avg(cost)/1e6,1) cost_m from cy join programs p on p._row = cy.prog where cy.year >= 2021 group by 2, 1 order by 2, 1
+year | grp | n | rev_m | cost_m
+2021 | 1 SEC and Big Ten | 36 | 135.4 | 135.9
+2022 | 1 SEC and Big Ten | 36 | 144.2 | 145.0
+2023 | 1 SEC and Big Ten | 36 | 150.1 | 149.5
+2024 | 1 SEC and Big Ten | 36 | 160.1 | 159.3
+2025 | 1 SEC and Big Ten | 36 | 178.3 | 178.5
+2026 | 1 SEC and Big Ten | 36 | 184.8 | 184.9
+2027 | 1 SEC and Big Ten | 36 | 192.2 | 192.0
+2028 | 1 SEC and Big Ten | 36 | 201.8 | 201.4
+2029 | 1 SEC and Big Ten | 36 | 209.1 | 209.3
+2030 | 1 SEC and Big Ten | 36 | 218.8 | 218.4
+2031 | 1 SEC and Big Ten | 36 | 225.5 | 226.3
+2032 | 1 SEC and Big Ten | 36 | 231.4 | 231.7
+2033 | 1 SEC and Big Ten | 36 | 241.8 | 240.8
+2034 | 1 SEC and Big Ten | 36 | 250.7 | 249.0
+2021 | 2 ACC Big 12 | 49 | 86.5 | 86.5
+2022 | 2 ACC Big 12 | 49 | 90.8 | 90.9
+2023 | 2 ACC Big 12 | 49 | 98.7 | 99.2
+2024 | 2 ACC Big 12 | 49 | 102.7 | 103.0
+2025 | 2 ACC Big 12 | 49 | 111.3 | 111.1
+2026 | 2 ACC Big 12 | 49 | 116.6 | 117.4
+2027 | 2 ACC Big 12 | 49 | 120.5 | 121.4
+2028 | 2 ACC Big 12 | 49 | 126.5 | 127.9
+2029 | 2 ACC Big 12 | 49 | 131.5 | 134.4
+2030 | 2 ACC Big 12 | 49 | 137.7 | 138.4
+2031 | 2 ACC Big 12 | 49 | 143.5 | 143.5
+2032 | 2 ACC Big 12 | 49 | 149.6 | 150.3
+2033 | 2 ACC Big 12 | 49 | 154.1 | 154.9
+2034 | 2 ACC Big 12 | 49 | 160.2 | 160.2
+2021 | 3 Group of 5 | 56 | 40.5 | 40.2
+2022 | 3 Group of 5 | 56 | 42.6 | 42.6
+2023 | 3 Group of 5 | 56 | 44.5 | 44.5
+2024 | 3 Group of 5 | 56 | 46.6 | 46.6
+2025 | 3 Group of 5 | 56 | 57.3 | 57.9
+2026 | 3 Group of 5 | 56 | 60.5 | 60.6
+2027 | 3 Group of 5 | 56 | 62.9 | 63.1
+2028 | 3 Group of 5 | 56 | 65.1 | 65.4
+2029 | 3 Group of 5 | 56 | 67.4 | 68.1
+2030 | 3 Group of 5 | 56 | 69.7 | 70.0
+2031 | 3 Group of 5 | 56 | 72.2 | 72.4
+2032 | 3 Group of 5 | 56 | 74.8 | 75.1
+2033 | 3 Group of 5 | 56 | 76.9 | 77.0
+2034 | 3 Group of 5 | 56 | 80.1 | 80.5
+2021 | 4 D2 | 207 | 8.4 | 8.4
+2022 | 4 D2 | 207 | 8.6 | 8.7
+2023 | 4 D2 | 207 | 8.9 | 8.9
+2024 | 4 D2 | 207 | 9.2 | 9.2
+2025 | 4 D2 | 207 | 9.5 | 9.6
+2026 | 4 D2 | 207 | 9.9 | 9.9
+2027 | 4 D2 | 207 | 10.2 | 10.2
+2028 | 4 D2 | 207 | 10.5 | 10.6
+2029 | 4 D2 | 207 | 10.9 | 10.9
+2030 | 4 D2 | 207 | 11.3 | 11.3
+2031 | 4 D2 | 207 | 11.7 | 11.7
+2032 | 4 D2 | 207 | 12.1 | 12.1
+2033 | 4 D2 | 207 | 12.5 | 12.5
+2034 | 4 D2 | 207 | 12.9 | 12.9
+2021 | 4 D3 | 316 | 1.9 | 1.9
+2022 | 4 D3 | 316 | 2.0 | 2.0
+2023 | 4 D3 | 316 | 2.1 | 2.1
+2024 | 4 D3 | 316 | 2.2 | 2.2
+2025 | 4 D3 | 316 | 2.3 | 2.3
+2026 | 4 D3 | 316 | 2.3 | 2.4
+2027 | 4 D3 | 316 | 2.4 | 2.5
+2028 | 4 D3 | 316 | 2.5 | 2.5
+2029 | 4 D3 | 316 | 2.6 | 2.7
+2030 | 4 D3 | 316 | 2.7 | 2.8
+2031 | 4 D3 | 316 | 2.8 | 2.9
+2032 | 4 D3 | 316 | 3.0 | 3.0
+2033 | 4 D3 | 316 | 3.1 | 3.1
+2034 | 4 D3 | 316 | 3.2 | 3.2
+2021 | 4 FCS | 209 | 17.9 | 17.8
+2022 | 4 FCS | 209 | 18.6 | 18.5
+2023 | 4 FCS | 209 | 19.3 | 19.1
+2024 | 4 FCS | 209 | 20.0 | 19.8
+2025 | 4 FCS | 209 | 21.2 | 21.1
+2026 | 4 FCS | 209 | 21.9 | 21.8
+2027 | 4 FCS | 209 | 22.7 | 22.6
+2028 | 4 FCS | 209 | 23.5 | 23.3
+2029 | 4 FCS | 209 | 24.3 | 24.1
+2030 | 4 FCS | 209 | 25.1 | 25.0
+2031 | 4 FCS | 209 | 26.0 | 25.8
+2032 | 4 FCS | 209 | 26.6 | 26.5
+2033 | 4 FCS | 209 | 27.5 | 27.4
+2034 | 4 FCS | 209 | 28.5 | 28.3
+2021 | 4 JUCO | 148 | 13.6 | 13.7
+2022 | 4 JUCO | 148 | 13.8 | 14.0
+2023 | 4 JUCO | 148 | 14.1 | 14.3
+2024 | 4 JUCO | 148 | 14.3 | 14.5
+2025 | 4 JUCO | 148 | 14.8 | 15.0
+2026 | 4 JUCO | 148 | 15.2 | 15.4
+2027 | 4 JUCO | 148 | 15.7 | 15.9
+2028 | 4 JUCO | 148 | 16.2 | 16.4
+2029 | 4 JUCO | 148 | 16.7 | 16.9
+2030 | 4 JUCO | 148 | 17.2 | 17.4
+2031 | 4 JUCO | 148 | 17.7 | 17.9
+2032 | 4 JUCO | 148 | 18.2 | 18.5
+2033 | 4 JUCO | 148 | 18.8 | 19.0
+2034 | 4 JUCO | 148 | 19.4 | 19.6
+2021 | 4 NAIA | 160 | 5.3 | 5.3
+2022 | 4 NAIA | 160 | 5.5 | 5.5
+2023 | 4 NAIA | 160 | 5.6 | 5.7
+2024 | 4 NAIA | 160 | 5.8 | 5.8
+2025 | 4 NAIA | 160 | 6.0 | 6.0
+2026 | 4 NAIA | 160 | 6.2 | 6.2
+2027 | 4 NAIA | 160 | 6.4 | 6.4
+2028 | 4 NAIA | 160 | 6.6 | 6.6
+2029 | 4 NAIA | 160 | 6.8 | 6.9
+2030 | 4 NAIA | 160 | 7.1 | 7.1
+2031 | 4 NAIA | 160 | 7.3 | 7.3
+2032 | 4 NAIA | 160 | 7.6 | 7.6
+2033 | 4 NAIA | 160 | 7.8 | 7.8
+2034 | 4 NAIA | 160 | 8.1 | 8.1
+
+=== NFL clubs: average revenue and cost a club, $M, and player share of revenue
+
+>>> with ny as (select y.year, (select sum(j.value) from json_each(y.l) j where j.key < 10) rev, (select sum(j.value) from json_each(y.l) j where j.key >= 10) cost, json_extract(y.l,'$[10]') + json_extract(y.l,'$[11]') pay from finance__nfl__years y) select year, count(*) n, round(avg(rev)/1e6,1) rev_m, round(avg(cost)/1e6,1) cost_m, round(100.0*sum(pay)/sum(rev),1) player_share from ny where year >= 2015 group by year order by year
+year | n | rev_m | cost_m | player_share
+2015 | 32 | 388.1 | 316.7 | 43.5
+2016 | 32 | 420.3 | 343.8 | 44.1
+2017 | 32 | 443.0 | 359.2 | 43.4
+2018 | 32 | 466.4 | 377.0 | 44.5
+2019 | 32 | 485.9 | 392.2 | 44.7
+2020 | 32 | 320.5 | 415.1 | 71.4
+2021 | 32 | 553.8 | 442.3 | 42.3
+2022 | 32 | 600.4 | 472.4 | 42.5
+2023 | 32 | 642.9 | 498.6 | 42.6
+2024 | 32 | 725.7 | 545.4 | 42.5
+2025 | 32 | 766.1 | 585.6 | 44.3
+2026 | 32 | 812.2 | 610.7 | 43.7
+2027 | 32 | 857.2 | 653.8 | 45.2
+2028 | 32 | 902.6 | 690.1 | 45.7
+2029 | 32 | 951.7 | 750.0 | 47.6
+2030 | 32 | 1015.6 | 835.6 | 50.5
+2031 | 32 | 1069.7 | 870.1 | 50.9
+2032 | 32 | 1143.8 | 937.7 | 52.1
+2033 | 32 | 1210.4 | 1001.8 | 52.7
+2034 | 32 | 1291.2 | 1104.5 | 55.5
+
+=== every check's own year series
+
+>>> years %
+--- years C1.fbs_programs
+FBS programs this season () real=138.0 world=138.0
+year | COUNT(*)
+1996 | 111
+1997 | 112
+1998 | 112
+1999 | 114
+2000 | 115
+2001 | 117
+2002 | 117
+2003 | 117
+2004 | 118
+2005 | 119
+2006 | 119
+2007 | 120
+2008 | 120
+2009 | 120
+2010 | 120
+2011 | 120
+2012 | 124
+2013 | 125
+2014 | 128
+2015 | 128
+2016 | 128
+2017 | 130
+2018 | 130
+2019 | 130
+2020 | 130
+2021 | 130
+2022 | 131
+2023 | 133
+2024 | 134
+2025 | 136
+2026 | 138
+2027 | 138
+2028 | 138
+2029 | 138
+2030 | 138
+2031 | 138
+2032 | 138
+2033 | 138
+2034 | 138
+2035 | 138
+--- years C12.win_carry
+FBS win rate carried into next season (correlation) () real=0.536 world=0.567478218125473
+y + 1 | (n * sxz - sx * sz) / sqrt((n * sxx - sx * sx) * (n * szz - sz * sz))
+1997 | 0.562430789561768
+1998 | 0.554858970455244
+1999 | 0.597476882967628
+2000 | 0.660052285535553
+2001 | 0.535182647106983
+2002 | 0.580119151709968
+2003 | 0.547901369305437
+2004 | 0.621630318153971
+2005 | 0.527410378758422
+2006 | 0.551175283726773
+2007 | 0.606730608111293
+2008 | 0.556909168638069
+2009 | 0.614682521331114
+2010 | 0.579196760964801
+2011 | 0.62067470243289
+2012 | 0.563780368315199
+2013 | 0.595523790623491
+2014 | 0.619350237960594
+2015 | 0.652766412741455
+2016 | 0.654675175753505
+2017 | 0.671034520617725
+2018 | 0.541252743248813
+2019 | 0.575513593007657
+2020 | 0.481052750274572
+2021 | 0.601610917874988
+2022 | 0.630802542510582
+2023 | 0.463972482969856
+2024 | 0.471170215778201
+2025 | 0.523605802087818
+2026 | 0.571477068304782
+2027 | 0.595115501280879
+2028 | 0.532544025114748
+2029 | 0.557648840063498
+2030 | 0.482759074767077
+2031 | 0.524632375921269
+2032 | 0.523436993373526
+2033 | 0.508502419728833
+2034 | 0.642217212445401
+2035 | 0.430773603369083
+--- years C22.colleges_with_pick
+Colleges with a draft pick a year () real=97.2 world=103.9
+_0 | COUNT(DISTINCT _parent)
+1988 | 43
+1989 | 160
+1990 | 111
+1991 | 153
+1992 | 165
+1993 | 94
+1994 | 96
+1995 | 87
+1996 | 109
+1997 | 117
+1998 | 103
+1999 | 104
+2000 | 107
+2001 | 111
+2002 | 125
+2003 | 104
+2004 | 113
+2005 | 111
+2006 | 103
+2007 | 112
+2008 | 117
+2009 | 110
+2010 | 112
+2011 | 113
+2012 | 107
+2013 | 111
+2014 | 116
+2015 | 112
+2016 | 114
+2017 | 114
+2018 | 122
+2019 | 116
+2020 | 117
+2021 | 121
+2022 | 123
+2023 | 116
+2024 | 114
+2025 | 120
+2026 | 107
+2027 | 128
+2028 | 106
+2029 | 111
+2030 | 95
+2031 | 99
+2032 | 100
+2033 | 96
+2034 | 99
+2035 | 98
+--- years C24.champions
+State champions a year () real=350.0 world=352.0
+year | SUM(state_title)
+1996 | 352
+1997 | 352
+1998 | 352
+1999 | 352
+2000 | 352
+2001 | 352
+2002 | 352
+2003 | 352
+2004 | 352
+2005 | 352
+2006 | 352
+2007 | 352
+2008 | 352
+2009 | 352
+2010 | 352
+2011 | 352
+2012 | 352
+2013 | 352
+2014 | 352
+2015 | 352
+2016 | 352
+2017 | 352
+2018 | 352
+2019 | 352
+2020 | 352
+2021 | 352
+2022 | 352
+2023 | 352
+2024 | 352
+2025 | 352
+2026 | 352
+2027 | 352
+2028 | 352
+2029 | 352
+2030 | 352
+2031 | 352
+2032 | 352
+2033 | 352
+2034 | 352
+2035 | 352
+--- years C31.five_per_class
+Five-stars a class (players) real=46.3 world=40.7083333333333
+_0 | json_extract(_1, '$[5]')
+1997 | 50
+1998 | 46
+1999 | 47
+2000 | 44
+2001 | 40
+2002 | 59
+2003 | 52
+2004 | 47
+2005 | 39
+2006 | 48
+2007 | 51
+2008 | 41
+2009 | 30
+2010 | 37
+2011 | 34
+2012 | 34
+2013 | 40
+2014 | 30
+2015 | 40
+2016 | 46
+2017 | 45
+2018 | 47
+2019 | 56
+2020 | 44
+2021 | 36
+2022 | 34
+2023 | 37
+2024 | 38
+2025 | 40
+2026 | 35
+2027 | 34
+2028 | 41
+2029 | 44
+2030 | 46
+2031 | 45
+2032 | 53
+2033 | 33
+2034 | 35
+2035 | 42
+2036 | 36
+--- years C31.four_per_class
+Four-stars a class (players) real=300.6 world=275.708333333333
+_0 | json_extract(_1, '$[4]')
+1997 | 321
+1998 | 302
+1999 | 310
+2000 | 294
+2001 | 273
+2002 | 368
+2003 | 332
+2004 | 309
+2005 | 269
+2006 | 315
+2007 | 326
+2008 | 277
+2009 | 226
+2010 | 254
+2011 | 239
+2012 | 243
+2013 | 274
+2014 | 231
+2015 | 270
+2016 | 303
+2017 | 298
+2018 | 310
+2019 | 354
+2020 | 290
+2021 | 253
+2022 | 239
+2023 | 254
+2024 | 260
+2025 | 270
+2026 | 243
+2027 | 242
+2028 | 277
+2029 | 294
+2030 | 304
+2031 | 299
+2032 | 336
+2033 | 237
+2034 | 244
+2035 | 284
+2036 | 251
+--- years C36.decommit_share
+Verbal commitments broken (%) real=15.0 world=18.7189054726368
+year | 1.0 * blue_broken / NULLIF(blue_verbal, 0)
+1984 | 0.0916844349680171
+1985 | 0.158536585365854
+1986 | 0.345588235294118
+1987 | 0.374015748031496
+1988 | 0.138157894736842
+1989 | 0.129237288135593
+1990 | 0.1328125
+1991 | 0.224358974358974
+1992 | 0.165198237885463
+1993 | 0.0981210855949896
+1994 | 0.143137254901961
+1995 | 0.135775862068966
+1996 | 0.210065645514223
+1997 | 0.141304347826087
+1998 | 0.235807860262009
+1999 | 0.140786749482402
+2000 | 0.128735632183908
+2001 | 0.118677042801556
+2002 | 0.142581888246628
+2003 | 0.167023554603854
+2004 | 0.178313253012048
+2005 | 0.152749490835031
+2006 | 0.1419624217119
+2007 | 0.147392290249433
+2008 | 0.133858267716535
+2009 | 0.122596153846154
+2010 | 0.182038834951456
+2011 | 0.0848329048843188
+2012 | 0.133333333333333
+2013 | 0.121287128712871
+2014 | 0.150561797752809
+2015 | 0.157303370786517
+2016 | 0.149159663865546
+2017 | 0.183982683982684
+2018 | 0.174757281553398
+2019 | 0.189655172413793
+2020 | 0.208133971291866
+2021 | 0.347305389221557
+2022 | 0.184538653366584
+2023 | 0.217194570135747
+2024 | 0.164529914529915
+2025 | 0.166301969365427
+2026 | 0.22
+2027 | 0.191629955947137
+2028 | 0.191919191919192
+2029 | 0.216475095785441
+2030 | 0.164969450101833
+2031 | 0.184981684981685
+2032 | 0.167048054919908
+2033 | 0.189655172413793
+2034 | 0.177165354330709
+--- years C37.fbs_signees
+FBS signees a year (players) real=2913.0 world=3769.6
+year | n
+1984 | 2699
+1985 | 2682
+1986 | 1230
+1987 | 431
+1988 | 2338
+1989 | 2706
+1990 | 2588
+1991 | 859
+1992 | 1474
+1993 | 2282
+1994 | 2223
+1995 | 2242
+1996 | 1663
+1997 | 2079
+1998 | 2314
+1999 | 2237
+2000 | 2233
+2001 | 2047
+2002 | 2203
+2003 | 2169
+2004 | 2268
+2005 | 2302
+2006 | 2240
+2007 | 2359
+2008 | 2290
+2009 | 2279
+2010 | 2255
+2011 | 2247
+2012 | 2323
+2013 | 2362
+2014 | 2427
+2015 | 2376
+2016 | 2484
+2017 | 2678
+2018 | 2827
+2019 | 2789
+2020 | 2823
+2021 | 1867
+2022 | 2414
+2023 | 3130
+2024 | 4485
+2025 | 3935
+2026 | 3288
+2027 | 3664
+2028 | 3829
+2029 | 3950
+2030 | 3787
+2031 | 3568
+2032 | 3714
+2033 | 3916
+2034 | 3863
+--- years C4.distinct_champions_15y
+Different FBS champions in 15 years () real=8.0 world=10.92
+e | COUNT(DISTINCT t.prog)
+2010 | 13
+2011 | 13
+2012 | 12
+2013 | 12
+2014 | 12
+2015 | 12
+2016 | 12
+2017 | 10
+2018 | 12
+2019 | 13
+2020 | 12
+2021 | 12
+2022 | 12
+2023 | 12
+2024 | 11
+2025 | 11
+2026 | 11
+2027 | 11
+2028 | 10
+2029 | 10
+2030 | 10
+2031 | 9
+2032 | 8
+2033 | 7
+2034 | 6
+--- years C4.fbs_points
+FBS points a team game (pts) real=27.6 world=28.310656873835
+year | 1.0 * SUM(pf) / SUM(g)
+1996 | 27.2608
+1997 | 27.6734693877551
+1998 | 27.1828885400314
+1999 | 27.4435049961568
+2000 | 27.1439451637471
+2001 | 28.5259593679458
+2002 | 27.2798507462687
+2003 | 27.623784592371
+2004 | 27.1964549483013
+2005 | 26.6915750915751
+2006 | 28.0818242790074
+2007 | 28.1273333333333
+2008 | 28.1548643282594
+2009 | 28.4128561961564
+2010 | 27.6432825943084
+2011 | 28.2501654533422
+2012 | 27.892811296534
+2013 | 28.6184126984127
+2014 | 28.7813465101915
+2015 | 28.3333333333333
+2016 | 28.3088779284834
+2017 | 28.349696969697
+2018 | 28.9588377723971
+2019 | 29.5478787878788
+2020 | 29.4601449275362
+2021 | 29.3906439854192
+2022 | 29.6872009569378
+2023 | 27.9581367924528
+2024 | 28.2454598711189
+2025 | 27.8844827586207
+2026 | 28.0712266817411
+2027 | 28.2191392978482
+2028 | 28.5987549518959
+2029 | 28.4073863636364
+2030 | 29.1262740656852
+2031 | 28.1745042492918
+2032 | 28.6781869688385
+2033 | 28.1906108597285
+2034 | 29.2074074074074
+2035 | 29.5878787878788
+--- years C4.titles_most_15y
+Most FBS titles by one school in any 15 years () real=5.0 world=7.0
+e | MAX(n)
+2010 | 5
+2011 | 5
+2012 | 5
+2013 | 5
+2014 | 4
+2015 | 5
+2016 | 5
+2017 | 5
+2018 | 5
+2019 | 4
+2020 | 4
+2021 | 4
+2022 | 4
+2023 | 5
+2024 | 6
+2025 | 7
+2026 | 6
+2027 | 5
+2028 | 5
+2029 | 5
+2030 | 4
+2031 | 4
+2032 | 4
+2033 | 4
+2034 | 5
+--- years C40.fbs_entrants
+FBS portal entrants a cycle (players) real=2724.0 world=2655.66666666667
+year | COUNT(*)
+1995 | 501
+1996 | 1236
+1997 | 1171
+1998 | 1131
+1999 | 1115
+2000 | 1241
+2001 | 1202
+2002 | 1204
+2003 | 1079
+2004 | 1313
+2005 | 1219
+2006 | 1270
+2007 | 1309
+2008 | 1279
+2009 | 1235
+2010 | 1314
+2011 | 1258
+2012 | 1282
+2013 | 1254
+2014 | 1461
+2015 | 1281
+2016 | 1420
+2017 | 1400
+2018 | 2056
+2019 | 1966
+2020 | 2272
+2021 | 2489
+2022 | 2683
+2023 | 2795
+2024 | 3213
+2025 | 3223
+2026 | 3327
+2027 | 2887
+2028 | 2710
+2029 | 2573
+2030 | 2506
+2031 | 2389
+2032 | 2609
+2033 | 2491
+2034 | 2448
+2035 | 460
+--- years C40.fbs_found
+FBS portal entrants who found an NCAA scholarship school (%) real=62.8 world=60.400074087794
+year | AVG(CASE WHEN "to" IN ('FBS', 'FCS', 'D2') THEN 1.0 ELSE 0.0 END)
+1995 | 0.37125748502994
+1996 | 0.510517799352751
+1997 | 0.409052092228864
+1998 | 0.463306808134394
+1999 | 0.522869955156951
+2000 | 0.510072522159549
+2001 | 0.479201331114809
+2002 | 0.437707641196013
+2003 | 0.399443929564411
+2004 | 0.428027418126428
+2005 | 0.444626743232158
+2006 | 0.474803149606299
+2007 | 0.484339190221543
+2008 | 0.475371383893667
+2009 | 0.477732793522267
+2010 | 0.450532724505327
+2011 | 0.497615262321145
+2012 | 0.504680187207488
+2013 | 0.531897926634769
+2014 | 0.502395619438741
+2015 | 0.472287275565964
+2016 | 0.421830985915493
+2017 | 0.368571428571429
+2018 | 0.372568093385214
+2019 | 0.397761953204476
+2020 | 0.383362676056338
+2021 | 0.386902370429892
+2022 | 0.489750279537831
+2023 | 0.604651162790698
+2024 | 0.635854341736695
+2025 | 0.616816630468508
+2026 | 0.515479410880673
+2027 | 0.658815379286457
+2028 | 0.633210332103321
+2029 | 0.709677419354839
+2030 | 0.677174780526736
+2031 | 0.677689409794893
+2032 | 0.674971253353775
+2033 | 0.571657968687274
+2034 | 0.60171568627451
+2035 | 0.791304347826087
+--- years C5.unbeaten_per_year
+Unbeaten FBS teams a year () real=0.6 world=0.975
+year | SUM(s.losses = 0 AND s.wins > 0)
+1996 | 2
+1997 | 3
+1998 | 2
+1999 | 2
+2000 | 3
+2001 | 1
+2002 | 2
+2003 | 3
+2004 | 0
+2005 | 3
+2006 | 1
+2007 | 1
+2008 | 1
+2009 | 1
+2010 | 1
+2011 | 1
+2012 | 0
+2013 | 2
+2014 | 0
+2015 | 1
+2016 | 0
+2017 | 0
+2018 | 1
+2019 | 1
+2020 | 1
+2021 | 0
+2022 | 1
+2023 | 1
+2024 | 0
+2025 | 0
+2026 | 0
+2027 | 1
+2028 | 1
+2029 | 0
+2030 | 0
+2031 | 0
+2032 | 0
+2033 | 1
+2034 | 0
+2035 | 1
+--- years G1.fbs_one_score
+FBS games decided by 8 or less (%) real=36.7 world=33.8846880907372
+season | AVG(ABS(home_pts - away_pts) <= 8)
+2025 | 0.285714285714286
+2026 | 0.344665885111372
+2027 | 0.346335697399527
+2028 | 0.347980997624703
+2029 | 0.35377358490566
+2030 | 0.318720379146919
+2031 | 0.316784869976359
+2032 | 0.324705882352941
+2033 | 0.351415094339623
+2034 | 0.33492252681764
+2035 | 0.349583828775268
+--- years G1.fbs_points
+FBS points a team game (pts) real=26.969 world=28.4364214759461
+year | 1.0 * SUM(s.totals__points_for) / SUM(s.totals__games)
+1996 | 27.4673611111111
+1997 | 27.6896787423103
+1998 | 27.3107923497268
+1999 | 27.5615227736234
+2000 | 27.6372881355932
+2001 | 28.7739541160594
+2002 | 27.9745649263722
+2003 | 27.7496671105193
+2004 | 27.4417831004657
+2005 | 26.6679867986799
+2006 | 28.158924205379
+2007 | 28.3159828536436
+2008 | 28.5
+2009 | 28.6772645470906
+2010 | 27.8277711561383
+2011 | 28.4563798219585
+2012 | 28.2723529411765
+2013 | 29.0360674810937
+2014 | 28.8140615920976
+2015 | 28.5474537037037
+2016 | 28.5104287369641
+2017 | 28.5772311212815
+2018 | 29.2742303306727
+2019 | 29.7908309455587
+2020 | 29.6050228310502
+2021 | 29.5758620689655
+2022 | 29.7630979498861
+2023 | 27.9617798060468
+2024 | 28.2612664004564
+2025 | 27.8127128263337
+2026 | 28.0712266817411
+2027 | 28.2191392978482
+2028 | 28.5987549518959
+2029 | 28.4073863636364
+2030 | 29.1262740656852
+2031 | 28.1745042492918
+2032 | 28.6781869688385
+2033 | 28.1906108597285
+2034 | 29.2074074074074
+2035 | 29.5878787878788
+--- years G1.fbs_points_log
+FBS points a team game (game log) (pts) real=26.969 world=28.6260268540026
+season | AVG(b.points)
+2025 | 27.5
+2026 | 28.0712266817411
+2027 | 28.2191392978482
+2028 | 28.5987549518959
+2029 | 28.4073863636364
+2030 | 29.1262740656852
+2031 | 28.1745042492918
+2032 | 28.6781869688385
+2033 | 28.1906108597285
+2034 | 29.2074074074074
+2035 | 29.6053530751708
+--- years G1.fcs_points
+FCS points a team game (pts) real=26.271 world=29.1312160468032
+year | 1.0 * SUM(s.totals__points_for) / SUM(s.totals__games)
+1996 | 28.9486652977413
+1997 | 28.9381793478261
+1998 | 28.9269469331496
+1999 | 28.5735797399042
+2000 | 28.186775732788
+2001 | 29.4163822525597
+2002 | 29.5475701574264
+2003 | 28.7228749136144
+2004 | 29.1717171717172
+2005 | 29.0965166908563
+2006 | 29.0093525179856
+2007 | 30.1946454413893
+2008 | 30.004347826087
+2009 | 29.174226061915
+2010 | 29.272202166065
+2011 | 30.4996384671005
+2012 | 30.637481910275
+2013 | 29.3467230443975
+2014 | 29.2174825174825
+2015 | 28.8861111111111
+2016 | 29.8285123966942
+2017 | 29.4153952843273
+2018 | 29.4118055555556
+2019 | 29.3170227429359
+2020 | 29.5876645876646
+2021 | 30.4022191400832
+2022 | 29.6585365853659
+2023 | 27.970200970201
+2024 | 28.2576177285319
+2025 | 28.2424450549451
+2026 | 28.0941828254848
+2027 | 28.3254847645429
+2028 | 28.2631578947368
+2029 | 28.9224376731302
+2030 | 28.3409405255878
+2031 | 30.2591065292096
+2032 | 28.9022556390977
+2033 | 29.0826558265583
+2034 | 29.0686868686869
+2035 | 28.372764786795
+--- years G10.nfl_completion
+NFL completion rate (%) real=64.53 world=66.1142366211235
+season | 1.0 * SUM(b.cmp) / SUM(b.att)
+2025 | 0.665413533834586
+2026 | 0.661952224511387
+2027 | 0.659630758612757
+2028 | 0.665299702263918
+2029 | 0.655102386190557
+2030 | 0.661381333935222
+2031 | 0.655128794848206
+2032 | 0.658182989690722
+2033 | 0.664266045329379
+2034 | 0.66302718903875
+2035 | 0.667054918175994
+--- years G10.nfl_yards_per_attempt
+NFL passing yards an attempt (yds) real=7.051 world=7.59714233849735
+season | 1.0 * (SUM(b.pass_yards) + SUM(COALESCE(b.sack_yds, 0))) / SUM(b.att)
+2025 | 7.33854511278195
+2026 | 7.69173745754218
+2027 | 7.57128371772014
+2028 | 7.72071816190102
+2029 | 7.54324036780053
+2030 | 7.46169834104503
+2031 | 7.48888051977921
+2032 | 7.67414180627148
+2033 | 7.6208142342724
+2034 | 7.56853387925498
+2035 | 7.63897769495079
+--- years G2.fbs_completion
+FBS completion rate (%) real=60.62 world=59.6837917545921
+year | 1.0 * SUM(s.totals__cmp) / SUM(s.totals__att)
+1996 | 0.587571153031942
+1997 | 0.590347846118406
+1998 | 0.589454668623687
+1999 | 0.589315715388458
+2000 | 0.586842341533489
+2001 | 0.591194828850041
+2002 | 0.588828343885813
+2003 | 0.58737453662555
+2004 | 0.580102365837049
+2005 | 0.585806280289451
+2006 | 0.594188295985813
+2007 | 0.589151818108522
+2008 | 0.587825073355038
+2009 | 0.596059899104704
+2010 | 0.59677451076802
+2011 | 0.592266682521751
+2012 | 0.593277018537491
+2013 | 0.593998927696078
+2014 | 0.592891216911421
+2015 | 0.59446952807389
+2016 | 0.594571782271073
+2017 | 0.597996531749253
+2018 | 0.600223022503336
+2019 | 0.604521002010542
+2020 | 0.598485264255529
+2021 | 0.604500846639841
+2022 | 0.60510671823521
+2023 | 0.602939234440734
+2024 | 0.603300014699397
+2025 | 0.603954452510927
+2026 | 0.603256956112332
+2027 | 0.599583724742591
+2028 | 0.604470667063728
+2029 | 0.605313658636558
+2030 | 0.598259941875437
+2031 | 0.597941953481498
+2032 | 0.610207236721022
+2033 | 0.603260672445686
+2034 | 0.6057635937271
+2035 | 0.603702981874878
+--- years G2.fbs_pass_yards
+FBS passing yards a team game (yds) real=226.234 world=219.616288859414
+year | 1.0 * SUM(s.totals__pass_yards) / SUM(s.totals__games)
+1996 | 203.18973515452
+1997 | 202.87769860418
+1998 | 208.122847284337
+1999 | 204.727984668742
+2000 | 207.143066798992
+2001 | 216.194054040607
+2002 | 210.51729844991
+2003 | 214.607371713091
+2004 | 204.404237684516
+2005 | 203.722735002174
+2006 | 215.371688010232
+2007 | 209.139292598713
+2008 | 211.427543627589
+2009 | 213.48163870774
+2010 | 211.538948621169
+2011 | 210.927150341842
+2012 | 215.083930303145
+2013 | 219.207996655371
+2014 | 222.710436020491
+2015 | 225.411334254064
+2016 | 226.488143217197
+2017 | 225.37182331719
+2018 | 231.871700174274
+2019 | 236.684826075741
+2020 | 231.352013978868
+2021 | 233.325263579933
+2022 | 236.302724209638
+2023 | 221.053936948679
+2024 | 227.986793687722
+2025 | 219.307699852015
+2026 | 220.596459565475
+2027 | 219.518432454208
+2028 | 223.046268457937
+2029 | 224.514847777748
+2030 | 228.183403324231
+2031 | 220.960055818769
+2032 | 225.049449989246
+2033 | 224.057301126276
+2034 | 229.990563920809
+2035 | 228.37983349643
+--- years G2.fbs_plays
+FBS plays a team game () real=66.573 world=67.9241019177095
+year | 1.0 * SUM(s.totals__plays) / SUM(s.totals__games)
+1996 | 67.2520833333333
+1997 | 67.6691729323308
+1998 | 68.0081967213115
+1999 | 67.6444595513256
+2000 | 68.0345762711864
+2001 | 68.3434547908232
+2002 | 67.9437751004016
+2003 | 68.2882822902796
+2004 | 68.1816367265469
+2005 | 67.3353135313531
+2006 | 68.0984107579462
+2007 | 68.3116962645438
+2008 | 67.9951397326853
+2009 | 67.6790641871626
+2010 | 67.7097735399285
+2011 | 67.6427299703264
+2012 | 68.2217647058824
+2013 | 68.6433973240256
+2014 | 69.1133062173155
+2015 | 68.8385416666667
+2016 | 68.8360370799537
+2017 | 68.7488558352403
+2018 | 69.1254275940707
+2019 | 69.30888252149
+2020 | 69.2813926940639
+2021 | 69.4959770114942
+2022 | 69.4812072892938
+2023 | 66.3103251568739
+2024 | 67.186537364518
+2025 | 66.7128263337117
+2026 | 67.079706048615
+2027 | 67.114382785957
+2028 | 66.7781550650821
+2029 | 67.0630681818182
+2030 | 67.1721404303511
+2031 | 67.1807365439093
+2032 | 66.956940509915
+2033 | 67.3597285067873
+2034 | 67.42849002849
+2035 | 67.4145454545455
+--- years G2.fbs_rush_yards
+FBS rushing yards a team game (yds) real=171.827 world=204.307348682695
+year | 1.0 * SUM(s.totals__rush_yards) / SUM(s.totals__games)
+1996 | 208.19456085585
+1997 | 212.759798023249
+1998 | 204.636926657663
+1999 | 206.93666962743
+2000 | 208.554906434822
+2001 | 210.384595520555
+2002 | 203.992285437816
+2003 | 203.163378789248
+2004 | 207.674748216179
+2005 | 200.593669465265
+2006 | 208.688936719535
+2007 | 209.666177573306
+2008 | 209.809517567334
+2009 | 207.23365840241
+2010 | 200.595369857284
+2011 | 207.471358827874
+2012 | 206.346643919741
+2013 | 210.816465347155
+2014 | 205.534915405697
+2015 | 202.526836303323
+2016 | 200.625533482886
+2017 | 201.686771861839
+2018 | 206.847267694227
+2019 | 207.992276770925
+2020 | 213.002759204084
+2021 | 208.319155938718
+2022 | 204.845809487373
+2023 | 196.135626341761
+2024 | 197.975387636035
+2025 | 200.216964707706
+2026 | 203.727600317049
+2027 | 199.550677451288
+2028 | 199.897457932614
+2029 | 198.46417251776
+2030 | 201.453226398832
+2031 | 200.009164609534
+2032 | 199.527326071807
+2033 | 198.43699338478
+2034 | 200.111034145593
+2035 | 203.30799338313
+--- years G2.fbs_sacks
+FBS sacks a team game () real=1.997 world=2.22206716485099
+year | 1.0 * SUM(s.totals__sacks) / SUM(s.totals__games)
+1996 | 2.33472222222222
+1997 | 2.33287764866712
+1998 | 2.35314207650273
+1999 | 2.3494221617947
+2000 | 2.34440677966102
+2001 | 2.41160593792173
+2002 | 2.48393574297189
+2003 | 2.43941411451398
+2004 | 2.43912175648703
+2005 | 2.41584158415842
+2006 | 2.31907090464548
+2007 | 2.28107777097367
+2008 | 2.21567436208991
+2009 | 2.08278344331134
+2010 | 2.24493444576877
+2011 | 2.20118694362018
+2012 | 2.37529411764706
+2013 | 2.32228039557882
+2014 | 2.25392213829169
+2015 | 2.41666666666667
+2016 | 2.36152954808806
+2017 | 2.45137299771167
+2018 | 2.24629418472064
+2019 | 2.01833810888252
+2020 | 2.03253424657534
+2021 | 1.91551724137931
+2022 | 2.1121867881549
+2023 | 1.9532230462065
+2024 | 2.07073588134626
+2025 | 2.17990919409762
+2026 | 2.02091577162239
+2027 | 2.12004530011325
+2028 | 2.13412563667233
+2029 | 2.14204545454545
+2030 | 2.06795016987542
+2031 | 2.11218130311615
+2032 | 2.10821529745043
+2033 | 2.20022624434389
+2034 | 2.14472934472934
+2035 | 2.14484848484849
+--- years G2.fbs_yards_per_attempt
+FBS passing yards an attempt (yds) real=7.292 world=7.17239961410924
+year | 1.0 * SUM(s.totals__pass_yards) / SUM(s.totals__att)
+1996 | 6.88227921678761
+1997 | 6.83736634549449
+1998 | 6.88024948457195
+1999 | 6.83728069399537
+2000 | 6.8579642558923
+2001 | 7.11698589680311
+2002 | 6.9384465548361
+2003 | 6.98780099965449
+2004 | 6.74866703072793
+2005 | 6.82997949784889
+2006 | 7.10035631115469
+2007 | 6.88390842565707
+2008 | 6.99404591846562
+2009 | 7.09604777024989
+2010 | 6.98126375821264
+2011 | 7.04386404911119
+2012 | 7.06788087903943
+2013 | 7.21542865829088
+2014 | 7.17023029447695
+2015 | 7.29735252245392
+2016 | 7.33238052280606
+2017 | 7.26764467325478
+2018 | 7.43474694451266
+2019 | 7.48093646873098
+2020 | 7.4150472621513
+2021 | 7.39191156034965
+2022 | 7.4299452748912
+2023 | 7.31049769787074
+2024 | 7.34346702437485
+2025 | 7.24895730653104
+2026 | 7.20509475399873
+2027 | 7.14058594820746
+2028 | 7.33551884241317
+2029 | 7.36210258582224
+2030 | 7.41220413991449
+2031 | 7.20490861682512
+2032 | 7.31056574577649
+2033 | 7.18387632641645
+2034 | 7.3947207914594
+2035 | 7.34411859811167
+--- years G2.fbs_yards_per_carry
+FBS rushing yards a carry (yds) real=5.122 world=5.80364026502434
+year | 1.0 * SUM(s.totals__rush_yards) / SUM(s.totals__carries)
+1996 | 5.86325916514949
+1997 | 5.95032755076394
+1998 | 5.76552982230898
+1999 | 5.82657991390303
+2000 | 5.85683390117401
+2001 | 5.90108960862787
+2002 | 5.78838909886036
+2003 | 5.75724760752128
+2004 | 5.83517435446266
+2005 | 5.70253338662231
+2006 | 5.87188876708102
+2007 | 5.85874175183451
+2008 | 5.88494906388276
+2009 | 5.82452679194108
+2010 | 5.69088932017722
+2011 | 5.83426634888132
+2012 | 5.80709677129404
+2013 | 5.84034655812666
+2014 | 5.72315939250565
+2015 | 5.66884867793215
+2016 | 5.61567991812692
+2017 | 5.68947756337439
+2018 | 5.77713901905502
+2019 | 5.8090962237754
+2020 | 5.88511195416499
+2021 | 5.7685015410247
+2022 | 5.73872850560501
+2023 | 5.72956978081799
+2024 | 5.78350616638009
+2025 | 5.8256236572977
+2026 | 5.9002656302428
+2027 | 5.8046564276486
+2028 | 5.8127704335801
+2029 | 5.74832458868194
+2030 | 5.84536414275235
+2031 | 5.79484521308341
+2032 | 5.83771061427478
+2033 | 5.8225309817325
+2034 | 5.83312347277751
+2035 | 5.92399719360313
+--- years G3.nfl_one_score
+NFL games decided by 8 or less (%) real=53.5 world=49.8558038932949
+season | AVG(ABS(home_pts - away_pts) <= 8)
+2025 | 0.625
+2026 | 0.551470588235294
+2027 | 0.481617647058824
+2028 | 0.580882352941177
+2029 | 0.474264705882353
+2030 | 0.444852941176471
+2031 | 0.474264705882353
+2032 | 0.5
+2033 | 0.472222222222222
+2034 | 0.5
+2035 | 0.5
+--- years G3.nfl_points
+NFL points a team game (pts) real=22.51 world=25.2247656813266
+season | AVG(b.points)
+2025 | 24.09375
+2026 | 25.6047794117647
+2027 | 24.2922794117647
+2028 | 24.7242647058824
+2029 | 25.5165441176471
+2030 | 23.9632352941176
+2031 | 24.5955882352941
+2032 | 25.4982638888889
+2033 | 25.1736111111111
+2034 | 26.2239583333333
+2035 | 26.7041984732824
+--- years G7.hs_points
+High school points a team game (pts) real=26.0 world=20.5101834596752
+year | 1.0 * hs_totals__points_for / hs_totals__games
+2014 | 20.3193895968191
+2015 | 20.3991019149139
+2016 | 20.3404897090135
+2017 | 20.4253640693881
+2018 | 20.5534083307166
+2019 | 20.4877517802645
+2020 | 20.5365753761298
+2021 | 20.409403528882
+2022 | 20.4016726974807
+2023 | 20.5186825938567
+2024 | 20.5933210226887
+2025 | 20.4738004021302
+2026 | 20.5349111860519
+2027 | 20.5331004975668
+2028 | 20.6800057177086
+2029 | 20.5475776076581
+2030 | 20.5735001959645
+2031 | 20.6018944556139
+2032 | 20.5655658843298
+2033 | 20.692174407429
+2034 | 20.522895754985
+--- years N20.fcs_share_of_picks
+FCS players among draft picks (%) real=6.0 world=7.168668815314
+year | AVG(p.division = 'FCS')
+ | 0.037308868501529
+1996 | 0.096234309623431
+1997 | 0.141078838174274
+1998 | 0.0622406639004149
+1999 | 0.0883534136546185
+2000 | 0.100806451612903
+2001 | 0.0647773279352227
+2002 | 0.133333333333333
+2003 | 0.078740157480315
+2004 | 0.075098814229249
+2005 | 0.0708661417322835
+2006 | 0.0671936758893281
+2007 | 0.0703125
+2008 | 0.09375
+2009 | 0.0708661417322835
+2010 | 0.0862745098039216
+2011 | 0.0859375
+2012 | 0.0627450980392157
+2013 | 0.078740157480315
+2014 | 0.0590551181102362
+2015 | 0.0627450980392157
+2016 | 0.0784313725490196
+2017 | 0.0627450980392157
+2018 | 0.114624505928854
+2019 | 0.075098814229249
+2020 | 0.0866141732283465
+2021 | 0.0909090909090909
+2022 | 0.0866141732283465
+2023 | 0.0395256916996047
+2024 | 0.0497925311203319
+2025 | 0.0889830508474576
+2026 | 0.0454545454545455
+2027 | 0.0882352941176471
+2028 | 0.0440251572327044
+2029 | 0.0689655172413793
+2030 | 0.0185185185185185
+2031 | 0.0595238095238095
+2032 | 0.0757575757575758
+2033 | 0.0892857142857143
+2034 | 0.129032258064516
+2035 | 0.0
+--- years P21.births
+Births a year in NFL players' families (births) real= world=210.0
+_0 | _1
+1984 | 171
+1985 | 172
+1986 | 166
+1987 | 161
+1988 | 140
+1989 | 155
+1990 | 161
+1991 | 141
+1992 | 151
+1993 | 125
+1994 | 142
+1995 | 159
+1996 | 170
+1997 | 133
+1998 | 181
+1999 | 165
+2000 | 175
+2001 | 154
+2002 | 172
+2003 | 181
+2004 | 189
+2005 | 162
+2006 | 197
+2007 | 203
+2008 | 185
+2009 | 163
+2010 | 197
+2011 | 171
+2012 | 176
+2013 | 189
+2014 | 190
+2015 | 173
+2016 | 181
+2017 | 201
+2018 | 175
+2019 | 190
+2020 | 185
+2021 | 231
+2022 | 218
+2023 | 213
+2024 | 190
+2025 | 200
+2026 | 215
+2027 | 214
+2028 | 200
+2029 | 193
+2030 | 216
+2031 | 230
+2032 | 199
+2033 | 233
+2034 | 210
+2035 | 190
+--- years P22.college_trouble
+College players in trouble this season (%) real=3.0 world=3.0656456623615
+year | 1.0 * college_trouble / college_rolled
+1985 | 0.0343642165892639
+1986 | 0.0356845820127228
+1987 | 0.0339739668845035
+1988 | 0.0322877306623483
+1989 | 0.0325954574613475
+1990 | 0.0322810737866885
+1991 | 0.0317073170731707
+1992 | 0.0308280430039899
+1993 | 0.0304855208183259
+1994 | 0.0315411631529553
+1995 | 0.0314815721207968
+1996 | 0.0311294793012635
+1997 | 0.0304975451044188
+1998 | 0.0312353903693315
+1999 | 0.0314469724446884
+2000 | 0.03095451280588
+2001 | 0.0314142826202524
+2002 | 0.0298356535569126
+2003 | 0.0307945302023277
+2004 | 0.0312558598568961
+2005 | 0.030134648396027
+2006 | 0.0302813897898255
+2007 | 0.0297463596074707
+2008 | 0.0304594480331141
+2009 | 0.0312027045619828
+2010 | 0.0309280379441662
+2011 | 0.0312082514734774
+2012 | 0.0304407443682664
+2013 | 0.0304957011966544
+2014 | 0.0287650030663201
+2015 | 0.02931358332279
+2016 | 0.030655360317044
+2017 | 0.0302539900962275
+2018 | 0.0300374379661607
+2019 | 0.0302849957284237
+2020 | 0.0300493936307201
+2021 | 0.0301990514515665
+2022 | 0.0298538477523031
+2023 | 0.0286506560059575
+2024 | 0.030390823048087
+2025 | 0.0306927826192544
+2026 | 0.0301264823620064
+2027 | 0.029353238567661
+2028 | 0.0312639571237159
+2029 | 0.0304920171937366
+2030 | 0.030301573720691
+2031 | 0.0306409833749352
+2032 | 0.0303784813588735
+2033 | 0.0308769890013033
+2034 | 0.0310651974288338
+--- years P25.five_star_drafted
+Five-stars drafted (%) real=63.0 world=72.2264728385616
+class_of | AVG(d)
+2000 | 0.727272727272727
+2001 | 0.75
+2002 | 0.786885245901639
+2003 | 0.716981132075472
+2004 | 0.680851063829787
+2005 | 0.875
+2006 | 0.791666666666667
+2007 | 0.647058823529412
+2008 | 0.804878048780488
+2009 | 0.741935483870968
+2010 | 0.756756756756757
+2011 | 0.852941176470588
+2012 | 0.764705882352941
+2013 | 0.725
+2014 | 0.645161290322581
+2015 | 0.707317073170732
+2016 | 0.652173913043478
+2017 | 0.804347826086957
+2018 | 0.693877551020408
+2019 | 0.553571428571429
+2020 | 0.695652173913043
+2021 | 0.75
+2022 | 0.794117647058823
+2023 | 0.657894736842105
+2024 | 0.82051282051282
+2025 | 0.780487804878049
+2026 | 0.676470588235294
+2027 | 0.676470588235294
+2028 | 0.627906976744186
+2029 | 0.590909090909091
+2030 | 0.729166666666667
+--- years P25.four_star_drafted
+Four-stars drafted (%) real=22.1 world=16.0208474960344
+class_of | AVG(d)
+2000 | 0.172297297297297
+2001 | 0.166064981949458
+2002 | 0.210810810810811
+2003 | 0.187134502923977
+2004 | 0.146964856230032
+2005 | 0.173285198555957
+2006 | 0.208722741433022
+2007 | 0.183183183183183
+2008 | 0.132142857142857
+2009 | 0.0944206008583691
+2010 | 0.11969111969112
+2011 | 0.136363636363636
+2012 | 0.105691056910569
+2013 | 0.172043010752688
+2014 | 0.103004291845494
+2015 | 0.146520146520147
+2016 | 0.213815789473684
+2017 | 0.194078947368421
+2018 | 0.19811320754717
+2019 | 0.167130919220056
+2020 | 0.151202749140893
+2021 | 0.137254901960784
+2022 | 0.120331950207469
+2023 | 0.152941176470588
+2024 | 0.162264150943396
+2025 | 0.164233576642336
+2026 | 0.137651821862348
+2027 | 0.125506072874494
+2028 | 0.132616487455197
+2029 | 0.154605263157895
+2030 | 0.197411003236246
+--- years P29.fbs_pass_leader
+FBS passing leader a season (yds) real=4191.0 world=4580.16176923077
+year | MAX(json_extract(s, '$[5]'))
+1996 | 3506.7756
+1997 | 4221.348
+1998 | 3624.2761
+1999 | 3804.3186
+2000 | 3715.6118
+2001 | 4319.0645
+2002 | 4282.039
+2003 | 4071.6113
+2004 | 4006.4429
+2005 | 4214.3423
+2006 | 4138.0317
+2007 | 3897.3667
+2008 | 4499.1807
+2009 | 4221.0537
+2010 | 4730.817
+2011 | 4446.636
+2012 | 4402.2993
+2013 | 4762.999
+2014 | 4978.6885
+2015 | 4428.332
+2016 | 5177.6094
+2017 | 5117.317
+2018 | 5475.1323
+2019 | 4563.6055
+2020 | 4399.77
+2021 | 4291.418
+2022 | 5111.006
+2023 | 4237.7446
+2024 | 4912.457
+2025 | 4869.2827
+2026 | 5351.3555
+2027 | 4496.397
+2028 | 4828.528
+2029 | 5387.2246
+2030 | 5319.492
+2031 | 5089.754
+2032 | 5372.2783
+2033 | 4893.096
+2034 | 5461.6064
+--- years P29.fbs_rush_leader
+FBS rushing leader a season (yds) real=1809.0 world=2123.6339
+year | MAX(json_extract(s, '$[17]'))
+1996 | 2099.621
+1997 | 2255.4114
+1998 | 1695.1221
+1999 | 2202.3164
+2000 | 1624.8542
+2001 | 1624.351
+2002 | 1918.3855
+2003 | 1638.4376
+2004 | 1884.0476
+2005 | 2037.5598
+2006 | 2161.0425
+2007 | 1980.5198
+2008 | 2268.5144
+2009 | 2625.5073
+2010 | 2533.392
+2011 | 2461.2512
+2012 | 2058.859
+2013 | 2283.5957
+2014 | 2337.0103
+2015 | 2850.811
+2016 | 2020.0436
+2017 | 2129.303
+2018 | 2720.2742
+2019 | 2298.8943
+2020 | 2003.6233
+2021 | 1815.7933
+2022 | 2220.762
+2023 | 1901.5073
+2024 | 2438.232
+2025 | 2220.1687
+2026 | 2264.7695
+2027 | 2157.153
+2028 | 1821.5306
+2029 | 1809.7206
+2030 | 2036.1638
+2031 | 2012.5393
+2032 | 2510.6326
+2033 | 1927.0206
+2034 | 1972.9806
+--- years P6.invites
+Combine invites a year (players) real=325.0 world=330.0
+year | combine_invites
+1988 | 61
+1989 | 330
+1990 | 330
+1991 | 330
+1992 | 330
+1993 | 330
+1994 | 330
+1995 | 330
+1996 | 330
+1997 | 330
+1998 | 330
+1999 | 330
+2000 | 330
+2001 | 330
+2002 | 330
+2003 | 330
+2004 | 330
+2005 | 330
+2006 | 330
+2007 | 330
+2008 | 330
+2009 | 330
+2010 | 330
+2011 | 330
+2012 | 330
+2013 | 330
+2014 | 330
+2015 | 330
+2016 | 330
+2017 | 330
+2018 | 330
+2019 | 330
+2020 | 330
+2021 | 330
+2022 | 330
+2023 | 330
+2024 | 330
+2025 | 330
+2026 | 330
+2027 | 330
+2028 | 330
+2029 | 330
+2030 | 330
+2031 | 330
+2032 | 330
+2033 | 330
+2034 | 330
+--- years S8.fbs_new_head_coaches
+FBS programs with a new head coach a season (%) real=17.6 world=17.6921525115998
+year | AVG(coach IS NOT before)
+1997 | 0.267857142857143
+1998 | 0.169642857142857
+1999 | 0.219298245614035
+2000 | 0.147826086956522
+2001 | 0.205128205128205
+2002 | 0.188034188034188
+2003 | 0.153846153846154
+2004 | 0.186440677966102
+2005 | 0.184873949579832
+2006 | 0.159663865546218
+2007 | 0.158333333333333
+2008 | 0.133333333333333
+2009 | 0.175
+2010 | 0.216666666666667
+2011 | 0.2
+2012 | 0.137096774193548
+2013 | 0.128
+2014 | 0.125
+2015 | 0.21875
+2016 | 0.21875
+2017 | 0.192307692307692
+2018 | 0.153846153846154
+2019 | 0.138461538461538
+2020 | 0.1
+2021 | 0.192307692307692
+2022 | 0.099236641221374
+2023 | 0.172932330827068
+2024 | 0.186567164179104
+2025 | 0.154411764705882
+2026 | 0.195652173913043
+2027 | 0.144927536231884
+2028 | 0.166666666666667
+2029 | 0.217391304347826
+2030 | 0.246376811594203
+2031 | 0.188405797101449
+2032 | 0.152173913043478
+2033 | 0.22463768115942
+2034 | 0.181159420289855
+2035 | 0.202898550724638
+--- years S8.nfl_changes
+NFL head coach changes a season () real=6.5 world=7.86
+year | SUM(coach IS NOT before)
+1985 | 6
+1986 | 2
+1987 | 4
+1988 | 10
+1989 | 6
+1990 | 4
+1991 | 8
+1992 | 5
+1993 | 6
+1994 | 7
+1995 | 3
+1996 | 4
+1997 | 5
+1998 | 8
+1999 | 9
+2000 | 4
+2001 | 5
+2002 | 10
+2003 | 10
+2004 | 7
+2005 | 9
+2006 | 9
+2007 | 10
+2008 | 7
+2009 | 10
+2010 | 7
+2011 | 9
+2012 | 9
+2013 | 14
+2014 | 7
+2015 | 9
+2016 | 10
+2017 | 10
+2018 | 11
+2019 | 7
+2020 | 7
+2021 | 4
+2022 | 9
+2023 | 11
+2024 | 8
+2025 | 8
+2026 | 11
+2027 | 8
+2028 | 7
+2029 | 13
+2030 | 10
+2031 | 7
+2032 | 12
+2033 | 10
+2034 | 7
+######## END ROUND 1
