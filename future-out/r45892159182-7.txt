@@ -1,0 +1,17 @@
+######## ROUND 7 21:17
+
+>>> rsql select json_extract(more('log_players', lp._more), '$.person.player.attributes') from log_players lp where lp.level = 'NFL' and lp.season = 2034 and lp.person__player__position = 'IOL' limit 1
+# SQL
+
+## select json_extract(more('log_players', lp._more), '$.person.player.attributes') from log_players lp where lp.level = 'NFL' and lp.season = 2034 and lp.person__player__position = 'IOL' limit 1
+json_extract(more('log_players', lp._more), '$.person.player.attributes')
+
+
+>>> rsql select substr(json_extract(more('log_players', lp._more), '$.person.player.attributes'),1,60) a, json_type(more('log_players', lp._more), '$.person.player.attributes') ty, json_array_length(more('log_players', lp._more), '$.person.player.attributes') n from log_players lp where lp.level = 'NFL' and lp.season = 2034 limit 2
+# SQL
+
+## select substr(json_extract(more('log_players', lp._more), '$.person.player.attributes'),1,60) a, json_type(more('log_players', lp._more), '$.person.player.attributes') ty, json_array_length(more('log_players', lp._more), '$.person.player.attributes') n from log_players lp where lp.level = 'NFL' and lp.season = 2034 limit 2
+a  ty  n
+
+
+######## END ROUND 7
