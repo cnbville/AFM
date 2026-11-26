@@ -57,6 +57,7 @@ jobs:
                 "-- stop") ;;
                 --*) echo; echo "=== ${line#-- }" ;;
                 "page "*) echo; echo ">>> $line"; target/release/afm_read "$b" ${line#page } 2>&1 | head -c 40000 || true ;;
+                "rsql "*) echo; echo ">>> $line"; target/release/afm_read "$b" sql "${line#rsql }" 2>&1 | head -c 60000 || true ;;
                 "years "*)
                   # years <like pattern on the check id>: each check's own year series (its years_sql), cut to 2500 characters
                   pat="${line#years }"
