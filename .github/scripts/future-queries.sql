@@ -1,2 +1,4 @@
-rsql select k.key, substr(k.value,1,200) from log_clubs lc, json_each(more('log_clubs', lc._more), '$') k where lc._row = (select min(_row) from log_clubs where season = 2034)
-rsql select season, count(*) from log_clubs group by season
+rsql select group_concat(k.key, ',') from log_clubs lc, json_each(more('log_clubs', lc._more), '$.league') k where lc._row = (select min(_row) from log_clubs where season = 2034)
+rsql select group_concat(k.key, ',') from log_clubs lc, json_each(more('log_clubs', lc._more), '$.club') k where lc._row = (select min(_row) from log_clubs where season = 2034)
+rsql select json_extract(more('log_clubs', lc._more), '$.club.installed') from log_clubs lc where lc._row = (select min(_row) from log_clubs where season = 2034)
+rsql select season, round(avg(json_extract(more('log_clubs', _more), '$.league.coaching')),3) coaching, round(avg(json_extract(more('log_clubs', _more), '$.league.draft_skill')),3) draft_skill, round(avg(json_extract(more('log_clubs', _more), '$.league.owner')),3) owner from log_clubs group by season order by season
