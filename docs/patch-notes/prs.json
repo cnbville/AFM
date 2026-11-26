@@ -3314,5 +3314,19 @@
   "players": true,
   "title": "The four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3)",
   "tldr": "Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is."
+ },
+ "664": {
+  "auto": false,
+  "bullets": [
+   "Each point of recruiting skill builds a recruit's bond with a coach faster than before.",
+   "A typical head coach recruits as he did; strong recruiters pull clear and weak ones fall behind.",
+   "Programs rise and fall more with who coaches them, so eras come and go over ten years.",
+   "Transfers weigh a strong recruiter's calls more too."
+  ],
+  "h": "2d875e46c314",
+  "look": "hire a coach with a high Recruiting rating and follow your next two classes.",
+  "players": true,
+  "title": "Program fortunes measuring pass: size the recruiting bond's curve on four seeds",
+  "tldr": "A great recruiter now changes a program. Your head coach's and position coaches' recruiting ratings decide far more of the close battles for a recruit."
  }
 }

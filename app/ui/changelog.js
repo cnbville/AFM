@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.710", date: "26 Nov", title: "Program fortunes measuring pass: size the recruiting bond's curve on four seeds",
+    notes: [
+      "A great recruiter now changes a program. Your head coach's and position coaches' recruiting ratings decide far more of the close battles for a recruit.",
+      "Each point of recruiting skill builds a recruit's bond with a coach faster than before.",
+      "A typical head coach recruits as he did; strong recruiters pull clear and weak ones fall behind.",
+      "Programs rise and fall more with who coaches them, so eras come and go over ten years.",
+      "Transfers weigh a strong recruiter's calls more too.",
+    ],
+  },
+  {
     v: "0.2.709", date: "25 Nov", title: "The four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3)",
     notes: [
       "Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is.",

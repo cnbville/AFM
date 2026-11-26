@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.710 (26 Nov, shipped): program fortunes measuring pass: size the recruiting bond's curve on four seeds (PR #664)
+**TLDR:** A great recruiter now changes a program. Your head coach's and position coaches' recruiting ratings decide far more of the close battles for a recruit.
+- Each point of recruiting skill builds a recruit's bond with a coach faster than before. (PR #664)
+- A typical head coach recruits as he did; strong recruiters pull clear and weak ones fall behind. (PR #664)
+- Programs rise and fall more with who coaches them, so eras come and go over ten years. (PR #664)
+- Transfers weigh a strong recruiter's calls more too. (PR #664)
+- Look at: hire a coach with a high Recruiting rating and follow your next two classes. (PR #664)
+
 ## 0.2.709 (25 Nov, shipped): the four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3) (PR #663)
 **TLDR:** Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is.
 - Tackles take a vertical set against a man rushing round the edge, and meet him two yards behind the line. (PR #663)
