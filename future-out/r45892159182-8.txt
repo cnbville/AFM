@@ -1,0 +1,23 @@
+######## ROUND 8 21:18
+
+>>> rsql select group_concat(k.key, ',') from log_players lp, json_each(more('log_players', lp._more), '$.person') k where lp._row = (select min(_row) from log_players where level = 'NFL' and season = 2034 and person__player__position = 'IOL')
+# SQL
+
+## select group_concat(k.key, ',') from log_players lp, json_each(more('log_players', lp._more), '$.person') k where lp._row = (select min(_row) from log_players where level = 'NFL' and season = 2034 and person__player__position = 'IOL')
+group_concat(k.key, ',')
+stage,hs,college,class_of,followers,spotlight,brand,stars,camp_stars,visibili...
+
+>>> rsql select group_concat(k.key, ',') from log_players lp, json_each(more('log_players', lp._more), '$.person.player') k where lp._row = (select min(_row) from log_players where level = 'NFL' and season = 2034 and person__player__position = 'IOL')
+# SQL
+
+## select group_concat(k.key, ',') from log_players lp, json_each(more('log_players', lp._more), '$.person.player') k where lp._row = (select min(_row) from log_players where level = 'NFL' and season = 2034 and person__player__position = 'IOL')
+group_concat(k.key, ',')
+position,age,attributes_x10,ceilings_x10,original_potential,bloom,longevity,i...
+
+>>> rsql select substr(json_extract(more('log_players', lp._more), '$.person.player.attributes'),1,300) from log_players lp where lp._row = (select min(_row) from log_players where level = 'NFL' and season = 2034 and person__player__position = 'IOL')
+# SQL
+
+## select substr(json_extract(more('log_players', lp._more), '$.person.player.attributes'),1,300) from log_players lp where lp._row = (select min(_row) from log_players where level = 'NFL' and season = 2034 and person__player__position = 'IOL')
+substr(json_extract(more('log_players', lp._more), '$.person.player.attributes'),1,300)
+
+######## END ROUND 8
