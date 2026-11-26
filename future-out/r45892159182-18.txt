@@ -1,0 +1,39 @@
+######## ROUND 18 21:36
+
+>>> rsql select group_concat(k.key, ',') from log_clubs lc, json_each(more('log_clubs', lc._more), '$.league') k where lc._row = (select min(_row) from log_clubs where season = 2034)
+# SQL
+
+## select group_concat(k.key, ',') from log_clubs lc, json_each(more('log_clubs', lc._more), '$.league') k where lc._row = (select min(_row) from log_clubs where season = 2034)
+group_concat(k.key, ',')
+id,name,draft_skill,owner,coaching,depth,staff_years,head_coach,oc,dc,win_share
+
+>>> rsql select group_concat(k.key, ',') from log_clubs lc, json_each(more('log_clubs', lc._more), '$.club') k where lc._row = (select min(_row) from log_clubs where season = 2034)
+# SQL
+
+## select group_concat(k.key, ',') from log_clubs lc, json_each(more('log_clubs', lc._more), '$.club') k where lc._row = (select min(_row) from log_clubs where season = 2034)
+group_concat(k.key, ',')
+support,team_mood,captains,scouts,files,roster,depth,dead,carryover,unused,in...
+
+>>> rsql select json_extract(more('log_clubs', lc._more), '$.club.installed') from log_clubs lc where lc._row = (select min(_row) from log_clubs where season = 2034)
+# SQL
+
+## select json_extract(more('log_clubs', lc._more), '$.club.installed') from log_clubs lc where lc._row = (select min(_row) from log_clubs where season = 2034)
+json_extract(more('log_clubs', lc._more), '$.club.installed')
+{"off":0,"front":0,"shell":0,"off_known":1,"def_known":1,"by":[247605,224872,...
+
+>>> rsql select season, round(avg(json_extract(more('log_clubs', _more), '$.league.coaching')),3) coaching, round(avg(json_extract(more('log_clubs', _more), '$.league.draft_skill')),3) draft_skill, round(avg(json_extract(more('log_clubs', _more), '$.league.owner')),3) owner from log_clubs group by season order by season
+# SQL
+
+## select season, round(avg(json_extract(more('log_clubs', _more), '$.league.coaching')),3) coaching, round(avg(json_extract(more('log_clubs', _more), '$.league.draft_skill')),3) draft_skill, round(avg(json_extract(more('log_clubs', _more), '$.league.owner')),3) owner from log_clubs group by season order by season
+season  coaching  draft_skill  owner
+2025    15.7      11.4         10.7
+2026    15.8      11           10.7
+2027    15.7      11.1         10.7
+2028    15.7      11.2         10.7
+2029    15.6      11.3         10.7
+2030    15.7      11.3         10.7
+2031    15.7      11.3         10.7
+2032    15.8      11.5         10.7
+2033    15.7      11.5         10.7
+2034    15.6      11.3         10.8
+######## END ROUND 18
