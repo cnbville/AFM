@@ -519,16 +519,20 @@ pub fn game(g: &GameStats) -> HashMap<(usize, u32), Depth> {
         }
         if scrimmage {
             blocks_and_rush(&mut m, r, o, d, dropback);
-            // Tackling.
+            // Tackling: every man in on the tackle, as the box score has
+            // it; a stop is the work of the men who made it (a helper the
+            // runner fell into has none, `PlayRecord::tackled_by`).
+            let made = r.tackled_by();
             for &id in &r.tacklers {
                 let s = side(id, d);
+                let stop = !r.success() && made.contains(&id);
                 m.one(s, id, Dc::Tkl);
-                if !r.success() {
+                if stop {
                     m.one(s, id, Dc::Stops);
                 }
                 if r.kind == PlayType::Run {
                     m.one(s, id, Dc::RunTkl);
-                    if !r.success() {
+                    if stop {
                         m.one(s, id, Dc::RunStops);
                     }
                 }

@@ -1560,8 +1560,12 @@ impl Film {
                 if r.pressures.contains(&id) && !r.sackers.contains(&id) {
                     notes.push("Pressure".into());
                 }
-                if r.tacklers.contains(&id) {
+                // The helper a runner fell into is in on it, no more
+                // (`PlayRecord::helped`).
+                if r.tackled_by().contains(&id) {
                     notes.push("Made the tackle".into());
+                } else if r.tacklers.contains(&id) {
+                    notes.push("In on the tackle".into());
                 }
                 for &(t, _) in &r.missed_tackles {
                     if t == id {

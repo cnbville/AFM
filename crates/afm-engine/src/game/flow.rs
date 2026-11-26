@@ -3127,6 +3127,7 @@ impl<'a> Game<'a> {
         r.duration = kr.duration;
         r.hang = kr.hang as f32;
         r.tacklers = kr.notes.tacklers.clone();
+        r.helped = kr.notes.helped;
         r.missed_tackles = kr.notes.missed.clone();
         // On a return the returning team is side 0 and the kicking team side 1.
         self.apply_injuries(&mut kr.notes, [rec, team]);
@@ -3637,6 +3638,7 @@ impl<'a> Game<'a> {
         }
         r.duration = 1.4 + b.duration;
         r.tacklers = b.notes.tacklers.clone();
+        r.helped = b.notes.helped;
         r.missed_tackles = b.notes.missed.clone();
         r.recovered = b.by;
         if r.kind != PlayType::Punt {
@@ -4866,6 +4868,7 @@ impl<'a> Game<'a> {
         r.duration = kr.duration;
         r.hang = kr.hang as f32;
         r.tacklers = kr.notes.tacklers.clone();
+        r.helped = kr.notes.helped;
         r.missed_tackles = kr.notes.missed.clone();
         self.apply_injuries(&mut kr.notes, [d, o]);
         r.injuries = kr.notes.injuries.clone();
@@ -6619,6 +6622,7 @@ impl<'a> Game<'a> {
         r.laterals = res.notes.laterals;
         r.pbu = res.pbu;
         r.tacklers = res.notes.tacklers.clone();
+        r.helped = res.notes.helped;
         r.missed_tackles = res.notes.missed.clone();
         // A sack with no rusher on the quarterback (he went down in the
         // pocket to a tackle) goes to the man who tackled him.

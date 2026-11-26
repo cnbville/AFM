@@ -1252,6 +1252,10 @@ pub struct Notes {
     pub hits: Vec<u32>,
     pub sackers: Vec<u32>,
     pub tacklers: Vec<u32>,
+    /// The second tackler helped the first from a block the runner fell
+    /// into (`Sim::pile_credit`): the scorer's "(A, B)".
+    #[serde(default)]
+    pub helped: bool,
     pub missed: Vec<(u32, u32)>,
     pub first_contact: Option<f64>,
     pub forced_fumble: Option<u32>,
@@ -1684,6 +1688,18 @@ pub(crate) fn reach_memo() -> [std::cell::Cell<Option<(f64, f64, f64)>>; MAX_AGE
 
 /// The men a tackle is credited to at most (`Sim::tackled`).
 const TACKLE_CREDIT: usize = 2;
+
+/// How near a block has to be for a runner going down to fall into it, in
+/// yards from him to the blocked defender at their closest over the 0.3 of
+/// a second of the fall (`Sim::pile_credit`; realism audit item 3, the
+/// front seven's share). It is the standing tackle's reach (`Sim::tackles`),
+/// so no new size: a man who could get a hand on a runner beside him has a
+/// falling one against him. On world seed 321's NFL clubs it names a
+/// helper on 17% of tackled runs of 0 to 3 yards and 21% of 3 to 6, where
+/// the real book writes a tackle with an assist on 16% and 15% (nflverse
+/// 2023-24), and takes a team's tackles from 58.1 to 61.7 a game (real
+/// 62.0); 2.0 gave 63.4 (proposed, not confirmed).
+pub const HELPER_REACH: f64 = 1.6;
 
 /// How a block reads a rating gap (realism audit item 3, defenders' freak
 /// seasons): the edge bent on a log curve, sign × `BLOCK_BEND` × ln(1 +
@@ -2139,6 +2155,35 @@ pub const FALL_LOOK: f64 = 0.3;
 /// 0.2, 0.3, 0.5, 0.8 seconds and past it.
 pub static FIGHT_LEN: [[std::sync::atomic::AtomicU64; 6]; 2] =
     [const { [const { std::sync::atomic::AtomicU64::new(0) }; 6] }; 2];
+/// The rules `PILE_WHO` tries for a second man on a tackle by one man: an
+/// arm the carrier ran through in the last half second, in the last second,
+/// a miss in the last half second, a man in a block within 1.2 yards, within
+/// 1.6, within 1.6 and winning it, and a free man who gets within 1.2 yards
+/// on today's speeds in the next 0.3 seconds, in the next half second.
+pub const PILE_RULES: usize = 8;
+/// Debug counts for the second man on a tackle (realism audit item 3, the
+/// front seven's share): on a tackle by one man, the man each rule of
+/// `PILE_RULES` would name, as [a designed run, a catch][the play's bin][the
+/// rule][his listed position: EDGE, DT, LB, CB, S, anyone else]. A run's
+/// bin is its yards (under 0, 0-3, 3-6, 6-10, 10-20, more); a catch's, the
+/// seconds since it (under 0.3, 0.7, 1.2, 2, 3.5, more). Pure reads.
+pub static PILE_WHO: [[[[std::sync::atomic::AtomicU64; 6]; PILE_RULES]; 6]; 2] =
+    [const { [const { [const { [const { std::sync::atomic::AtomicU64::new(0) }; 6] }; PILE_RULES] }; 6] }; 2];
+/// The same tackles by which rules name a man at all (bit k for rule k).
+pub static PILE_MASK: [[[std::sync::atomic::AtomicU64; 1 << PILE_RULES]; 6]; 2] =
+    [const { [const { [const { std::sync::atomic::AtomicU64::new(0) }; 1 << PILE_RULES] }; 6] }; 2];
+/// The tackles `PILE_WHO` saw, by [run, catch][bin][one man, two or more].
+pub static PILE_N: [[[std::sync::atomic::AtomicU64; 2]; 6]; 2] =
+    [const { [const { [const { std::sync::atomic::AtomicU64::new(0) }; 2] }; 6] }; 2];
+/// Debug counts of where the front is at a designed run's first contact:
+/// every [edge, tackle, linebacker] but the man making it, by [the
+/// contact's depth past the line: under 0, 0-2, 2-4, 4-7, more][the man
+/// making it: line, linebacker, back][his state: down, blocked by a
+/// lineman, by a tight end, by anyone else, then free and ahead of the
+/// carrier within 2, 4, 7 yards and farther, then free and level with him
+/// or behind in the same bins].
+pub static FRONT_AT_CONTACT: [[[[std::sync::atomic::AtomicU64; 12]; 3]; 5]; 3] =
+    [const { [const { [const { [const { std::sync::atomic::AtomicU64::new(0) }; 12] }; 3] }; 5] }; 3];
 
 /// How near the nearest free defender must be to a carrier who goes out of
 /// bounds for the scorer to credit him with forcing him out, in yards
@@ -4344,6 +4389,7 @@ impl<'a> Sim<'a> {
         }
         if self.notes.first_contact.is_none() {
             self.notes.first_contact = Some(self.agents[c].pos.x);
+            self.front_diag(c, i);
         }
         // A blocked man's arm usually only grabs at a runner going full
         // speed: it slows him, but he runs through it.
@@ -4678,6 +4724,186 @@ impl<'a> Sim<'a> {
         FIGHT_LEN[(!run) as usize][b].fetch_add(1, Relaxed);
     }
 
+    /// `PILE_WHO`, `PILE_MASK` and `PILE_N` for a tackle (debug counts, only
+    /// with `TACKLE_DIAG`: pure reads), once the spot is known.
+    fn pile_diag(&self, c: usize) {
+        use crate::positions::Position as P;
+        use std::sync::atomic::Ordering::Relaxed;
+        if !TACKLE_DIAG.load(Relaxed) || self.agents[c].side != 0 || self.fight.is_empty() {
+            return;
+        }
+        let run = self.designed_run;
+        if !run && self.caught <= 0.0 {
+            return;
+        }
+        let t = self.t;
+        let bin = if run {
+            let y = (self.progress - self.los) * self.goal;
+            [0.0, 3.0, 6.0, 10.0, 20.0].iter().position(|&e| y < e).unwrap_or(5)
+        } else {
+            let s = t - self.caught;
+            [0.3, 0.7, 1.2, 2.0, 3.5].iter().position(|&e| s < e).unwrap_or(5)
+        };
+        let kind = (!run) as usize;
+        PILE_N[kind][bin][(self.fight.len() > 1) as usize].fetch_add(1, Relaxed);
+        if self.fight.len() != 1 {
+            return;
+        }
+        let (cp, cv) = (self.agents[c].pos, self.agents[c].vel);
+        let mut best: [Option<(f64, usize)>; PILE_RULES] = [None; PILE_RULES];
+        let mut put = |k: usize, score: f64, i: usize| {
+            if best[k].is_none_or(|b| score < b.0) {
+                best[k] = Some((score, i));
+            }
+        };
+        for (i, d) in self.agents.iter().enumerate() {
+            if d.side == 0 || self.fight.contains(&i) {
+                continue;
+            }
+            let since = t - d.last_try;
+            let missed = self.notes.missed.iter().any(|m| m.0 == d.id);
+            if since < 1.0 && !missed && d.engaged.is_some() {
+                if since < 0.5 {
+                    put(0, since, i);
+                }
+                put(1, since, i);
+            }
+            if since < 0.5 && missed {
+                put(2, since, i);
+            }
+            if !d.up(t) {
+                continue;
+            }
+            let rel = d.pos - cp;
+            let now = rel.len();
+            if let Some(e) = d.engaged {
+                if now < 1.2 {
+                    put(3, now, i);
+                }
+                if now < 1.6 {
+                    put(4, now, i);
+                    if self.eng[e].w > 0.0 {
+                        put(5, now, i);
+                    }
+                }
+            } else {
+                for (k, look) in [(6, 0.3), (7, 0.5)] {
+                    let rv = (d.vel - cv).scale(look);
+                    let back = if rv.len() > 1e-6 { clamp(-rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
+                    let dist = (rel + rv.scale(back)).len();
+                    if dist < 1.2 {
+                        put(k, dist, i);
+                    }
+                }
+            }
+        }
+        let mut mask = 0usize;
+        for (k, b) in best.iter().enumerate() {
+            if let Some((_, i)) = b {
+                mask |= 1 << k;
+                let q = match self.player(*i).position {
+                    P::EDGE => 0,
+                    P::DT => 1,
+                    P::LB => 2,
+                    P::CB => 3,
+                    P::S => 4,
+                    _ => 5,
+                };
+                PILE_WHO[kind][bin][k][q].fetch_add(1, Relaxed);
+            }
+        }
+        PILE_MASK[kind][bin][mask].fetch_add(1, Relaxed);
+    }
+
+    /// `FRONT_AT_CONTACT` for a designed run's first contact by defender `i`
+    /// (debug counts, only with `TACKLE_DIAG`: pure reads).
+    fn front_diag(&self, c: usize, i: usize) {
+        use crate::positions::Position as P;
+        use std::sync::atomic::Ordering::Relaxed;
+        if !TACKLE_DIAG.load(Relaxed) || !self.designed_run || self.agents[c].side != 0 {
+            return;
+        }
+        let t = self.t;
+        let cp = self.agents[c].pos;
+        let depth = (cp.x - self.los) * self.goal;
+        let db = [0.0, 2.0, 4.0, 7.0].iter().position(|&e| depth < e).unwrap_or(4);
+        let by = match self.player(i).position {
+            P::EDGE | P::DT => 0,
+            P::LB => 1,
+            P::CB | P::S => 2,
+            _ => return,
+        };
+        for (k, d) in self.agents.iter().enumerate() {
+            if d.side == 0 || k == i {
+                continue;
+            }
+            let q = match self.player(k).position {
+                P::EDGE => 0,
+                P::DT => 1,
+                P::LB => 2,
+                _ => continue,
+            };
+            let state = if !d.up(t) {
+                0
+            } else if let Some(e) = d.engaged {
+                match self.player(self.eng[e].blocker).position {
+                    P::OT | P::IOL => 1,
+                    P::TE => 2,
+                    _ => 3,
+                }
+            } else {
+                let rel = d.pos - cp;
+                let far = [2.0, 4.0, 7.0].iter().position(|&e| rel.len() < e).unwrap_or(3);
+                4 + far + if rel.x * self.goal > 0.5 { 0 } else { 4 }
+            };
+            FRONT_AT_CONTACT[q][db][by][state].fetch_add(1, Relaxed);
+        }
+    }
+
+    /// The pile (realism audit item 3, the front seven's share): a runner
+    /// brought down by one man falls into the blocks around him, and the
+    /// nearest defender in one of them is in on the tackle the way a
+    /// scorer writes it, the second name of "(A, B)". He has to be the
+    /// blocked man of a run block or of a block on a return (a pass rusher
+    /// is busy with the passer), not sealed or driven out of it, and the
+    /// fall has to bring the runner within a standing man's reach of him
+    /// (`HELPER_REACH`). He still can't stop the runner from his block (lane
+    /// SF3): this is the credit for a tackle another man made. Only the
+    /// book changes. Nothing here moves a man or draws from the play's
+    /// random stream, so every snap ends where it did. Only in a book
+    /// with a line for a helper (`rules::helper_form`).
+    fn pile_credit(&mut self, c: usize, fall: V2) {
+        if self.notes.tacklers.len() != 1 || !super::rules::helper_form(self.level) {
+            return;
+        }
+        let t = self.t;
+        let side = self.agents[c].side;
+        let cp = self.agents[c].pos;
+        let mut best: Option<(f64, usize)> = None;
+        for (i, d) in self.agents.iter().enumerate() {
+            if d.side == side || !d.up(t) || self.fight.contains(&i) {
+                continue;
+            }
+            let Some(e) = d.engaged.map(|k| &self.eng[k]) else { continue };
+            if e.defender != i || e.pass || e.w <= -1.0 {
+                continue;
+            }
+            // His closest approach as the runner falls and he moves on.
+            let rel = d.pos - cp;
+            let rv = d.vel.scale(0.3) - fall;
+            let back = if rv.len() > 1e-6 { clamp(-rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
+            let dist = (rel + rv.scale(back)).len();
+            if dist < HELPER_REACH && best.is_none_or(|b| dist < b.0) {
+                best = Some((dist, i));
+            }
+        }
+        if let Some((_, i)) = best {
+            let id = self.agents[i].id;
+            self.notes.tacklers.push(id);
+            self.notes.helped = true;
+        }
+    }
+
     pub fn tackled(&mut self, c: usize) {
         self.fall_diag(c);
         // The tackle goes in the book as scorers keep it: the first man and
@@ -4686,6 +4912,7 @@ impl<'a> Sim<'a> {
         // man in the pile, three or more on 7% of FBS tackles, so a team's
         // tackles ran 69.0 a game on world seed 321's FBS teams, real 65.9.
         self.notes.tacklers = self.fight.iter().take(TACKLE_CREDIT).map(|&i| self.agents[i].id).collect();
+        self.notes.helped = false;
         let x = self.agents[c].pos.x;
         if (x - self.progress) * self.goal > 0.0 {
             self.progress = x;
@@ -4701,6 +4928,7 @@ impl<'a> Sim<'a> {
         }
         let fall = mv.scale(0.3 / mass);
         let fall = if fall.len() > 1.5 { fall.norm().scale(1.5) } else { fall };
+        self.pile_credit(c, fall);
         // The pile where he goes down (engine gaps item 1).
         self.pile_checks(c, mass, mv.len() / mass);
         // Falling forward: going down with his weight going forward, the
@@ -4718,6 +4946,7 @@ impl<'a> Sim<'a> {
                 self.progress = spot;
             }
         }
+        self.pile_diag(c);
         // Face masks and late hits ride on the tackle. Unnecessary roughness
         // stands for every 15-yard personal foul after the whistle (late hits,
         // hits on a defenceless man, horse collars, taunting): real NFL 0.308

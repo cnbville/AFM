@@ -88,12 +88,20 @@ fn chemistry_moves_completions_a_little() {
 /// man in the pile used to get credit, the first man a solo, and any loss
 /// counted, even an inch: with the block's straight read of a rating gap
 /// that made a 196-tackle season and one of 52.7 tackles for loss.
+///
+/// The pro book has a second way to write two men, a tackle with an assist
+/// (the front seven's share): the first man keeps his tackle and the second
+/// has an assist. It is written for the helper a runner fell into in his
+/// block (`PlayRecord::helped`) and for a shared loss, where the first man
+/// also has the whole tackle for loss. The college book has one form and
+/// no helper (`rules::helper_form`).
 #[test]
 fn tackles_and_losses_are_kept_like_a_box_score() {
     use crate::game::stats::PlayType;
     for level in [Level::FBS, Level::NFL] {
+        let pro = crate::game::rules::helper_form(level);
         let teams = synthetic_league(level, 32, 7);
-        let (mut shared, mut inches) = (0, 0);
+        let (mut shared, mut inches, mut helpers, mut shared_losses) = (0, 0, 0, 0);
         for g in 0..24 {
             let h = (g * 7) % 32;
             let a = (g * 13 + 5) % 32;
@@ -101,12 +109,29 @@ fn tackles_and_losses_are_kept_like_a_box_score() {
             let res = quick_game(&teams[h], &teams[a], level, 7_400_003 + g as u64);
             let s = &res.stats;
             let (mut solo, mut assists, mut losses) = (0u32, 0u32, 0.0f64);
+            // The whole tackles for loss the first men of shared losses have.
+            let mut whole: std::collections::HashMap<u32, f64> = Default::default();
             // A play called back and a try are in the log, not in the book.
             for r in s.plays.iter().filter(|r| !r.nullified && r.kind != PlayType::TwoPoint) {
                 let n = r.tacklers.len();
                 assert!(n <= 2, "{level:?} game {g}: {n} men credited with one tackle");
+                let loss = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Scramble) && r.lost();
+                // A helper is the second of two men, and only in a book
+                // with a line for him; the tackle is the first man's.
+                assert!(!r.helped || (pro && n == 2), "{level:?} game {g}: a helper on a tackle by {n}");
+                assert_eq!(r.tackled_by().len(), n - r.helped as usize, "{level:?} game {g}");
+                helpers += r.helped as u32;
                 if n == 1 {
                     solo += 1;
+                } else if n == 2 && pro && (r.helped || loss) {
+                    // A tackle with an assist.
+                    solo += 1;
+                    assists += 1;
+                    shared += 1;
+                    if loss {
+                        shared_losses += 1;
+                        *whole.entry(r.tacklers[0]).or_default() += 1.0;
+                    }
                 } else {
                     assists += n as u32;
                     shared += (n == 2) as u32;
@@ -126,10 +151,23 @@ fn tackles_and_losses_are_kept_like_a_box_score() {
             assert_eq!(lines().map(|l| l.assists).sum::<u32>(), assists, "{level:?} game {g}: assists");
             let booked: f64 = lines().map(|l| l.tfl).sum();
             assert!((booked - losses).abs() < 1e-6, "{level:?} game {g}: {booked} tackles for loss, {losses} losses");
+            // The first man of a shared loss has all of it in the pro book.
+            for (id, n) in whole {
+                let got: f64 = s.players.iter().filter_map(|side| side.get(&id)).map(|l| l.tfl).sum();
+                assert!(got >= n - 1e-6, "{level:?} game {g}: {got} tackles for loss for the first man of {n} shared");
+            }
         }
         // Both cases have to come up.
         assert!(shared >= 200, "{level:?}: only {shared} shared tackles in 24 games");
         assert!(inches >= 10, "{level:?}: only {inches} losses under half a yard in 24 games");
+        // The pro book names helpers and writes its shared losses; the
+        // college book has neither.
+        if pro {
+            assert!(helpers >= 60, "{level:?}: only {helpers} helpers in 24 games");
+            assert!(shared_losses >= 5, "{level:?}: only {shared_losses} shared losses in 24 games");
+        } else {
+            assert_eq!(helpers, 0, "{level:?}: a helper in a book with no line for him");
+        }
     }
 }
 

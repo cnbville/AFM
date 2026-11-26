@@ -529,6 +529,25 @@ impl Rules {
     }
 }
 
+/// Whether the level's scorers have a line for a helper on a tackle
+/// (realism audit item 3, the front seven's share). The NFL's book writes a
+/// shared tackle two ways: "(A; B)", an assist each, or "(A, B)", a tackle
+/// for A and an assist for B (38.5% of shared tackles on runs and 38.9% on
+/// catches, nflverse 2023-24). On a loss it is almost always the second
+/// (394 of the 406 shared run losses of 2023), and A has the whole tackle
+/// for loss. The NCAA's and the high school books have one form: a stop is
+/// one man's solo or two men's assists, and a shared tackle for loss is
+/// half each. So the man a runner falls into in his block
+/// (`Sim::pile_credit`) is credited where the book can name him without
+/// taking the tackle from the man who made it. College and high school
+/// keep their count as it is: their tackle fights run longer than the
+/// pros' (the fight reads a tackler against a fixed mark, `GAPS.md`),
+/// which gives FBS the real share of shared tackles (30.5%, real 30.1%) by
+/// another road. Proposed, not confirmed.
+pub fn helper_form(level: Level) -> bool {
+    level == Level::NFL
+}
+
 /// The typical head coach's game management (1-20) at each level, as the
 /// world's coaches come out of hiring (a 15-season world at a quarter's
 /// scale, seed 2026: NFL 15.1, FBS 14.2, FCS 12.8, D2 to JUCO 12.1, high
