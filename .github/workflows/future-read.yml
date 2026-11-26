@@ -64,7 +64,7 @@ jobs:
                   for id in $(sqlite3 "$b" "select id from panels where title like '$pat' order by id limit $n"); do
                     echo "--- panel $id"; target/release/afm_read "$b" panel "$id" 2>&1 | head -c 3000 || true
                   done ;;
-                *) echo; echo ">>> $line"; sqlite3 -header -column "$b" "$line" 2>&1 | head -c 30000 || true ;;
+                *) echo; echo ">>> $line"; sqlite3 -header -separator ' | ' "$b" "$line" 2>&1 | head -c 60000 || true ;;
               esac
             done < "$q"
             echo "######## END ROUND $rn"
