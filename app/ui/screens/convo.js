@@ -159,7 +159,7 @@ function cvRoom(s, T, pic, nameRow, bio, prime) {
   // The men in the room as the talk counts them (a room's own list leads with
   // the room itself).
   const n = T.roomN != null ? T.roomN : T.room.length;
-  const people = others.map((p) => `<div class="cv-who"><span class="cv-ini ${esc(p.tone || "")}">${esc(p.ini || cvIni(p.name))}</span><div><div class="cv-whoh"><b>${esc(p.name)}</b>${p.tag ? `<em class="cv-tag ${esc(p.tagKind || "")}">${esc(p.tag)}</em>` : ""}</div><p>${esc(p.line || "")}</p></div></div>`).join("");
+  const people = others.map((p) => `<div class="cv-who"><span class="cv-ini ${esc(p.tone || "")}">${esc(p.ini || cvIni(p.name))}</span><div><div class="cv-whoh"><b>${p.link ? cvT(p.link) : esc(p.name)}</b>${p.tag ? `<em class="cv-tag ${esc(p.tagKind || "")}">${esc(p.tag)}</em>` : ""}</div><p>${esc(p.line || "")}</p></div></div>`).join("");
   const acts = (T.roomActs || []).length
     ? `<div class="cv-sec"><div class="cv-h">Change who's in the room</div>${T.roomActs.map((a) => `<button type="button" class="cv-pill" data-act="cvdo" data-cmd="${esc(a.cmd)}" data-args='${esc(JSON.stringify(a.args || {}))}'>${esc(a.text)}</button>`).join("")}</div>` : "";
   return `<div class="cv-h">In the room<span>${n} ${n === 1 ? "person" : "people"} · they all hear you</span></div>${pic}${nameRow}${bio}${prime && prime.line ? `<p class="cv-small">${esc(prime.line)}</p>` : ""}${people ? `<div class="cv-sec">${people}</div>` : ""}${(T.left || []).map(cvSection).join("")}${acts}`;
@@ -181,15 +181,15 @@ function cvCenter(s, lead, T, key, box) {
   const me = (S.status && S.status.mine && S.status.mine.name) || "";
   const bits = [];
   s.lines.forEach((l, i) => {
-    if (l.by === 0) bits.push(`<p class="cv-narr">${CV_EYE}<span>${cvT(l.text)}</span></p>`);
+    if (l.by === 0) bits.push(`<p class="cv-narr">${CV_EYE}<span>${cvT(l.rich || l.text)}</span></p>`);
     else if (l.by === 1) {
       const heard = ay(l);
       const picked = l.picked ? `<div class="ai-ha"><span class="ai-lb">You picked</span><span>${esc(l.picked)}</span></div>` : "";
-      bits.push(`<div class="cv-you"><p>${cvT(l.text)}</p>${heard || picked ? `<div class="cv-heard">${heard}${picked}</div>` : ""}</div>`);
+      bits.push(`<div class="cv-you"><p>${cvT(l.rich || l.text)}</p>${heard || picked ? `<div class="cv-heard">${heard}${picked}</div>` : ""}</div>`);
     } else {
       const who = l.name || "";
       const first = bitsPrevBy(s.lines, i) !== l.by || bitsPrevName(s.lines, i) !== who;
-      bits.push(`<div class="cv-him">${first ? `<span class="cv-av">${cvAv(lead, who)}</span>` : `<span class="cv-av gap"></span>`}<div class="cv-b">${first && who && s.who && s.who.length > 1 ? `<span class="cv-who-n">${esc(who)}</span>` : ""}<p>${cvT(l.text)}</p>${l.tell ? `<span class="cv-tell">${CV_EYE}<i>${esc(l.tell)}</i></span>` : ""}</div></div>`);
+      bits.push(`<div class="cv-him">${first ? `<span class="cv-av">${cvAv(lead, who)}</span>` : `<span class="cv-av gap"></span>`}<div class="cv-b">${first && who && s.who && s.who.length > 1 ? `<span class="cv-who-n">${l.name_rich ? cvT(l.name_rich) : esc(who)}</span>` : ""}<p>${cvT(l.rich || l.text)}</p>${l.tell ? `<span class="cv-tell">${CV_EYE}<i>${esc(l.tell)}</i></span>` : ""}</div></div>`);
     }
     for (const c of after[i] || []) bits.push(cvCard(c));
   });
@@ -198,7 +198,7 @@ function cvCenter(s, lead, T, key, box) {
   const confirm = cvConfirm(s, T, b);
   const docs = (s.docs || []).map((d) => `<section class="cv-doc"><div class="cv-h">${esc(d.title)}</div>${d.note ? `<p class="cv-small">${cvT(d.note)}</p>` : ""}<table><thead><tr>${d.cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${d.rows.map((r) => `<tr>${r.cells.map((c) => `<td>${cvT(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("");
   const ended = s.done
-    ? `<section class="cv-end"><div class="cv-h">${s.handed ? `Handed to ${esc(s.handed)}` : "How it went"}</div>${(s.outcome.length ? s.outcome : ["It's done."]).map((o) => `<p>${cvT(o)}</p>`).join("")}<div class="cv-acts">${s.next ? `<button type="button" class="st-btn small primary" data-act="ppopen" data-id="${s.next.id}">Next: ${esc(plainText(s.next.title))}</button>` : ""}<button type="button" class="st-btn small glass" data-nav="people">Back to People</button></div></section>`
+    ? `<section class="cv-end"><div class="cv-h">${s.handed ? `Handed to ${esc(s.handed)}` : "How it went"}</div>${(s.outcome.length ? s.outcome_rich || s.outcome : ["It's done."]).map((o) => `<p>${cvT(o)}</p>`).join("")}<div class="cv-acts">${s.next ? `<button type="button" class="st-btn small primary" data-act="ppopen" data-id="${s.next.id}">Next: ${esc(plainText(s.next.title))}</button>` : ""}<button type="button" class="st-btn small glass" data-nav="people">Back to People</button></div></section>`
     : "";
   const to = T.to && T.to.list ? keep("cvto:" + s.id, {}) : null;
   if (to && s.say && !to.who) to.who = T.to.list[0];
@@ -207,7 +207,7 @@ function cvCenter(s, lead, T, key, box) {
   const composer = !s.done && box
     ? `<div class="cv-comp">${toBar}${aiSayBox(s, key, { preset: { cmd: "people_say", args: { id: s.id }, limit: 400 }, log: key, words: { ph: s.kind === "OneOnOne" ? "Say it the way you would say it to him." : "Type what you'd say. The moves still work.", title: "Say it your way" } })}</div>`
     : "";
-  return `<header class="cv-top"><div><div class="st-label">${place}</div><h2 class="cv-title">${cvT(s.title)}</h2>${T.lede ? `<p class="cv-lede">${cvT(T.lede)}</p>` : ""}</div>${big != null ? `<div class="cv-time"><span class="st-label">Talk time</span><span class="cv-n"><b class="st-outline">${esc(big)}</b><span class="cv-unit">${unit}</span></span><small>${sub}</small></div>` : ""}</header>
+  return `<header class="cv-top"><div><div class="st-label">${place}</div><h2 class="cv-title">${cvT(s.title_rich || s.title)}</h2>${T.lede ? `<p class="cv-lede">${cvT(T.lede)}</p>` : ""}</div>${big != null ? `<div class="cv-time"><span class="st-label">Talk time</span><span class="cv-n"><b class="st-outline">${esc(big)}</b><span class="cv-unit">${unit}</span></span><small>${sub}</small></div>` : ""}</header>
     <div class="cv-log"><div>${bits.join("")}${docs}${confirm}${ended}</div></div>${composer}`;
 }
 const bitsPrevBy = (lines, i) => (i > 0 ? lines[i - 1].by : -1);

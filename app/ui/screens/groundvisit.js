@@ -158,12 +158,12 @@ function gvTalk(s, coach, ay) {
   const bits = [];
   let prevBy = -1;
   s.lines.forEach((l) => {
-    if (l.by === 0) bits.push(`<p class="gv-tell">${rich(l.text)}</p>`);
+    if (l.by === 0) bits.push(`<p class="gv-tell">${rich(l.rich || l.text)}</p>`);
     else if (l.by === 1) {
       const heard = ay(l);
-      bits.push(`<div class="gv-you"><p>${rich(l.text)}</p>${heard ? `<div class="ai-heard">${heard}</div>` : ""}</div>`);
+      bits.push(`<div class="gv-you"><p>${rich(l.rich || l.text)}</p>${heard ? `<div class="ai-heard">${heard}</div>` : ""}</div>`);
     } else {
-      bits.push(`<div class="gv-him">${prevBy === 2 ? '<span class="gv-av gap"></span>' : av}<div class="b">${prevBy !== 2 && l.name ? `<span class="who">${esc(l.name)}</span>` : ""}<p>${rich(l.text)}</p>${l.tell ? `<em>${esc(l.tell)}</em>` : ""}</div></div>`);
+      bits.push(`<div class="gv-him">${prevBy === 2 ? '<span class="gv-av gap"></span>' : av}<div class="b">${prevBy !== 2 && l.name ? `<span class="who">${esc(l.name)}</span>` : ""}<p>${rich(l.rich || l.text)}</p>${l.tell ? `<em>${esc(l.tell)}</em>` : ""}</div></div>`);
     }
     prevBy = l.by;
   });
@@ -174,7 +174,7 @@ function gvTalk(s, coach, ay) {
 // What you walk away with, and where to next.
 function gvEnd(s) {
   if (!s.done) return "";
-  const lines = (s.outcome.length ? s.outcome : ["It's done."]).map((o) => `<p>${rich(o)}</p>`).join("");
+  const lines = (s.outcome.length ? s.outcome_rich || s.outcome : ["It's done."]).map((o) => `<p>${rich(o)}</p>`).join("");
   return `<div class="gv-end"><div class="gd-lab2">${s.handed ? `Handed to ${esc(s.handed)}` : "What you walk away with"}</div>${lines}<div class="gv-acts">${s.next ? `<button class="st-btn small primary" data-act="ppopen" data-id="${s.next.id}">Next: ${esc(plainText(s.next.title))}</button>` : ""}<button class="st-btn small glass" data-go="groundweek">Back to the week</button></div></div>`;
 }
 
