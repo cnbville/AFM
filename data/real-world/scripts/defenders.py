@@ -310,6 +310,61 @@ def pbp_section():
                 q = pos_of.get(v, "?")
                 t[q] = t.get(q, 0) + 1
         kick_tk[kind] = {v: r(c / tg, 3) for v, c in sorted(t.items(), key=lambda z: -z[1]) if c / tg >= 0.001}
+    # Who is credited on a designed run and on a catch, alone and on a
+    # shared tackle, by listed position and by the play's length; the
+    # scorer's two forms of a shared tackle; the pairs who share one.
+    names = ["DE", "OLB", "DT", "LB", "CB", "S", "other"]
+
+    def who(x, col, first):
+        cut = [(-99 if k == first else lo, hi) for k, (lo, hi) in enumerate(edges) if k >= first] + [(-99, 999)]
+        by, pairs, forms, shared_n = {}, {}, [0, 0], 0
+        for lo, hi in cut:
+            y = x[(x[col] >= lo) & (x[col] < hi)]
+            one, two, n1, n2, wrote = np.zeros(len(names)), np.zeros(len(names)), 0, 0, [0, 0]
+            for ids, ps, t in zip(y.defense_players, y.defense_positions, y[TK].values):
+                where = {i: ON.get(q, "other") for i, q in zip(str(ids).split(";"), str(ps).split(";"))}
+                got = [v for v in t if isinstance(v, str)]
+                if len(got) == 1:
+                    n1 += 1
+                    one[names.index(where.get(got[0], "other"))] += 1
+                elif len(got) >= 2:
+                    n2 += 1
+                    gs = [where.get(v, "other") for v in got[:2]]
+                    for q in gs:
+                        two[names.index(q)] += 1
+                    # "(A, B)": a tackle with an assist. "(A; B)": an assist each.
+                    with_assist = isinstance(t[2], str)
+                    each = not with_assist and isinstance(t[4], str) and isinstance(t[5], str)
+                    wrote[0] += with_assist
+                    wrote[1] += each
+                    if (lo, hi) == (-99, 999):
+                        shared_n += 1
+                        key = "+".join(sorted(gs, key=names.index))
+                        pairs[key] = pairs.get(key, 0) + 1
+                        forms[0] += with_assist
+                        forms[1] += each
+            key = "all" if (lo, hi) == (-99, 999) else f"{lo}_{hi}"
+            by[key] = {"alone": rl(one / max(n1, 1)), "shared": rl(two / max(2 * n2, 1)),
+                       "written": rl(np.array([n1, wrote[0], wrote[1]]) / max(n1 + n2, 1))}
+            if key == "all":
+                per = {"alone": rl(100 * one / max(len(y), 1), 2), "shared": rl(100 * two / max(len(y), 1), 2)}
+        top = sorted(pairs.items(), key=lambda z: -z[1])[:14]
+        return {"by_length": by, "credits_a_100_plays": per,
+                "forms": {"a_tackle_with_an_assist": r(forms[0] / max(shared_n, 1)), "an_assist_each": r(forms[1] / max(shared_n, 1))},
+                "pairs": {k: r(v / max(shared_n, 1)) for k, v in top}}
+
+    tacklers = {
+        "note": "Plays with the men on the field charted. By the play's length (a run's yards, a catch's yards after it; the bins of "
+                "depths, then all): each listed position's share of the one-man tackles (alone) and of the credits on tackles with "
+                "two men or more, the first two men (shared), and how the scorer wrote the tackled plays (written: one man, a "
+                "tackle with an assist, an assist each, as shares of them). credits_a_100_plays: over every such play, tackled "
+                "or not. forms: the scorer's two ways to write a shared tackle, as shares of the shared tackles. pairs: the 14 "
+                "most common, as shares of the shared tackles. OLB is the listed position: 3-4 edges and 4-3 outside "
+                "linebackers both.",
+        "positions": names,
+        "runs": who(f[run.loc[f.index]], "yards_gained", 0),
+        "catches": who(f[f.complete_pass == 1], "yards_after_catch", 1),
+    }
     carried = s[((s.complete_pass == 1) | run) & (s.interception != 1) & (s.sack != 1)]
     ob_carried = carried[carried.out_of_bounds == 1]
     return {
@@ -337,6 +392,7 @@ def pbp_section():
                    "catches_by_yards_after_the_catch": depths(s[s.complete_pass == 1], "yards_after_catch", 1)},
         "carried_out_of_bounds": {"a_team_game": r(len(ob_carried) / tg, 2),
                                   "credits": {str(n): r((ob_carried.credits == n).mean()) for n in range(0, 3)}},
+        "tacklers": tacklers,
     }
 
 
@@ -358,7 +414,7 @@ def shape(acc, out):
 out = {
     "source": "ESPN college box scores (sportsdataverse-data espn_cfb_player_box) 2024-2025 with CollegeFootballData rosters (cfbfastR-data); nflverse weekly defense lines and Pro Football Reference snap counts 2021-2024; nflverse play-by-play and participation 2023-2024 (every play's tacklers, the 22 men on the field, both sides' personnel and the rushers)",
     "holes": "College defensive boxes are complete from 2024 only. No college snap counts. Rosters list many edges LB and many backs DB, and the NFL's weekly lines list 3-4 edges as LB, so the groups are the listed ones. NFL names are joined to snap counts by name, team and week (94% of tackles match).",
-    "note": "FBS tackles are solo plus assists, as the boxes print them. An NFL tackle counts a solo, a tackle with an assist and an assist one each, as the league's combined tackles add up. Seasons are every game a team played (FBS: bowls and FCS games too; NFL: the 17-game regular season). Means over the seasons read.",
+    "note": "FBS tackles are solo plus assists, as the boxes print them. An NFL tackle counts a solo, a tackle with an assist and an assist one each, as the league's combined tackles add up; its solo is the tackles one man made alone and with_an_assist the first men of the tackles written with an assist, which a gamebook's solo column adds together. Seasons are every game a team played (FBS: bowls and FCS games too; NFL: the 17-game regular season). Means over the seasons read.",
 }
 
 # ---- FBS
@@ -435,7 +491,8 @@ for y in (2021, 2022, 2023, 2024):
     d["tfl"] = d.def_tackles_for_loss.fillna(0)
     d["grp"] = d.position_group.map(PG).fillna("other")
     n = d.groupby(["team", "week"]).ngroups
-    acc.add("per_team_game", [d.tackles.sum() / n, d.def_tackles_solo.fillna(0).sum() / n, d.sacks.sum() / n, d.tfl.sum() / n])
+    acc.add("per_team_game", [d.tackles.sum() / n, d.def_tackles_solo.fillna(0).sum() / n, d.sacks.sum() / n, d.tfl.sum() / n,
+                              d.def_tackles_with_assist.fillna(0).sum() / n])
     p = d.groupby("player_id").agg(tackles=("tackles", "sum"), sacks=("sacks", "sum"), tfl=("tfl", "sum"))
     ladders(acc, p)
     s = d.groupby(["team", "player_id", "grp"]).agg(tackles=("tackles", "sum"), sacks=("sacks", "sum"), tfl=("tfl", "sum")).reset_index()
@@ -462,7 +519,8 @@ for y in (2021, 2022, 2023, 2024):
     m = sn.merge(d[["name", "team", "week", "tackles", "sacks", "tfl"]], on=["name", "team", "week"], how="left").fillna({"tackles": 0, "sacks": 0, "tfl": 0})
     m["tg"] = sn.groupby(["game_id", "team"]).ngroups
     rate_rows.append(m)
-nfl = {"seasons": [2021, 2022, 2023, 2024], "per_team_game": dict(zip(["tackles", "solo", "sacks", "tfl"], acc.mean("per_team_game", 2)))}
+nfl = {"seasons": [2021, 2022, 2023, 2024],
+       "per_team_game": dict(zip(["tackles", "solo", "sacks", "tfl", "with_an_assist"], acc.mean("per_team_game", 2)))}
 shape(acc, nfl)
 nfl["by_group"]["note"] = "a_team_game is tackles, sacks, tackles for loss; 3-4 edges are listed LB"
 nfl["snap_share_by_rank_in_a_game"] = {g: {"ranks_1_6": acc.mean(f"snaps_{g}", 2)[:6], "on_the_field": acc.mean(f"snaps_{g}", 2)[6]} for g in ("DE", "DT", "LB", "CB", "S")}

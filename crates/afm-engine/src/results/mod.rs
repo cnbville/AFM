@@ -353,7 +353,7 @@ pub fn trials(r: &PlayRecord, level: Level, out: &mut Vec<Trial>) {
             // Run stops: every defender on the field gets a trial.
             let stop = !r.success();
             for &id in &r.on_field[1] {
-                let made = stop && r.tacklers.contains(&id);
+                let made = stop && r.tackled_by().contains(&id);
                 put(id, Read::Recognition, made as u8 as f64, 0.0);
             }
         }
@@ -378,7 +378,7 @@ pub fn trials(r: &PlayRecord, level: Level, out: &mut Vec<Trial>) {
     // Tackling, on every play with a ball carrier (kicks included: a
     // gunner's miss is a miss).
     if matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Scramble | PlayType::Punt | PlayType::Kickoff) {
-        for &id in &r.tacklers {
+        for &id in r.tackled_by() {
             put(id, Read::Tackle, 0.0, 0.0);
         }
         for &(tk, _) in &r.missed_tackles {

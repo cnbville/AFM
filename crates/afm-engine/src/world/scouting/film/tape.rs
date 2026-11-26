@@ -1013,7 +1013,7 @@ fn role_of(r: &PlayRecord, me: u32, off: bool, pos: Position) -> Role {
             }
         }
         PlayType::Run => {
-            if r.tacklers.contains(&me)
+            if r.tackled_by().contains(&me)
                 || r.missed_tackles.iter().any(|x| x.0 == me)
                 || in_blocks_d
                 || matches!(pos, Position::EDGE | Position::DT | Position::LB)
@@ -1028,7 +1028,7 @@ fn role_of(r: &PlayRecord, me: u32, off: bool, pos: Position) -> Role {
                 Role::Kick
             } else if r.returner == Some(me) {
                 Role::Carrier
-            } else if r.tacklers.contains(&me) || r.missed_tackles.iter().any(|x| x.0 == me) {
+            } else if r.tackled_by().contains(&me) || r.missed_tackles.iter().any(|x| x.0 == me) {
                 Role::Coverage
             } else {
                 Role::Away
@@ -1091,7 +1091,7 @@ fn grade_of(r: &PlayRecord, me: u32, role: Role) -> i8 {
         Role::RunStop | Role::Coverage => {
             if missed {
                 -1
-            } else if r.tacklers.contains(&me) && r.yards <= 3.0 {
+            } else if r.tackled_by().contains(&me) && r.yards <= 3.0 {
                 1
             } else {
                 0
@@ -1341,7 +1341,7 @@ fn result_words(r: &PlayRecord, role: Role, me: u32) -> String {
         PlayType::Run | PlayType::Scramble => {
             if r.fumble_lost {
                 "Fumble, lost".into()
-            } else if r.tacklers.contains(&me) {
+            } else if r.tackled_by().contains(&me) {
                 format!("His tackle, gain of {y}")
             } else if y < 0 {
                 format!("Loss of {}", -y)
@@ -1350,7 +1350,7 @@ fn result_words(r: &PlayRecord, role: Role, me: u32) -> String {
             }
         }
         PlayType::Punt => {
-            if r.tacklers.contains(&me) {
+            if r.tackled_by().contains(&me) {
                 format!("His tackle, {} return", r.return_yards.round() as i32)
             } else if r.fair_catch {
                 format!("{:.0}-yard punt, fair catch", r.kick_distance)
@@ -1361,7 +1361,7 @@ fn result_words(r: &PlayRecord, role: Role, me: u32) -> String {
         PlayType::Kickoff => {
             if r.touchback {
                 "Touchback".into()
-            } else if r.tacklers.contains(&me) {
+            } else if r.tackled_by().contains(&me) {
                 format!("His tackle at the {}", (100.0 - r.yardline_100).round() as i32)
             } else {
                 format!("{}-yard return", r.return_yards.round() as i32)
@@ -1619,7 +1619,7 @@ fn cues_of(
                 if r.air_yards >= 15.0 {
                     v.push(Speed);
                 }
-                if r.pbu == Some(p.id) || r.interceptor == Some(p.id) || r.tacklers.contains(&p.id) {
+                if r.pbu == Some(p.id) || r.interceptor == Some(p.id) || r.tackled_by().contains(&p.id) {
                     v.extend([Acceleration, Agility]);
                 }
                 v
@@ -1628,7 +1628,7 @@ fn cues_of(
             if r.pbu == Some(p.id) || r.interceptor == Some(p.id) || r.separation < 1.0 {
                 v.push(ContestedCatch);
             }
-            if r.tacklers.contains(&p.id) {
+            if r.tackled_by().contains(&p.id) {
                 v.push(Tackling);
             }
             v
@@ -1790,8 +1790,8 @@ fn call_of(
             ))
         }
         Role::RunStop | Role::Coverage => {
-            let made = r.tacklers.contains(&me) && !r.missed_tackles.iter().any(|x| x.0 == me);
-            if !(r.tacklers.contains(&me) || r.missed_tackles.iter().any(|x| x.0 == me)) {
+            let made = r.tackled_by().contains(&me) && !r.missed_tackles.iter().any(|x| x.0 == me);
+            if !(r.tackled_by().contains(&me) || r.missed_tackles.iter().any(|x| x.0 == me)) {
                 return None;
             }
             Some(yn(
@@ -1833,7 +1833,7 @@ fn surprise_of(r: &PlayRecord, me: u32, role: Role, p: &crate::world::Person, sa
     }) {
         return Some("A late shot after the whistle. The flag comes out.".into());
     }
-    if role == Role::Coverage && r.tacklers.contains(&me) {
+    if role == Role::Coverage && r.tackled_by().contains(&me) {
         return Some("A big hit on kick coverage.".into());
     }
     let temper = p.player.personality.traits.temper;
@@ -1913,7 +1913,7 @@ fn stat_of(r: &PlayRecord, me: u32, role: Role) -> Stat {
         }
         _ => {}
     }
-    if r.tacklers.contains(&me) {
+    if r.tackled_by().contains(&me) {
         s.tackles = 1;
     }
     if r.missed_tackles.iter().any(|x| x.0 == me) {

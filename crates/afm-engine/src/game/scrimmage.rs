@@ -7665,6 +7665,7 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         // The man who brings him down has the tackle; a second sacker is in
         // on it (an assist), as the NFL and the NCAA keep a shared sack.
         sim.notes.tacklers = sim.notes.sackers.clone();
+        sim.notes.helped = false;
         sim.dead = true;
         sim.ball = Ball::Dead(me);
     }

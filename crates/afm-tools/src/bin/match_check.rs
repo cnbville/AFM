@@ -2235,7 +2235,9 @@ fn main() {
 /// games). All of it is read from `data/real-world/defenders.json`
 /// (`data/real-world/scripts/defenders.py`).
 struct DefReal {
-    /// A team game's tackles, solo tackles, sacks and tackles for loss.
+    /// A team game's tackles, solo tackles, sacks and tackles for loss. The
+    /// NFL's solo is the gamebook's: the tackles one man made alone and the
+    /// first men of the tackles written with an assist.
     game: String,
     /// The nth best a year (1 2 3 5 10 25 50 100 200) and the men a year at or over four marks.
     sacks: ([f64; 9], [(f64, f64); 4]),
@@ -2271,6 +2273,12 @@ struct DefReal {
     rush: Option<String>,
     /// FBS team games by the final margin.
     margins: Option<String>,
+    /// The NFL's tacklers on designed runs and on catches by the play's
+    /// length (2023-24): who made a tackle alone and who shared one by
+    /// listed position, how the scorer wrote it, the credits a 100 plays
+    /// and the pairs on a shared run tackle. Lines for [runs, catches],
+    /// then the two lines under them.
+    tacklers: Option<([Vec<String>; 2], String, String)>,
 }
 
 impl DefReal {
@@ -2509,7 +2517,65 @@ impl DefReal {
             };
             format!("{name}, games between FBS teams, won: {} || lost: {}", row("won"), row("lost"))
         });
+        let tacklers = (level == Level::NFL).then(|| {
+            let t = &v["pbp"]["tacklers"];
+            let rows = |kind: &str, keys: &[&str], names: &[&str]| -> Vec<String> {
+                keys.iter()
+                    .zip(names.iter())
+                    .map(|(k, n)| {
+                        let x = &t[kind]["by_length"][*k];
+                        format!(
+                            "    {n:<6} alone {} | shared {} | written {}",
+                            line(&x["alone"], 3),
+                            line(&x["shared"], 3),
+                            line(&x["written"], 3)
+                        )
+                    })
+                    .collect()
+            };
+            let per = &t["runs"]["credits_a_100_plays"];
+            let (alone, shared) = (arr(&per["alone"]), arr(&per["shared"]));
+            let credits = ["DE", "OLB", "DT", "LB", "CB", "S", "other"]
+                .iter()
+                .enumerate()
+                .map(|(q, n)| format!("{n} {:.2} / {:.2}", alone[q], shared[q]))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let forms = |kind: &str| {
+                let x = &t[kind]["forms"];
+                format!("{:.3} and {:.3}", f(&x["a_tackle_with_an_assist"]), f(&x["an_assist_each"]))
+            };
+            let pairs = t["runs"]["pairs"]
+                .as_object()
+                .map(|m| {
+                    let mut v: Vec<(&String, f64)> = m.iter().map(|(a, b)| (a, f(b))).collect();
+                    v.sort_by(|a, b| b.1.total_cmp(&a.1));
+                    v.iter().map(|(a, b)| format!("{a} {b:.3}")).collect::<Vec<_>>().join(", ")
+                })
+                .unwrap_or_default();
+            (
+                [
+                    rows(
+                        "runs",
+                        &["-99_0", "0_3", "3_6", "6_10", "10_20", "20_999", "all"],
+                        &["<0", "0-3", "3-6", "6-10", "10-20", "20+", "all"],
+                    ),
+                    rows(
+                        "catches",
+                        &["-99_3", "3_6", "6_10", "10_20", "20_999", "all"],
+                        &["<3", "3-6", "6-10", "10-20", "20+", "all"],
+                    ),
+                ],
+                format!(
+                    "real NFL 2023-24 designed runs, credits a 100 runs alone / shared: {credits} | a shared tackle written with an assist and as an assist each: runs {}, catches {}",
+                    forms("runs"),
+                    forms("catches")
+                ),
+                format!("real NFL 2023-24 designed runs, the pairs on a shared tackle: {pairs}"),
+            )
+        });
         DefReal {
+            tacklers,
             snaps,
             rates,
             plays,
@@ -2519,13 +2585,25 @@ impl DefReal {
             teams,
             rush,
             margins,
-            game: format!(
-                "{name}: {:.1}, {:.1}, {:.2}, {:.2}",
-                f(&pg["tackles"]),
-                f(&pg["solo"]),
-                f(&pg["sacks"]),
-                f(&pg["tfl"])
-            ),
+            game: if level == Level::NFL {
+                format!(
+                    "{name}: {:.1}, {:.1} ({:.1} alone and {:.1} with an assist), {:.2}, {:.2}",
+                    f(&pg["tackles"]),
+                    f(&pg["solo"]) + f(&pg["with_an_assist"]),
+                    f(&pg["solo"]),
+                    f(&pg["with_an_assist"]),
+                    f(&pg["sacks"]),
+                    f(&pg["tfl"])
+                )
+            } else {
+                format!(
+                    "{name}: {:.1}, {:.1}, {:.2}, {:.2}",
+                    f(&pg["tackles"]),
+                    f(&pg["solo"]),
+                    f(&pg["sacks"]),
+                    f(&pg["tfl"])
+                )
+            },
             sacks: (ladder("sacks"), over("sacks", [10.0, 12.0, 15.0, 20.0])),
             tfl: (ladder("tfl"), over("tfl", [15.0, 20.0, 25.0, 30.0])),
             tackles: (ladder("tackles"), over("tackles", [100.0, 120.0, 130.0, 150.0])),
@@ -2568,9 +2646,10 @@ fn kick_credits(r: &afm_engine::game::GameResult, level: Level) -> std::collecti
     }
     for p in r.stats.plays.iter().filter(|p| !p.nullified && matches!(p.kind, PlayType::Punt | PlayType::Kickoff)) {
         let two = p.tacklers.len() > 1;
-        for &id in &p.tacklers {
+        for (k, &id) in p.tacklers.iter().enumerate() {
             let e: &mut (u32, u32) = out.entry(id).or_default();
-            if two {
+            // With a helper the first man keeps his tackle (`PlayRecord::helped`).
+            if two && !(p.helped && k == 0) {
                 e.1 += 1;
             } else {
                 e.0 += 1;
@@ -2996,6 +3075,18 @@ fn defenders_plays(
     // position of the man in each (WR, CB, TE, RB, anyone else): how often
     // a two-way man lines up at receiver.
     let mut recv_pos = [[0u32; 5]; 2];
+    // Designed runs and catches by the bin of `DEPTHS` (and all of them
+    // last): the tackles by one man and the credits on a tackle by two, by
+    // the credited man's listed position (EDGE, DT, LB, CB, S, anyone
+    // else), and the pairs on a run.
+    let mut who_one = [[[0u32; 6]; 7]; 2];
+    let mut who_two = [[[0u32; 6]; 7]; 2];
+    // The same plays by how the book writes the tackle: one man, a tackle
+    // with an assist (`PlayRecord::helped`, or a shared loss in the pro
+    // book), an assist each.
+    let mut written = [[[0u32; 3]; 7]; 2];
+    let pro_book = afm_engine::game::rules::helper_form(level);
+    let mut run_pairs: std::collections::BTreeMap<(usize, usize), u32> = Default::default();
     let mut backs_n = [0u32; 8];
     let mut saf_n = [0u32; 6];
     // By the receivers, with five backs and with six or more: the snaps and
@@ -3275,6 +3366,33 @@ fn defenders_plays(
                     row[2] += (n > 1) as u32;
                     row[3] += p.out_of_bounds as u32;
                 }
+                if (k == 0 || k == 3) && n > 0 {
+                    let kk = (k == 3) as usize;
+                    let b = if k == 0 { depth_bin(p.yards) } else { depth_bin(p.yac).max(1) };
+                    let q = |id: &u32| who[ts[d]].get(id).and_then(|x| pos_k(x.position)).unwrap_or(5);
+                    let form = if n == 1 {
+                        0
+                    } else if pro_book && (p.helped || p.lost()) {
+                        1
+                    } else {
+                        2
+                    };
+                    written[kk][b][form] += 1;
+                    written[kk][6][form] += 1;
+                    if n == 1 {
+                        who_one[kk][b][q(&p.tacklers[0])] += 1;
+                        who_one[kk][6][q(&p.tacklers[0])] += 1;
+                    } else {
+                        let (x, y) = (q(&p.tacklers[0]), q(&p.tacklers[1]));
+                        for z in [x, y] {
+                            who_two[kk][b][z] += 1;
+                            who_two[kk][6][z] += 1;
+                        }
+                        if k == 0 {
+                            *run_pairs.entry((x.min(y), x.max(y))).or_default() += 1;
+                        }
+                    }
+                }
             }
             if n == 0 {
                 let why = if kind.is_none() {
@@ -3481,6 +3599,170 @@ fn defenders_plays(
                     .collect::<Vec<_>>()
                     .join(", ")
             );
+        }
+    }
+    // Who is credited alone and who with another man, by listed position.
+    {
+        let names = ["EDGE", "DT", "LB", "CB", "S", "other"];
+        let sh = |v: &[u32; 6]| {
+            let n = v.iter().sum::<u32>().max(1) as f64;
+            v.iter().map(|x| format!("{:.3}", *x as f64 / n)).collect::<Vec<_>>().join(" ")
+        };
+        for (kk, name) in ["designed runs by yards", "catches by yards after the catch"].iter().enumerate() {
+            println!(
+                "  {name}: the tackler alone, then the two men on a shared tackle, by listed position (EDGE DT LB CB S other), then the tackled plays as the book writes them (one man, a tackle with an assist, an assist each):"
+            );
+            for b in 0..7 {
+                // A catch's first bin is under 3 yards after it.
+                if kk == 1 && b == 0 {
+                    continue;
+                }
+                let label = if b == 6 {
+                    "all"
+                } else if kk == 1 && b == 1 {
+                    "<3"
+                } else {
+                    DEPTHS[b]
+                };
+                let w = written[kk][b];
+                let n = w.iter().sum::<u32>().max(1) as f64;
+                println!(
+                    "    {label:<6} alone {} | shared {} | written {:.3} {:.3} {:.3}",
+                    sh(&who_one[kk][b]),
+                    sh(&who_two[kk][b]),
+                    w[0] as f64 / n,
+                    w[1] as f64 / n,
+                    w[2] as f64 / n
+                );
+            }
+            if let Some(t) = &real.tacklers {
+                println!(
+                    "  real NFL 2023-24, the same (DE OLB DT LB CB S other; OLB is the 3-4 edges and the 4-3 outside linebackers):"
+                );
+                for row in &t.0[kk] {
+                    println!("{row}");
+                }
+            }
+        }
+        let runs = by_kind.kind[0][0].max(1) as f64;
+        println!(
+            "  designed runs, credits a 100 runs alone / shared: {}",
+            names
+                .iter()
+                .enumerate()
+                .map(|(q, n)| format!(
+                    "{n} {:.2} / {:.2}",
+                    100.0 * who_one[0][6][q] as f64 / runs,
+                    100.0 * who_two[0][6][q] as f64 / runs
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        if let Some(t) = &real.tacklers {
+            println!("  {}", t.1);
+        }
+        let two: u32 = run_pairs.values().sum();
+        let mut v: Vec<_> = run_pairs.iter().collect();
+        v.sort_by_key(|x| std::cmp::Reverse(*x.1));
+        println!(
+            "  designed runs, the pairs on a shared tackle: {}",
+            v.iter()
+                .take(14)
+                .map(|(k, c)| format!("{}+{} {:.3}", names[k.0], names[k.1], **c as f64 / two.max(1) as f64))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        if let Some(t) = &real.tacklers {
+            println!("  {}", t.2);
+        }
+        use afm_engine::game::sim::{FRONT_AT_CONTACT, PILE_MASK, PILE_N, PILE_RULES, PILE_WHO};
+        use std::sync::atomic::Ordering::Relaxed;
+        let rules = [
+            "arm 0.5s",
+            "arm 1s",
+            "miss 0.5s",
+            "blocked 1.2",
+            "blocked 1.6",
+            "blocked 1.6 winning",
+            "free 0.3s",
+            "free 0.5s",
+        ];
+        for (kk, kind) in
+            ["designed runs (by yards)", "catches (by seconds since the catch: <0.3, <0.7, <1.2, <2, <3.5, more)"]
+                .iter()
+                .enumerate()
+        {
+            println!(
+                "  a second man by candidate rule on a tackle one man made in the fight (measured only: the built helper is the blocked man the runner falls into, `Sim::pile_credit`), {kind}: bin, one-man tackles, two-man share, then each rule's share of the one-man tackles and whom it names (EDGE DT LB CB S other)"
+            );
+            let secs = ["<0.3", "<0.7", "<1.2", "<2", "<3.5", "more"];
+            let labels = if kk == 0 { &DEPTHS } else { &secs };
+            for (b, label) in labels.iter().copied().map(Some).chain([None]).enumerate() {
+                let bins: Vec<usize> = if label.is_some() { vec![b] } else { (0..6).collect() };
+                let one: u64 = bins.iter().map(|&x| PILE_N[kk][x][0].load(Relaxed)).sum();
+                let two: u64 = bins.iter().map(|&x| PILE_N[kk][x][1].load(Relaxed)).sum();
+                let label = label.unwrap_or("all");
+                println!("    {label:<6} {one} one-man, two-man share {:.3}", two as f64 / (one + two).max(1) as f64);
+                for k in 0..PILE_RULES {
+                    let w: Vec<u64> =
+                        (0..6).map(|q| bins.iter().map(|&x| PILE_WHO[kk][x][k][q].load(Relaxed)).sum()).collect();
+                    let n: u64 = w.iter().sum();
+                    println!(
+                        "      {:<20} {:.3} | {}",
+                        rules[k],
+                        n as f64 / one.max(1) as f64,
+                        w.iter().map(|x| format!("{:.3}", *x as f64 / n.max(1) as f64)).collect::<Vec<_>>().join(" ")
+                    );
+                }
+                // Unions of rules: any of the masks' bits.
+                let any = |m: usize| {
+                    let hit: u64 = (0..1usize << PILE_RULES)
+                        .filter(|x| x & m != 0)
+                        .map(|x| bins.iter().map(|&y| PILE_MASK[kk][y][x].load(Relaxed)).sum::<u64>())
+                        .sum();
+                    hit as f64 / one.max(1) as f64
+                };
+                println!(
+                    "      any of: arm 0.5s or miss {:.3} | arm 1s or blocked 1.2 {:.3} | arm 1s or blocked 1.6 {:.3} | arm 0.5s, miss or blocked 1.2 {:.3} | blocked 1.6 or free 0.3s {:.3} | blocked 1.2 or free 0.3s {:.3} | arm, miss, blocked 1.6 or free 0.5s {:.3}",
+                    any(0b101),
+                    any(0b1010),
+                    any(0b10010),
+                    any(0b1101),
+                    any(0b1010000),
+                    any(0b1001000),
+                    any(0b10010111),
+                );
+            }
+        }
+        let states = [
+            "down",
+            "blk OL",
+            "blk TE",
+            "blk other",
+            "ahead <2",
+            "ahead <4",
+            "ahead <7",
+            "ahead far",
+            "behind <2",
+            "behind <4",
+            "behind <7",
+            "behind far",
+        ];
+        println!("  the front at a designed run's first contact, each other man's state ({}):", states.join(", "));
+        for (q, pos) in ["EDGE", "DT", "LB"].iter().enumerate() {
+            for (db, depth) in ["<0", "0-2", "2-4", "4-7", "7+"].iter().enumerate() {
+                for (by, who) in ["line", "linebacker", "back"].iter().enumerate() {
+                    let v: Vec<u64> = FRONT_AT_CONTACT[q][db][by].iter().map(|x| x.load(Relaxed)).collect();
+                    let n: u64 = v.iter().sum();
+                    if n < 200 {
+                        continue;
+                    }
+                    println!(
+                        "    {pos:<5} contact at {depth:<4} by a {who:<10} n {n:>7}: {}",
+                        v.iter().map(|x| format!("{:.3}", *x as f64 / n as f64)).collect::<Vec<_>>().join(" ")
+                    );
+                }
+            }
         }
     }
     // A team season's tackles by rank.

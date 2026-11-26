@@ -132,6 +132,20 @@ fn a_games_depth_counts_agree_with_its_book() {
             let off: f64 =
                 d.values().map(|x| (0..orole::N as u16).map(|k| dp::get(x, dp::ALIGN_O + k)).sum::<f64>()).sum();
             assert!(snaps > 60.0 && off >= 10.0 * snaps, "{level:?} game {g}: {off} spots on {snaps} snaps");
+            // Tackles are every man in on one, as the box score has them; a
+            // stop is the work of the men who made it, so the helper a
+            // runner fell into has none (the front seven's share).
+            let scrim = || {
+                s.plays.iter().filter(|r| {
+                    !r.nullified
+                        && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+                })
+            };
+            let all = |k: Dc| d.values().map(|x| dp::get(x, k as u16)).sum::<f64>();
+            let tackles: usize = scrim().map(|r| r.tacklers.len()).sum();
+            let stops: usize = scrim().filter(|r| !r.success()).map(|r| r.tackled_by().len()).sum();
+            assert_eq!(all(Dc::Tkl), tackles as f64, "{level:?} game {g}: tackles");
+            assert_eq!(all(Dc::Stops), stops as f64, "{level:?} game {g}: stops");
         }
         // The expected rush model is the engine's own: its average back
         // sits near zero over expected.

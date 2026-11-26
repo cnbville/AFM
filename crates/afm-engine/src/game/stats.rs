@@ -61,6 +61,8 @@ pub struct PlayRecord {
     pub complete: bool,
     pub interception: bool,
     pub carrier: Option<u32>,
+    /// The men in on the tackle, the first man first; with `helped` the
+    /// second is the scorer's helper (`tackled_by` leaves him out).
     pub tacklers: Vec<u32>,
     pub missed_tackles: Vec<(u32, u32)>,
     pub sackers: Vec<u32>,
@@ -236,6 +238,12 @@ pub struct PlayRecord {
     pub fumble: Option<super::sim::FumbleNote>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovered: Option<u32>,
+    /// The second tackler helped from a block the runner fell into (the
+    /// front seven's share of tackles, `Sim::pile_credit`): the scorer's
+    /// "(A, B)", a tackle for the first man and an assist for him. Only in
+    /// games whose book has the form (`rules::helper_form`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub helped: bool,
 }
 
 impl PlayRecord {
@@ -347,11 +355,20 @@ impl PlayRecord {
             fire: Default::default(),
             fumble: None,
             recovered: None,
+            helped: false,
         }
     }
 
     pub fn success(&self) -> bool {
         self.epa > 0.0
+    }
+
+    /// The men who made the tackle: the helper a runner fell into in his
+    /// block (`helped`) is in the box score, not here. What reads a tackle
+    /// as the man's own work (growth from results, the tape's tags, the
+    /// Data section's stops) reads this.
+    pub fn tackled_by(&self) -> &[u32] {
+        if self.helped { &self.tacklers[..self.tacklers.len().min(1)] } else { &self.tacklers }
     }
 
     /// A loss as a box score reads it. Yards go in the book whole, so a play
@@ -1384,11 +1401,19 @@ impl GameStats {
         // the NCAA's and the NFL's scorers keep it (it was a solo for the
         // first man and an assist for every other man in the pile, so solo
         // tackles ran 49.4 a team game on world seed 321's FBS teams, real
-        // 35.4).
+        // 35.4). The NFL's book has a second form, a tackle with an assist
+        // (`rules::helper_form`): the first man keeps his tackle and the
+        // second has an assist. It is written for the man a runner fell
+        // into in his block (`helped`) and for any shared tackle on a loss,
+        // where the first man also has the whole tackle for loss (394 of
+        // the 406 shared run losses of 2023 were written so, and no play
+        // names two men for the loss; nflverse).
         let n = r.tacklers.len();
-        for &id in r.tacklers.iter() {
+        let loss = scrimmage && r.lost() && r.kind != PlayType::Sack;
+        let with_assist = n > 1 && (r.helped || loss) && self.level.is_some_and(super::rules::helper_form);
+        for (k, &id) in r.tacklers.iter().enumerate() {
             let l = self.line(side(id, tteam), id);
-            if n == 1 {
+            if n == 1 || (with_assist && k == 0) {
                 l.tackles += 1;
             } else {
                 l.assists += 1;
@@ -1397,9 +1422,21 @@ impl GameStats {
                 l.st_tackles += 1;
             }
             // A solo tackle for loss is one; an assisted one is half to
-            // each man in on it (the NCAA's and the NFL's count).
-            if scrimmage && r.lost() && r.kind != PlayType::Sack {
-                l.tfl += if n > 1 { 0.5 } else { 1.0 };
+            // each man in on it (the NCAA's count), or the first man's
+            // whole where the book has a tackle with an assist.
+            if loss {
+                l.tfl += match (with_assist, k) {
+                    (true, 0) => 1.0,
+                    (true, _) => 0.0,
+                    (false, _) if n > 1 => 0.5,
+                    (false, _) => 1.0,
+                };
+            }
+            // The helper is in on the tackle and no more: the stop is the
+            // work of the man who made it.
+            if r.helped && k > 0 {
+                grade(l, if kick { SPECIAL } else { TACKLING }, 0.1);
+                continue;
             }
             // A stop is the run defense's or the coverage's; any other
             // tackle is tackling, and a tackle on a kick special teams.
