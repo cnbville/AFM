@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.714 (26 Nov, shipped): yards before contact as the charting keeps it, and the linebackers' first tackles traced (realism audit item 3, the front's pursuit) (PR #668)
+**TLDR:** Yards before and after contact now count the way real charting does, so a back's split reads like a real back's.
+- A defender who dives at a runner's legs from the side or behind and misses has still made contact. (PR #668)
+- Pro backs' yards before contact come down from 2.55 to 2.32 a carry and their yards after contact go up from 1.88 to 2.11, right where real backs are. (PR #668)
+- The elusive rating, the film page and the game day page use the same count. (PR #668)
+- Every game plays exactly as before. (PR #668)
+- Look at: a back's yards after contact in the Data section. (PR #668)
+
 ## 0.2.713 (26 Nov, shipped): no game change
 **TLDR:** Nothing new in the game in this version, so there is no need to update for the game's sake.
 - Docs and tooling merged too, no game change: Future run read (realism audit item 25): the report, raw reads and new gaps (PR #667).

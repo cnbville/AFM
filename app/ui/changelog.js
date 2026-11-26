@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.714", date: "26 Nov", title: "Yards before contact as the charting keeps it, and the linebackers' first tackles traced (realism audit item 3, the front's pursuit)",
+    notes: [
+      "Yards before and after contact now count the way real charting does, so a back's split reads like a real back's.",
+      "A defender who dives at a runner's legs from the side or behind and misses has still made contact.",
+      "Pro backs' yards before contact come down from 2.55 to 2.32 a carry and their yards after contact go up from 1.88 to 2.11, right where real backs are.",
+      "The elusive rating, the film page and the game day page use the same count.",
+      "Every game plays exactly as before.",
+    ],
+  },
+  {
     v: "0.2.712", date: "26 Nov", title: "The helper in the pile: the blocked man a runner falls into is in on the tackle in the NFL's book (realism audit item 3, the front seven's share)",
     notes: [
       "Pro box scores now credit the lineman or linebacker a runner falls into in his block, the way NFL scorers do, so the front seven's tackle totals look like real ones.",
