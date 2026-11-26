@@ -15,6 +15,8 @@ on:
       minutes:
         description: "Minutes to wait for new queries after each round"
         default: "150"
+permissions:
+  contents: write
 jobs:
   book:
     runs-on: ubuntu-latest
@@ -47,20 +49,49 @@ jobs:
           b=$(realpath out/*.afmbook)
           q=.github/scripts/future-queries.sql
           run_round() {
-            echo "######## ROUND $1 $(date -u +%H:%M)"
+            rn=$1
+            echo "######## ROUND $rn $(date -u +%H:%M)"
             while IFS= read -r line; do
               case "$line" in
                 "") ;;
                 "-- stop") ;;
                 --*) echo; echo "=== ${line#-- }" ;;
-                "page "*) echo; echo ">>> $line"; target/release/afm_read "$b" ${line#page } 2>&1 | head -c 60000 || true ;;
-                *) echo; echo ">>> $line"; target/release/afm_read "$b" sql "$line" 2>&1 | head -c 30000 || true ;;
+                "page "*) echo; echo ">>> $line"; target/release/afm_read "$b" ${line#page } 2>&1 | head -c 40000 || true ;;
+                "years "*)
+                  # years <like pattern on the check id>: each check's own year series (its years_sql), cut to 2500 characters
+                  pat="${line#years }"
+                  echo; echo ">>> $line"
+                  for id in $(sqlite3 "$b" "select id from checks where years_sql is not null and years_sql <> '' and id like '$pat' order by id"); do
+                    echo "--- years $id"
+                    sqlite3 "$b" "select title || ' (' || coalesce(unit,'') || ') real=' || coalesce(real,'') || ' world=' || coalesce(world,'') from checks where id='$id'"
+                    ysql=$(sqlite3 "$b" "select years_sql from checks where id='$id'")
+                    sqlite3 -header -separator ' | ' "$b" "$ysql" 2>&1 | head -c 2500 || true
+                  done ;;
+                "panels "*)
+                  # panels <max> <like pattern on the title>: each matching panel whole, cut to 3000 characters
+                  read -r n pat <<< "${line#panels }"
+                  echo; echo ">>> $line"
+                  for id in $(sqlite3 "$b" "select id from panels where title like '$pat' order by id limit $n"); do
+                    echo "--- panel $id"; target/release/afm_read "$b" panel "$id" 2>&1 | head -c 3000 || true
+                  done ;;
+                *) echo; echo ">>> $line"; sqlite3 -header -separator ' | ' "$b" "$line" 2>&1 | head -c 60000 || true ;;
               esac
             done < "$q"
-            echo "######## END ROUND $1"
+            echo "######## END ROUND $rn"
+          }
+          # each round's text goes to the branch too (a running job's log can't be read)
+          push_round() {
+            mkdir -p future-out && head -c 900000 "round-$1.txt" > "future-out/r${GITHUB_RUN_ID}-$1.txt"
+            git config user.name future-read && git config user.email future-read@users.noreply.github.com
+            git add future-out && git commit -q -m "Future read: run ${GITHUB_RUN_ID} round $1 output" || return 0
+            for i in 1 2 3 4; do
+              git pull -q --rebase --autostash origin "$BRANCH" && git push -q origin "HEAD:$BRANCH" && break
+              sleep 5
+            done
           }
           round=1
-          run_round $round
+          run_round $round 2>&1 | tee round-$round.txt | tail -n 3
+          push_round $round
           last=$(sha256sum "$q" | cut -d' ' -f1)
           end=$((SECONDS + MINUTES * 60))
           while [ $SECONDS -lt $end ]; do
@@ -69,7 +100,9 @@ jobs:
             git fetch -q origin "$BRANCH" && git checkout -q FETCH_HEAD -- "$q" || continue
             now=$(sha256sum "$q" | cut -d' ' -f1)
             if [ "$now" != "$last" ]; then
-              last=$now; round=$((round+1)); run_round $round
+              last=$now; round=$((round+1))
+              run_round $round 2>&1 | tee round-$round.txt | tail -n 3
+              push_round $round
               end=$((SECONDS + MINUTES * 60))
             fi
           done

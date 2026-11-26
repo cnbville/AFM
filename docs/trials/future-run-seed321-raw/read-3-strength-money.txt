@@ -1,0 +1,414 @@
+######## ROUND 3 12:43
+
+=== columns that carry NIL, collective, budget, revenue, cap or wage
+
+>>> select m.name || '.' || p.name from sqlite_master m, pragma_table_info(m.name) p where m.type = 'table' and m.name not like 'calendar%' and m.name not like '%refs' and (p.name like '%nil%' or p.name like '%collective%' or p.name like '%budget%' or p.name like '%revenue%' or p.name like '%cap%' or p.name like '%wage%') order by 1
+m.name || '.' || p.name
+capital__donors.capacity
+capital__donors.nil_lean
+changes.revenue_factor
+clubs.captains
+engine_rules.nil
+engine_rules.revenue_sharing
+engine_rules.salary_cap
+finance__college.budget__l
+finance__college.budget__year
+finance__hs.budget__l
+finance__hs.budget__year
+finance__nfl.budget__l
+finance__nfl.budget__year
+finance__nfl.home__capacity
+finance__nfl__seasons.capacity
+finance__projects.capacity
+front_office.college__nil_rev
+log.nil_buyout_money
+log.nil_buyouts
+log.nil_go_denied
+log.nil_go_denied_money
+log.nil_go_moved
+log.nil_go_reviewed
+log.nil_go_reviewed_money
+log.nil_multi
+log.nil_multi_bound
+log.nil_multi_money
+log.nil_multi_stars
+log.nil_multi_transfers
+log_history.nil_buyout_money
+log_history.nil_buyouts
+log_history.nil_go_denied
+log_history.nil_go_denied_money
+log_history.nil_go_moved
+log_history.nil_go_reviewed
+log_history.nil_go_reviewed_money
+log_history.nil_multi
+log_history.nil_multi_bound
+log_history.nil_multi_money
+log_history.nil_multi_stars
+log_history.nil_multi_transfers
+log_news.news__kind__NilWarning__level
+market__years.cap_cuts
+market__years.cap_use
+news.kind__NilWarning__level
+people.cal__nil_buyout
+people.cal__nil_deal__amount
+people.cal__nil_deal__kind
+people.cal__nil_deal__through
+people.cal__nil_deal__year
+people.cal__nil_keep
+people.cal__nil_paid
+people.cal__nil_role
+people.cal__nil_school
+people.nil_income
+portal_market.nil_pool
+programs.captains
+programs.collective__base
+programs.collective__big_booster
+programs.collective__budget
+programs.collective__buyouts
+programs.collective__drying_years
+programs.collective__moved
+programs.collective__school
+programs.collective__trend
+programs__era__ledger.nil_budget
+real_colleges.nil_estimate_usd
+real_colleges.stadium_capacity
+real_colleges_lower.nil_estimate_usd
+real_colleges_lower.stadium_capacity
+real_hs_states.hs_nil_allowed
+real_hs_states.hs_nil_from
+real_hs_states.hs_nil_min_age
+real_hs_states.hs_nil_note
+real_hs_states.hs_nil_scope
+real_hs_states.hs_nil_source_url
+rules.nil
+rules.revenue_sharing
+rules.salary_cap
+states.hs_nil
+world.nil_rev
+
+>>> select 'log_history', group_concat(name, ', ') from pragma_table_info('log_history')
+'log_history' | group_concat(name, ', ')
+log_history | _row, year, system_switches, fbs_systems, games, snow_games, rain_games, freezing_games, lightning_delays, weather_moves, weather_cancels, opt_outs, bowl_practice_gain, four_game_redshirts, redshirt_tricks, spring_notices, spring_breakouts, spring_fizzles, hs_games, hs_engine_games, hs_totals__games, hs_totals__points_for, hs_totals__points_against, hs_totals__plays, hs_totals__yards, hs_totals__pass_yards, hs_totals__rush_yards, hs_totals__yards_allowed, hs_totals__att, hs_totals__cmp, hs_totals__carries, hs_totals__turnovers, hs_totals__takeaways, hs_totals__sacks, hs_totals__sacks_allowed, hs_totals__epa, hs_totals__epa_allowed, hs_totals__plays_allowed, hs_forfeits, hs_no_contests, hs_grade_outs, hs_homecomings, hs_senior_nights, hs_all_state, heat_limited_days, commits, commits_by_month, decommits, signee_releases, walk_on_scholarships, tryouts, late_pool, portal_landed_after, portal_unplaced_at_camp, graduates, graduate_transfers, flips, signed_early, signed_late, official_visits, unofficial_visits, drop_ins, early_enrollees, declared, withdrew, declared_graduates, early_drafted, portal_entries, portal_by_division, portal_landed, nil_go_reviewed, nil_go_denied, nil_go_reviewed_money, nil_go_denied_money, nil_go_moved, nil_multi, nil_multi_stars, nil_multi_money, nil_multi_bound, nil_multi_transfers, nil_buyouts, nil_buyout_money, portal_returned, whispers, sit_out_transfers, spring_ineligible, fall_ineligible, combine_invites, all_star_invites, all_star_declined, nfl_games, nfl_preseason_games, nfl_huge_by_team, medical_hardships, sixth_years, covid_returns, covid_declined, missions, enlisted, returned, moved_up_far, college_rolled, college_trouble, blue_verbal, blue_broken, bar_commits, blue_signed, blue_signed_summer, rule_changes
+
+>>> select 'programs__seasons', group_concat(name, ', ') from pragma_table_info('programs__seasons')
+'programs__seasons' | group_concat(name, ', ')
+programs__seasons | _row, _parent, _i, year, wins, losses, conference_title, national_title, coach, strength, totals__games, totals__points_for, totals__points_against, totals__plays, totals__yards, totals__pass_yards, totals__rush_yards, totals__yards_allowed, totals__att, totals__cmp, totals__carries, totals__turnovers, totals__takeaways, totals__sacks, totals__sacks_allowed, totals__epa, totals__epa_allowed, totals__plays_allowed, conference, division, points, conference_won
+
+>>> select 'people__pro__seasons', group_concat(name, ', ') from pragma_table_info('people__pro__seasons')
+'people__pro__seasons' | group_concat(name, ', ')
+people__pro__seasons | _row, _parent, _i, year, team, games, starts, snaps, opp, ps_weeks, ir_weeks, full_pay_weeks, pay, pro_bowl, all_pro, elevations, stats__games, stats__snaps_off, stats__snaps_def, stats__snaps_st, stats__att, stats__cmp, stats__pass_yds, stats__pass_td, stats__int, stats__sacked, stats__sack_yds, stats__dropbacks, stats__pressured, stats__air_yds_att, stats__ttt, stats__pass_epa, stats__pass_success, stats__x_cmp, stats__big_time, stats__turnover_worthy, stats__pa_att, stats__pa_yds, stats__blitz_att, stats__blitz_yds, stats__deep_att, stats__deep_cmp, stats__throw_aways, stats__rush, stats__rush_yds, stats__rush_td, stats__rush_long, stats__ybc, stats__yaco, stats__forced_missed, stats__explosive_runs, stats__stuffs, stats__rush_success, stats__rush_first, stats__rush_epa, stats__scrambles, stats__scramble_yds, stats__scramble_epa, stats__fumbles, stats__fumbles_lost, stats__targets, stats__rec, stats__rec_yds, stats__rec_td, stats__rec_long, stats__drops, stats__tgt_air, stats__yac, stats__sep_sum, stats__routes, stats__contested_tgt, stats__contested_rec, stats__rec_first, stats__rec_epa, stats__pb_snaps, stats__pb_wins, stats__pressures_allowed, stats__sacks_allowed, stats__rb_snaps, stats__rb_wins, stats__rush_snaps, stats__rush_wins, stats__sacks, stats__qb_hits, stats__hurries, stats__pressures, stats__speed_wins, stats__power_wins, stats__finesse_wins, stats__ttp_sum, stats__tackles, stats__assists, stats__tfl, stats__stops, stats__missed, stats__forced_fumbles, stats__fumble_rec, stats__cov_snaps, stats__tgt_allowed, stats__cmp_allowed, stats__yds_allowed, stats__td_allowed, stats__ints, stats__pbus, stats__sep_allowed, stats__freelance, stats__freelance_won, stats__fg_att, stats__fg_made, stats__fg_long, stats__clutch_att, stats__clutch_made, stats__xp_att, stats__xp_made, stats__punts, stats__punt_yds, stats__punt_net, stats__punt_in20, stats__punt_tb, stats__hang_sum, stats__kickoffs, stats__ko_tb, stats__kr, stats__kr_yds, stats__kr_td, stats__pr, stats__pr_yds, stats__pr_td, stats__st_tackles, stats__penalties, stats__penalty_yds, stats__busts, stats__grade_sum, stats__graded, stats__top_speed, playoff_starts, field_starts, playoffs__games, playoffs__snaps_off, playoffs__snaps_def, playoffs__snaps_st, playoffs__att, playoffs__cmp, playoffs__pass_yds, playoffs__pass_td, playoffs__int, playoffs__sacked, playoffs__sack_yds, playoffs__dropbacks, playoffs__pressured, playoffs__air_yds_att, playoffs__ttt, playoffs__pass_epa, playoffs__pass_success, playoffs__x_cmp, playoffs__big_time, playoffs__turnover_worthy, playoffs__pa_att, playoffs__pa_yds, playoffs__blitz_att, playoffs__blitz_yds, playoffs__deep_att, playoffs__deep_cmp, playoffs__throw_aways, playoffs__rush, playoffs__rush_yds, playoffs__rush_td, playoffs__rush_long, playoffs__ybc, playoffs__yaco, playoffs__forced_missed, playoffs__explosive_runs, playoffs__stuffs, playoffs__rush_success, playoffs__rush_first, playoffs__rush_epa, playoffs__scrambles, playoffs__scramble_yds, playoffs__scramble_epa, playoffs__fumbles, playoffs__fumbles_lost, playoffs__targets, playoffs__rec, playoffs__rec_yds, playoffs__rec_td, playoffs__rec_long, playoffs__drops, playoffs__tgt_air, playoffs__yac, playoffs__sep_sum, playoffs__routes, playoffs__contested_tgt, playoffs__contested_rec, playoffs__rec_first, playoffs__rec_epa, playoffs__pb_snaps, playoffs__pb_wins, playoffs__pressures_allowed, playoffs__sacks_allowed, playoffs__rb_snaps, playoffs__rb_wins, playoffs__rush_snaps, playoffs__rush_wins, playoffs__sacks, playoffs__qb_hits, playoffs__hurries, playoffs__pressures, playoffs__speed_wins, playoffs__power_wins, playoffs__finesse_wins, playoffs__ttp_sum, playoffs__tackles, playoffs__assists, playoffs__tfl, playoffs__stops, playoffs__missed, playoffs__forced_fumbles, playoffs__fumble_rec, playoffs__cov_snaps, playoffs__tgt_allowed, playoffs__cmp_allowed, playoffs__yds_allowed, playoffs__td_allowed, playoffs__ints, playoffs__pbus, playoffs__sep_allowed, playoffs__freelance, playoffs__freelance_won, playoffs__fg_att, playoffs__fg_made, playoffs__fg_long, playoffs__clutch_att, playoffs__clutch_made, playoffs__xp_att, playoffs__xp_made, playoffs__punts, playoffs__punt_yds, playoffs__punt_net, playoffs__punt_in20, playoffs__punt_tb, playoffs__hang_sum, playoffs__kickoffs, playoffs__ko_tb, playoffs__kr, playoffs__kr_yds, playoffs__kr_td, playoffs__pr, playoffs__pr_yds, playoffs__pr_td, playoffs__st_tackles, playoffs__penalties, playoffs__penalty_yds, playoffs__busts, playoffs__grade_sum, playoffs__graded, playoffs__top_speed, awards
+
+=== FBS program strength by year and level
+
+>>> select s.year, p.division, count(*) n, round(avg(s.strength),2) mean_strength, round(max(s.strength),1) top, round(min(s.strength),1) bottom from programs__seasons s join programs p on p._row = s._parent where s.year >= 2018 and p.division in ('FBS','FCS') group by p.division, s.year order by p.division, s.year
+year | division | n | mean_strength | top | bottom
+2018 | FBS | 138 | 61.24 | 70.7 | 53.5
+2019 | FBS | 138 | 61.46 | 71.4 | 55.0
+2020 | FBS | 138 | 61.32 | 71.1 | 54.9
+2021 | FBS | 138 | 62.26 | 71.0 | 55.8
+2022 | FBS | 138 | 62.61 | 72.0 | 55.6
+2023 | FBS | 138 | 62.85 | 73.6 | 56.2
+2024 | FBS | 138 | 62.32 | 70.9 | 53.4
+2025 | FBS | 138 | 61.81 | 73.0 | 54.4
+2026 | FBS | 138 | 61.71 | 72.5 | 54.4
+2027 | FBS | 138 | 62.88 | 72.6 | 56.5
+2028 | FBS | 138 | 62.99 | 73.3 | 55.3
+2029 | FBS | 138 | 62.98 | 72.3 | 56.1
+2030 | FBS | 138 | 62.66 | 72.5 | 55.5
+2031 | FBS | 138 | 62.57 | 74.9 | 53.7
+2032 | FBS | 138 | 62.57 | 74.3 | 54.9
+2033 | FBS | 138 | 62.61 | 74.7 | 54.6
+2034 | FBS | 138 | 62.56 | 73.5 | 54.0
+2035 | FBS | 138 | 62.42 | 72.3 | 53.9
+2018 | FCS | 128 | 56.34 | 60.6 | 49.0
+2019 | FCS | 128 | 56.07 | 60.2 | 48.2
+2020 | FCS | 127 | 55.81 | 60.8 | 50.5
+2021 | FCS | 127 | 57.18 | 61.4 | 50.1
+2022 | FCS | 127 | 57.24 | 61.9 | 49.2
+2023 | FCS | 127 | 57.38 | 62.5 | 51.5
+2024 | FCS | 127 | 56.73 | 61.7 | 50.6
+2025 | FCS | 128 | 56.39 | 60.6 | 49.4
+2026 | FCS | 127 | 56.34 | 60.7 | 51.0
+2027 | FCS | 127 | 56.75 | 61.1 | 51.1
+2028 | FCS | 127 | 56.78 | 61.5 | 52.7
+2029 | FCS | 127 | 56.52 | 60.6 | 51.7
+2030 | FCS | 127 | 56.21 | 59.7 | 52.0
+2031 | FCS | 128 | 56.3 | 59.9 | 50.0
+2032 | FCS | 129 | 56.32 | 60.1 | 51.1
+2033 | FCS | 130 | 56.38 | 60.0 | 50.9
+2034 | FCS | 131 | 56.25 | 62.5 | 51.7
+2035 | FCS | 131 | 56.43 | 61.4 | 52.6
+
+=== NFL starters (8+ starts): mean overall by year, people and alumni together
+
+>>> select year, count(*) n, round(avg(overall),2) mean_overall from (select s.year, h.overall from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where s.starts >= 8 and h.level = 'NFL' union all select s.year, h.overall from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where s.starts >= 8 and h.level = 'NFL') where year between 2012 and 2035 group by year order by year
+year | n | mean_overall
+2012 | 768 | 80.58
+2013 | 763 | 80.75
+2014 | 777 | 80.68
+2015 | 767 | 81.13
+2016 | 773 | 80.91
+2017 | 773 | 80.95
+2018 | 775 | 81.02
+2019 | 772 | 80.95
+2020 | 770 | 81.05
+2021 | 774 | 80.68
+2022 | 770 | 80.78
+2023 | 789 | 80.82
+2024 | 801 | 81.05
+2025 | 818 | 80.99
+2026 | 830 | 81.23
+2027 | 835 | 81.09
+2028 | 838 | 81.25
+2029 | 872 | 81.14
+2030 | 882 | 81.23
+2031 | 871 | 81.16
+2032 | 875 | 81.19
+2033 | 844 | 80.99
+2034 | 868 | 80.87
+2035 | 741 | 81.18
+
+=== NFL draftees: mean overall in their first NFL season, by draft year and round band
+
+>>> select year, case when rnd = 1 then 'round 1' when rnd <= 3 then 'rounds 2-3' else 'rounds 4-7' end band, count(*) n, round(avg(overall),2) mean_overall, round(avg(age),2) mean_age from (select s.year, json_extract(p.pro__draft,'$[1]') rnd, h.overall, h.age from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where json_extract(p.pro__draft,'$[0]') = s.year and h.level = 'NFL' union all select s.year, json_extract(a.pro__draft,'$[1]'), h.overall, h.age from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where json_extract(a.pro__draft,'$[0]') = s.year and h.level = 'NFL') where year between 2018 and 2035 and rnd between 1 and 7 group by year, band order by band, year
+year | band | n | mean_overall | mean_age
+2018 | round 1 | 29 | 79.78 | 21.41
+2019 | round 1 | 30 | 79.4 | 21.5
+2020 | round 1 | 30 | 80.41 | 21.53
+2021 | round 1 | 34 | 79.98 | 21.32
+2022 | round 1 | 28 | 79.85 | 21.71
+2023 | round 1 | 35 | 81.47 | 22.14
+2024 | round 1 | 35 | 81.87 | 21.91
+2025 | round 1 | 32 | 78.61 | 22.28
+2026 | round 1 | 32 | 80.92 | 22.03
+2027 | round 1 | 29 | 77.49 | 22.07
+2028 | round 1 | 30 | 80.4 | 22.13
+2029 | round 1 | 33 | 79.43 | 22.48
+2030 | round 1 | 32 | 81.99 | 22.22
+2031 | round 1 | 27 | 80.7 | 22.26
+2032 | round 1 | 30 | 80.17 | 22.0
+2033 | round 1 | 25 | 79.11 | 22.0
+2034 | round 1 | 30 | 81.35 | 22.27
+2035 | round 1 | 27 | 80.55 | 22.37
+2018 | rounds 2-3 | 60 | 74.08 | 22.18
+2019 | rounds 2-3 | 61 | 74.75 | 22.28
+2020 | rounds 2-3 | 61 | 74.68 | 22.08
+2021 | rounds 2-3 | 62 | 73.81 | 21.82
+2022 | rounds 2-3 | 72 | 74.38 | 22.81
+2023 | rounds 2-3 | 66 | 74.75 | 22.94
+2024 | rounds 2-3 | 73 | 75.55 | 22.7
+2025 | rounds 2-3 | 78 | 75.3 | 22.85
+2026 | rounds 2-3 | 74 | 75.95 | 22.51
+2027 | rounds 2-3 | 73 | 74.23 | 22.73
+2028 | rounds 2-3 | 64 | 75.8 | 22.63
+2029 | rounds 2-3 | 73 | 75.68 | 22.68
+2030 | rounds 2-3 | 72 | 75.48 | 22.61
+2031 | rounds 2-3 | 69 | 75.66 | 22.64
+2032 | rounds 2-3 | 66 | 75.25 | 22.59
+2033 | rounds 2-3 | 67 | 74.79 | 22.82
+2034 | rounds 2-3 | 64 | 74.96 | 22.5
+2035 | rounds 2-3 | 72 | 75.3 | 22.67
+2018 | rounds 4-7 | 145 | 71.3 | 22.63
+2019 | rounds 4-7 | 140 | 70.75 | 22.51
+2020 | rounds 4-7 | 147 | 71.4 | 22.48
+2021 | rounds 4-7 | 138 | 68.64 | 22.54
+2022 | rounds 4-7 | 140 | 70.82 | 23.3
+2023 | rounds 4-7 | 141 | 71.28 | 23.31
+2024 | rounds 4-7 | 143 | 71.78 | 22.99
+2025 | rounds 4-7 | 142 | 71.83 | 23.01
+2026 | rounds 4-7 | 150 | 72.02 | 22.73
+2027 | rounds 4-7 | 138 | 70.56 | 22.88
+2028 | rounds 4-7 | 175 | 71.8 | 22.96
+2029 | rounds 4-7 | 165 | 71.52 | 22.96
+2030 | rounds 4-7 | 156 | 72.08 | 22.93
+2031 | rounds 4-7 | 146 | 71.4 | 22.92
+2032 | rounds 4-7 | 154 | 71.79 | 22.9
+2033 | rounds 4-7 | 152 | 71.04 | 22.95
+2034 | rounds 4-7 | 160 | 71.17 | 22.94
+2035 | rounds 4-7 | 154 | 71.48 | 22.92
+
+=== national titles since 2026
+
+>>> select p.real_name, count(*) titles from programs__seasons s join programs p on p._row = s._parent where s.year >= 2026 and s.national_title and s.national_title <> 0 group by p.real_name order by titles desc limit 14
+real_name | titles
+Miami (FL) | 4
+Georgia Military | 4
+Valdosta State | 3
+Point | 3
+Western Illinois | 2
+Texas | 2
+Salisbury | 2
+Salem CC | 2
+Georgia | 2
+Blinn | 2
+Wooster | 1
+Wisconsin-Stevens Point | 1
+Wisconsin-River Falls | 1
+Winona State | 1
+
+=== FBS conference titles since 2026, most
+
+>>> select p.real_name, p.conference, count(*) titles from programs__seasons s join programs p on p._row = s._parent where s.year >= 2026 and p.division = 'FBS' and s.conference_title and s.conference_title <> 0 group by p.real_name order by titles desc limit 12
+real_name | conference | titles
+Miami (FL) | ACC | 7
+Hawaii | Mountain West | 6
+Maryland | Big Ten | 5
+Georgia | SEC | 4
+Texas | SEC | 3
+Fresno State | Pac-12 | 3
+Central Michigan | MAC | 3
+Washington State | Big 12 | 2
+Texas Tech | Big 12 | 2
+San Diego State | Big West | 2
+Navy | American | 2
+Middle Tennessee | Pac-12 | 2
+
+=== college books by tier and year: revenue and cost a school, $M
+
+>>> with cy as (select y.year, y._parent prog, (select sum(j.value) from json_each(y.l) j where j.key < 11) rev, (select sum(j.value) from json_each(y.l) j where j.key >= 11) cost from finance__college__years y) select cy.year, case when p.division = 'FBS' and p.conference in ('SEC','Big Ten') then '1 SEC and Big Ten' when p.division = 'FBS' and (p.conference in ('ACC','Big 12','Pac-12') or p.real_name = 'Notre Dame') then '2 ACC Big 12' when p.division = 'FBS' then '3 Group of 5' else '4 ' || p.division end grp, count(*) n, round(avg(rev)/1e6,1) rev_m, round(avg(cost)/1e6,1) cost_m from cy join programs p on p._row = cy.prog where cy.year >= 2021 group by 2, 1 order by 2, 1
+year | grp | n | rev_m | cost_m
+2021 | 1 SEC and Big Ten | 36 | 135.4 | 135.9
+2022 | 1 SEC and Big Ten | 36 | 144.2 | 145.0
+2023 | 1 SEC and Big Ten | 36 | 150.1 | 149.5
+2024 | 1 SEC and Big Ten | 36 | 160.1 | 159.3
+2025 | 1 SEC and Big Ten | 36 | 178.3 | 178.5
+2026 | 1 SEC and Big Ten | 36 | 184.8 | 184.9
+2027 | 1 SEC and Big Ten | 36 | 192.2 | 192.0
+2028 | 1 SEC and Big Ten | 36 | 201.8 | 201.4
+2029 | 1 SEC and Big Ten | 36 | 209.1 | 209.3
+2030 | 1 SEC and Big Ten | 36 | 218.8 | 218.4
+2031 | 1 SEC and Big Ten | 36 | 225.5 | 226.3
+2032 | 1 SEC and Big Ten | 36 | 231.4 | 231.7
+2033 | 1 SEC and Big Ten | 36 | 241.8 | 240.8
+2034 | 1 SEC and Big Ten | 36 | 250.7 | 249.0
+2021 | 2 ACC Big 12 | 49 | 86.5 | 86.5
+2022 | 2 ACC Big 12 | 49 | 90.8 | 90.9
+2023 | 2 ACC Big 12 | 49 | 98.7 | 99.2
+2024 | 2 ACC Big 12 | 49 | 102.7 | 103.0
+2025 | 2 ACC Big 12 | 49 | 111.3 | 111.1
+2026 | 2 ACC Big 12 | 49 | 116.6 | 117.4
+2027 | 2 ACC Big 12 | 49 | 120.5 | 121.4
+2028 | 2 ACC Big 12 | 49 | 126.5 | 127.9
+2029 | 2 ACC Big 12 | 49 | 131.5 | 134.4
+2030 | 2 ACC Big 12 | 49 | 137.7 | 138.4
+2031 | 2 ACC Big 12 | 49 | 143.5 | 143.5
+2032 | 2 ACC Big 12 | 49 | 149.6 | 150.3
+2033 | 2 ACC Big 12 | 49 | 154.1 | 154.9
+2034 | 2 ACC Big 12 | 49 | 160.2 | 160.2
+2021 | 3 Group of 5 | 56 | 40.5 | 40.2
+2022 | 3 Group of 5 | 56 | 42.6 | 42.6
+2023 | 3 Group of 5 | 56 | 44.5 | 44.5
+2024 | 3 Group of 5 | 56 | 46.6 | 46.6
+2025 | 3 Group of 5 | 56 | 57.3 | 57.9
+2026 | 3 Group of 5 | 56 | 60.5 | 60.6
+2027 | 3 Group of 5 | 56 | 62.9 | 63.1
+2028 | 3 Group of 5 | 56 | 65.1 | 65.4
+2029 | 3 Group of 5 | 56 | 67.4 | 68.1
+2030 | 3 Group of 5 | 56 | 69.7 | 70.0
+2031 | 3 Group of 5 | 56 | 72.2 | 72.4
+2032 | 3 Group of 5 | 56 | 74.8 | 75.1
+2033 | 3 Group of 5 | 56 | 76.9 | 77.0
+2034 | 3 Group of 5 | 56 | 80.1 | 80.5
+2021 | 4 D2 | 207 | 8.4 | 8.4
+2022 | 4 D2 | 207 | 8.6 | 8.7
+2023 | 4 D2 | 207 | 8.9 | 8.9
+2024 | 4 D2 | 207 | 9.2 | 9.2
+2025 | 4 D2 | 207 | 9.5 | 9.6
+2026 | 4 D2 | 207 | 9.9 | 9.9
+2027 | 4 D2 | 207 | 10.2 | 10.2
+2028 | 4 D2 | 207 | 10.5 | 10.6
+2029 | 4 D2 | 207 | 10.9 | 10.9
+2030 | 4 D2 | 207 | 11.3 | 11.3
+2031 | 4 D2 | 207 | 11.7 | 11.7
+2032 | 4 D2 | 207 | 12.1 | 12.1
+2033 | 4 D2 | 207 | 12.5 | 12.5
+2034 | 4 D2 | 207 | 12.9 | 12.9
+2021 | 4 D3 | 316 | 1.9 | 1.9
+2022 | 4 D3 | 316 | 2.0 | 2.0
+2023 | 4 D3 | 316 | 2.1 | 2.1
+2024 | 4 D3 | 316 | 2.2 | 2.2
+2025 | 4 D3 | 316 | 2.3 | 2.3
+2026 | 4 D3 | 316 | 2.3 | 2.4
+2027 | 4 D3 | 316 | 2.4 | 2.5
+2028 | 4 D3 | 316 | 2.5 | 2.5
+2029 | 4 D3 | 316 | 2.6 | 2.7
+2030 | 4 D3 | 316 | 2.7 | 2.8
+2031 | 4 D3 | 316 | 2.8 | 2.9
+2032 | 4 D3 | 316 | 3.0 | 3.0
+2033 | 4 D3 | 316 | 3.1 | 3.1
+2034 | 4 D3 | 316 | 3.2 | 3.2
+2021 | 4 FCS | 209 | 17.9 | 17.8
+2022 | 4 FCS | 209 | 18.6 | 18.5
+2023 | 4 FCS | 209 | 19.3 | 19.1
+2024 | 4 FCS | 209 | 20.0 | 19.8
+2025 | 4 FCS | 209 | 21.2 | 21.1
+2026 | 4 FCS | 209 | 21.9 | 21.8
+2027 | 4 FCS | 209 | 22.7 | 22.6
+2028 | 4 FCS | 209 | 23.5 | 23.3
+2029 | 4 FCS | 209 | 24.3 | 24.1
+2030 | 4 FCS | 209 | 25.1 | 25.0
+2031 | 4 FCS | 209 | 26.0 | 25.8
+2032 | 4 FCS | 209 | 26.6 | 26.5
+2033 | 4 FCS | 209 | 27.5 | 27.4
+2034 | 4 FCS | 209 | 28.5 | 28.3
+2021 | 4 JUCO | 148 | 13.6 | 13.7
+2022 | 4 JUCO | 148 | 13.8 | 14.0
+2023 | 4 JUCO | 148 | 14.1 | 14.3
+2024 | 4 JUCO | 148 | 14.3 | 14.5
+2025 | 4 JUCO | 148 | 14.8 | 15.0
+2026 | 4 JUCO | 148 | 15.2 | 15.4
+2027 | 4 JUCO | 148 | 15.7 | 15.9
+2028 | 4 JUCO | 148 | 16.2 | 16.4
+2029 | 4 JUCO | 148 | 16.7 | 16.9
+2030 | 4 JUCO | 148 | 17.2 | 17.4
+2031 | 4 JUCO | 148 | 17.7 | 17.9
+2032 | 4 JUCO | 148 | 18.2 | 18.5
+2033 | 4 JUCO | 148 | 18.8 | 19.0
+2034 | 4 JUCO | 148 | 19.4 | 19.6
+2021 | 4 NAIA | 160 | 5.3 | 5.3
+2022 | 4 NAIA | 160 | 5.5 | 5.5
+2023 | 4 NAIA | 160 | 5.6 | 5.7
+2024 | 4 NAIA | 160 | 5.8 | 5.8
+2025 | 4 NAIA | 160 | 6.0 | 6.0
+2026 | 4 NAIA | 160 | 6.2 | 6.2
+2027 | 4 NAIA | 160 | 6.4 | 6.4
+2028 | 4 NAIA | 160 | 6.6 | 6.6
+2029 | 4 NAIA | 160 | 6.8 | 6.9
+2030 | 4 NAIA | 160 | 7.1 | 7.1
+2031 | 4 NAIA | 160 | 7.3 | 7.3
+2032 | 4 NAIA | 160 | 7.6 | 7.6
+2033 | 4 NAIA | 160 | 7.8 | 7.8
+2034 | 4 NAIA | 160 | 8.1 | 8.1
+
+=== NFL clubs: average revenue and cost a club, $M, and player share of revenue
+
+>>> with ny as (select y.year, (select sum(j.value) from json_each(y.l) j where j.key < 10) rev, (select sum(j.value) from json_each(y.l) j where j.key >= 10) cost, json_extract(y.l,'$[10]') + json_extract(y.l,'$[11]') pay from finance__nfl__years y) select year, count(*) n, round(avg(rev)/1e6,1) rev_m, round(avg(cost)/1e6,1) cost_m, round(100.0*sum(pay)/sum(rev),1) player_share from ny where year >= 2015 group by year order by year
+year | n | rev_m | cost_m | player_share
+2015 | 32 | 388.1 | 316.7 | 43.5
+2016 | 32 | 420.3 | 343.8 | 44.1
+2017 | 32 | 443.0 | 359.2 | 43.4
+2018 | 32 | 466.4 | 377.0 | 44.5
+2019 | 32 | 485.9 | 392.2 | 44.7
+2020 | 32 | 320.5 | 415.1 | 71.4
+2021 | 32 | 553.8 | 442.3 | 42.3
+2022 | 32 | 600.4 | 472.4 | 42.5
+2023 | 32 | 642.9 | 498.6 | 42.6
+2024 | 32 | 725.7 | 545.4 | 42.5
+2025 | 32 | 766.1 | 585.6 | 44.3
+2026 | 32 | 812.2 | 610.7 | 43.7
+2027 | 32 | 857.2 | 653.8 | 45.2
+2028 | 32 | 902.6 | 690.1 | 45.7
+2029 | 32 | 951.7 | 750.0 | 47.6
+2030 | 32 | 1015.6 | 835.6 | 50.5
+2031 | 32 | 1069.7 | 870.1 | 50.9
+2032 | 32 | 1143.8 | 937.7 | 52.1
+2033 | 32 | 1210.4 | 1001.8 | 52.7
+2034 | 32 | 1291.2 | 1104.5 | 55.5
+
+=== every check's own year series
+
+>>> years %
+Error: in prepare, near "years": syntax error
+  years %
+  ^--- error here
+######## END ROUND 3
