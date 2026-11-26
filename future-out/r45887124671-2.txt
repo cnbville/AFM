@@ -1,0 +1,159 @@
+######## ROUND 2 20:36
+
+=== levels in history rows
+
+>>> select level, count(*) from people__player__history group by level
+level | count(*)
+FBS | 67549
+FCS | 55479
+HS | 3160301
+NFL | 16915
+SmallCollege | 284841
+
+>>> select playing_time, count(*) from people__player__history where level like 'FBS%' group by playing_time
+playing_time | count(*)
+Backup | 21338
+Redshirt | 20632
+Rotation | 6995
+Starter | 18584
+
+=== FBS roster rows by season and role (people and alumni)
+
+>>> select year, playing_time, count(*) n from (select p.class_of - 18 + h.age year, h.playing_time from people__player__history h join people p on p._row = h._parent where h.level like 'FBS%' union all select a.class_of - 18 + h.age, h.playing_time from alumni__player__history h join alumni a on a._row = h._parent where h.level like 'FBS%') where year between 2021 and 2035 group by playing_time, year order by playing_time, year
+year | playing_time | n
+2021 | Backup | 654
+2022 | Backup | 648
+2023 | Backup | 565
+2024 | Backup | 603
+2025 | Backup | 639
+2026 | Backup | 803
+2027 | Backup | 758
+2028 | Backup | 805
+2029 | Backup | 875
+2030 | Backup | 1259
+2031 | Backup | 2065
+2032 | Backup | 3207
+2033 | Backup | 4081
+2034 | Backup | 5040
+2035 | Backup | 5608
+2021 | Redshirt | 518
+2022 | Redshirt | 481
+2023 | Redshirt | 599
+2024 | Redshirt | 513
+2025 | Redshirt | 750
+2026 | Redshirt | 691
+2027 | Redshirt | 915
+2028 | Redshirt | 885
+2029 | Redshirt | 780
+2030 | Redshirt | 2219
+2031 | Redshirt | 3052
+2032 | Redshirt | 3135
+2033 | Redshirt | 3366
+2034 | Redshirt | 3663
+2035 | Redshirt | 3727
+2021 | Rotation | 369
+2022 | Rotation | 351
+2023 | Rotation | 343
+2024 | Rotation | 333
+2025 | Rotation | 369
+2026 | Rotation | 397
+2027 | Rotation | 381
+2028 | Rotation | 380
+2029 | Rotation | 395
+2030 | Rotation | 537
+2031 | Rotation | 759
+2032 | Rotation | 959
+2033 | Rotation | 1254
+2034 | Rotation | 1612
+2035 | Rotation | 1791
+2021 | Starter | 1766
+2022 | Starter | 1863
+2023 | Starter | 1909
+2024 | Starter | 1986
+2025 | Starter | 2025
+2026 | Starter | 2115
+2027 | Starter | 2291
+2028 | Starter | 2312
+2029 | Starter | 2346
+2030 | Starter | 2361
+2031 | Starter | 2678
+2032 | Starter | 2971
+2033 | Starter | 3500
+2034 | Starter | 4106
+2035 | Starter | 3283
+
+=== FBS roster rows by season, all roles, and by age
+
+>>> select year, count(*) n, round(avg(age),2) mean_age from (select p.class_of - 18 + h.age year, h.age from people__player__history h join people p on p._row = h._parent where h.level like 'FBS%' union all select a.class_of - 18 + h.age, h.age from alumni__player__history h join alumni a on a._row = h._parent where h.level like 'FBS%') where year between 2021 and 2035 group by year order by year
+year | n | mean_age
+2021 | 3307 | 20.27
+2022 | 3343 | 20.31
+2023 | 3416 | 20.2
+2024 | 3435 | 20.1
+2025 | 3783 | 19.89
+2026 | 4006 | 19.89
+2027 | 4345 | 20.04
+2028 | 4382 | 20.07
+2029 | 4396 | 20.05
+2030 | 6376 | 19.4
+2031 | 8554 | 19.33
+2032 | 10272 | 19.47
+2033 | 12201 | 19.69
+2034 | 14421 | 19.93
+2035 | 14409 | 19.93
+
+=== FBS entrants by year and power group of the school he left
+
+>>> select e.year, case when p.conference in ('SEC','Big Ten','Big 12','ACC','Pac-12') then 'P4' else 'G5' end grp, count(*) n from recruiting_log__portal e join programs p on p._row = e.from_program where e."from" = 'FBS' and e.year between 2021 and 2035 group by grp, e.year order by grp, e.year
+year | grp | n
+2021 | G5 | 807
+2022 | G5 | 984
+2023 | G5 | 939
+2024 | G5 | 1111
+2025 | G5 | 1262
+2026 | G5 | 1267
+2027 | G5 | 1183
+2028 | G5 | 1026
+2029 | G5 | 1006
+2030 | G5 | 974
+2031 | G5 | 931
+2032 | G5 | 1003
+2033 | G5 | 905
+2034 | G5 | 991
+2035 | G5 | 142
+2021 | P4 | 1682
+2022 | P4 | 1699
+2023 | P4 | 1856
+2024 | P4 | 2102
+2025 | P4 | 1961
+2026 | P4 | 2060
+2027 | P4 | 1704
+2028 | P4 | 1684
+2029 | P4 | 1567
+2030 | P4 | 1532
+2031 | P4 | 1458
+2032 | P4 | 1606
+2033 | P4 | 1586
+2034 | P4 | 1457
+2035 | P4 | 318
+
+=== FBS entrants by year and the classes' age at entry (people only: those still in the book)
+
+>>> select year, count(*) n from recruiting_log__portal where "from" = 'FBS' and "to" is not null and year between 2021 and 2035 group by year order by year
+year | n
+2021 | 1441
+2022 | 1746
+2023 | 2017
+2024 | 2359
+2025 | 2343
+2026 | 2085
+2027 | 2185
+2028 | 2009
+2029 | 2098
+2030 | 1954
+2031 | 1827
+2032 | 2038
+2033 | 1721
+2034 | 1733
+2035 | 444
+######## END ROUND 2
