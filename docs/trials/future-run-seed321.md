@@ -16,7 +16,7 @@ Asked 2026-11-24 ("agreed"), run 2026-11-24/25, read 2026-11-25/26.
 | Read | 2021-25 or 2025 | 2031-35 or 2035 | Real |
 |---|---|---|---|
 | NFL starters' mean overall (8+ starts) | 80.8-81.2 | 80.9-81.2 | n/a (kept) |
-| Round 1 draftees' overall in their first season | 79.4-81.9 | 79.1-82.0 | n/a |
+| Round 1 draftees' overall in their first season | 78.6-81.9 | 79.1-81.4 | n/a |
 | FBS program strength, mean (spread) | 61.8 (54.4 to 73.0) | 62.4 (53.9 to 72.3) | n/a |
 | FCS program strength, mean | 56.4 | 56.4 | n/a |
 | FBS points a team game | 28.7 | 28.8 | 27.0 |
