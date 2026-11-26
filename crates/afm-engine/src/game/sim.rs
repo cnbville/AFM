@@ -1257,7 +1257,13 @@ pub struct Notes {
     #[serde(default)]
     pub helped: bool,
     pub missed: Vec<(u32, u32)>,
+    /// Where the first hit that held landed on the carrier.
     pub first_contact: Option<f64>,
+    /// Where a defender first got to the carrier, a missed dive at his legs
+    /// included: the charting's first contact, which the book's yards before
+    /// contact read (`Sim::first_hit`).
+    #[serde(default)]
+    pub touched: Option<f64>,
     pub forced_fumble: Option<u32>,
     pub fumbled: Option<u32>,
     pub recovered: Option<(usize, u32)>,
@@ -4376,6 +4382,15 @@ impl<'a> Sim<'a> {
             );
         }
         if self.rng.chance(p_miss) {
+            // A dive at his legs from the side or behind gets a hand on him
+            // as it misses: first contact as the charting keeps it (PFR's
+            // yards before contact, charted by SIS, run to the first touch,
+            // a broken tackle's included). A head-on miss is his move, and
+            // nobody touched him. Only the book reads it.
+            let legs = head_on < 0.3;
+            if legs && self.notes.touched.is_none() {
+                self.notes.touched = Some(r.pos.x);
+            }
             self.notes.missed.push((d.id, r.id));
             self.agents[i].down_until = t + 0.4 + 0.6 * self.rng.next();
             // A dive at his legs from the side or behind can still trip
@@ -4383,13 +4398,16 @@ impl<'a> Sim<'a> {
             // Balance keeps him on stride.
             // Low center of gravity keeps him up through it.
             let bal = r.a(Attr::Balance) + self.link(c, &[Link::LowCenter]);
-            let trip = if head_on < 0.3 { 0.72 } else { 0.88 } + clamp(0.002 * (bal - 60.0), -0.08, 0.08);
+            let trip = if legs { 0.72 } else { 0.88 } + clamp(0.002 * (bal - 60.0), -0.08, 0.08);
             self.agents[c].vel = self.agents[c].vel.scale(trip.min(0.96));
             return;
         }
         if self.notes.first_contact.is_none() {
             self.notes.first_contact = Some(self.agents[c].pos.x);
             self.front_diag(c, i);
+        }
+        if self.notes.touched.is_none() {
+            self.notes.touched = self.notes.first_contact;
         }
         // A blocked man's arm usually only grabs at a runner going full
         // speed: it slows him, but he runs through it.

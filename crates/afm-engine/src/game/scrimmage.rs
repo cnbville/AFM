@@ -346,7 +346,13 @@ pub struct SnapResult {
     #[serde(deserialize_with = "crate::save::leaked")]
     pub route: crate::save::Text,
     pub yac: f64,
+    /// Yards from the line to first contact as the charting keeps it, a
+    /// missed dive at his legs included (`Notes::touched`).
     pub before_contact: f64,
+    /// Yards from the line to the first hit that held: where the replay
+    /// spots a fumble it rules down by contact.
+    #[serde(default)]
+    pub before_hit: f64,
     pub time_to_throw: f64,
     pub separation: f64,
     /// Across the field: where the ball was snapped and where the throw
@@ -683,6 +689,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         route: "",
         yac: 0.0,
         before_contact: 0.0,
+        before_hit: 0.0,
         time_to_throw: 0.0,
         separation: 0.0,
         throw_y: None,
@@ -2577,10 +2584,18 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     if res.result == Result::Complete {
         res.yac = gained_to - catch_x;
     }
-    if let Some(fc) = sim.notes.first_contact {
+    // A carrier nobody touched on a run, a scramble or a catch gained all
+    // his yards before contact.
+    let carried = matches!(res.result, Result::Run | Result::Scramble | Result::Complete);
+    if let Some(fc) = sim.notes.touched {
         res.before_contact = fc - los;
-    } else if matches!(res.result, Result::Run | Result::Scramble | Result::Complete) {
+    } else if carried {
         res.before_contact = gained_to - los;
+    }
+    if let Some(fc) = sim.notes.first_contact {
+        res.before_hit = fc - los;
+    } else if carried {
+        res.before_hit = gained_to - los;
     }
     res.spot_y = match sim.ball {
         Ball::Dead(p) => p.y,

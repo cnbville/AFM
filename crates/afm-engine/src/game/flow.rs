@@ -8270,7 +8270,7 @@ impl<'a> Game<'a> {
             alt.returner = None;
             no_fumble(&mut alt);
             let ahead =
-                if truth.result == R::Complete { truth.air_yards + 1.0 } else { truth.before_contact.max(0.0) + 1.5 };
+                if truth.result == R::Complete { truth.air_yards + 1.0 } else { truth.before_hit.max(0.0) + 1.5 };
             alt.spot = (los + ahead).clamp(los - 10.0, (goal() - 0.6).max(los - 10.0));
             Some((CloseCall::Fumble, 0.5, false))
         } else if truth.touchdown && !truth.turnover && !truth.defense_td {
