@@ -60,8 +60,45 @@ pub fn world_nfl(path: &str) -> Vec<Squad> {
     own_league(&mut teams, afm_engine::player::Level::NFL);
     for (s, t) in v.iter_mut().zip(teams) {
         s.team.league = t.league;
+        sub_safeties(std::slice::from_mut(&mut s.team));
     }
     v
+}
+
+/// A world's teams with their next safeties taught the nickel (realism
+/// audit item 3, who makes the tackle): each staff lists its third and
+/// fourth safeties there every spring and camp (`spots::sub_safeties`), so
+/// a world file from before that has none and no safety plays its fifth or
+/// sixth back. Its teams get them here as its next listing would give
+/// them. AFM_SUBS=off leaves them out.
+pub fn sub_safeties(teams: &mut [GameTeam]) {
+    if std::env::var("AFM_SUBS").is_ok_and(|v| v == "off") {
+        return;
+    }
+    for t in teams {
+        let mut s: Vec<usize> = (0..t.players.len()).filter(|&i| t.players[i].position == Position::S).collect();
+        s.sort_by(|&a, &b| t.players[b].overall_at(Position::S).total_cmp(&t.players[a].overall_at(Position::S)));
+        for &i in s.iter().skip(2).take(2) {
+            t.players[i].spots_played |= afm_engine::spots::Spot::NB.bit();
+        }
+    }
+}
+
+/// A world's teams with their coordinators' own dime habits (realism audit
+/// item 3, who makes the tackle; `Staff::dime`): a college season keeps its
+/// teams as it built them, so a world file from before the habit has every
+/// staff at the typical one, and their sixth back would differ far less
+/// than real staffs' does. Each gets one here, drawn as the next season's
+/// build draws it for its coordinator (a standard normal), by the team's
+/// name. Teams that carry any are left alone.
+pub fn dime_habits(teams: &mut [GameTeam]) {
+    if teams.iter().any(|t| t.staff.dime != 0.0) {
+        return;
+    }
+    for t in teams {
+        let key = t.name.bytes().fold(0x811C_9DC5u32, |h, b| (h ^ b as u32).wrapping_mul(0x0100_0193));
+        t.staff.dime = Rng::new(key ^ 0x6C8E_9CF5).normal(0.0, 1.0);
+    }
 }
 
 /// A world's teams read as their own league (realism audit, the run lean):
@@ -111,6 +148,8 @@ pub fn world_college(path: &str, division: &str) -> CollegeTeams {
         .find(|p| p.division.name() == division)
         .map(|p| afm_engine::world::division_level(p.division));
     own_league(&mut teams, level.unwrap_or(afm_engine::player::Level::FBS));
+    sub_safeties(&mut teams);
+    dime_habits(&mut teams);
     (teams, conf, games)
 }
 

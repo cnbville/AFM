@@ -144,6 +144,11 @@ fn world_fbs(path: &str, seed: u32) -> (Vec<afm_engine::game::GameTeam>, Vec<(us
     // Their league's own typical men (the run lean), when the kept file
     // has none.
     afm_tools::ab::own_league(&mut teams, Level::FBS);
+    // And their next safeties taught the nickel, as the next spring's
+    // listing gives them (a kept file from before it).
+    afm_tools::ab::sub_safeties(&mut teams);
+    // And their coordinators' dime habits (the same).
+    afm_tools::ab::dime_habits(&mut teams);
     eprintln!("{} FBS programs from the world, {} games between them", teams.len(), games.len());
     let sched =
         if std::env::var("AFM_CONF").is_ok() || games.is_empty() { conference_games(&conf, seed) } else { games };
@@ -197,6 +202,10 @@ fn n_games(games: usize) -> f64 {
 fn main() {
     // AFM_QBSTATS=1: how the quarterbacks chose their throws (debug).
     let qb_stats = std::env::var("AFM_QBSTATS").is_ok();
+    // AFM_DEFENDERS: the engine counts how its one-man tackles end too.
+    if std::env::var("AFM_DEFENDERS").is_ok() {
+        afm_engine::game::sim::TACKLE_DIAG.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     let args: Vec<String> = std::env::args().collect();
     let level = match args.get(1).map(|s| s.as_str()) {
         Some("fbs") => Level::FBS,
@@ -2241,6 +2250,27 @@ struct DefReal {
     groups: String,
     /// A team leader's share and count: sacks, tackles for loss, tackles.
     leaders: String,
+    /// The NFL's snap shares by rank in a game (Pro Football Reference),
+    /// and from its plays (2023-24) the credits a 100 snaps by listed
+    /// position with the men on the field, and the credits each kind of
+    /// play gives (empty at FBS: no college snaps or tacklers by play).
+    snaps: String,
+    rates: String,
+    plays: String,
+    /// The NFL's runs by yards and catches by yards after the catch (share,
+    /// two men in on a tackled play, out of bounds), and the credits on a
+    /// carrier's play that ends out of bounds.
+    depths: String,
+    /// The NFL's kicking teams and the credits on kicks by position, and
+    /// the backs a defense plays by the receivers and the down (2023-24).
+    kicks: Option<String>,
+    packages: Option<String>,
+    /// How far the NFL's defenses differ in their packages (team seasons).
+    teams: Option<String>,
+    /// The NFL's pass rush by the backs on the field.
+    rush: Option<String>,
+    /// FBS team games by the final margin.
+    margins: Option<String>,
 }
 
 impl DefReal {
@@ -2288,7 +2318,207 @@ impl DefReal {
             .join("; ");
         let lead =
             |k: &str| format!("{:.3}, {:.1}", f(&v["team_leader"][k]["share"]), f(&v["team_leader"][k]["count"]));
+        let listed = ["DE", "DT", "LB", "CB", "S"];
+        let depths = if level == Level::NFL {
+            let d = &v["pbp"]["depths"];
+            let bins = |x: &Value, keys: &[&str], names: &[&str]| {
+                keys.iter()
+                    .zip(names.iter())
+                    .map(|(k, n)| {
+                        let a = arr(&x[*k]);
+                        format!("{n} {:.3}, two men {:.3}, out of bounds {:.3}", a[0], a[1], a[2])
+                    })
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            };
+            let ob = &v["pbp"]["carried_out_of_bounds"];
+            format!(
+                "real NFL 2023-24 runs by yards: {} | catches by yards after the catch: {} | a carrier out of bounds {:.2} a team game, credits none {:.3}, one {:.3}, two {:.3}",
+                bins(
+                    &d["runs_by_yards"],
+                    &["-99_0", "0_3", "3_6", "6_10", "10_20", "20_999"],
+                    &["<0", "0-3", "3-6", "6-10", "10-20", "20+"]
+                ),
+                bins(
+                    &d["catches_by_yards_after_the_catch"],
+                    &["-99_3", "3_6", "6_10", "10_20", "20_999"],
+                    &["<3", "3-6", "6-10", "10-20", "20+"]
+                ),
+                f(&ob["a_team_game"]),
+                f(&ob["credits"]["0"]),
+                f(&ob["credits"]["1"]),
+                f(&ob["credits"]["2"]),
+            )
+        } else {
+            String::new()
+        };
+        let (snaps, rates, plays) = if level == Level::NFL {
+            let s = &v["snap_share_by_rank_in_a_game"];
+            let shares = listed
+                .iter()
+                .map(|g| format!("{g} {} ({:.2})", line(&s[*g]["ranks_1_6"], 2), f(&s[*g]["on_the_field"])))
+                .collect::<Vec<_>>()
+                .join("; ");
+            let pb = &v["pbp"];
+            let per = ["DE", "OLB", "DT", "LB", "CB", "S"]
+                .iter()
+                .map(|g| {
+                    let a = arr(&pb["credits_a_100_snaps"][*g]);
+                    format!(
+                        "{g} {:.2} / {:.2} / {:.2} ({:.2} on the field)",
+                        a[0],
+                        a[1],
+                        a[2],
+                        f(&pb["on_the_field"][*g])
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let kinds = ["runs", "scrambles", "sacks", "catches", "interceptions"]
+                .iter()
+                .map(|k| {
+                    let a = arr(&pb["by_play"][*k]);
+                    format!("{k} {:.2}, {:.3}, {:.3}, {:.3}", a[0], a[1], a[2], a[3])
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            let (sc, un, ob) = (&pb["scrimmage"], &pb["untackled_a_team_game"], &pb["out_of_bounds"]);
+            (
+                format!("{name} by listed position (3-4 edges are listed LB), by rank (on the field a snap): {shares}"),
+                format!("real NFL 2023-24 plays by listed position (OLB: 3-4 edges and some 4-3 linebackers): {per}"),
+                format!(
+                    "real NFL 2023-24 plays: credits {:.2} a team game on {:.1} plays, two men {:.3} | untackled: incomplete {:.2}, touchdown {:.2}, out of bounds {:.2}, other {:.2} | out of bounds {:.2}, with a tackler {:.3} | {kinds}",
+                    f(&sc["credits_a_team_game"]),
+                    f(&sc["plays_a_team_game"]),
+                    f(&sc["two_or_more"]),
+                    f(&un["incomplete"]),
+                    f(&un["touchdown"]),
+                    f(&un["out_of_bounds"]),
+                    f(&un["other"]),
+                    f(&ob["a_team_game"]),
+                    f(&ob["with_a_tackler"]),
+                ),
+            )
+        } else {
+            (String::new(), String::new(), String::new())
+        };
+        let (kicks, packages) = if level == Level::NFL {
+            let k = &v["pbp"]["kicks"];
+            let list = |x: &Value, d: usize| {
+                x.as_object()
+                    .map(|m| m.iter().map(|(a, b)| format!("{a} {:.d$}", f(b))).collect::<Vec<_>>().join(", "))
+                    .unwrap_or_default()
+            };
+            let kicks = ["kickoff", "punt"]
+                .iter()
+                .map(|kind| {
+                    format!(
+                        "{kind}s {:.2} a team game: the kicking team's men a kick {} | tackles a team game by position {}",
+                        f(&k["a_team_game"][*kind]),
+                        list(&k["kicking_team_by_position"][*kind], 2),
+                        list(&k["credits_a_team_game_by_position"][*kind], 2),
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" || ");
+            let pk = &v["pbp"]["packages"];
+            let cols = ["early", "3rd 1-2", "3rd 3-6", "3rd 7+"];
+            let rows = (1..=4)
+                .map(|w| {
+                    let r = &pk[w.to_string().as_str()];
+                    let cells = (0..4)
+                        .map(|c| {
+                            let a = arr(&r[c]);
+                            format!("{} {:.3}/{:.3}/{:.3}", cols[c], a[0], a[1], a[2])
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    format!("{w} WR {cells}")
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            let dbs = &v["pbp"]["defensive_backs_on_the_field"];
+            let saf = &v["pbp"]["safeties_on_the_field"];
+            let three = |k: &str| {
+                arr(&pk["three_or_more_safeties"][k]).iter().map(|x| format!("{x:.3}")).collect::<Vec<_>>().join("/")
+            };
+            let rows = format!(
+                "{rows} | three or more safeties by the receivers: with five backs {}, with six {}",
+                three("five_backs"),
+                three("six_backs")
+            );
+            let packages = format!(
+                "backs (3 4 5 6 7) {:.3}/{:.3}/{:.3}/{:.3}/{:.3} | safeties (0-4) {:.3}/{:.3}/{:.3}/{:.3}/{:.3} | {rows}",
+                f(&dbs["3"]),
+                f(&dbs["4"]),
+                f(&dbs["5"]),
+                f(&dbs["6"]),
+                f(&dbs["7"]),
+                f(&saf["0"]),
+                f(&saf["1"]),
+                f(&saf["2"]),
+                f(&saf["3"]),
+                f(&saf["4"]),
+            );
+            (Some(kicks), Some(packages))
+        } else {
+            (None, None)
+        };
+        let teams = (level == Level::NFL).then(|| {
+            let t = &v["pbp"]["packages"]["teams"];
+            let one = |k: &str| {
+                let a = arr(&t[k]);
+                format!("{:.3} {:.3} {:.3} ({:.2})", a[1], a[2], a[3], a[4])
+            };
+            format!(
+                "five or more backs {}, six {} | five or more against two receivers early {} | six against three on third and 7+ {} | a third safety with five backs {} | five with six r {:.2}, a club's own a season later {:.2} and {:.2}",
+                one("five_or_more"),
+                one("six_or_more"),
+                one("five_or_more_two_receivers_early"),
+                one("six_three_receivers_third_and_7"),
+                one("third_safety_with_five_backs"),
+                f(&t["five_with_six_r"]),
+                f(&t["season_to_season_r"]["five_or_more"]),
+                f(&t["season_to_season_r"]["six_or_more"]),
+            )
+        });
+        let rush = (level == Level::NFL).then(|| {
+            let t = &v["pbp"]["packages"]["rush"];
+            ["four_backs", "five_backs", "six_backs", "all"]
+                .iter()
+                .map(|k| {
+                    let a = arr(&t[*k]);
+                    format!("{:.3} {:.2} {:.3} {:.3} {:.3}", a[0], a[1], a[2], a[3], a[4])
+                })
+                .collect::<Vec<_>>()
+                .join(" | ")
+        });
+        let margins = v.get("by_margin").filter(|m| m.is_object()).map(|m| {
+            let row = |k: &str| {
+                m[k].as_array()
+                    .map(|rows| {
+                        rows.iter()
+                            .map(|x| {
+                                let a = arr(x);
+                                format!("{:.3} {:.1} {:.2} {:.3} {:.3} {:.1}", a[0], a[1], a[2], a[3], a[4], a[5])
+                            })
+                            .collect::<Vec<_>>()
+                            .join(" | ")
+                    })
+                    .unwrap_or_default()
+            };
+            format!("{name}, games between FBS teams, won: {} || lost: {}", row("won"), row("lost"))
+        });
         DefReal {
+            snaps,
+            rates,
+            plays,
+            depths,
+            kicks,
+            packages,
+            teams,
+            rush,
+            margins,
             game: format!(
                 "{name}: {:.1}, {:.1}, {:.2}, {:.2}",
                 f(&pg["tackles"]),
@@ -2324,6 +2554,30 @@ impl DefReal {
             ),
         }
     }
+}
+
+/// Each man's tackles on kicks in one game, solo and assists, where the
+/// real lines leave them out: the NFL's weekly lines keep the defense's
+/// tackles only (its kickers and punters have none, 2021-24), college boxes
+/// keep every tackle. Empty at every other level.
+fn kick_credits(r: &afm_engine::game::GameResult, level: Level) -> std::collections::HashMap<u32, (u32, u32)> {
+    use afm_engine::game::stats::PlayType;
+    let mut out = std::collections::HashMap::new();
+    if level != Level::NFL {
+        return out;
+    }
+    for p in r.stats.plays.iter().filter(|p| !p.nullified && matches!(p.kind, PlayType::Punt | PlayType::Kickoff)) {
+        let two = p.tacklers.len() > 1;
+        for &id in &p.tacklers {
+            let e: &mut (u32, u32) = out.entry(id).or_default();
+            if two {
+                e.1 += 1;
+            } else {
+                e.0 += 1;
+            }
+        }
+    }
+    out
 }
 
 /// One defender's season for `defenders_read`.
@@ -2375,6 +2629,7 @@ fn defenders_read(
     let mut done: Vec<(usize, usize, Lines, u32)> = Vec::new();
     for (g, r) in results.iter().enumerate() {
         let (h, a) = pairs[g];
+        let kicks = kick_credits(r, level);
         for (k, ti) in [h, a].into_iter().enumerate() {
             let e = cur.entry(ti).or_default();
             let mut most = 0;
@@ -2383,6 +2638,7 @@ fn defenders_read(
                 if l.snaps_def == 0 {
                     continue;
                 }
+                let (ks, ka) = kicks.get(id).copied().unwrap_or_default();
                 let v = e.2.entry(*id).or_default();
                 v.games += 1;
                 v.snaps += l.snaps_def;
@@ -2391,8 +2647,8 @@ fn defenders_read(
                 v.pressures += l.pressures;
                 v.sacks += l.sacks;
                 v.tfl += l.tfl;
-                v.solo += l.tackles;
-                v.assists += l.assists;
+                v.solo += l.tackles - ks.min(l.tackles);
+                v.assists += l.assists - ka.min(l.assists);
                 v.missed += l.missed;
             }
             // The team's defense snaps: nobody plays more than all of them.
@@ -2617,7 +2873,35 @@ fn defenders_read(
         groups.iter().map(|g| format!("{} {:.1}, {:.2}, {:.2}", g.0, g.1, g.2, g.3)).collect::<Vec<_>>().join("; "),
         real.groups
     );
-    defenders_plays(results, teams, pairs, len, blockers, &real);
+    defenders_plays(results, teams, pairs, len, blockers, &real, level);
+}
+
+/// Scrimmage plays by what they were for `defenders_plays`: runs,
+/// scrambles, sacks, catches and interceptions as [plays, tackled,
+/// credits, two men]; the untackled plays by why (incomplete, touchdown,
+/// out of bounds, other); a carrier out of bounds on a run or a catch [all,
+/// with a tackler, with two];
+/// kicks [plays, credits].
+#[derive(Default)]
+struct Kinds {
+    kind: [[u32; 4]; 5],
+    untackled: [u32; 4],
+    oob: [u32; 3],
+    kicks: [u32; 2],
+    /// Runs by yards gained and catches by yards after the catch, in the
+    /// bins of `DEPTHS`: [plays, tackled, two men, out of bounds].
+    run_yards: [[u32; 4]; 6],
+    catch_yac: [[u32; 4]; 6],
+}
+
+/// The bins of `Kinds::run_yards` and `Kinds::catch_yac`, as the real line
+/// in `data/real-world/defenders.json` (`pbp.depths`) has them: under 0, 0-3,
+/// 3-6, 6-10, 10-20, 20 and more (catches' first bin is under 3).
+const DEPTHS: [&str; 6] = ["<0", "0-3", "3-6", "6-10", "10-20", "20+"];
+
+/// A play's bin in `DEPTHS` by its yards.
+fn depth_bin(y: f64) -> usize {
+    [0.0, 3.0, 6.0, 10.0, 20.0].iter().position(|&e| y < e).unwrap_or(5)
 }
 
 /// One defender's snaps for `defenders_plays`.
@@ -2655,6 +2939,7 @@ fn defenders_plays(
     len: usize,
     blockers: f64,
     real: &DefReal,
+    level: Level,
 ) {
     use afm_engine::game::stats::PlayType;
     use afm_engine::positions::{Position as P, overall_for};
@@ -2682,6 +2967,50 @@ fn defenders_plays(
     let mut grp_game = [([0.0f64; 8], 0.0f64); 3];
     let mut grp_season: HashMap<usize, HashMap<u32, f64>> = HashMap::new();
     let mut grp_seasons = [([0.0f64; 8], 0.0f64); 3];
+    // Tackles a 100 defense snaps on scrimmage plays by position and by
+    // slot (`DSlot` order), on runs and on dropbacks: [run snaps, run
+    // tackles, dropbacks, dropback tackles].
+    let mut per_pos = [[0u32; 4]; 5];
+    let mut per_slot = [[0u32; 4]; 14];
+    // Scrimmage plays by what they were and kicks (`Kinds`).
+    let mut by_kind = Kinds::default();
+    // The kicking team's men by position on kickoffs and punts, the plays,
+    // and the tackles on each by position (who covers kicks).
+    let mut units: [std::collections::BTreeMap<String, f64>; 2] = Default::default();
+    let mut unit_n = [0u32; 2];
+    let mut unit_tk: [std::collections::BTreeMap<String, f64>; 2] = Default::default();
+    // The defense's backs a scrimmage snap by the offense's listed
+    // receivers (one or none, two, three, four or more) and the down
+    // (`PACKAGES`' columns; inside the 3 apart), and its safeties a snap.
+    let mut pk = [[[0u32; 3]; 4]; 4];
+    // The same cells by the call (the backs' slots on the field), whoever
+    // plays them, and the backs' slots (outside corners, nickel, dime, free
+    // and strong safety) by the listed position of the man in each (CB, S,
+    // LB, WR, anyone else).
+    let mut pk_call = [[[0u32; 3]; 4]; 4];
+    // Dropbacks by the call's backs (four, five, six) and the receivers:
+    // dropbacks, rushers, those with five or more, pressured, sacked.
+    let mut pk_rush = [[[0u32; 5]; 4]; 3];
+    let mut slot_pos = [[0u32; 5]; 5];
+    // The offense's receiver slots (outside, the slot) by the listed
+    // position of the man in each (WR, CB, TE, RB, anyone else): how often
+    // a two-way man lines up at receiver.
+    let mut recv_pos = [[0u32; 5]; 2];
+    let mut backs_n = [0u32; 8];
+    let mut saf_n = [0u32; 6];
+    // By the receivers, with five backs and with six or more: the snaps and
+    // those with three or more safeties.
+    let mut third = [[[0u32; 2]; 2]; 4];
+    // Each defense's own packages (how far staffs differ): snaps, five or
+    // more backs, six; against two receivers on early downs and five or
+    // more; against three on third and 7 or more and six; with five backs
+    // and a third safety among them.
+    let mut team_pk: std::collections::HashMap<usize, [u32; 11]> = Default::default();
+    // A team game by the final margin (0-7, 8-16, 17-27, 28 or more), won
+    // then lost: games, men with a tackle, the top man's tackles and his
+    // share, the top 11's share, the team's tackles.
+    let mut by_margin = [[[0.0f64; 6]; 4]; 2];
+    let pos_k = |p: P| [P::EDGE, P::DT, P::LB, P::CB, P::S].iter().position(|&x| x == p);
     let group = |p: P| match p {
         P::EDGE | P::DT => Some(0),
         P::LB => Some(1),
@@ -2691,12 +3020,18 @@ fn defenders_plays(
     for (g, r) in results.iter().enumerate() {
         let (h, a) = pairs[g];
         let ts = [h, a];
+        // A man's tackles as the real lines count them (`kick_credits`).
+        let kicks = kick_credits(r, level);
+        let counted = |id: &u32, l: &afm_engine::game::stats::StatLine| {
+            let (ks, ka) = kicks.get(id).copied().unwrap_or_default();
+            (l.tackles - ks.min(l.tackles) + l.assists - ka.min(l.assists)) as f64
+        };
         for (k, &ti) in ts.iter().enumerate() {
             team_games[ti] += 1;
             let e = season.entry(ti).or_default();
             let mut game: Vec<f64> = Vec::new();
             for (id, l) in r.stats.players[k].iter() {
-                let t = (l.tackles + l.assists) as f64;
+                let t = counted(id, l);
                 if t > 0.0 {
                     *e.1.entry(*id).or_default() += t;
                     game.push(t);
@@ -2705,7 +3040,7 @@ fn defenders_plays(
             let mut by_group: [Vec<f64>; 3] = Default::default();
             let gs = grp_season.entry(ti).or_default();
             for (id, l) in r.stats.players[k].iter() {
-                let t = (l.tackles + l.assists) as f64;
+                let t = counted(id, l);
                 if t > 0.0
                     && let Some(q) = who[ti].get(id).and_then(|p| group(p.position))
                 {
@@ -2728,6 +3063,22 @@ fn defenders_plays(
                 }
                 in_game.1 += game.len() as f64;
                 in_game.2 += 1.0;
+                let margin = r.stats.score[k] - r.stats.score[1 - k];
+                if margin != 0 {
+                    let b = match margin.abs() {
+                        0..=7 => 0,
+                        8..=16 => 1,
+                        17..=27 => 2,
+                        _ => 3,
+                    };
+                    let m = &mut by_margin[(margin < 0) as usize][b];
+                    m[0] += 1.0;
+                    m[1] += game.len() as f64;
+                    m[2] += game[0];
+                    m[3] += game[0] / all;
+                    m[4] += game.iter().take(11).sum::<f64>() / all;
+                    m[5] += all;
+                }
             }
             e.0 += 1;
             if e.0 == len {
@@ -2766,11 +3117,183 @@ fn defenders_plays(
                     m.kick_tk += 1;
                 }
             }
+            if kick {
+                by_kind.kicks[0] += 1;
+                by_kind.kicks[1] += n as u32;
+                let u = (p.kind == PlayType::Punt) as usize;
+                let team_of = |id: u32| ts.iter().copied().find(|&t| who[t].contains_key(&id));
+                if let Some(kt) = p.on_field[0].first().and_then(|&id| team_of(id)) {
+                    unit_n[u] += 1;
+                    for id in &p.on_field[0] {
+                        if let Some(pl) = who[kt].get(id) {
+                            *units[u].entry(format!("{:?}", pl.position)).or_default() += 1.0;
+                        }
+                    }
+                }
+                for &id in &p.tacklers {
+                    let Some(pl) = team_of(id).and_then(|t| who[t].get(&id)) else { continue };
+                    *unit_tk[u].entry(format!("{:?}", pl.position)).or_default() += 1.0;
+                }
+            }
             if !scrimmage {
                 continue;
             }
+            {
+                use afm_engine::positions::Position;
+                let count = |ids: &[u32], want: &[Position]| {
+                    ids.iter()
+                        .filter(|id| ts.iter().any(|&t| who[t].get(id).is_some_and(|pl| want.contains(&pl.position))))
+                        .count()
+                };
+                let (o_ids, d_ids) = (&p.on_field[0], &p.on_field[1]);
+                if d_ids.len() == 11 && o_ids.len() == 11 {
+                    let backs = count(d_ids, &[Position::CB, Position::S]);
+                    let saf = count(d_ids, &[Position::S]);
+                    backs_n[backs.min(7)] += 1;
+                    saf_n[saf.min(5)] += 1;
+                    // By the offense's group, as the play caller answers
+                    // it (the real table counts listed receivers, which a
+                    // real group is by its name; a world's corner who plays
+                    // receiver is one of the group's receivers here).
+                    let group_wr = match p.personnel.as_str() {
+                        "22" | "13" => Some(0),
+                        "12" | "21" => Some(1),
+                        "11" => Some(2),
+                        "10" => Some(3),
+                        _ => None,
+                    };
+                    if p.yardline_100 > 3.0
+                        && p.down >= 1
+                        && let Some(wr) = group_wr
+                    {
+                        let col = if p.down <= 2 {
+                            0
+                        } else if p.togo <= 2.0 {
+                            1
+                        } else if p.togo <= 6.0 {
+                            2
+                        } else {
+                            3
+                        };
+                        pk[wr][col][backs.clamp(4, 6) - 4] += 1;
+                        // The call's own package: the backs' slots filled.
+                        let called = p.roles[1].iter().filter(|&&s| (8..=13).contains(&s)).count();
+                        pk_call[wr][col][called.clamp(4, 6) - 4] += 1;
+                        if p.rushed != 0 {
+                            let r = &mut pk_rush[called.clamp(4, 6) - 4][wr];
+                            r[0] += 1;
+                            r[1] += p.rushed.count_ones();
+                            r[2] += (p.rushed.count_ones() >= 5) as u32;
+                            r[3] += p.pressured as u32;
+                            r[4] += (p.kind == PlayType::Sack) as u32;
+                        }
+                        for (k, id) in d_ids.iter().enumerate() {
+                            let slot = match p.roles[1].get(k) {
+                                Some(8 | 9) => 0,
+                                Some(10) => 1,
+                                Some(11) => 2,
+                                Some(12) => 3,
+                                Some(13) => 4,
+                                _ => continue,
+                            };
+                            let listed = match ts.iter().find_map(|&t| who[t].get(id)).map(|pl| pl.position) {
+                                Some(Position::CB) => 0,
+                                Some(Position::S) => 1,
+                                Some(Position::LB) => 2,
+                                Some(Position::WR) => 3,
+                                _ => 4,
+                            };
+                            slot_pos[slot][listed] += 1;
+                        }
+                        for (k, id) in o_ids.iter().enumerate() {
+                            let slot = match p.roles[0].get(k) {
+                                Some(3 | 4) => 0,
+                                Some(5 | 6 | 15) => 1,
+                                _ => continue,
+                            };
+                            let listed = match ts.iter().find_map(|&t| who[t].get(id)).map(|pl| pl.position) {
+                                Some(Position::WR) => 0,
+                                Some(Position::CB) => 1,
+                                Some(Position::TE) => 2,
+                                Some(Position::RB) => 3,
+                                _ => 4,
+                            };
+                            recv_pos[slot][listed] += 1;
+                        }
+                        if backs >= 5 {
+                            let t = &mut third[wr][backs.min(6) - 5];
+                            t[0] += 1;
+                            t[1] += (saf >= 3) as u32;
+                        }
+                        let t = team_pk.entry(ts[d]).or_default();
+                        t[0] += 1;
+                        t[1] += (backs >= 5) as u32;
+                        t[2] += (backs >= 6) as u32;
+                        t[9] += (called >= 5) as u32;
+                        t[10] += (called >= 6) as u32;
+                        if wr == 1 && col == 0 {
+                            t[3] += 1;
+                            t[4] += (backs >= 5) as u32;
+                        }
+                        if wr == 2 && col == 3 {
+                            t[5] += 1;
+                            t[6] += (backs >= 6) as u32;
+                        }
+                        if backs == 5 {
+                            t[7] += 1;
+                            t[8] += (saf >= 3) as u32;
+                        }
+                    }
+                }
+            }
             if n > 0 {
                 in_on[(n - 1).min(2)] += 1;
+            }
+            // Tackled or not, by what the play was.
+            let kind = match p.kind {
+                PlayType::Run if !p.scramble => Some(0),
+                PlayType::Run | PlayType::Scramble => Some(1),
+                PlayType::Sack => Some(2),
+                PlayType::Pass if p.interception => Some(4),
+                PlayType::Pass if p.complete => Some(3),
+                _ => None,
+            };
+            if let Some(k) = kind {
+                let row = &mut by_kind.kind[k];
+                row[0] += 1;
+                row[1] += (n > 0) as u32;
+                row[2] += n as u32;
+                row[3] += (n > 1) as u32;
+                let depth = match k {
+                    0 => Some(&mut by_kind.run_yards[depth_bin(p.yards)]),
+                    3 => Some(&mut by_kind.catch_yac[depth_bin(p.yac).max(1)]),
+                    _ => None,
+                };
+                if let Some(row) = depth {
+                    row[0] += 1;
+                    row[1] += (n > 0) as u32;
+                    row[2] += (n > 1) as u32;
+                    row[3] += p.out_of_bounds as u32;
+                }
+            }
+            if n == 0 {
+                let why = if kind.is_none() {
+                    0
+                } else if p.touchdown {
+                    1
+                } else if p.out_of_bounds {
+                    2
+                } else {
+                    3
+                };
+                by_kind.untackled[why] += 1;
+            }
+            // A carrier out of bounds on a run or a catch, as the real line
+            // counts them.
+            if p.out_of_bounds && matches!(kind, Some(0 | 3)) {
+                by_kind.oob[0] += 1;
+                by_kind.oob[1] += (n > 0) as u32;
+                by_kind.oob[2] += (n > 1) as u32;
             }
             let ti = ts[d];
             team_snaps[ti] += 1;
@@ -2791,6 +3314,16 @@ fn defenders_plays(
             }
             let share = if p.sackers.len() > 1 { 0.5 } else { 1.0 };
             for (k, &id) in p.on_field[1].iter().enumerate() {
+                let here = p.tacklers.contains(&id) as u32;
+                let j = if drop { 2 } else { 0 };
+                if let Some(s) = p.roles[1].get(k).and_then(|&s| per_slot.get_mut(s as usize)) {
+                    s[j] += 1;
+                    s[j + 1] += here;
+                }
+                if let Some(q) = who[ti].get(&id).and_then(|x| pos_k(x.position)) {
+                    per_pos[q][j] += 1;
+                    per_pos[q][j + 1] += here;
+                }
                 let m = men.entry((ti, id)).or_default();
                 m.snaps += 1;
                 m.garbage += (p.garbage[d] > 0) as u32;
@@ -2858,6 +3391,98 @@ fn defenders_plays(
         (loss_grp[2][0] + loss_grp[2][1]) as f64 / tg,
         loss_grp[2][1] as f64 / tg,
     );
+    // The credits the plays give (every man in on a tackle has one).
+    let k = &by_kind;
+    let credits: u32 = k.kind.iter().map(|r| r[2]).sum();
+    println!(
+        "tackle credits on scrimmage plays a team game {:.2}, on kicks {:.2} ({:.2} kicks) | untackled a team game: incomplete {:.2}, touchdown {:.2}, out of bounds {:.2}, other {:.2} | a carrier out of bounds on a run or a catch {:.2} a team game, credits none {:.3}, one {:.3}, two {:.3}",
+        credits as f64 / tg,
+        k.kicks[1] as f64 / tg,
+        k.kicks[0] as f64 / tg,
+        k.untackled[0] as f64 / tg,
+        k.untackled[1] as f64 / tg,
+        k.untackled[2] as f64 / tg,
+        k.untackled[3] as f64 / tg,
+        k.oob[0] as f64 / tg,
+        1.0 - k.oob[1] as f64 / k.oob[0].max(1) as f64,
+        (k.oob[1] - k.oob[2]) as f64 / k.oob[0].max(1) as f64,
+        k.oob[2] as f64 / k.oob[0].max(1) as f64,
+    );
+    println!(
+        "  by play, a team game, tackled, credits a play, two men: {}",
+        ["runs", "scrambles", "sacks", "catches", "interceptions"]
+            .iter()
+            .zip(k.kind.iter())
+            .map(|(name, r)| {
+                let n = r[0].max(1) as f64;
+                format!(
+                    "{name} {:.2}, {:.3}, {:.3}, {:.3}",
+                    r[0] as f64 / tg,
+                    r[1] as f64 / n,
+                    r[2] as f64 / n,
+                    r[3] as f64 / r[1].max(1) as f64
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    );
+    if !real.plays.is_empty() {
+        println!("  {}", real.plays);
+    }
+    // Runs by their yards and catches by the yards after the catch: the
+    // share, two men in on the tackle, out of bounds.
+    for (name, b) in [("runs by yards", &by_kind.run_yards), ("catches by yards after the catch", &by_kind.catch_yac)] {
+        let all: u32 = b.iter().map(|r| r[0]).sum();
+        println!(
+            "  {name}: {}",
+            DEPTHS
+                .iter()
+                .zip(b.iter())
+                .map(|(d, r)| format!(
+                    "{d} {:.3}, two men {:.3}, out of bounds {:.3}",
+                    r[0] as f64 / all.max(1) as f64,
+                    r[2] as f64 / r[1].max(1) as f64,
+                    r[3] as f64 / r[0].max(1) as f64
+                ))
+                .collect::<Vec<_>>()
+                .join("; ")
+        );
+    }
+    if !real.depths.is_empty() {
+        println!("  {}", real.depths);
+    }
+    // The debug counts: the nearest other defender on a tackle by one man.
+    {
+        use afm_engine::game::sim::{FALL_BINS, FALL_NEAR, FIGHT_LEN};
+        use std::sync::atomic::Ordering::Relaxed;
+        let edges: Vec<String> = FALL_BINS.iter().map(|e| format!("<{e}")).chain(["far".to_string()]).collect();
+        for (k, name) in ["runs, free", "runs, in a block", "catches, free", "catches, in a block"].iter().enumerate() {
+            let v: Vec<u64> = FALL_NEAR[k].iter().map(|x| x.load(Relaxed)).collect();
+            let n = v.iter().sum::<u64>().max(1) as f64;
+            println!(
+                "  one man's tackle, the nearest other defender over the next 0.3 s, {name}: {}",
+                edges
+                    .iter()
+                    .zip(v.iter())
+                    .map(|(e, x)| format!("{e} {:.3}", *x as f64 / n))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        for (k, name) in ["runs", "catches"].iter().enumerate() {
+            let v: Vec<u64> = FIGHT_LEN[k].iter().map(|x| x.load(Relaxed)).collect();
+            let n = v.iter().sum::<u64>().max(1) as f64;
+            println!(
+                "  one man's tackle, held before he went down, {name}: {}",
+                ["<0.1", "<0.2", "<0.3", "<0.5", "<0.8", "longer"]
+                    .iter()
+                    .zip(v.iter())
+                    .map(|(e, x)| format!("{e} {:.3}", *x as f64 / n))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+    }
     // A team season's tackles by rank.
     if !seasons.is_empty() {
         let n = seasons.len() as f64;
@@ -2932,6 +3557,49 @@ fn defenders_plays(
             garb / all.max(1.0),
         );
     }
+    if !real.snaps.is_empty() {
+        println!("  {}", real.snaps);
+    }
+    // Who makes the tackle for his snaps: by position, then by the slot he
+    // played on each snap.
+    let rate = |t: u32, s: u32| 100.0 * t as f64 / s.max(1) as f64;
+    println!(
+        "tackle credits a 100 defense snaps on scrimmage plays, all / runs / dropbacks: {}",
+        ["EDGE", "DT", "LB", "CB", "S"]
+            .iter()
+            .zip(per_pos.iter())
+            .map(|(n, r)| {
+                format!("{n} {:.2} / {:.2} / {:.2}", rate(r[1] + r[3], r[0] + r[2]), rate(r[1], r[0]), rate(r[3], r[2]))
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    if !real.rates.is_empty() {
+        println!("  {}", real.rates);
+    }
+    let slots: [(&str, &[usize]); 10] = [
+        ("DE", &[0, 1]),
+        ("DT", &[2, 3, 4]),
+        ("Sam", &[5]),
+        ("Mike", &[6]),
+        ("Will", &[7]),
+        ("CB", &[8, 9]),
+        ("NCB", &[10]),
+        ("DCB", &[11]),
+        ("FS", &[12]),
+        ("SS", &[13]),
+    ];
+    println!(
+        "by the slot he played, tackles a 100 snaps on runs / on dropbacks (men in the slot a snap): {}",
+        slots
+            .iter()
+            .map(|(n, ix)| {
+                let s = |j: usize| ix.iter().map(|&i| per_slot[i][j]).sum::<u32>();
+                format!("{n} {:.1}/{:.1} ({:.2})", rate(s(1), s(0)), rate(s(3), s(2)), (s(0) + s(2)) as f64 / snaps)
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     // True rushes by position and overall over the typical blocker.
     let ovr = |ti: usize, id: u32| who[ti].get(&id).map(|p| overall_for(p.position, &p.attrs));
     println!("true rushes (a dropback he rushed on), by overall over the league's typical blocker:");
@@ -3064,6 +3732,227 @@ fn defenders_plays(
             st / all.max(1.0),
             by.iter().map(|(k, v)| format!("{k} {:.2} ({:.2})", v.0 / tg, v.1 / tg)).collect::<Vec<_>>().join(", "),
         );
+        let list = |m: &std::collections::BTreeMap<String, f64>, d: f64| {
+            let mut v: Vec<(&String, &f64)> = m.iter().collect();
+            v.sort_by(|a, b| b.1.total_cmp(a.1));
+            v.iter().map(|(k, x)| format!("{k} {:.2}", *x / d)).collect::<Vec<_>>().join(", ")
+        };
+        for (u, name) in ["kickoffs", "punts"].iter().enumerate() {
+            let tk: f64 = unit_tk[u].values().sum();
+            println!(
+                "  {name} {:.2} a team game: the kicking team's men a kick {} | tackles a team game {:.2}, by position {}",
+                unit_n[u] as f64 / tg,
+                list(&units[u], unit_n[u].max(1) as f64),
+                tk / tg,
+                list(&unit_tk[u], tg),
+            );
+        }
+        if let Some(k) = &real.kicks {
+            println!("  real NFL 2023-24: {k}");
+        }
+    }
+    {
+        let snaps: u32 = backs_n.iter().sum();
+        let sh = |v: &[u32]| {
+            let m: u32 = v.iter().sum();
+            v.iter().map(|&x| format!("{:.3}", x as f64 / m.max(1) as f64)).collect::<Vec<_>>().join("/")
+        };
+        let mean = |v: &[u32]| {
+            v.iter().enumerate().map(|(k, &x)| k as f64 * x as f64).sum::<f64>() / v.iter().sum::<u32>().max(1) as f64
+        };
+        println!(
+            "the defense's backs a snap (3 4 5 6 7): {} | mean {:.2} | safeties (0-5): {}, mean {:.2}",
+            sh(&backs_n[3..8]),
+            mean(&backs_n),
+            sh(&saf_n),
+            mean(&saf_n),
+        );
+        let cols = ["early", "3rd 1-2", "3rd 3-6", "3rd 7+"];
+        let rows: Vec<String> = (0..4)
+            .map(|w| {
+                format!(
+                    "{} WR {}",
+                    w + 1,
+                    (0..4).map(|c| format!("{} {}", cols[c], sh(&pk[w][c]))).collect::<Vec<_>>().join(", ")
+                )
+            })
+            .collect();
+        println!("  by the receivers and the down, 4/5/6 backs: {} | on {snaps} snaps", rows.join("; "));
+        let rows: Vec<String> = (0..4)
+            .map(|w| {
+                format!(
+                    "{} WR {}",
+                    w + 1,
+                    (0..4).map(|c| format!("{} {}", cols[c], sh(&pk_call[w][c]))).collect::<Vec<_>>().join(", ")
+                )
+            })
+            .collect();
+        println!("  by the call (the backs' slots on the field, whoever plays them): {}", rows.join("; "));
+        // The pass rush by the call's backs (four, five, six, then all).
+        let all: u32 = pk_rush.iter().flatten().map(|r| r[0]).sum();
+        let rush = |rows: &[[u32; 5]]| {
+            let r = rows.iter().fold([0u32; 5], |mut a, r| {
+                (0..5).for_each(|k| a[k] += r[k]);
+                a
+            });
+            let n = r[0].max(1) as f64;
+            format!(
+                "{:.3} {:.2} {:.3} {:.3} {:.3}",
+                r[0] as f64 / all.max(1) as f64,
+                r[1] as f64 / n,
+                r[2] as f64 / n,
+                r[3] as f64 / n,
+                r[4] as f64 / n
+            )
+        };
+        println!(
+            "  dropbacks by the call's backs (four | five | six | all): share of dropbacks, rushers, five or more rushing, pressured, sacked: {} | {} | {} | {}",
+            rush(&pk_rush[0]),
+            rush(&pk_rush[1]),
+            rush(&pk_rush[2]),
+            rush(&pk_rush.concat()),
+        );
+        if let Some(k) = &real.rush {
+            println!(
+                "    real NFL 2023-24 (by listed backs; pressured is FTN's flag, a wider count than the book's): {k}"
+            );
+        }
+        let by_wr: Vec<u32> = (0..4).map(|w| pk_call[w].iter().flatten().sum()).collect();
+        let by_col: Vec<u32> = (0..4).map(|c| (0..4).map(|w| pk_call[w][c].iter().sum::<u32>()).sum()).collect();
+        println!(
+            "  these snaps by the offense's receivers (1 2 3 4): {} | by the down (early, 3rd 1-2, 3-6, 7+): {} | real NFL 2023-24: 0.063/0.287/0.641/0.009 | 0.770/0.050/0.076/0.104",
+            sh(&by_wr),
+            sh(&by_col)
+        );
+        let call_all: Vec<u32> = (0..3).map(|b| pk_call.iter().flatten().map(|c| c[b]).sum()).collect();
+        println!("  by the call over all these snaps (four, five, six backs): {}", sh(&call_all));
+        println!(
+            "  the backs' slots by the listed position of the man in each (CB/S/LB/WR/other): outside corners {}, nickel {}, dime {}, free safety {}, strong safety {}",
+            sh(&slot_pos[0]),
+            sh(&slot_pos[1]),
+            sh(&slot_pos[2]),
+            sh(&slot_pos[3]),
+            sh(&slot_pos[4]),
+        );
+        println!(
+            "  the offense's receiver slots by the listed position of the man in each (WR/CB/TE/RB/other): outside {}, the slot {}",
+            sh(&recv_pos[0]),
+            sh(&recv_pos[1]),
+        );
+        let of = |b: usize| {
+            (0..4)
+                .map(|w| format!("{:.3}", third[w][b][1] as f64 / third[w][b][0].max(1) as f64))
+                .collect::<Vec<_>>()
+                .join("/")
+        };
+        println!("  three or more safeties by the receivers (1 2 3 4): with five backs {}, with six {}", of(0), of(1));
+        if let Some(k) = &real.packages {
+            println!("  real NFL 2023-24: {k}");
+        }
+        // How far the defenses differ: the 10th percentile, the median and
+        // the 90th of the teams' shares and their spread on the log odds.
+        let differ = |hit: usize, of: usize| {
+            let mut v: Vec<f64> =
+                team_pk.values().filter(|t| t[of] >= 40).map(|t| t[hit] as f64 / t[of] as f64).collect();
+            v.sort_by(|a, b| a.total_cmp(b));
+            if v.is_empty() {
+                return "none".to_string();
+            }
+            let at = |q: f64| v[((v.len() - 1) as f64 * q).round() as usize];
+            let lg = |x: f64| (x.clamp(0.005, 0.995) / (1.0 - x.clamp(0.005, 0.995))).ln();
+            let m = v.iter().map(|&x| lg(x)).sum::<f64>() / v.len() as f64;
+            let sd = (v.iter().map(|&x| (lg(x) - m).powi(2)).sum::<f64>() / (v.len() - 1).max(1) as f64).sqrt();
+            format!("{:.3} {:.3} {:.3} ({:.2})", at(0.1), at(0.5), at(0.9), sd)
+        };
+        println!(
+            "  by team, the 10th percentile, median and 90th (spread on the log odds): five or more backs {}, six {} | five or more against two receivers early {} | six against three on third and 7+ {} | a third safety with five backs {}",
+            differ(1, 0),
+            differ(2, 0),
+            differ(4, 3),
+            differ(6, 5),
+            differ(8, 7),
+        );
+        println!("  by team by the call: five or more backs {}, six {}", differ(9, 0), differ(10, 0));
+        // The staffs' own habits (`Staff::nickel` in deviations from the
+        // typical coordinator, `Staff::dime`) and the head coaches' asks.
+        let spread = |v: &[f64]| {
+            let m = v.iter().sum::<f64>() / v.len().max(1) as f64;
+            let sd = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / v.len().max(1) as f64).sqrt();
+            format!("{m:+.2} ({sd:.2})")
+        };
+        use afm_engine::game::roster::{NICKEL_SPREAD, NICKEL_TYPICAL};
+        let nickel: Vec<f64> = teams.iter().map(|t| (t.staff.nickel - NICKEL_TYPICAL) / NICKEL_SPREAD).collect();
+        let dime: Vec<f64> = teams.iter().map(|t| t.staff.dime).collect();
+        let asks = teams.iter().fold([0usize; 2], |mut n, t| {
+            if let Some((b, _)) = t.staff.guide.front.pull() {
+                n[b.nickel_base() as usize] += 1;
+            }
+            n
+        });
+        println!(
+            "  the {} staffs' habits, mean (spread): nickel {}, dime {} | head coaches asking for a 4-3 or 3-4 base {}, for a nickel base {}",
+            teams.len(),
+            spread(&nickel),
+            spread(&dime),
+            asks[0],
+            asks[1]
+        );
+        // The men each staff names to its corner jobs at kickoff, by listed
+        // position: a safety his staff taught the nickel, a receiver who
+        // crosses over by the two-way rule.
+        let mut named = [[0usize; 4]; 2];
+        for (k, t) in teams.iter().enumerate() {
+            for (sp, id) in afm_engine::game::flow::seating(t, level).jobs {
+                let row = match sp {
+                    afm_engine::spots::Spot::CB => 0,
+                    afm_engine::spots::Spot::NB => 1,
+                    _ => continue,
+                };
+                let col = match who[k].get(&id).map(|p| p.position) {
+                    Some(P::CB) => 0,
+                    Some(P::S) => 1,
+                    Some(P::WR) => 2,
+                    _ => 3,
+                };
+                named[row][col] += 1;
+            }
+        }
+        println!(
+            "  the men named to the corner jobs at kickoff by listed position (CB/S/WR/other): outside {}/{}/{}/{}, the nickel {}/{}/{}/{}",
+            named[0][0], named[0][1], named[0][2], named[0][3], named[1][0], named[1][1], named[1][2], named[1][3]
+        );
+        if let Some(k) = &real.teams {
+            println!("  real NFL 2023-24 team seasons: {k}");
+        }
+    }
+    {
+        let row = |w: usize| {
+            let n: f64 = by_margin[w].iter().map(|m| m[0]).sum::<f64>().max(1.0);
+            by_margin[w]
+                .iter()
+                .map(|m| {
+                    let g = m[0].max(1.0);
+                    format!(
+                        "{:.3} {:.1} {:.2} {:.3} {:.3} {:.1}",
+                        m[0] / n,
+                        m[1] / g,
+                        m[2] / g,
+                        m[3] / g,
+                        m[4] / g,
+                        m[5] / g
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" | ")
+        };
+        println!(
+            "a team game's tackles by the final margin (0-7 | 8-16 | 17-27 | 28+): share of games, men with a tackle, the top man's tackles, his share, the top 11's share, the team's tackles"
+        );
+        println!("  won: {}", row(0));
+        println!("  lost: {}", row(1));
+        if let Some(k) = &real.margins {
+            println!("  {k}");
+        }
     }
     println!("the top 12 by sacks, on true rushes:");
     for (k, m) in by.iter().take(12) {

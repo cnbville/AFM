@@ -1429,7 +1429,10 @@ pub(crate) fn squad_team(
             shell: inst.shell(),
             playbook: 1.0,
             sportsmanship: coach.map_or(10.0, |c| w.coaches[c].sportsmanship),
-            nickel: coach.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
+            nickel: coach.map_or(crate::game::roster::NICKEL_TYPICAL, |c| {
+                crate::game::roster::nickel_habit(key_normal(0x41C8, c as u64))
+            }),
+            dime: coach.map_or(0.0, |c| key_normal(0x41C9, c as u64)),
             year: w.year,
             // His eye and what the school's budget buys (proposed, not confirmed).
             // The film room around the typical one (Capital lane C6).

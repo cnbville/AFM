@@ -200,3 +200,36 @@ fn kickoffs_are_covered_by_the_bench() {
         assert!(tackles * 10 <= spots, "{level:?}: {tackles} tackles in {spots} coverage spots");
     }
 }
+
+/// The punt team is made up as real ones are (realism audit item 3, who
+/// makes the tackle): the gunners, three linebackers, a tight end, a safety
+/// as the personal protector, a back and one more who covers, with the
+/// punter and the snapper. Real NFL 2023-24 punt teams carry no offensive
+/// linemen and 1.5 safeties; the unit used to carry two guards and no
+/// safety behind the gunners. The protector comes off the safeties' depth
+/// list, so now and then he is a corner listed behind them, or the next
+/// back up when a decided game has the safeties pulled.
+#[test]
+fn the_punt_team_carries_no_linemen() {
+    for level in [Level::FBS, Level::NFL] {
+        let teams = synthetic_league(level, 32, 19);
+        let (mut punts, mut linemen, mut safeties) = (0u32, 0u32, 0u32);
+        for g in 0..16 {
+            let (h, a) = (g * 2, g * 2 + 1);
+            let res = quick_game(&teams[h], &teams[a], level, 6_200_011 + g as u64);
+            for r in res.stats.plays.iter().filter(|r| r.kind == PlayType::Punt && !r.call_why.starts_with("a fake")) {
+                let o = [h, a][r.offense];
+                let pos = |id: &u32| teams[o].players.iter().find(|p| p.id == *id).map(|p| p.position);
+                punts += 1;
+                linemen +=
+                    r.on_field[0].iter().filter(|id| matches!(pos(id), Some(Position::OT | Position::IOL))).count()
+                        as u32;
+                safeties += r.on_field[0].iter().filter(|id| pos(id) == Some(Position::S)).count() as u32;
+            }
+        }
+        println!("{level:?}: {punts} punts, {linemen} offensive linemen, {safeties} safeties on the punt team");
+        assert!(punts >= 40, "{level:?}: only {punts} punts");
+        assert_eq!(linemen, 0, "{level:?}: offensive linemen on the punt team");
+        assert!(safeties * 5 >= punts * 4, "{level:?}: {safeties} safeties on {punts} punts");
+    }
+}

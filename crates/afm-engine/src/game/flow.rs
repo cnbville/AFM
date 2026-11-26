@@ -1284,6 +1284,35 @@ impl<'a> Side<'a> {
         m
     }
 
+    /// The `n` who cover a kick best among these positions' men
+    /// (`KICK_COVER`, a starter only when the backups are far worse, as on
+    /// kickoffs), for a punt team's spot more than one position plays.
+    fn cover_best(&self, from: &[Position], n: usize, used: &mut Vec<usize>) -> Vec<usize> {
+        let score = |i: usize| {
+            let p = &self.team.players[i];
+            KICK_COVER[0] * p.a(Attr::Speed)
+                + KICK_COVER[1] * p.a(Attr::Tackling)
+                + KICK_COVER[2] * p.a(Attr::BlockShedding)
+                - if self.starts(i) { KICK_UNIT_STARTER } else { 0.0 }
+        };
+        let mut pool: Vec<usize> = from
+            .iter()
+            .flat_map(|&pos| self.depth.list(pos).iter().copied())
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i))
+            .collect();
+        pool.sort_by(|&a, &b| score(b).total_cmp(&score(a)));
+        pool.dedup();
+        let mut out: Vec<usize> = pool.into_iter().take(n).collect();
+        used.extend(out.iter().copied());
+        // A thin bench, or a decided game with the starters pulled: the
+        // next men up at the first of these positions, found as any other
+        // pick finds them, so the unit is never a man short.
+        if out.len() < n {
+            out.extend(self.pick(from[0], n - out.len(), used));
+        }
+        out
+    }
+
     fn cover_pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
         let list: Vec<usize> = self
             .depth
@@ -4622,9 +4651,19 @@ impl<'a> Game<'a> {
         let mut kick_on = vec![p];
         let mut used = vec![p, sn];
         kick_on.extend(side.gunners(&mut used));
+        // The shield and the coverage behind the gunners, as real punt
+        // teams are made up (realism audit item 3, who makes the tackle):
+        // three linebackers and a tight end, a safety as the personal
+        // protector, a back, and one more of a tight end, an edge or a
+        // safety, whoever covers best (`KICK_COVER`). Real NFL 2023-24 punt
+        // teams: 3.3 linebackers, 1.3 tight ends, 1.5 safeties, 0.9 backs,
+        // 0.3 ends and no offensive linemen; the unit used to carry two
+        // guards and no safety behind the gunners.
         kick_on.extend(side.cover_pick(Position::LB, 3, &mut used));
-        kick_on.extend(side.cover_pick(Position::TE, 2, &mut used));
-        kick_on.extend(side.cover_pick(Position::IOL, 2, &mut used));
+        kick_on.extend(side.cover_pick(Position::TE, 1, &mut used));
+        kick_on.extend(side.cover_pick(Position::S, 1, &mut used));
+        kick_on.extend(side.cover_pick(Position::RB, 1, &mut used));
+        kick_on.extend(side.cover_best(&[Position::TE, Position::EDGE, Position::S], 1, &mut used));
         // Your punt team (section 6b): your men around the punter.
         let mut kick_on: Vec<usize> = side.with_package(7, &[p], kick_on).into_iter().filter(|&i| i != sn).collect();
         kick_on.truncate(10);
@@ -5189,6 +5228,46 @@ impl<'a> Game<'a> {
             for (k, i) in order.into_iter().enumerate() {
                 if let Some(i) = i {
                     def.push((want[k], i));
+                }
+            }
+        }
+        // The fifth and sixth backs (realism audit item 3, who makes the
+        // tackle): a corner or the next safety his staff has taught the
+        // nickel (`spots::sub_safeties`), whoever plays the job better
+        // against these receivers (`flex_cover`): a slot corner's against
+        // three or four, more of a strong safety's against two or fewer
+        // (the big nickel), and the dime's underneath in the Will's place.
+        // A corner the safety takes the nickel from is the dime ahead of
+        // the corner behind him. Your package or your order at corner or
+        // safety decides it for you. They were always corners: a club's
+        // third safety played 9% of the NFL clubs' snaps (real 29%).
+        let ordered = d.team.order.iter().any(|(p, _)| matches!(p, Position::CB | Position::S));
+        let board = match dcall.personnel {
+            DefPersonnel::Nickel => Some(0),
+            DefPersonnel::Dime => Some(1),
+            _ => None,
+        };
+        if let Some(b) = board
+            && !ordered
+            && d.team.prep.package(b).is_none()
+        {
+            let wr = call.formation.personnel.wide_receivers();
+            let mut spare: Option<usize> = None;
+            for slot in [DSlot::NCB, DSlot::DCB] {
+                let Some(k) = def.iter().position(|x| x.0 == slot) else { continue };
+                let w = flex_cover(slot, wr);
+                let value =
+                    |i: usize| w * d.at_spot(i, Spot::NB) + (1.0 - w) * d.team.players[i].spot_r[Spot::SS.index()];
+                if let Some(c) = spare.take()
+                    && value(c) > value(def[k].1)
+                {
+                    def[k].1 = c;
+                }
+                let mut on: Vec<usize> = def.iter().map(|x| x.1).collect();
+                let Some(&s) = d.pick(Position::S, 1, &mut on).first() else { continue };
+                if d.new_to_job(s, Spot::NB) == 0.0 && value(s) > value(def[k].1) {
+                    spare = Some(def[k].1);
+                    def[k].1 = s;
                 }
             }
         }
@@ -8943,6 +9022,27 @@ fn dslot_spot(s: DSlot) -> Spot {
         DSlot::FS => Spot::FS,
         DSlot::SS => Spot::SS,
     }
+}
+
+/// How much of the fifth back's job is the slot corner's (the rest is the
+/// strong safety's: a tight end to cover and the run to fit) by the
+/// offense's receivers (one or none, two, three, four or more), for the
+/// staff's pick of a corner or a safety there (realism audit item 3, who
+/// makes the tackle), and of the sixth back's, who plays underneath in the
+/// Will's place (`FLEX_DIME`). Sized on how often the real NFL's fifth back
+/// is a third safety (nflverse participation 2023-24,
+/// `data/real-world/defenders.json`, `pbp.packages`): 0.45, 0.38, 0.20 and
+/// 0.21 of its five-back snaps against one to four receivers and 0.74 of
+/// its six-back snaps against two or more; world seed 321's NFL clubs give
+/// 0.48, 0.36, 0.24 and 0.18, and 0.73, 0.69 and 0.68 with six against two,
+/// three and four. With the job all a safety's against one receiver and
+/// three quarters his against two they gave 0.65 and 0.49. Proposed, not
+/// confirmed.
+const FLEX_COVER: [f64; 4] = [0.6, 0.6, 0.8, 0.85];
+const FLEX_DIME: f64 = 0.75;
+
+fn flex_cover(slot: DSlot, wr: usize) -> f64 {
+    if slot == DSlot::DCB { FLEX_DIME } else { FLEX_COVER[wr.clamp(1, 4) - 1] }
 }
 
 /// Whether a listed position may play a spot without it being an

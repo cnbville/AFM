@@ -1856,9 +1856,13 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             shell: inst.shell(),
             playbook: 1.0,
             sportsmanship: head.map_or(10.0, |c| w.coaches[c].sportsmanship),
-            // His own habit, kept for his career (S8; spread proposed, not
-            // confirmed).
-            nickel: dc.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
+            // His own habits, kept for his career (S8; the nickel habit's
+            // spread and the dime's are sized on how far real NFL defenses
+            // differ, `calling::PACKAGE_HABIT`).
+            nickel: dc.map_or(crate::game::roster::NICKEL_TYPICAL, |c| {
+                crate::game::roster::nickel_habit(key_normal(0x41C8, c as u64))
+            }),
+            dime: dc.map_or(0.0, |c| key_normal(0x41C9, c as u64)),
             year: w.year,
             film_study,
             install,
