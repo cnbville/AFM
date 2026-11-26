@@ -1,0 +1,733 @@
+# Portal entrants read, run 45887124671 (rounds 1-3) and 45893222119 (start world book); future-queries.sql of 2026-11-26
+######## ROUND 1 20:30
+
+=== schema: portal log, history rows, log_history
+
+>>> select 'recruiting_log tables', group_concat(name, ', ') from sqlite_master where type='table' and name like 'recruiting_log%'
+'recruiting_log tables' | group_concat(name, ', ')
+recruiting_log tables | recruiting_log__five_stars, recruiting_log__portal, recruiting_log__transfer_seasons
+
+>>> select 'recruiting_log__portal', group_concat(name, ', ') from pragma_table_info('recruiting_log__portal')
+'recruiting_log__portal' | group_concat(name, ', ')
+recruiting_log__portal | _row, year, role, why, from, to, id, entered, decided, from_program, to_program, held, fell_through, returned
+
+>>> select 'people__player__history', group_concat(name, ', ') from pragma_table_info('people__player__history')
+'people__player__history' | group_concat(name, ', ')
+people__player__history | _row, _parent, _i, age, level, position, playing_time, overall_start, overall, potential, performance, level_rating, level_rating_end, coaching, events, games_missed, adjustment, spring_gain, results, team, depth, spring_open
+
+>>> select 'programs', group_concat(name, ', ') from pragma_table_info('programs')
+'programs' | group_concat(name, ', ')
+programs | _row, id, real_name, fictional_name, division, conference, city, state, enrollment, academic_tier, stadium, tradition, recent, facilities, campus__level, campus__since, campus__read, campus__typical, campus__typical_read, campus__temporary, campus__live, campus__set, campus__open_plots, fans, prestige, prestige_start, prestige_rel, base, grades, brand_lift, last_grades, collective__budget, collective__school, collective__base, collective__trend, collective__drying_years, collective__moved, collective__buyouts, footprint, pipeline, pipeline_last_impact, head_coach, ad__name, ad__judg
+
+=== FBS entrants by year and why
+
+>>> select year, why, count(*) n from recruiting_log__portal where "from" = 'FBS' and year between 2021 and 2035 group by why, year order by why, year
+year | why | n
+2021 | coaching change | 203
+2022 | coaching change | 394
+2023 | coaching change | 550
+2024 | coaching change | 522
+2025 | coaching change | 918
+2026 | coaching change | 682
+2027 | coaching change | 626
+2028 | coaching change | 668
+2029 | coaching change | 811
+2030 | coaching change | 651
+2031 | coaching change | 563
+2032 | coaching change | 849
+2033 | coaching change | 636
+2034 | coaching change | 642
+2035 | coaching change | 425
+2021 | cut | 175
+2022 | cut | 342
+2023 | cut | 277
+2024 | cut | 243
+2025 | cut | 4
+2026 | cut | 184
+2027 | cut | 278
+2028 | cut | 301
+2029 | cut | 199
+2030 | cut | 114
+2031 | cut | 102
+2032 | cut | 146
+2033 | cut | 193
+2034 | cut | 157
+2035 | cut | 6
+2021 | dismissed | 150
+2022 | dismissed | 122
+2023 | dismissed | 146
+2024 | dismissed | 146
+2025 | dismissed | 131
+2026 | dismissed | 146
+2027 | dismissed | 120
+2028 | dismissed | 112
+2029 | dismissed | 120
+2030 | dismissed | 99
+2031 | dismissed | 111
+2032 | dismissed | 117
+2033 | dismissed | 124
+2034 | dismissed | 116
+2035 | dismissed | 24
+2021 | graduate transfer | 51
+2022 | graduate transfer | 36
+2023 | graduate transfer | 21
+2024 | graduate transfer | 28
+2021 | money | 17
+2022 | money | 16
+2023 | money | 7
+2024 | money | 5
+2025 | money | 1
+2026 | money | 5
+2027 | money | 2
+2028 | money | 4
+2029 | money | 3
+2030 | money | 3
+2031 | money | 1
+2032 | money | 3
+2034 | money | 1
+2035 | money | 2
+2021 | not in the plans | 290
+2022 | not in the plans | 186
+2023 | not in the plans | 184
+2024 | not in the plans | 3
+2025 | not in the plans | 469
+2026 | not in the plans | 538
+2027 | not in the plans | 400
+2028 | not in the plans | 382
+2029 | not in the plans | 337
+2030 | not in the plans | 298
+2031 | not in the plans | 306
+2032 | not in the plans | 323
+2033 | not in the plans | 368
+2034 | not in the plans | 367
+2021 | playing time | 956
+2022 | playing time | 859
+2023 | playing time | 985
+2024 | playing time | 1490
+2025 | playing time | 1530
+2026 | playing time | 1671
+2027 | playing time | 1413
+2028 | playing time | 1198
+2029 | playing time | 1028
+2030 | playing time | 1267
+2031 | playing time | 1266
+2032 | playing time | 1117
+2033 | playing time | 1127
+2034 | playing time | 1110
+2022 | program dropped | 1
+2028 | program dropped | 2
+2031 | program dropped | 1
+2033 | program dropped | 1
+2021 | spring depth chart | 601
+2022 | spring depth chart | 656
+2023 | spring depth chart | 549
+2024 | spring depth chart | 650
+2021 | steered | 46
+2022 | steered | 71
+2023 | steered | 76
+2024 | steered | 126
+2025 | steered | 170
+2026 | steered | 101
+2027 | steered | 48
+2028 | steered | 43
+2029 | steered | 75
+2030 | steered | 74
+2031 | steered | 39
+2032 | steered | 54
+2033 | steered | 42
+2034 | steered | 55
+2035 | steered | 3
+
+=== FBS entrants by year and role
+
+>>> select year, role, count(*) n from recruiting_log__portal where "from" = 'FBS' and year between 2021 and 2035 group by role, year order by role, year
+year | role | n
+2021 | Backup | 1625
+2022 | Backup | 1845
+2023 | Backup | 1811
+2024 | Backup | 1969
+2025 | Backup | 2010
+2026 | Backup | 2202
+2027 | Backup | 1593
+2028 | Backup | 1356
+2029 | Backup | 1268
+2030 | Backup | 1264
+2031 | Backup | 1248
+2032 | Backup | 1341
+2033 | Backup | 1291
+2034 | Backup | 1217
+2035 | Backup | 245
+2021 | Redshirt | 465
+2022 | Redshirt | 373
+2023 | Redshirt | 474
+2024 | Redshirt | 685
+2025 | Redshirt | 889
+2026 | Redshirt | 684
+2027 | Redshirt | 872
+2028 | Redshirt | 875
+2029 | Redshirt | 873
+2030 | Redshirt | 861
+2031 | Redshirt | 776
+2032 | Redshirt | 856
+2033 | Redshirt | 801
+2034 | Redshirt | 837
+2035 | Redshirt | 118
+2021 | Rotation | 171
+2022 | Rotation | 188
+2023 | Rotation | 192
+2024 | Rotation | 256
+2025 | Rotation | 155
+2026 | Rotation | 209
+2027 | Rotation | 171
+2028 | Rotation | 172
+2029 | Rotation | 160
+2030 | Rotation | 161
+2031 | Rotation | 153
+2032 | Rotation | 166
+2033 | Rotation | 161
+2034 | Rotation | 169
+2035 | Rotation | 44
+2021 | Starter | 227
+2022 | Starter | 273
+2023 | Starter | 313
+2024 | Starter | 303
+2025 | Starter | 169
+2026 | Starter | 232
+2027 | Starter | 249
+2028 | Starter | 306
+2029 | Starter | 271
+2030 | Starter | 220
+2031 | Starter | 212
+2032 | Starter | 244
+2033 | Starter | 237
+2034 | Starter | 223
+2035 | Starter | 53
+2021 | Unsigned | 1
+2022 | Unsigned | 4
+2023 | Unsigned | 5
+2027 | Unsigned | 2
+2028 | Unsigned | 1
+2029 | Unsigned | 1
+2032 | Unsigned | 2
+2033 | Unsigned | 1
+2034 | Unsigned | 2
+
+=== FBS entrants by year: held, returned, fell through, landed none
+
+>>> select year, count(*) n, sum(held) held, sum(returned) returned, sum(fell_through) fell, sum("to" is null) none, sum("to" = 'FBS') to_fbs, sum("to" = 'FCS') to_fcs from recruiting_log__portal where "from" = 'FBS' and year between 2021 and 2035 group by year order by year
+year | n | held | returned | fell | none | to_fbs | to_fcs
+2021 | 2489 | 34 | 11 | 141 | 1048 | 235 | 541
+2022 | 2683 | 64 | 26 | 155 | 937 | 599 | 615
+2023 | 2795 | 106 | 35 | 194 | 778 | 666 | 873
+2024 | 3213 | 215 | 123 | 263 | 854 | 834 | 1097
+2025 | 3223 | 95 | 90 | 253 | 880 | 957 | 924
+2026 | 3327 | 130 | 26 | 191 | 1242 | 803 | 637
+2027 | 2887 | 76 | 23 | 252 | 702 | 855 | 867
+2028 | 2710 | 112 | 28 | 182 | 701 | 751 | 772
+2029 | 2573 | 80 | 40 | 223 | 475 | 757 | 959
+2030 | 2506 | 145 | 31 | 185 | 552 | 812 | 739
+2031 | 2389 | 126 | 29 | 171 | 562 | 672 | 825
+2032 | 2609 | 97 | 35 | 216 | 571 | 816 | 829
+2033 | 2491 | 149 | 23 | 164 | 770 | 615 | 651
+2034 | 2448 | 111 | 30 | 164 | 715 | 601 | 704
+2035 | 460 | 40 | 11 | 40 | 16 | 180 | 178
+
+=== every division's entrants by year
+
+>>> select year, "from", count(*) n from recruiting_log__portal where year between 2021 and 2035 group by "from", year order by "from", year
+year | from | n
+2021 | D2 | 3187
+2022 | D2 | 3436
+2023 | D2 | 3222
+2024 | D2 | 4019
+2025 | D2 | 3891
+2026 | D2 | 4005
+2027 | D2 | 3975
+2028 | D2 | 4082
+2029 | D2 | 3973
+2030 | D2 | 4219
+2031 | D2 | 4312
+2032 | D2 | 4026
+2033 | D2 | 4232
+2034 | D2 | 4340
+2035 | D2 | 290
+2021 | D3 | 4409
+2022 | D3 | 4252
+2023 | D3 | 4427
+2024 | D3 | 5450
+2025 | D3 | 5168
+2026 | D3 | 5492
+2027 | D3 | 5509
+2028 | D3 | 5410
+2029 | D3 | 5600
+2030 | D3 | 5660
+2031 | D3 | 5752
+2032 | D3 | 5729
+2033 | D3 | 5732
+2034 | D3 | 5834
+2035 | D3 | 689
+2021 | FBS | 2489
+2022 | FBS | 2683
+2023 | FBS | 2795
+2024 | FBS | 3213
+2025 | FBS | 3223
+2026 | FBS | 3327
+2027 | FBS | 2887
+2028 | FBS | 2710
+2029 | FBS | 2573
+2030 | FBS | 2506
+2031 | FBS | 2389
+2032 | FBS | 2609
+2033 | FBS | 2491
+2034 | FBS | 2448
+2035 | FBS | 460
+2021 | FCS | 2539
+2022 | FCS | 2544
+2023 | FCS | 2578
+2024 | FCS | 3070
+2025 | FCS | 3038
+2026 | FCS | 2975
+2027 | FCS | 2714
+2028 | FCS | 2485
+2029 | FCS | 2530
+2030 | FCS | 2296
+2031 | FCS | 2399
+2032 | FCS | 2539
+2033 | FCS | 2348
+2034 | FCS | 2470
+2035 | FCS | 488
+2021 | JUCO | 182
+2022 | JUCO | 105
+2023 | JUCO | 243
+2024 | JUCO | 130
+2025 | JUCO | 227
+2026 | JUCO | 166
+2027 | JUCO | 156
+2028 | JUCO | 149
+2029 | JUCO | 162
+2030 | JUCO | 145
+2031 | JUCO | 177
+2032 | JUCO | 168
+2033 | JUCO | 153
+2034 | JUCO | 184
+2021 | NAIA | 1741
+2022 | NAIA | 1761
+2023 | NAIA | 1779
+2024 | NAIA | 2298
+2025 | NAIA | 2092
+2026 | NAIA | 2317
+2027 | NAIA | 2275
+2028 | NAIA | 2096
+2029 | NAIA | 2340
+2030 | NAIA | 2391
+2031 | NAIA | 2459
+2032 | NAIA | 2293
+2033 | NAIA | 2534
+2034 | NAIA | 2612
+2035 | NAIA | 65
+
+=== the world's yearly flows
+
+>>> select year, commits, signed_early, signed_late, walk_on_scholarships, tryouts, late_pool, graduates, graduate_transfers, declared, early_drafted, portal_entries, portal_landed, portal_returned, portal_unplaced_at_camp, portal_landed_after, college_rolled, college_trouble, sit_out_transfers, opt_outs, redshirt_tricks from log_history where year between 2021 and 2035 order by year
+year | commits | signed_early | signed_late | walk_on_scholarships | tryouts | late_pool | graduates | graduate_transfers | declared | early_drafted | portal_entries | portal_landed | portal_returned | portal_unplaced_at_camp | portal_landed_after | college_rolled | college_trouble | sit_out_transfers | opt_outs | redshirt_tricks
+2021 | 16469 | 4508 | 11611 | 395 | 124 | 44667 | 9824 | 454 | 82 | [29,26,28,16,4,7,3,8] | 13834 | 7394 | 581 | 4516 | 2102 | 111328 | 3362 | 95 | 27 | 1
+2022 | 24393 | 6146 | 17571 | 1828 | 116 | 38738 | 9874 | 489 | 74 | [24,17,15,6,3,3,1,12] | 14869 | 9351 | 309 | 6363 | 2113 | 101059 | 3017 | 111 | 15 | 0
+2023 | 33028 | 7386 | 24987 | 1710 | 113 | 36435 | 10653 | 465 | 72 | [25,10,9,8,3,7,1,7] | 15825 | 9790 | 637 | 4568 | 2720 | 102057 | 2924 | 15 | 15 | 0
+2024 | 27643 | 6315 | 20004 | 1270 | 126 | 39217 | 5789 | 330 | 55 | [24,15,7,5,5,3,2,6] | 17039 | 10320 | 941 | 4653 | 2751 | 102169 | 3105 | 0 | 23 | 0
+2025 | 30177 | 6091 | 21683 | 1203 | 129 | 39896 | 8810 | 525 | 46 | [13,6,5,1,2,4,2,10] | 21193 | 12844 | 1015 | 5599 | 3965 | 107061 | 3286 | 0 | 26 | 2
+2026 | 27002 | 6492 | 16448 | 951 | 132 | 43033 | 6454 | 0 | 52 | [13,10,7,2,6,1,1,1] | 18545 | 12756 | 816 | 4077 | 3097 | 106418 | 3206 | 0 | 21 | 0
+2027 | 32093 | 6968 | 20772 | 1155 | 130 | 41768 | 8908 | 0 | 46 | [19,11,7,6,3,2,1,3] | 17501 | 11749 | 774 | 5897 | 1677 | 105031 | 3083 | 0 | 13 | 0
+2028 | 32854 | 7586 | 21615 | 1303 | 112 | 40815 | 10588 | 0 | 42 | [17,10,7,5,3,0,1,3] | 16891 | 10979 | 699 | 5193 | 1230 | 105233 | 3290 | 0 | 19 | 0
+2029 | 31828 | 7642 | 20932 | 1226 | 119 | 41273 | 9439 | 0 | 50 | [15,11,7,3,2,0,1,2] | 17058 | 11457 | 744 | 5034 | 1387 | 104224 | 3178 | 0 | 22 | 0
+2030 | 30928 | 7214 | 20542 | 1301 | 111 | 41359 | 8619 | 0 | 49 | [16,12,9,5,0,4,1,2] | 17077 | 11019 | 729 | 4961 | 1195 | 104021 | 3152 | 0 | 24 | 0
+2031 | 29768 | 6975 | 18657 | 1294 | 119 | 42134 | 7290 | 0 | 49 | [16,12,7,3,3,0,1,7] | 17728 | 12526 | 900 | 3444 | 3031 | 106165 | 3253 | 0 | 23 | 0
+2032 | 32777 | 7165 | 21544 | 1209 | 122 | 41699 | 8914 | 0 | 43 | [20,6,8,2,2,3,2,6] | 17544 | 12008 | 800 | 5285 | 1922 | 106029 | 3221 | 0 | 18 | 0
+2033 | 32941 | 7681 | 21748 | 1174 | 136 | 40671 | 9043 | 0 | 47 | [21,8,5,3,2,0,1,2] | 17320 | 10986 | 728 | 5041 | 1261 | 106649 | 3293 | 0 | 19 | 0
+2034 | 32198 | 7475 | 20767 | 1249 | 135 | 41004 | 8934 | 0 | 46 | [17,13,6,1,1,2,3,4] | 17845 | 13059 | 861 | 3550 | 3394 | 108900 | 3383 | 0 | 12 | 0
+######## END ROUND 1
+######## ROUND 2 20:36
+
+=== levels in history rows
+
+>>> select level, count(*) from people__player__history group by level
+level | count(*)
+FBS | 67549
+FCS | 55479
+HS | 3160301
+NFL | 16915
+SmallCollege | 284841
+
+>>> select playing_time, count(*) from people__player__history where level like 'FBS%' group by playing_time
+playing_time | count(*)
+Backup | 21338
+Redshirt | 20632
+Rotation | 6995
+Starter | 18584
+
+=== FBS roster rows by season and role (people and alumni)
+
+>>> select year, playing_time, count(*) n from (select p.class_of - 18 + h.age year, h.playing_time from people__player__history h join people p on p._row = h._parent where h.level like 'FBS%' union all select a.class_of - 18 + h.age, h.playing_time from alumni__player__history h join alumni a on a._row = h._parent where h.level like 'FBS%') where year between 2021 and 2035 group by playing_time, year order by playing_time, year
+year | playing_time | n
+2021 | Backup | 654
+2022 | Backup | 648
+2023 | Backup | 565
+2024 | Backup | 603
+2025 | Backup | 639
+2026 | Backup | 803
+2027 | Backup | 758
+2028 | Backup | 805
+2029 | Backup | 875
+2030 | Backup | 1259
+2031 | Backup | 2065
+2032 | Backup | 3207
+2033 | Backup | 4081
+2034 | Backup | 5040
+2035 | Backup | 5608
+2021 | Redshirt | 518
+2022 | Redshirt | 481
+2023 | Redshirt | 599
+2024 | Redshirt | 513
+2025 | Redshirt | 750
+2026 | Redshirt | 691
+2027 | Redshirt | 915
+2028 | Redshirt | 885
+2029 | Redshirt | 780
+2030 | Redshirt | 2219
+2031 | Redshirt | 3052
+2032 | Redshirt | 3135
+2033 | Redshirt | 3366
+2034 | Redshirt | 3663
+2035 | Redshirt | 3727
+2021 | Rotation | 369
+2022 | Rotation | 351
+2023 | Rotation | 343
+2024 | Rotation | 333
+2025 | Rotation | 369
+2026 | Rotation | 397
+2027 | Rotation | 381
+2028 | Rotation | 380
+2029 | Rotation | 395
+2030 | Rotation | 537
+2031 | Rotation | 759
+2032 | Rotation | 959
+2033 | Rotation | 1254
+2034 | Rotation | 1612
+2035 | Rotation | 1791
+2021 | Starter | 1766
+2022 | Starter | 1863
+2023 | Starter | 1909
+2024 | Starter | 1986
+2025 | Starter | 2025
+2026 | Starter | 2115
+2027 | Starter | 2291
+2028 | Starter | 2312
+2029 | Starter | 2346
+2030 | Starter | 2361
+2031 | Starter | 2678
+2032 | Starter | 2971
+2033 | Starter | 3500
+2034 | Starter | 4106
+2035 | Starter | 3283
+
+=== FBS roster rows by season, all roles, and by age
+
+>>> select year, count(*) n, round(avg(age),2) mean_age from (select p.class_of - 18 + h.age year, h.age from people__player__history h join people p on p._row = h._parent where h.level like 'FBS%' union all select a.class_of - 18 + h.age, h.age from alumni__player__history h join alumni a on a._row = h._parent where h.level like 'FBS%') where year between 2021 and 2035 group by year order by year
+year | n | mean_age
+2021 | 3307 | 20.27
+2022 | 3343 | 20.31
+2023 | 3416 | 20.2
+2024 | 3435 | 20.1
+2025 | 3783 | 19.89
+2026 | 4006 | 19.89
+2027 | 4345 | 20.04
+2028 | 4382 | 20.07
+2029 | 4396 | 20.05
+2030 | 6376 | 19.4
+2031 | 8554 | 19.33
+2032 | 10272 | 19.47
+2033 | 12201 | 19.69
+2034 | 14421 | 19.93
+2035 | 14409 | 19.93
+
+=== FBS entrants by year and power group of the school he left
+
+>>> select e.year, case when p.conference in ('SEC','Big Ten','Big 12','ACC','Pac-12') then 'P4' else 'G5' end grp, count(*) n from recruiting_log__portal e join programs p on p._row = e.from_program where e."from" = 'FBS' and e.year between 2021 and 2035 group by grp, e.year order by grp, e.year
+year | grp | n
+2021 | G5 | 807
+2022 | G5 | 984
+2023 | G5 | 939
+2024 | G5 | 1111
+2025 | G5 | 1262
+2026 | G5 | 1267
+2027 | G5 | 1183
+2028 | G5 | 1026
+2029 | G5 | 1006
+2030 | G5 | 974
+2031 | G5 | 931
+2032 | G5 | 1003
+2033 | G5 | 905
+2034 | G5 | 991
+2035 | G5 | 142
+2021 | P4 | 1682
+2022 | P4 | 1699
+2023 | P4 | 1856
+2024 | P4 | 2102
+2025 | P4 | 1961
+2026 | P4 | 2060
+2027 | P4 | 1704
+2028 | P4 | 1684
+2029 | P4 | 1567
+2030 | P4 | 1532
+2031 | P4 | 1458
+2032 | P4 | 1606
+2033 | P4 | 1586
+2034 | P4 | 1457
+2035 | P4 | 318
+
+=== FBS entrants by year and the classes' age at entry (people only: those still in the book)
+
+>>> select year, count(*) n from recruiting_log__portal where "from" = 'FBS' and "to" is not null and year between 2021 and 2035 group by year order by year
+year | n
+2021 | 1441
+2022 | 1746
+2023 | 2017
+2024 | 2359
+2025 | 2343
+2026 | 2085
+2027 | 2185
+2028 | 2009
+2029 | 2098
+2030 | 1954
+2031 | 1827
+2032 | 2038
+2033 | 1721
+2034 | 1733
+2035 | 444
+######## END ROUND 2
+######## ROUND 3 20:44
+
+=== END state (1 Jan 2036): FBS college players by last role
+
+>>> select p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(sum(p.cal__lean),1) lean_sum, round(avg(p.college_seasons),2) seasons, round(avg(p.walk_on),3) walk_on, round(avg(p.x_overall),2) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by p.last_role
+role | n | mean_lean | lean_sum | seasons | walk_on | ovr
+Backup | 5137 | 0.1188 | 610.5 | 1.96 | 0.013 | 52.31
+Redshirt | 3676 | 0.0923 | 339.4 | 0.29 | 0.042 | 48.09
+Rotation | 1562 | 0.0688 | 107.5 | 2.18 | 0.115 | 55.99
+Starter | 3971 | 0.0306 | 121.5 | 2.7 | 0.02 | 61.39
+
+=== END: FBS roster size by program
+
+>>> select count(*) programs, round(avg(n),1) mean, min(n) lo, max(n) hi from (select pr._row, count(*) n from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by pr._row)
+programs | mean | lo | hi
+138 | 104.0 | 87 | 115
+
+=== END: FBS players by seasons used and role
+
+>>> select p.college_seasons seasons, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+seasons | role | n | mean_lean
+0 | Backup | 715 | 0.1254
+0 | Redshirt | 2642 | 0.0896
+0 | Rotation | 172 | 0.0625
+0 | Starter | 202 | 0.0375
+1 | Backup | 1267 | 0.1328
+1 | Redshirt | 1011 | 0.1006
+1 | Rotation | 333 | 0.075
+1 | Starter | 541 | 0.0444
+2 | Backup | 1436 | 0.1161
+2 | Redshirt | 14 | 0.0628
+2 | Rotation | 397 | 0.0603
+2 | Starter | 828 | 0.025
+3 | Backup | 971 | 0.1051
+3 | Redshirt | 4 | 0.0
+3 | Rotation | 368 | 0.0666
+3 | Starter | 1088 | 0.0291
+4 | Backup | 748 | 0.1121
+4 | Redshirt | 5 | 0.0
+4 | Rotation | 292 | 0.0799
+4 | Starter | 1312 | 0.0287
+
+=== END: FBS players by class year and role
+
+>>> select p.class_of, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(avg(p.x_overall),1) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+class_of | role | n | mean_lean | ovr
+2027 | Starter | 4 | 0.0072 | 58.3
+2028 | Starter | 1 | 0.0189 | 58.0
+2029 | Backup | 8 | 0.0819 | 54.7
+2029 | Rotation | 4 | 0.0233 | 57.5
+2029 | Starter | 7 | 0.0253 | 56.4
+2030 | Backup | 3 | 0.081 | 52.3
+2030 | Redshirt | 2 | 0.1133 | 53.0
+2030 | Rotation | 4 | 0.0374 | 58.2
+2030 | Starter | 1 | 0.0324 | 54.7
+2031 | Backup | 810 | 0.1135 | 55.4
+2031 | Redshirt | 5 | 0.0 | 56.4
+2031 | Rotation | 330 | 0.0817 | 58.3
+2031 | Starter | 1408 | 0.0294 | 63.4
+2032 | Backup | 985 | 0.1057 | 54.2
+2032 | Redshirt | 10 | 0.0306 | 54.7
+2032 | Rotation | 347 | 0.0653 | 57.4
+2032 | Starter | 1052 | 0.029 | 61.9
+2033 | Backup | 1423 | 0.1161 | 52.7
+2033 | Redshirt | 26 | 0.0747 | 47.5
+2033 | Rotation | 391 | 0.0602 | 55.9
+2033 | Starter | 788 | 0.0243 | 61.2
+2034 | Backup | 1201 | 0.1326 | 50.9
+2034 | Redshirt | 999 | 0.1009 | 49.2
+2034 | Rotation | 317 | 0.0743 | 55.1
+2034 | Starter | 510 | 0.0445 | 60.1
+2035 | Backup | 707 | 0.1258 | 47.7
+2035 | Redshirt | 2634 | 0.0896 | 47.6
+2035 | Rotation | 169 | 0.0622 | 50.2
+2035 | Starter | 200 | 0.0374 | 48.7
+
+=== START state (1 Jan 2026): the same four
+
+>>> @start select p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(sum(p.cal__lean),1) lean_sum, round(avg(p.college_seasons),2) seasons, round(avg(p.walk_on),3) walk_on, round(avg(p.x_overall),2) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by p.last_role
+
+>>> @start select count(*) programs, round(avg(n),1) mean, min(n) lo, max(n) hi from (select pr._row, count(*) n from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by pr._row)
+
+>>> @start select p.college_seasons seasons, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+
+>>> @start select p.class_of, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(avg(p.x_overall),1) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+######## END ROUND 3
+######## ROUND 1 21:14
+
+=== END state (1 Jan 2036): FBS college players by last role
+
+>>> select p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(sum(p.cal__lean),1) lean_sum, round(avg(p.college_seasons),2) seasons, round(avg(p.walk_on),3) walk_on, round(avg(p.x_overall),2) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by p.last_role
+role | n | mean_lean | lean_sum | seasons | walk_on | ovr
+Backup | 5137 | 0.1188 | 610.5 | 1.96 | 0.013 | 52.31
+Redshirt | 3676 | 0.0923 | 339.4 | 0.29 | 0.042 | 48.09
+Rotation | 1562 | 0.0688 | 107.5 | 2.18 | 0.115 | 55.99
+Starter | 3971 | 0.0306 | 121.5 | 2.7 | 0.02 | 61.39
+
+=== END: FBS roster size by program
+
+>>> select count(*) programs, round(avg(n),1) mean, min(n) lo, max(n) hi from (select pr._row, count(*) n from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by pr._row)
+programs | mean | lo | hi
+138 | 104.0 | 87 | 115
+
+=== END: FBS players by seasons used and role
+
+>>> select p.college_seasons seasons, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+seasons | role | n | mean_lean
+0 | Backup | 715 | 0.1254
+0 | Redshirt | 2642 | 0.0896
+0 | Rotation | 172 | 0.0625
+0 | Starter | 202 | 0.0375
+1 | Backup | 1267 | 0.1328
+1 | Redshirt | 1011 | 0.1006
+1 | Rotation | 333 | 0.075
+1 | Starter | 541 | 0.0444
+2 | Backup | 1436 | 0.1161
+2 | Redshirt | 14 | 0.0628
+2 | Rotation | 397 | 0.0603
+2 | Starter | 828 | 0.025
+3 | Backup | 971 | 0.1051
+3 | Redshirt | 4 | 0.0
+3 | Rotation | 368 | 0.0666
+3 | Starter | 1088 | 0.0291
+4 | Backup | 748 | 0.1121
+4 | Redshirt | 5 | 0.0
+4 | Rotation | 292 | 0.0799
+4 | Starter | 1312 | 0.0287
+
+=== END: FBS players by class year and role
+
+>>> select p.class_of, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(avg(p.x_overall),1) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+class_of | role | n | mean_lean | ovr
+2027 | Starter | 4 | 0.0072 | 58.3
+2028 | Starter | 1 | 0.0189 | 58.0
+2029 | Backup | 8 | 0.0819 | 54.7
+2029 | Rotation | 4 | 0.0233 | 57.5
+2029 | Starter | 7 | 0.0253 | 56.4
+2030 | Backup | 3 | 0.081 | 52.3
+2030 | Redshirt | 2 | 0.1133 | 53.0
+2030 | Rotation | 4 | 0.0374 | 58.2
+2030 | Starter | 1 | 0.0324 | 54.7
+2031 | Backup | 810 | 0.1135 | 55.4
+2031 | Redshirt | 5 | 0.0 | 56.4
+2031 | Rotation | 330 | 0.0817 | 58.3
+2031 | Starter | 1408 | 0.0294 | 63.4
+2032 | Backup | 985 | 0.1057 | 54.2
+2032 | Redshirt | 10 | 0.0306 | 54.7
+2032 | Rotation | 347 | 0.0653 | 57.4
+2032 | Starter | 1052 | 0.029 | 61.9
+2033 | Backup | 1423 | 0.1161 | 52.7
+2033 | Redshirt | 26 | 0.0747 | 47.5
+2033 | Rotation | 391 | 0.0602 | 55.9
+2033 | Starter | 788 | 0.0243 | 61.2
+2034 | Backup | 1201 | 0.1326 | 50.9
+2034 | Redshirt | 999 | 0.1009 | 49.2
+2034 | Rotation | 317 | 0.0743 | 55.1
+2034 | Starter | 510 | 0.0445 | 60.1
+2035 | Backup | 707 | 0.1258 | 47.7
+2035 | Redshirt | 2634 | 0.0896 | 47.6
+2035 | Rotation | 169 | 0.0622 | 50.2
+2035 | Starter | 200 | 0.0374 | 48.7
+
+=== START state (1 Jan 2026): the same four
+
+>>> @start select p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(sum(p.cal__lean),1) lean_sum, round(avg(p.college_seasons),2) seasons, round(avg(p.walk_on),3) walk_on, round(avg(p.x_overall),2) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by p.last_role
+role | n | mean_lean | lean_sum | seasons | walk_on | ovr
+Backup | 7958 | 0.1268 | 1009.2 | 0.96 | 0.378 | 49.41
+Redshirt | 4126 | 0.0865 | 356.9 | 0.03 | 0.05 | 46.88
+Rotation | 1823 | 0.0677 | 123.4 | 1.36 | 0.272 | 55.43
+Starter | 3769 | 0.0315 | 118.6 | 1.92 | 0.103 | 61.5
+
+>>> @start select count(*) programs, round(avg(n),1) mean, min(n) lo, max(n) hi from (select pr._row, count(*) n from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by pr._row)
+programs | mean | lo | hi
+136 | 130.0 | 96 | 151
+
+>>> @start select p.college_seasons seasons, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+seasons | role | n | mean_lean
+0 | Backup | 3673 | 0.1334
+0 | Redshirt | 4036 | 0.0868
+0 | Rotation | 552 | 0.0765
+0 | Starter | 421 | 0.0631
+1 | Backup | 1985 | 0.1235
+1 | Redshirt | 80 | 0.0819
+1 | Rotation | 482 | 0.0726
+1 | Starter | 882 | 0.0364
+2 | Backup | 1262 | 0.1203
+2 | Redshirt | 5 | 0.0
+2 | Rotation | 362 | 0.0594
+2 | Starter | 1056 | 0.0246
+3 | Backup | 1038 | 0.1176
+3 | Redshirt | 5 | 0.0
+3 | Rotation | 427 | 0.0578
+3 | Starter | 1410 | 0.024
+
+>>> @start select p.class_of, p.last_role role, count(*) n, round(avg(p.cal__lean),4) mean_lean, round(avg(p.x_overall),1) ovr from people p join programs pr on pr._row = p.college where p.stage = 'College' and pr.division = 'FBS' group by 1, 2 order by 1, 2
+class_of | role | n | mean_lean | ovr
+2017 | Backup | 2 | 0.291 | 54.0
+2018 | Backup | 4 | 0.1458 | 54.8
+2018 | Rotation | 3 | 0.0322 | 55.6
+2019 | Backup | 9 | 0.0934 | 53.1
+2019 | Rotation | 5 | 0.06 | 52.5
+2019 | Starter | 7 | 0.0351 | 60.8
+2020 | Backup | 112 | 0.1253 | 54.9
+2020 | Redshirt | 2 | 0.1579 | 59.4
+2020 | Rotation | 46 | 0.0816 | 59.0
+2020 | Starter | 206 | 0.0228 | 62.5
+2021 | Backup | 1105 | 0.1209 | 53.0
+2021 | Redshirt | 10 | 0.0306 | 53.2
+2021 | Rotation | 422 | 0.058 | 56.6
+2021 | Starter | 1165 | 0.026 | 62.1
+2022 | Backup | 1143 | 0.1196 | 52.0
+2022 | Redshirt | 8 | 0.0476 | 51.6
+2022 | Rotation | 305 | 0.0593 | 56.3
+2022 | Starter | 972 | 0.0259 | 62.2
+2023 | Backup | 1914 | 0.1242 | 50.1
+2023 | Redshirt | 32 | 0.0881 | 49.7
+2023 | Rotation | 420 | 0.0684 | 55.8
+2023 | Starter | 826 | 0.0337 | 61.0
+2024 | Backup | 3263 | 0.1322 | 47.0
+2024 | Redshirt | 223 | 0.095 | 47.8
+2024 | Rotation | 432 | 0.0808 | 54.4
+2024 | Starter | 479 | 0.0447 | 59.5
+2025 | Backup | 406 | 0.132 | 47.3
+2025 | Redshirt | 3851 | 0.0862 | 46.8
+2025 | Rotation | 190 | 0.0687 | 52.5
+2025 | Starter | 114 | 0.0786 | 60.4
+######## END ROUND 1

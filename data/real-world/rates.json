@@ -342,7 +342,14 @@
       "source_url": "https://www.hudl.com/blog/the-2025-college-football-transfer-portal-report",
       "year": 2025
     },
-    "gaps": "No official count of D2 football portal entrants found (NCAA reports D2 only for all sports: 15,487 entrants in 2024-25)."
+    "gaps": "No official count of D2 football portal entrants found (NCAA reports D2 only for all sports: 15,487 entrants in 2024-25).",
+    "house_era_fbs_windows": {
+      "jan_2025_window": 4201,
+      "jan_2026_window": "about 3,000 (down 23% by NCAA president Charlie Baker; 18% on another NCAA read)",
+      "source_url": "https://frontofficesports.com/article/college-football-transfers-down-23-after-schools-started-paying-players/",
+      "year": 2026,
+      "note": "FBS entrants, On3's count for 2025 and the NCAA's cut for 2026; the first window under the 105-player House roster limit. Found 2026-11-26 (future run, finding 3); not yet read by a check."
+    }
   },
   "juco_to_fbs_signees_per_year": {
     "value": null,
