@@ -173,8 +173,12 @@ fn finish_team(
     scheme: OffScheme,
 ) -> (GameTeam, Vec<crate::player::Player>) {
     let spots = crate::spots::choose_spots(&raw.iter().map(|r| &r.0).collect::<Vec<_>>());
+    let subs = crate::spots::sub_safeties(&raw.iter().map(|r| &r.0).collect::<Vec<_>>());
     for (r, s) in raw.iter_mut().zip(spots) {
         crate::spots::set_spot(&mut r.0, s);
+    }
+    for j in subs {
+        raw[j].0.spots_played |= crate::spots::Spot::NB.bit();
     }
     let players: Vec<GamePlayer> = raw.iter().map(|(p, know, exp)| GamePlayer::from_player(p, *know, *exp)).collect();
     // The staff sizes its weekly plan to its players (T6.2).
@@ -205,7 +209,8 @@ fn finish_team(
         playbook: 1.0,
         // From its own stream so the draws above keep their values.
         sportsmanship: clamp(Rng::new(seed ^ 0x5BD1_E995).normal(10.0, 3.5), 1.0, 20.0),
-        nickel: clamp(Rng::new(seed ^ 0x2545_F491).normal(0.88, 0.08), 0.55, 0.99),
+        nickel: super::roster::nickel_habit(Rng::new(seed ^ 0x2545_F491).normal(0.0, 1.0)),
+        dime: Rng::new(seed ^ 0x6C8E_9CF5).normal(0.0, 1.0),
         year: 2026,
         film_study: 10.0,
         install: absorb(aware).clamp(0.35, 1.0),

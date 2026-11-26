@@ -2976,9 +2976,446 @@ What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
 - **Thousand-yard backs.** Near real yards a carry the count would still be high in these seasons (two test arms at 5.07 and 5.11 a carry gave 64 and 77 a year over two seasons each): the lead back takes 54% of his team's backs' carries every week.
 - **The tables.** The roster lean's weights, the fit scores, the call table and the analysts' models were measured before this; the test leagues' totals did not move.
 
+## Defenders' season lines (realism audit item 3, 2026-11-25)
+
+The target (`docs/trials/realism-audit-seed321.md`, item 3): in the seed 321 world the FBS sack leader averages 29.9 a year (real leaders 14 to 17), 3.4 men a year reach 20 sacks, one tackle had 84.5 in 12 games, the tackles-for-loss leader averages 52.7 and the tackle leader 196, with 15.9 men a year over 150. Measured over main 6ec2e07 (main's commits since, up to 93345a0, leave the match engine alone). Every size is proposed, not confirmed.
+
+How it was measured. `match_check` with `AFM_DEFENDERS=<games a season>` reads the games as seasons and prints the defenders' lines: the nth best sack, tackle-for-loss and tackle season a year, the men over each mark, each team leader's share, the top men with their rush lines, the rush and the run defense by how far a man stands over the league's typical blocker, a team's tackles by rank, snap shares by rank and who covers kicks. The real side is new: `data/real-world/defenders.json` (`scripts/defenders.py`), FBS 2024-25 from ESPN's boxes and the NFL 2021-24 from nflverse. It was played on world seed 321's own FBS teams and schedule (12,000 games, 11 seasons of 13) and its NFL clubs (2,720 games, 9 seasons of 17), seed 1. The same starters play every week and nobody is hurt, so counts run a little above a world's book.
+
+What was wrong, six things:
+
+- **A block read a rating gap in a straight line.** Each tick a block moved by 0.032 × edge on a pass rush and 0.035 × edge on a run, and the shed to make the play by e^(edge / 9). That fits the middle and runs away at the top. The 19 FBS edges who stand 10 to 20 points over the typical blocker won 52% to 65% of their rushes inside 2.5 seconds and had 11.8 to 15.4 sacks a season each. The whole line ran over real, rung by rung: the 10th best sack season a year was 15.8 (real 10.8) and the 100th best 6.5 (real 5.5). The team total still read 2.04 sacks a game (real 2.09), because linebackers and backs got a quarter of theirs.
+- **A tackle's weight read with no floor.** A defensive tackle's get-off reads his weight against his level's typical tackle (`TWO_GAP`, fitted on real tackles of 270 to 350 lb). Nothing stopped it below them. A 5-9, 167 lb man at tackle (Buffalo) started every rush most of the way to a shed, won 70% of them and had 42.2 sacks a season; a 6-2, 176 lb man at Boise State had 19.4.
+- **Those men should never have been tackles.** A boy out of another sport starts at his sport's spot, a thrower at tackle whatever his body (`World::add_athlete`). It wrote his position alone, so his card still named the spot he was made at, and `athlete::set_position` left a man alone when his card already named the spot. Every move back to where his body fits changed nothing: he played out of position for life.
+- **Every man in the pile got the tackle, and the first man a solo.** Three or more men were credited on 7% of FBS tackles, and a shared tackle was a solo for the first man: 69.0 tackles a team game with 49.4 solo (real 65.9 and 35.4).
+- **Starters and linemen covered kickoffs.** The kickoff unit picked on 0.4 Speed, 0.35 Tackling and 0.25 Block Shedding, a starter 10 points down. On the NFL clubs men who play half the defense's snaps or more made 31% of the tackles on kicks and edges 24%; the best edges added 13 tackles a season there.
+- **A loss of an inch was a tackle for loss.** The stat book credited one for any play that ended behind where it started. Box scores keep whole yards. Three in ten of the engine's lost runs lose less than half a yard: 3.24 runs a team game with any loss, 2.26 with half a yard or more.
+
+What's built:
+
+- **The block's bend** (`game/sim.rs`, `BLOCK_BEND`, `bend`). The pass rush, the run block and the shed's pull read the edge on a log curve: sign × 20 × ln(1 + |edge| / 20). Its slope is 1 on an even block and it never goes flat, so every point still helps the better man, each a little less than the last: 5 points count 4.5, 10 count 8.1, 20 count 13.9 and 30 count 18.3. Nothing is capped. `SHED_RUNNER` goes from 0.9 back to 1.0 to hold yards a carry (0.9 gave 5.45 at FBS and 4.57 on the NFL clubs on the bent edge).
+- **The two-gap read stops at the typical edge's weight** (`Sim::engage`). Below the lightest men the fit saw, only the body's own first step counts.
+- **A move takes when the card and the position disagree** (`athlete::set_position`), and an athlete's first spot goes on his card with its job and weight (`World::add_athlete`). A save's men like him move at their staff's next look.
+- **A tackle is one man's or two men's** (`Sim::tackled`, `TACKLE_CREDIT`; `game/stats.rs`, `book`): one man has a solo, two have an assist each, the way the NCAA's and the NFL's scorers keep it.
+- **Kickoffs are covered by the bench** (`game/flow.rs`, `KICK_COVER`, `KICK_UNIT_STARTER`): 0.6 Speed, 0.3 Tackling and 0.1 Block Shedding, and a starter 30 points down on both kickoff units, so he covers only when the bench runs out of men who can. The punt team is unchanged.
+- **A tackle for loss is a loss of half a yard or more** (`PlayRecord::lost`), in the stat book and in the Data section's havoc.
+
+Measured on world seed 321's FBS teams (the nth best season a year, averaged over the years):
+
+| FBS, a year | main | built | real |
+|---|---|---|---|
+| sacks: the best, 2nd, 3rd, 5th, 10th | 42.2, 25.6, 22.8, 19.5, 15.8 | 19.2, 15.5, 14.2, 13.3, 11.4 | 15.8, 15.5, 14.2, 12.2, 10.8 |
+| sacks: the 25th, 50th, 100th, 200th | 11.7, 8.8, 6.5, 4.5 | 8.7, 7.2, 5.4, 4.0 | 8.5, 7.0, 5.5, 4.0 |
+| men with 10, 12, 15, 20 sacks | 38.5, 24.6, 12.4, 3.9 | 18.9, 8.1, 2.2, 0.4 | 15.5, 6.5, 1.5, 0 |
+| the best sack season in 11 years | 49.0 | 23.5 | record 24 |
+| tackles for loss: the best, 2nd, 3rd, 5th, 10th | 49.2, 44.1, 39.3, 35.7, 28.8 | 27.8, 24.4, 23.5, 21.2, 18.3 | 22.2, 20.5, 20.0, 18.2, 17.0 |
+| tackles for loss: the 25th, 50th, 100th, 200th | 21.2, 16.8, 13.1, 9.9 | 14.3, 11.8, 9.5, 7.4 | 14.8, 12.8, 10.5, 8.5 |
+| men with 20, 25, 30 tackles for loss | 30.5, 16.1, 8.5 | 6.6, 1.7, 0.3 | 2.5, 0, 0 |
+| tackles: the best, 2nd, 3rd, 5th, 10th | 205.7, 191.5, 186.6, 180.8, 166.6 | 185.0, 177.3, 171.1, 164.6, 155.5 | 159.5, 149.5, 139.0, 133.5, 126.0 |
+| men with 120, 130, 150 tackles | 106.9, 64.6, 23.6 | 71.5, 41.7, 13.2 | 14.5, 6.5, 1.5 |
+| a team game: tackles (solo) | 68.99 (49.39) | 64.62 (33.67) | 65.9 (35.4) |
+| a team game: sacks | 2.04 | 1.78 | 2.09 |
+| a team game: tackles for loss | 5.83 | 4.35 | 5.64 |
+| a team's sack leader: his count, his share | 7.9, 29% | 6.2, 27% | 6.2, 24% |
+| men in on a tackle: one, two, three or more | 69%, 24%, 7% | 69%, 31%, 0 | |
+
+The same on its NFL clubs:
+
+| NFL, a year | main | built | real |
+|---|---|---|---|
+| sacks: the best, 2nd, 3rd, 5th, 10th | 29.7, 24.4, 21.9, 18.1, 13.3 | 20.4, 17.7, 16.6, 14.3, 11.4 | 19.4, 16.5, 15.8, 14.5, 12.0 |
+| sacks: the 25th, 50th, 100th, 200th | 8.8, 6.3, 3.8, 1.3 | 7.9, 5.8, 3.7, 1.3 | 9.0, 6.6, 4.2, 2.0 |
+| men with 15, 20 sacks | 7.8, 3.6 | 4.3, 0.6 | 3.8, 0.2 |
+| tackles for loss: the best, 2nd, 3rd, 5th, 10th | 44.4, 38.4, 36.3, 32.2, 26.9 | 31.1, 25.8, 24.4, 22.2, 19.4 | 22.0, 20.5, 19.8, 18.5, 15.8 |
+| tackles: the best, 2nd, 3rd, 5th, 10th | 198.6, 191.0, 186.1, 171.9, 160.6 | 195.1, 181.9, 177.1, 164.0, 151.0 | 183.0, 176.2, 168.0, 160.2, 145.2 |
+| a team game: tackles (solo) | 61.03 (48.22) | 58.59 (36.73) | 62.0 (33.8) |
+| a team game: sacks | 1.99 | 1.82 | 2.40 |
+| a team game: tackles for loss | 6.44 | 4.88 | 4.64 |
+| tackles on kicks by men with half the snaps | 31% | 17% | |
+| edges' and tackles' tackles on kicks a team game | 1.61, 0.48 | 0.93, 0.20 | |
+
+The real NFL tackles in this table were corrected in the next lane ("Who is on the field and who gets the tackle"): they had been read as solo plus assists (56.5 a team game; 167.0, 155.5, 150.8, 144.5 and 129.5 for the ladder), and the league's combined tackles also count a tackle with an assist.
+
+Why the leaders read as they do now. The FBS edges 10 to 20 points over the typical blocker win 38% to 48% of their rushes (52% to 65% before) and have 7.5 to 9.7 sacks a season (11.8 to 15.4); the best man's average season is 13.3 (Ohio State's edge, 18 points over; 21.4 before). The 167 lb man at tackle has 12.4 (42.2): he is still out of position in this world file, which was built before the fix, and a new world's staff moves him. An NFL club's best rushers average 14 to 18 sacks a season (21 to 28 before). The best NFL edges' tackles on kicks went from 13 a season to none.
+
+Awards move with it (audit item 5). The Heisman voters' read alone (`AFM_SEASONS`: production weighed by the kind of candidate, without the team, the hype or the region) had a defender on top in 36% of the 11 seasons on main and in 15% of the top fives. Now no defender is in a top five: a quarterback is the top read in 82% of the seasons and a back in 18%.
+
+What had to hold, and did (seed 1; real in brackets):
+
+| | main | built |
+|---|---|---|
+| World 321 FBS, yards a carry (5.12) | 5.359 | 5.359 |
+| points a team game (27.0) | 26.65 | 27.16 |
+| World 321 NFL clubs, yards a carry (4.50) | 4.463 | 4.493 |
+| points a team game (22.5) | 25.05 | 25.69 |
+| NFL test league, yards a carry, sacks, points | 4.485, 1.92, 26.03 | 4.479, 1.80, 26.74 |
+| FBS test league | 4.865, 1.87, 25.12 | 4.876, 1.76, 25.34 |
+| high school test league | 5.833, 1.74, 21.38 | 5.819, 1.55, 21.02 |
+
+The freak check (`freak_check 10 86-95`: ten NFL test leagues of ten seasons each, with a 6-0, 240 lb edge of top Strength, Agility and Finesse Rush on one team). He still rushes with the league's best, so nothing is capped: his best season is in the top 0.1% to 4.8% of edge seasons in every league (0.4% to 13.9% on main) and his median season in the top 2.2% to 23.3% (1.8% to 23.8%), on 9 to 14 sacks in a median year (8 to 22). Around him the edges' sack seasons at the top 1%, 5%, 10% and 50% are 17.0, 12.0, 9.5 and 4.0 (main 20.0, 14.0, 11.0 and 4.5; real 17.5, 12.5, 10.5 and 4.0), seasons of 20 sacks or more 3.8 a thousand (10.1; real 2.0), and the best season in 100 league seasons 32.5 (41.0; the real best is 23).
+
+What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
+
+- **Sacks and tackles for loss a team game are now short.** FBS 1.78 sacks (real 2.09) and 4.35 tackles for loss (5.64); the NFL clubs 1.82 sacks (2.40). The line's own ladder reads real at FBS from the 2nd man to the 200th, so the missing plays are other men's: FBS linebackers get 0.16 sacks and 0.66 tackles for loss a team game (real 0.63 and 1.86 by roster label, some edges among them) and backs 0.05 and 0.87 (0.18 and 1.16). A linebacker's blitz gets home on 1.7% of rushes, and a back who comes free gets home 1% to 2.6% of the time. On main the stars' extra sacks hid it. On the NFL clubs the middle of the line's ladder is a tenth short too (the 25th, 50th and 100th best seasons 7.9, 5.8 and 3.7; real 9.0, 6.6 and 4.2), with the passer's short time to throw. On the NFL test league edges' pressures went from 3.45% of defense snaps to 3.10% (real 3.44%) and their sacks from 0.75% to 0.67% (real 0.94%). No rusher was lifted to cover for it.
+- **NFL scoring rises 0.6 points** with the stars' sacks gone (25.69, real 22.5). It is the same gap as NFL sacks, now a quarter short: the passer gets the ball out too soon. Audit item 16.
+- **The tackle leaders are still 15% to 25% over real** at FBS (2% to 7% on the NFL clubs against the corrected real count). The top two linebackers and the top backs take too much of a team's tackles: its leader has 14.3% of them (real 11.1%), linebackers' tackles go to 3.7 men a game (real 5.1) and backs' to 6.2 (real 7.9), and the first two linebackers play 93% and 83% of the snaps.
+- **The best tackles-for-loss seasons are still over real** (27.8 a year at FBS, real 22.2; 31.1 on the NFL clubs, real 22.0), on edges' stops on runs and, on the NFL clubs, a corner's stuffs of wide runs.
+- **A man far lighter than a tackle still rushes too well from tackle** (6.5 sacks a 100 rushes at 167 lb, the best edges 2.3 to 3.4): only the bull rush reads mass.
+- **The very top is still a little heavy.** The best sack season a year averages 19.2 at FBS (real 15.8) and 20.4 on the NFL clubs (19.4), and one test-league edge had 32.5 in 100 league seasons, a 6-6, 293 lb man who wins by power.
+- **Kickoff coverage's leftovers**: the third linebacker, the nickel and the third edge are bench men to the depth chart, so they still cover kicks, and kickers make 0.45 tackles a team game on the NFL clubs' kicks.
+- **High school sacks fell a tenth** (1.74 to 1.55 a team game on the test league), with no real rate to hold them to.
+- **A back's stuffs and the Data section's stuffed rate still read any loss**, not whole yards.
+- **The tables** (the roster lean, the fit scores, the call table, the analysts' models) were measured before the bend.
+
+## The blitz gets home: big on big, the creep and the hot throw (realism audit item 3, the pass rush, 2026-11-25)
+
+The target: what item 3 left (`GAPS.md`). Sacks a team game fell short once the stars' were real, because linebackers and backs rarely got home: a linebacker's blitz got home half as often as real, the Will's a quarter as often as the Mike's, a defensive back's almost never, and the Data section counted a blitz only when he was blocked or got pressure. Measured over main b00e1f6 (item 3). Every size is proposed, not confirmed.
+
+How it was measured. `match_check` with `AFM_BLITZ=1` prints the blitz: dropbacks by how many rushed against real NFL 2021-25, a blitz called or not, each rush call, who picked up each call's blitzers, and who came and who picked him up (edges, tackles, linebackers by spot, corners and safeties), with pressures a rush, hits, sacks a 100 rushes, first contact and time to throw. The real side is new: `data/real-world/blitz.json` (`scripts/blitz.py`), Pro Football Reference's advanced defense for 2018-24, 3,712 team games: blitzes, pressures a blitz and sacks a 100 blitzes for linebackers, corners and safeties. It was played on world seed 321's NFL clubs (2,720 games) and FBS teams (3,000 and 12,000 games) and the three test leagues, seed 1.
+
+What was wrong, five things:
+
+- **The protection took the nearest man from one sideline to the other.** Each lineman in turn took the nearest rusher not yet taken, within 3.2 yards across. Against an over front the left tackle took the 3-technique, the guard beside him was sent out to the end, and a wide end was nobody's. On the NFL clubs no blocker was given the edge on 13.8% of his rushes, and those rushes held 0.35 of the edges' 0.81 sacks a team game.
+- **A blitzer started from his coverage spot, flat-footed.** A linebacker stood 4.5 to 6 yards off the ball, a nickel 8 yards wide, a safety 10 to 12.5 yards deep, and a back ran straight up the field in his own lane before he turned in. A free linebacker reached the passer about 2.0 s after the snap and a free nickel about 2.4 s, when the ball was gone. Linebackers got 0.086 pressures a rush as PFR counts them (real 0.172 a blitz) and 1.55 sacks a 100 (real 4.99); corners 0.094 and 1.18 (0.181 and 5.22); safeties 0.026 and 0.67 (0.159 and 4.17).
+- **The check-release back waited.** He read only a man already near him and the passer (`blitz_threat`), so a linebacker the line left him came free on one blitz in nine.
+- **The passer never threw hot before his set.** With a man he knew was free closing on him, he still finished his drop: on five- and seven-step drops a free linebacker got home eight or nine times in ten.
+- **The book kept a pressure and a rush snap its own way.** Only the men first near the passer had a pressure, so a man who hit him or sacked him after another got there had none: on the NFL clubs four in ten of the edges' pressures were missing. A rush snap was one a pass block, so a blitzer nobody blocked had none and a man two blockers took in turn had two. The Data section's pass rush read only blocked men and pressures, so a blitz nobody blocked that didn't get there was never counted and pressures a blitz read high.
+
+What's built:
+
+- **Big on big** (`pass_protection`, `pair_in_order`). The linemen take the men rushing from the line of scrimmage in order across the formation, no two crossing, the pairing that leaves the least ground to cover. The widest rusher is the tackle's however wide he lines up, and a guard is never sent outside his tackle. A lineman left without a man takes a blitzer coming through his reach (`PRO_REACH`); backs and tight ends kept in take what is left; a man left after that is free, the passer's hot.
+- **The creep** (`blitz_launch`, `LAUNCH_LB`, `LAUNCH_BACK`, `LAUNCH_SAFETY`, `LAUNCH_WIDE`, `BACK_LANE`). Every blitzer walks up through the cadence, as every blitz is coached: a linebacker to 3 yards off the ball in his own gap (the double-A too), a nickel or a corner to 2.5 yards and a safety to 3. A back who stands wider than the end on his side comes in to 3 yards outside him, and his lane is 0.8 yards outside the end, so he turns the corner as an end does. Sized on PFR's pressures a blitz.
+- **The check-release back checks at the snap** (`protect_rest`). He takes the nearest man still free when he reads him coming (`picks_up`) and runs his route when nobody is left or he misses it. A back whose route is in the call runs it, and the passer throws hot.
+- **The hot throw before the set** (`quarterback`, `hot_snap`, `HOT_FROM`). When a man he knows is free (`hot_men`) will be on him before he can wait, the passer throws from 0.85 s after the snap, 0.2 s later under center, before his set. A free man he doesn't know of is his urgent throw, as before.
+- **The book** (`GameStats::book`; the Data section's `blocks_and_rush`). A pressure on a man's line is a hurry, a hit or a sack, as PFR counts them; the play's own flag and the team's count are unchanged. A rush snap is once a dropback he rushed (`PlayRecord::rushed`), blocked or not, and a rush win once a dropback. A man who rushed has no coverage snap.
+
+The blitz on world seed 321's NFL clubs (a team game; pressures as PFR counts them):
+
+| NFL clubs | before | built | real (PFR 2018-24) |
+|---|---|---|---|
+| linebackers: rushes, pressures a rush, sacks a 100 rushes, sacks | 8.44, 0.086, 1.55, 0.13 | 8.46, 0.168, 3.30, 0.28 | 7.17, 0.172, 4.99, 0.36 |
+| corners | 0.90, 0.094, 1.18, 0.011 | 0.90, 0.188, 3.59, 0.032 | 0.88, 0.181, 5.22, 0.046 |
+| safeties | 0.90, 0.026, 0.67, 0.006 | 0.87, 0.155, 2.83, 0.025 | 2.39, 0.159, 4.17, 0.100 |
+| pressures a rush: the Sam, the Mike, the Will | 0.127, 0.115, 0.051 | 0.170, 0.186, 0.148 | about the same each |
+| an edge no blocker was given: share of his rushes, his sacks | 13.8%, 0.35 | 0.2%, 0.04 | |
+| sacks: edges, tackles, linebackers, backs | 0.81, 0.81, 0.13, 0.02 | 0.54, 0.82, 0.28, 0.06 | ends 0.75, tackles 0.52, edges listed as linebackers 0.51, off-ball linebackers 0.36, backs 0.19 |
+
+Dropbacks by how many rushed (NFL clubs; real NFL 2021-25):
+
+| pressured, sacked | before | built | real |
+|---|---|---|---|
+| 4 rushers (two thirds of dropbacks) | 17.1%, 4.3% | 13.8%, 3.5% | 27.2%, 6.0% |
+| 5 | 24.6%, 6.4% | 24.9%, 6.6% | 36.7%, 8.1% |
+| 6 | 34.2%, 11.0% | 43.0%, 13.8% | 44.5%, 9.0% |
+| 7 or more | 52.0%, 14.7% | 63.2%, 22.2% | 47.7%, 7.4% |
+| sacked with a blitz called, without | 8.1%, 4.6% | 9.6%, 3.8% | 8.3%, 5.9% |
+
+The nth best sack season a year (1, 2, 3, 5, 10, 25, 50, 100, 200):
+
+| | before | built | real |
+|---|---|---|---|
+| world 321 FBS (12,000 games) | 19.2 15.5 14.2 13.3 11.4 8.7 7.2 5.4 4.0 | 19.0 16.6 14.8 13.9 11.9 9.1 7.4 5.6 4.0 | 15.8 15.5 14.2 12.2 10.8 8.5 7.0 5.5 4.0 |
+| world 321 NFL clubs | 20.4 17.7 16.6 14.3 11.4 7.9 5.8 3.7 1.3 | 24.7 21.0 19.7 16.3 11.2 7.8 5.4 3.1 1.0 | 19.4 16.5 15.8 14.5 12.0 9.0 6.6 4.2 2.0 |
+| NFL test league | 18.2 16.4 14.8 13.1 11.8 8.7 6.2 3.7 1.0 | 19.4 17.1 15.6 13.7 11.7 8.6 6.1 3.4 1.0 | the same real |
+
+Why the NFL clubs' best seasons rose. The parts were switched on one at a time on the same games. With the old protection and the rest built, the best seasons a year are 20.1, 18.6 and 16.3; with big on big, 24.7, 21.0 and 19.7. The creep and the hot throw leave the top alone. With each lineman on his own man, the one lineman left over helps on one tackle (the plan's star, `help_on`, or the man nearest him) and the other tackle is single-blocked by a guard on every four-man rush. The tackles' sacks hold (0.83 to 0.82 a team game) but go to the best men: Philadelphia's two tackles (7.7 and 6.6 points over the typical blocker) went from 16.0 and 13.9 sacks a season to 20.0 and 19.7, winning 44% and 42% of their rushes inside 2.5 s. The old protection hid it: on an over front a tackle, not a guard, often took the 3-technique, and the end came free. On the NFL test league and the world's FBS teams the top is near where it was.
+
+What had to hold, and did (seed 1; real in brackets):
+
+| yards a carry, sacks, points a team game | before | built |
+|---|---|---|
+| world 321 NFL clubs (4.50, 2.41, 22.5) | 4.493, 1.81, 25.69 | 4.475, 1.74, 25.73 |
+| world 321 FBS, 12,000 games (5.12, 2.09, 27.0) | 5.359, 1.79, 27.16 | 5.334, 1.93, 26.92 |
+| NFL test league | 4.479, 1.80, 26.74 | 4.468, 1.76, 26.42 |
+| FBS test league | 4.876, 1.76, 25.34 | 4.868, 1.85, 25.75 |
+| high school test league | 5.819, 1.55, 21.02 | 5.835, 1.58, 21.23 |
+
+The freak check (`freak_check 10 86-95`: ten NFL test leagues of ten seasons each, with a 6-0, 240 lb edge of top Strength, Agility and Finesse Rush on one team). He still rushes with the best, so nothing is capped: his best season is in the top 0.2% to 3.3% of edge seasons in nine leagues and the top 13.1% in the tenth (0.1% to 4.8% before), his median season in the top 2.2% to 23.3% (the same before), on 6 to 15 sacks in a median year (9 to 14). Around him the edges' pressures fell from 3.10% of defense snaps to 2.60% (real 3.44%) and their sacks from 0.67% to 0.55% (0.94%), the free edges' gone. Their sack seasons at the top 1%, 5%, 10% and 50% are 17.0, 11.5, 9.0 and 3.0 (17.0, 12.0, 9.5 and 4.0 before; real 17.5, 12.5, 10.5 and 4.0), and 6.4% of their sacks are shared (10.2% before; real 10.8%).
+
+What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
+
+- **The four-man rush gets half the real pressure.** Two thirds of dropbacks are four-man rushes; on the NFL clubs 13.8% are pressured and 3.5% sacked (real 27.2% and 6.0%), and the edges have 0.54 sacks a team game where real ends and edges listed as linebackers have about 1.0 of their 1.27. With the free edges gone this is most of the missing sacks. The next lane.
+- **A pressure becomes a sack two thirds as often as real**, for every rusher: linebackers, corners and safeties get home at PFR's pressures a blitz but sack 3.30, 3.59 and 2.83 times a 100 (real 4.99, 5.22, 4.17).
+- **A team's second-best tackle is single-blocked on every four-man rush**, and the world's best tackles win too many of those reps: the NFL clubs' best three sack seasons a year run 24.7, 21.0 and 19.7 (real 19.4, 16.5, 15.8).
+- **Six or more rushers are sacked half again as often as real** (13.8% and 22.2% of those dropbacks, real 9.0% and 7.4%), and Cover 0's sacks rose with them (12.9% of its dropbacks, 11.1% before): the protection doesn't slide to the blitz and the receivers have no sight adjustments.
+- **The call mix.** Linebackers rush 8.46 times a team game (PFR 7.17 blitzes) and safeties 0.87 (2.39); there are no real counts for college.
+- **Nobody rushes three**, real on 5.2% of NFL dropbacks.
+- **FBS corners' blitzes get home two and a half times as often as the NFL's** (a pressure on 34% of their rushes and 8.8 sacks a 100, the NFL clubs' 19% and 3.6), with no real college count to read it against.
+- **Sacks are still short**: 1.74 a team game on the NFL clubs (real 2.41) and 1.93 on the FBS teams (2.09).
+
+## The calls read each league's own men (realism audit, the run lean, 2026-11-25)
+
+The target (`GAPS.md`, "The roster's run lean reads a world's men against the test league's", from the even run block lane): world seed 321's FBS backs and receivers are 12 to 17 points faster than the FBS test league's typical men, so every staff leaned to the wide runs, 32% of its backs' runs called outside (26% with the lean off, the FBS test league 18%). Built over main b3992d4 (with the pass rush lane). The coordinator took Cain's yes on the fix; the choices in it were taken for him while he slept (the audit doc's list). Every size is proposed, not confirmed.
+
+What was wrong:
+
+- **A lean cancels inside a team, not across a league.** Lane SF10's roster lean pays each call by how far the side's men stand from the typical man at their place on a depth chart (`roster_fit::reference`), and that man was the test league's: the mean of 64 synthetic teams (`synthetic::typical_at`). What every option of one team shares cancels (a great passer adds to every throw), but what every team of a league shares doesn't. When every back in a league is 15 points faster than the test league's typical back, every staff reads its back as a burner and leans to the toss and outside zone, though he is only as fast as his league's backs, and the defenders he runs at are his league's too.
+- **Two of the defense's body reads had the same fault.** The blitz lean reads the weight of a staff's named linebackers and corners over the level's typical men at those positions (`Side::blitz_lean`, L1 and C1), and the shell lean its safeties' hitter read over the level's typical pair (`Side::safety_hitter`, S-A).
+
+What's built:
+
+- **Each league's own typical men** (`game/roster_fit.rs`, `LeagueMen`, `LeagueSum`; `game/flow.rs`, `league_men`, `kickoff_men`): for every team the men the engine seats at kickoff with everyone dressed at the lean's 26 places (`Side::off_men`, `def_men`), averaged over the league rating by rating and weight; a place no team fills keeps the level's typical man. With them the mean weight of every man on the league's rosters at each position and the mean hitter read of the men listed at free and at strong safety, measured as the level's are (`synthetic::typical_body`, `typical_hitter`).
+- **Which league:** each college division on its own (FBS, FCS, Division II, NAIA, Division III, junior college; `college::division_men`), each state's high schools (a batch of 64 schools at a time, `hs_year::state_men`), the NFL, and each other league.
+- **When:** college at fall camp from the season's rosters (`college::start`), a state the day before its season (`hs_year::start_state`), the NFL and each other league at dawn the day before its first game (`pro::games::ensure_league`, `pro::other::ensure_men`). A world saved before this works them out at its next dawn (`clock::league_men`).
+- **Carried with the team** (`GameTeam::league`): every game team the world builds carries its league's table, so your call sheet's draft (`world/plans.rs`), a live game, a save and a replay read the same men (`ReplaySetup`). A table from before a new rating reads as none.
+- **The reads:** every lean reads about the league's typical man when the team has one (`roster_fit::reference_in`, `deviation_in`; `OffFit::of`, `DefFit::of` and `back_value` take the league), and so do the blitz lean and the shell lean (`LeagueMen::weight_at`, `hitter_at`). A team with none (the test leagues and the tools' synthetic teams) reads the level's typical men as before, so the test leagues play the same games. `AFM_LEAGUE=off` turns a world's tables off in `match_check` and `ab_check`. Nothing was retuned and no table rebuilt: the roster lean's weights are slopes, now read about the league's middle.
+
+Measured (seed 1; `match_check` on world seed 321's FBS teams on their own schedule, 12,000 games, and its NFL clubs, 2,720 games; before is the same build with `AFM_LEAGUE=off`, which plays main's games; real FBS from cfbfastR 2022-24, real NFL 2021-25):
+
+| | before | built | real |
+|---|---|---|---|
+| World 321 FBS, yards a carry | 5.334 | 5.224 | 5.122 |
+| rushing yards a team game | 176.7 | 171.2 | 171.8 |
+| points a team game | 26.92 | 26.41 | 26.97 |
+| explosive run rate (cfbfastR's) | 0.145 | 0.137 | 0.145 |
+| rushing touchdowns a team game | 1.40 | 1.32 | 1.58 |
+| backs' runs called outside | 32.0% | 26.6% | |
+| runs that end outside the tackles | 36.7% | 32.3% | NFL 23.1% |
+| a carry inside the tackles / outside | 4.39 / 6.68 | 4.41 / 6.60 | NFL 4.05 / 5.06 |
+| throws 20+ yards downfield | 12.6% | 11.8% | NFL 11.5% |
+| man coverage / a blitz, of dropbacks | 35.1% / 25.7% | 32.8% / 24.4% | |
+| World 321 NFL clubs, yards a carry | 4.475 | 4.489 | 4.503 |
+| throws 20+ yards downfield | 12.7% | 11.7% | 11.5% |
+| backs' runs called outside | 19.6% | 19.9% | |
+| a blitz called, of dropbacks | 22.5% | 22.3% | 27.3% |
+| NFL, FBS and high school test leagues | | the same games | |
+
+The FBS staffs leaned to the wide runs and the deep throws on the test league's men, and both are gone. The NFL clubs' men sit near the NFL test league's at the back, so their runs barely moved, but their passers lean deep no more: lane SF10's deep lean on a world's passers (`GAPS.md`, "The typical starter isn't the world's") was this. The defense's two body reads add little: the FBS blitz rate fell 1.1 points of dropbacks (its linebackers and corners weigh more than the test league's) and the NFL clubs' 0.3.
+
+Season lines on the world's FBS teams (`AFM_SEASONS=13`: seasons of 13 games, the same starters every week, 11 seasons):
+
+| a year | before | built | real |
+|---|---|---|---|
+| thousand-yard backs | 89.3 | 84.6 | 45 to 51 |
+| 2,000-yard backs | 0.36 | 0.27 | about 0.5 |
+| the rushing leader | 1,942 | 1,933 | 1,809 |
+| backs with 100+ carries, median a carry | 5.29 | 5.19 | 4.9 |
+| 10th percentile | 4.26 | 4.23 | 3.5 |
+| thousand-yard receivers | 32.2 | 34.4 | 28 to 33 |
+| receivers with 25+ catches, 90th / 99th percentile | 931 / 1,231 | 934 / 1,249 | 922 / 1,353 |
+
+What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
+
+- **FBS backs still gain 0.10 a carry over real**, almost all of it on the wide runs: 32% of FBS runs end outside the tackles and pay 2.2 yards more a carry than inside ones (real NFL 23% and 1.0 more; no FBS split in the repo). Receivers' blocks on corners (`GAPS.md`, "Receivers block corners too well on a world's rosters").
+- **FBS rushing touchdowns** fell with the wide runs, to 1.32 a team game (real 1.58), and points to 26.41 (26.97): the red zone's runs (`GAPS.md`, "FBS rush touchdowns short of real").
+- **Thousand-yard backs**, 85 a year in seasons with the same starters every week (real 45 to 51).
+- **One roster table for every level**: a college call still leans by what the NFL game pays its men, now about its own league's men.
+- **High school states and the lower divisions were not measured**: `match_check` plays no world's high schools or lower divisions. Each reads its own men now, so none leans the way its men differ from the test league's.
+
+## The four-man rush: the tackle's set and the spare man's eyes (realism audit item 3, the four-man rush, 2026-11-25)
+
+The target: what the pass rush lane left (`GAPS.md`). Two thirds of dropbacks are four-man rushes, and the edges did less than the tackles: on world seed 321's NFL clubs an edge's rush was a pressure as PFR counts them 3.7% of the time and a sack 0.75 times a 100, a tackle's 6.4% and 1.24, where real edges get more of both. A team's second tackle had a guard alone on every four-man rush. Built over main e36512a (with the run lean). The choices were taken for Cain while he slept (the audit doc's list). Every size is proposed, not confirmed.
+
+How it was measured. `match_check` with `AFM_BLITZ=1` (who came, first contact and two blockers on him by rusher group, dropbacks by how many rushed) and `AFM_DEFENDERS=17` (the sack ladder and the top men), on world seed 321's NFL clubs (2,720 games), its FBS teams (3,000 games) and the NFL test league (2,720 games), seed 1. A read-out kept off main gave each block by rusher group: when and where it began, who won it, and each credited pressure and sack by how the rusher got there (free, winning his block, held). Real figures are PFR's advanced defense for 2018-24 as a team game (ends and edges listed as linebackers 4.74 pressures and 1.27 sacks, tackles 2.10 and 0.52, linebackers 1.23 and 0.36) and NFL 2021-25 by rushers.
+
+What was wrong, two things:
+
+- **The tackle met the end at the line.** A pass blocker mirrored his man from the snap a yard in front of him toward the passer, and he did the same against a man coming round the edge. On the NFL clubs the two met 0.79 s after the snap, the end 0.65 yards past the line and 6.8 yards from the passer (an inside man met his blocker at 0.40 s). An end who won came off far out in front of the passer's eyes, and the ball was gone before he got there. Real tackles kick back against a wide rusher and meet him two or three yards behind the line, so a win there is a pressure.
+- **The spare man helped the block nearest him.** Big on big leaves one lineman without a man against four rushers. He helped the nearest block all play, usually the guard's on the 3-technique or the nose, or went to the nearest rusher nobody had engaged. The other tackle had a guard alone on every rush, and the best of them ran up the sack ladder: Philadelphia's two tackles had 20.4 and 17.3 sacks a season.
+
+What's built:
+
+- **The vertical set** (`scrimmage.rs`, `set_spot`, `SET_DEPTH`, `SET_PACE`). Against a man coming round the edge (a rusher with an outside contain lane) a lineman kicks back to a set point 0.3 of the way from the line to the passer's launch point, on the line from the rusher to the launch point, at 0.4 of his top speed, and takes the rusher when he is within 1.5 yards. Once the rusher is within half a yard of the set depth he mirrors him as before. A man over him and a blitzer through his gap are mirrored as before. The ends now meet their blockers 1.17 s after the snap, 2.04 yards past the line and 6.30 from the passer.
+- **The spare man's eyes** (`run_snap`, the free pass blocker's search). A free blocker looking for a rusher passes over a man a teammate is on his way to and hasn't been beaten by. Without it the spare guard went after the end while his tackle set back for him, and left the inside. The plan's star (A8) is the exception, so the slide to him holds.
+- **Help where the trouble is** (`late_help`, `LATE_HELP`, `LATE_MARGIN`, `LATE_REACH`, `HELP_REACH`). A free blocker helps the plan's star first, then a block whose rusher is winning it (w over 0.2), then the nearest, inside 3.5 yards of him (2.5 before). A man doubling a rusher who is not the plan's star comes off for a block inside 2.5 yards whose rusher is winning by half a point more than his own man.
+
+The pass rush on world seed 321's NFL clubs (a team game; pressures as PFR counts them):
+
+| NFL clubs | before | built | real (PFR 2018-24) |
+|---|---|---|---|
+| edges: pressures a rush, sacks a 100 rushes, pressures, sacks | 0.037, 0.75, 2.65, 0.53 | 0.052, 0.97, 3.76, 0.70 | 0.066, 1.77, 4.74, 1.27 |
+| tackles | 0.064, 1.24, 4.28, 0.83 | 0.052, 0.96, 3.47, 0.64 | 0.031, 0.78, 2.10, 0.52 |
+| linebackers | 0.168, 3.21, 1.41, 0.27 | 0.175, 3.48, 1.48, 0.30 | 0.172, 4.99, 1.23, 0.36 |
+| first contact, s: edges, tackles | 0.54, 0.22 | 0.92, 0.25 | |
+| two blockers on him, of his rushes: edges, tackles | 20.6%, 35.0% | 18.9%, 36.8% | |
+| dropbacks pressured (the book), sacks a pressure | 18.3%, 0.261 | 20.2%, 0.241 | 22.2%, 0.283 |
+| sacks, time to throw | 1.72, 2.42 s | 1.76, 2.43 s | 2.41, 2.71 s |
+
+The real per rush is PFR's count over the engine's rushes (72 for the edges, 67 for the tackles a team game).
+
+Dropbacks by how many rushed (pressured, sacked; real NFL 2021-25):
+
+| | before | built | real |
+|---|---|---|---|
+| NFL clubs, 4 rushers (two thirds of dropbacks) | 13.6%, 3.5% | 15.5%, 3.4% | 27.2%, 6.0% |
+| NFL clubs, 5 | 24.8%, 6.3% | 27.0%, 6.7% | 36.7%, 8.1% |
+| NFL clubs, 6 | 43.0%, 14.5% | 45.4%, 14.6% | 44.5%, 9.0% |
+| NFL test league, 4 rushers | 13.6%, 3.5% | 15.4%, 3.6% | 27.2%, 6.0% |
+| world 321 FBS, 4 rushers | 16.0%, 4.0% | 18.1%, 3.9% | |
+
+The nth best sack season a year (1, 2, 3, 5, 10, 25, 50, 100, 200) on the NFL clubs: 23.8 20.1 18.7 14.7 12.1 7.9 5.3 3.0 1.0 before, 23.9 20.2 17.1 13.8 10.9 7.7 5.4 3.2 1.2 built (real 19.4 16.5 15.8 14.5 12.0 9.0 6.6 4.2 2.0). The top changed hands. Philadelphia's two tackles fell from 20.4 and 17.3 sacks a season to 18.3 and 12.8, since the man left over now comes to them when they win. The Giants' long-armed power edge (Strength 119, Lower Body Strength 125, 34.6-inch arms, 9.2 points over the typical blocker) rose from 19.2 to 22.7, a third of them through a block (12% of all edges' sacks are): his power drives his man back toward the passer, and a sack through a block reads his arms (E2). He set the depth. At 0.35 of the way he had 23.6 a season and at 0.4 29.7, with the best season a year at 25.8 and 30.1; at 0.3 the best season a year stays where it was (23.9, main 23.8). Nothing is capped.
+
+Why the edges' sacks lag their pressures. An edge's pressures went up by 42% and his sacks by 32%. A win two yards behind the line is a pressure, but it comes later in the down and the passer gets the ball out: of the pressures the engine credits to an edge, 0.25 became his sack (0.33 before). The tackles' pressure fell with their single blocks, but each of their rushes is still a pressure 1.7 times as often as real, since an inside man wins his block about as often as an end does.
+
+On the NFL test league the edges went from 0.044 pressures a rush and 0.71 sacks a team game to 0.056 and 0.91, the tackles from 0.055 and 0.71 to 0.046 and 0.54. On the FBS teams the edges went from 0.061 and 0.87 to 0.067 and 0.96, the tackles from 0.056 and 0.52 to 0.049 and 0.42.
+
+What had to hold (seed 1; real in brackets):
+
+| yards a carry, yards an attempt, sacks, points a team game | before | built |
+|---|---|---|
+| world 321 NFL clubs (4.50, 7.05, 2.41, 22.5) | 4.489, 7.82, 1.72, 25.70 | 4.456, 7.85, 1.76, 25.64 |
+| world 321 FBS, 3,000 games (5.12, 7.29, 2.00, 26.97) | 5.199, 7.80, 1.86, 26.19 | 5.208, 7.85, 1.90, 26.51 |
+| NFL test league | 4.468, 7.54, 1.76, 26.42 | 4.507, 7.60, 1.86, 26.81 |
+
+The NFL test league's points rose 0.39: 0.09 more drives a team game (more strips and picks off pressure; 10.14 to 10.23) and 2.62 points a drive (2.61). Yards an attempt rose 0.03 to 0.07 everywhere, inside the noise.
+
+What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
+
+- **The four-man rush's sacks.** Its pressure went up two points and its sacks didn't move (3.4% of four-man rushes, real 6.0%). The missing sacks now sit in what turns a pressure into a sack: the edges' 0.70 a team game against PFR's 1.27, at 79% of the real pressures a rush.
+- **Tackles still pressure 1.7 times as often as real a rush.** A single block inside is won about as often as one on the edge. A penalty on an inside move with a blocker beside him (no room inside) was tried and dropped: 3 points did little and 6 took sacks to 1.57 a team game. The guard's set and anchor against an inside move were not traced.
+- **The ladder's top.** The Giants' long-armed power edge has 22.7 sacks a season, a third of them through a block, and the best season a year is 23.9 (real 19.4). Whether a sack through a block reads his arms too strongly (E2) was not traced.
+- **NFL points** sit at 25.6 on the NFL clubs and 26.8 on the test league (real 22.5).
+
+## Who is on the field and who gets the tackle (realism audit item 3, who makes the tackle, 2026-11-25)
+
+The target: what the defenders' lines lane left (`GAPS.md`, "The tackle leaders are still 15% to 25% over real"). A team's tackles go to too few men, and the first question was whether the right men are on the field and whether the book credits them as real scorers do. Built over main 14fb042 (with the four-man rush). The choices were taken for Cain while he slept (the audit doc's list). Every size is proposed, not confirmed.
+
+How it was measured. `match_check` with `AFM_DEFENDERS` has new lines: tackle credits by play (runs, scrambles, sacks, catches) and by how far the play went, plays that end out of bounds and who is credited, credits a 100 snaps by position on runs and on dropbacks, a team game's tackles by the final margin, the kick units' men and their tackles, and the defense's backs on the field: by the offense's receivers and the down, by the call and by the men's listed positions, by team, with the pass rush by the call's backs, who fills each back's slot and each receiver's place, and the staffs' own habits. The real side grew with them (`data/real-world/defenders.json`, `scripts/defenders.py`): nflverse's play-by-play and participation for 2023-24 (the tacklers on every play, the 22 men on the field, both sides' personnel, the rushers and FTN's pressure flag) and the FBS boxes by final margin. Played on world seed 321's NFL clubs (2,720 games, 9 seasons of 17), its FBS teams (12,000 games, 11 seasons of 13) and the three test leagues, seed 1.
+
+One real number was wrong before. The NFL's tackles were read as solo plus assists. The league's combined tackles also count the first man of a shared tackle (a "tackle with an assist": Foyesade Oluokun's 184 in 2022 are 97 solo, 31 with an assist and 56 assists). Real NFL teams make 62.0 tackles a game (56.5 was written here) and the best tackle seasons a year are 183.0, 176.2, 168.0, 160.2 and 145.2 (not 167.0, 155.5, 150.8, 144.5 and 129.5). "Defenders' season lines" above is corrected.
+
+What was wrong, six things:
+
+- **A man run out of bounds was nobody's tackle.** A carrier who steps out went into the book with no tackler unless a man already had hold of him. On the NFL clubs 5.87 runs and catches a team game ended out of bounds and 44% of them credited nobody (real NFL 2023-24: 5.80 a team game, 10% with nobody). Real scorers credit the man who forced him out.
+- **The backs on the field followed a rule, not what real staffs do.** Two receivers or fewer got the base defense, three got the nickel by the coordinator's habit (88% of the time), four always got six backs, and third and long against three got six half the time. Real NFL defenses (2023-24) answer two receivers with five backs on 44% of early downs and one receiver on 15%, play six backs on only 10% of early downs against four receivers, and six on 45% of third and longs against three.
+- **Every fifth and sixth back was a corner.** A team's third safety played 9% of the NFL clubs' snaps (real 29%). Real fifth backs are a third safety on 45% of five-back snaps against one receiver, 38% against two and 20% against three (the big nickel), and three in four six-back groups carry three safeties.
+- **Staffs differed in one habit.** A coordinator had a nickel habit and nothing for the dime. Real defenses differ most in their dime: the share of six backs on third and long against three receivers runs from 4% (the 10th percentile of 64 team seasons) to 91% (the 90th), it goes with the club's nickel habit only 0.37, and a club's own share is 0.19 alike a season later.
+- **The kicker made a tenth of the kickoff tackles** (0.44 a team game on the NFL clubs, real 0.03). He came up as soon as the returner was inside his depth, with cover men still free in front of him.
+- **The punt team carried two guards and no safety behind the gunners.** Real NFL punt teams carry 3.3 linebackers, 1.3 tight ends, 1.5 safeties, 0.9 backs, 0.3 ends and no offensive linemen.
+
+What's built:
+
+- **Forced out is a tackle** (`game/sim.rs`, `Sim::check_carrier`, `OOB_CREDIT_REACH`). When a carrier goes out of bounds with nobody on him, the nearest free defender within 6 yards has the tackle, as a scorer gives it. With 5 yards 87.7% of these plays credited a man when it was sized, and with 6 yards 90.0% do on the finished build (real 89.9%).
+- **The real table of backs** (`game/calling.rs`, `PACKAGES`, `package_down`, `call_defense_memo`). The call draws four, five or six backs from the real NFL's shares by the offense's receivers (one or none, two, three, four or more) and the down (first and second; third and fourth with 1-2, 3-6 and 7 or more to go). A snap inside the 3 against two receivers or fewer is still the goal-line group's, and your answer to a personnel group (G16) still decides it for you.
+- **Two habits, around the table** (`PACKAGE_HABIT`, `PACKAGE_DIME_WITH`, `PACKAGE_DIME_OWN`, `package_centers`, `lean_center`; `game/roster.rs`, `Staff::nickel`, `Staff::dime`, `nickel_habit`). A coordinator's nickel habit moves the odds of five or more backs by 1.2 for each standard deviation he sits from the typical coordinator. The odds of a sixth back move by 0.6 with that habit and by 1.2 with a dime habit of his own, new on every coordinator and kept for his career. The typical staff's chance in each cell is set so that all staffs together average the table: a rare choice gains more from the staffs who like it than it loses from those who don't. NFL coordinators' nickel habits are drawn like college ones now (0.88 with a spread of 0.08; it was 0.9 and 0.06).
+- **The head coach's front still leans it** (`PACKAGE_FRONT_NICKEL`, `PACKAGE_FRONT_BASE`). A head coach who asks for a nickel base front (4-2-5, 3-3-5) keeps the fifth back on far more often, and one who asks for a 4-3 or 3-4 less often. The pull is the old rule's (it took an 88% chance to 98% or 77%), now on every cell of the table: at full pull the typical staff's 45% against two receivers on early downs becomes 85% for a nickel base and 28% for a 4-3 or 3-4, and its 98% against three receivers becomes nearly always and 96%. The roster's own lean (lane SF10) reads each receiver count's real run share (`PACKAGE_RUNS`).
+- **The fifth and sixth backs can be safeties** (`game/flow.rs`, `Game::lineup`, `FLEX_COVER`, `FLEX_DIME`, `flex_cover`; `spots.rs`, `sub_safeties`). A staff teaches its third and fourth safeties the nickel when it sets its spots (each spring in college, at camp in the NFL). On a five- or six-back call the next safety takes the slot from the corner when he plays the job better against these receivers: the job is 0.6 the slot corner's and 0.4 the strong safety's against one or two receivers, 0.8 against three, 0.85 against four, and 0.75 for the sixth back, who plays underneath in the Will's place. The corner he displaces is the sixth back ahead of the next corner. Your own package or your order at corner or safety decides it for you.
+- **The kicker holds** (`game/kicking.rs`, `run_return`). On a kickoff he stays the last man while a cover man is still free in front of the returner, and comes up only inside 5 yards.
+- **The punt team** (`Game::punt_units`, `Side::cover_best`): the punter and the snapper, two gunners, three linebackers, a tight end, a safety as the personal protector, a back, and one more of a tight end, an edge or a safety, whoever covers best (`KICK_COVER`). A thin or pulled bench fills the last spot with the next man up, so the unit is never short.
+- **The Identity tab's base front expectation** (`lane_gameplan/identity.rs`, `typical_base`) follows the new lean, and its usual base share is the measured one by the call: 16% on the world's NFL clubs, 21% on its FBS teams and 25% in the high school test league (it was 25%, 35% and a half). So the screen's expected share matches what the call does.
+
+Who is on the field (world seed 321's NFL clubs; real NFL 2021-24 snap counts and 2023-24 participation):
+
+| NFL clubs | main | built | real |
+|---|---|---|---|
+| safeties on the field a snap | 1.98 | 2.20 | 2.21 |
+| corners | 2.57 | 2.61 | 2.65 |
+| linebackers (real: off the ball) | 2.16 | 1.97 | about 2.0 |
+| the third safety's share of the snaps | 0.09 | 0.30 | 0.29 |
+| the second and third linebackers' shares | 0.91, 0.26 | 0.83, 0.16 | |
+| backs a snap by listed position: 3, 4, 5, 6 | | 0.042, 0.204, 0.646, 0.108 | 0.009, 0.220, 0.660, 0.103 |
+| safeties a snap by listed position: 1, 2, 3, 4 | | 0.052, 0.694, 0.246, 0.007 | 0.041, 0.713, 0.215, 0.026 |
+| a third safety among five backs, against 1, 2, 3, 4 receivers | | 0.48, 0.36, 0.24, 0.18 | 0.45, 0.38, 0.20, 0.21 |
+| three safeties among six backs, against 2, 3, 4 | | 0.73, 0.69, 0.68 | 0.74, 0.73, 0.77 |
+| dropbacks with five or more rushers | 0.318 | 0.260 | 0.258 |
+
+Real linebackers are 2.93 a snap by listed position with the 3-4 edges among them; with as many men on the line as the engine plays, about 2.0 of them are off the ball. Three backs by listed position are a receiver at corner (below).
+
+The backs by the call (four, five, six; `match_check` reads the backs' slots on the field, whoever plays them):
+
+| | NFL clubs | world 321 FBS | real NFL 2023-24 |
+|---|---|---|---|
+| 1 receiver, early downs | 0.885, 0.109, 0.006 | 0.843, 0.149, 0.008 | 0.839, 0.154, 0.007 |
+| 2 receivers, early downs | 0.534, 0.432, 0.034 | 0.568, 0.415, 0.017 | 0.544, 0.436, 0.019 |
+| 2 receivers, third and 7 or more | 0.070, 0.500, 0.430 | 0.081, 0.521, 0.397 | 0.074, 0.537, 0.389 |
+| 3 receivers, early downs | 0.033, 0.856, 0.111 | 0.043, 0.881, 0.076 | 0.039, 0.882, 0.079 |
+| 3 receivers, third and 3 to 6 | 0.011, 0.650, 0.339 | 0.014, 0.706, 0.280 | 0.012, 0.707, 0.281 |
+| 3 receivers, third and 7 or more | 0.005, 0.489, 0.506 | 0.007, 0.536, 0.457 | 0.007, 0.546, 0.448 |
+| 4 receivers, early downs | 0.065, 0.766, 0.168 | 0.031, 0.857, 0.112 | 0.016, 0.880, 0.103 |
+
+The 136 FBS staffs sit on the table. The 32 NFL clubs play a little more base against heavy sets and a little more dime than it: eight of their head coaches ask for a 4-3 or 3-4 base, and their coordinators happen to average +0.23 in the dime habit.
+
+How far staffs differ (the 10th percentile, the median and the 90th of a team's share, and the spread on the log odds):
+
+| by team, by the call | five or more backs | six backs |
+|---|---|---|
+| NFL clubs | 0.693, 0.883, 0.939 (0.82) | 0.034, 0.123, 0.331 (1.16) |
+| world 321 FBS | 0.662, 0.805, 0.910 (0.62) | 0.024, 0.080, 0.256 (1.04) |
+| NFL test league | 0.637, 0.797, 0.925 (0.85) | 0.027, 0.073, 0.177 (0.89) |
+| real NFL 2023-24, 64 team seasons | 0.693, 0.765, 0.887 (0.64) | 0.010, 0.080, 0.232 (1.33) |
+
+The NFL clubs' median is over the real one because the world's offenses line up with three receivers more often than real ones (69% of snaps, real 64%), not because their staffs answer differently.
+
+Who gets the credit (a team game; real NFL 2021-24 lines and 2023-24 plays, real FBS 2024-25 boxes):
+
+| | main | built | real |
+|---|---|---|---|
+| NFL clubs: tackles (solo) | 55.89 (35.09) | 58.10 (37.12) | 62.0 (33.8) |
+| runs and catches that end out of bounds | 5.87 | 5.81 | 5.80 |
+| of them, credits to nobody, one man, two | 0.44, 0.46, 0.11 | 0.10, 0.79, 0.11 | 0.10, 0.84, 0.06 |
+| tackles by the line, linebackers, backs | 14.4, 15.6, 25.2 | 14.3, 14.4, 28.5 | 14.4, 20.7, 26.0 |
+| men with a tackle in a game | 14.7 | 14.9 | 16.8 |
+| the first three men's shares of a game's tackles | 0.178, 0.139, 0.116 | 0.177, 0.139, 0.116 | 0.160, 0.126, 0.106 |
+| the kicker's tackles | 0.44 | 0.07 | 0.03 |
+| kickoff returns of 40 yards or more | 0.037 | 0.057 | 0.050 |
+| world 321 FBS: tackles (solo) | 64.68 (33.49) | 67.27 (35.81) | 65.9 (35.4) |
+| of out of bounds, credits to nobody, one man, two | 0.48, 0.37, 0.15 | 0.10, 0.76, 0.15 | |
+| tackles by the line, linebackers, backs | 16.6, 19.3, 27.8 | 16.5, 18.6, 31.0 | 16.2, 21.2, 27.0 |
+
+The real line, linebackers and backs are by roster label: real 3-4 edges are listed as linebackers, the engine's edges are its line.
+
+The nth best tackle season a year (1, 2, 3, 5, 10, 25, 50, 100, 200):
+
+| | main | built | real |
+|---|---|---|---|
+| NFL clubs | 191.4 178.3 172.6 164.8 150.7 132.0 115.9 94.2 66.3 | 197.9 186.3 178.1 168.9 156.7 136.1 121.0 97.7 70.7 | 183.0 176.2 168.0 160.2 145.2 120.5 101.8 78.8 57.2 |
+| world 321 FBS | 190.9 183.1 178.1 167.5 155.7 138.9 125.4 113.2 98.5 | 202.8 185.9 179.2 171.2 158.5 143.4 130.8 118.9 104.5 | 159.5 149.5 139.0 133.5 126.0 113.5 102.0 89.0 76.5 |
+
+Why the leaders rose. This lane makes the men on the field and the book's credits real. It does not spread a team's tackles over more men: the sideline credits add about 2 tackles a team game at both levels, and they go to the same men, mostly corners and safeties. So the rungs rose 2% to 7% on the NFL clubs and 1% to 6% at FBS, and the first three men's shares of a game's tackles are where they were. With the right men on the field, what is left shows plainly. The front seven is short: the NFL clubs' line and linebackers have 28.7 tackles a team game against the real 35.1, and a linebacker is in on 12.8 tackles a 100 run snaps against the real 18.9. The backs are over: 28.5 against 26.0, a corner 10.6 credits a 100 dropbacks against 8.75. And two men share a run's tackle half as often as real (22% against 43%), least of all on the short runs where real piles are: a run of 0 to 3 yards has two men in on it 18% of the time (real 48%). That is the next lane.
+
+Tackle credits a 100 defense snaps on scrimmage plays (all, runs, dropbacks) on the NFL clubs: edges 4.87, 9.23, 1.38; tackles 6.52, 13.44, 0.97; linebackers 11.83, 12.80, 11.02; corners 8.70, 6.26, 10.57; safeties 10.51, 13.14, 8.49. Real NFL 2023-24 by listed position: ends 6.79, 12.62, 3.05; outside linebackers (3-4 edges and some 4-3 linebackers) 8.90, 14.24, 5.56; tackles 7.28, 13.97, 2.15; linebackers 13.77, 18.92, 10.19; corners 7.86, 6.36, 8.75; safeties 9.86, 11.95, 8.58.
+
+The sacks fell, and why. The NFL clubs' sacks went from 1.76 a team game to 1.59 (real 2.41). Base defenses blitz about twice as often as nickel and dime ones, in real football too, and main played base against every two-receiver set: five or more men rushed on 31.8% of dropbacks. With the real table it is 26.0% (real 25.8%). The pass rush by the backs the call put on the field:
+
+| dropbacks with four, five, six backs | share | rushers | five or more rush | pressured | sacked |
+|---|---|---|---|---|---|
+| NFL clubs, four backs | 0.130 | 4.69 | 0.542 | 0.268 | 0.062 |
+| five | 0.684 | 4.26 | 0.220 | 0.183 | 0.043 |
+| six | 0.186 | 4.21 | 0.213 | 0.178 | 0.045 |
+| real NFL 2023-24, four backs | 0.151 | 4.47 | 0.417 | 0.282 | 0.056 |
+| five | 0.690 | 4.23 | 0.231 | 0.296 | 0.065 |
+| six | 0.159 | 4.15 | 0.226 | 0.345 | 0.086 |
+
+The real pressures are FTN's flag, a wider count than the book's. A base defense's rush is at real (6.2% of its dropbacks sacked, real 5.6%), though it sends five or more too often (54%, real 42%). The missing sacks sit where most dropbacks are: with five and six backs the passer is sacked on 4.3% and 4.5% of dropbacks (real 6.5% and 8.6%). No rusher was lifted to cover for it.
+
+The kicking units (NFL clubs, a team game; real NFL 2023-24):
+
+| | main | built | real |
+|---|---|---|---|
+| the kicker's tackles | 0.44 | 0.07 | 0.03 |
+| kickoff return average | 27.90 | 28.36 | 25.9 |
+| kickoff returns of 40 yards or more | 0.037 | 0.057 | 0.050 |
+| kickoff return touchdowns | 0.017 | 0.022 | 0.012 |
+| punt return average | 9.10 | 8.80 | 9.5 |
+| punt returns of 20 yards or more | 0.049 | 0.047 | 0.080 |
+| the punt team a punt: linebackers, tight ends, safeties, backs, ends, defensive tackles, offensive linemen | | 2.99, 1.09, 1.11, 1.00, 0.72, 0.09, 0 | 3.31, 1.28, 1.53, 0.94, 0.26, 0.02, 0 |
+
+What had to hold (seed 1; real in brackets):
+
+| yards a carry, yards an attempt, sacks, points a team game | main | built |
+|---|---|---|
+| world 321 NFL clubs (4.50, 7.05, 2.41, 22.5) | 4.456, 7.85, 1.76, 25.64 | 4.456, 7.80, 1.59, 25.65 |
+| world 321 FBS, 12,000 games (5.12, 7.29, 2.09, 26.97) | 5.211, 7.87, 1.90, 26.52 | 5.213, 7.77, 1.81, 26.45 |
+| NFL test league | 4.507, 7.60, 1.86, 26.81 | 4.507, 7.54, 1.73, 26.73 |
+| FBS test league | 4.869, 7.80, 1.84, 25.54 | 4.847, 7.73, 1.76, 25.65 |
+| high school test league | 5.871, 7.33, 1.68, 21.64 | 5.792, 7.26, 1.57, 21.38 |
+
+Rushing holds on the world's teams and the NFL test league. The high school test league gives up 0.08 a carry less (the FBS one 0.02). Its defenses now carry 4.57 backs a snap where they carried 4.39, and at that level the fifth back gets to a run sooner than the linebacker he replaces: against seven in the box a back's tackles come after 9.6 yards, 10.2 before. Yards an attempt fell 0.04 to 0.10 with more backs on the field against two receivers, and sacks 0.08 to 0.17 with fewer base snaps.
+
+What it doesn't fix (all in `GAPS.md`, each proposed, not confirmed):
+
+- **The tackle leaders are still over real**: the best ten seasons a year by 5% to 8% on the NFL clubs and the 25th to the 200th by 13% to 24%, every rung by a quarter to a third at FBS. The front seven's share, the pile on short runs and the backs' share: the next lane.
+- **FBS teams make too many tackles in close games** (72.6 for the winner and 74.1 for the loser of a one-score game, real 66.7 and 68.0; the top man 12.0 and 12.3, real 9.9 and 10.1). Blowouts read real.
+- **Sacks are 0.17 lower on the NFL clubs** (1.59, real 2.41). The sacks still missing sit in nickel and dime.
+- **Receivers listed at corner.** The staff's two-way rule puts a receiver at corner when he rates 3 points over a starter there. On the world's NFL clubs receivers play 4.4% of the outside corners' snaps and 5.8% of the nickel's, at FBS 6.0% and 7.6% (the test leagues none). The same rule sends corners to receiver: a man listed at corner is in an outside receiver's place on 3.4% of the NFL clubs' snaps and 10.6% of the FBS teams' (the slot 2.0% and 2.8%). Real two-way men are one in a decade.
+- **A safety taught the nickel is listed among the corners at no cost.** 4 of the 32 NFL clubs and 31 of the 136 FBS staffs name a safety their nickel on every five-back snap whatever the offense plays, and five of the 272 FBS outside corner jobs go to one. A team's third safety plays the nickel nearly always or nearly never (spread 3.41 on the log odds, real 2.40), and at FBS his share barely moves with the receivers (0.34, 0.33, 0.32, 0.35).
+- **The world's NFL offenses line up in 11 personnel too often** (three receivers on 69% of snaps, real 64%; one receiver or none 2.3%, real 6.3%; four 2.9%, real 0.9%), run 27.4 designed runs a team game (real 24.2) and scramble 0.42 times (real 1.93).
+- **Punt gunners rarely make the tackle.** Receivers and corners have 0.08 of the punt team's 1.36 tackles a team game on the NFL clubs (real 0.44 of 2.0), linebackers half of them.
+- **One table for every level.** There is no real college or high school count of the backs on the field, so each level's staffs answer by the NFL's.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
-- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs, or at `fbs` its FBS programs as its season played them on its own schedule (`AFM_CONF=1`: conference games; `AFM_TEAMS=<file>` keeps the teams, a world file takes a minute to read), `AFM_STARTERS=<points>` prints the teams' starters against the level's typical starter in every rating that far apart, `AFM_TYPICAL="OT,IOL;RB:Speed,weight"` moves those positions' men so their starters average him (`ALL` for every position), `AFM_SEASONS=13` reads the games as seasons of that many (thousand-yard backs and receivers, the leaders, the Heisman voters' read), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).
+- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs, or at `fbs` its FBS programs as its season played them on its own schedule (`AFM_CONF=1`: conference games; `AFM_TEAMS=<file>` keeps the teams, a world file takes a minute to read), `AFM_STARTERS=<points>` prints the teams' starters against the level's typical starter in every rating that far apart, `AFM_TYPICAL="OT,IOL;RB:Speed,weight"` moves those positions' men so their starters average him (`ALL` for every position), `AFM_SEASONS=13` reads the games as seasons of that many (thousand-yard backs and receivers, the leaders, the Heisman voters' read), `AFM_DEFENDERS=13` the defenders' season lines against `data/real-world/defenders.json` (realism audit item 3: the nth best sack, tackle-for-loss and tackle season a year, the men over each mark, team leaders' shares, the top men with their rush lines, the rush and the run defense by a man's lead on the typical blocker, a team's tackles by rank, snap shares and who covers kicks; and for who makes the tackle: tackle credits by play and by how far it went, plays that end out of bounds and who is credited, credits a 100 snaps by position on runs and on dropbacks, a team game's tackles by the final margin, the kick units' men and tackles, and the defense's backs on the field by the offense's receivers and the down, by the call and by listed position, by team, with the pass rush by the call's backs, who fills each back's slot and each receiver's place, the staffs' nickel and dime habits and who is named to the corner jobs), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin fit_check -- run <fbs|nfl|hs> [games] [seed] [out] [arms]`: the scheme-fit check (`docs/design/scheme-fit.md`, lane SF0): does a man's skill pay inside his team's scheme? Team 0 is the level's typical team; each arm changes one thing on it (a rating, a body number, a drawn man, the scheme) and replays the same games as its context's typical arm. `fit_check read <dir>` writes the tables (each job's measures, the items' measures against real, as recruited, personnel, where men lined up, ratings nothing reads, the world's fit weights against what +15 moved); `fit_check repeat` compares runs on the claims behind the items.
 - `cargo run --release --bin fire_check -- hits <nfl|fbs|fcs|hs> [games] [seed]`, `talks <level> [seed]`, `run [games] [seed] [stakes]`: coach fire ("Coach fire" above): the big hit's line and the fire counts a team game; the AI coaches' pregame picks against main's; each prototype room's landing on a Branch-type safety and a calm pocket passer, then the two men under each room, A/B on the same seeds against their coach's own read (stakes 0.8 for playoff games).

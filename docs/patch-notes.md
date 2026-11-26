@@ -8,6 +8,106 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.710 (26 Nov, shipped): program fortunes measuring pass: size the recruiting bond's curve on four seeds (PR #664)
+**TLDR:** A great recruiter now changes a program. Your head coach's and position coaches' recruiting ratings decide far more of the close battles for a recruit.
+- Each point of recruiting skill builds a recruit's bond with a coach faster than before. (PR #664)
+- A typical head coach recruits as he did; strong recruiters pull clear and weak ones fall behind. (PR #664)
+- Programs rise and fall more with who coaches them, so eras come and go over ten years. (PR #664)
+- Transfers weigh a strong recruiter's calls more too. (PR #664)
+- Look at: hire a coach with a high Recruiting rating and follow your next two classes. (PR #664)
+
+## 0.2.709 (25 Nov, shipped): the four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3) (PR #663)
+**TLDR:** Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is.
+- Tackles take a vertical set against a man rushing round the edge, and meet him two yards behind the line. (PR #663)
+- An end who beats his man now does it close to the quarterback, so it shows up as pressure. (PR #663)
+- The spare lineman in a four-man rush helps the block that is losing, not just the one nearest him. (PR #663)
+- Inside tackles no longer get a free single block on every snap, so edges out-sack them as in the real game. (PR #663)
+- Look at: your edge rushers' pressures and sacks on the Data page, and the league's sack leaders. (PR #663)
+
+## 0.2.708 (25 Nov, shipped): read the calls' leans about each league's own typical men (realism audit, the run lean) (PR #660), give the class's best QB the one franchise chance on draft day (audit item 4) (PR #662)
+**TLDR:** 2 changes ship together. Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down. The top quarterback in a draft class now goes where real ones do, usually first overall when the team picking needs one.
+- Read the calls' leans about each league's own typical men (realism audit, the run lean) (PR #660): Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down.
+- A coordinator compares his backs, receivers and passers with the rest of his own league, not with a fixed yardstick, before he leans his calls toward them. (PR #660)
+- College offenses run outside about a sixth less often, and run games and deep throws land closer to real numbers. (PR #660)
+- Defenses weigh their linebackers, corners and safeties against their own league when they pick blitzes and coverages. (PR #660)
+- Saved games and replays keep the same reads. (PR #660)
+- Give the class's best QB the one franchise chance on draft day (audit item 4) (PR #662): The top quarterback in a draft class now goes where real ones do, usually first overall when the team picking needs one.
+- Teams without a franchise quarterback now see the class's best one as their one real chance, and take him early. (PR #662)
+- A team that already has a young starter passes on him. (PR #662)
+- Weak quarterback classes still let a great edge rusher or corner go first. (PR #662)
+- Look at: a college offense with a fast running back, and how often it runs outside against its league. (PR #660) the first picks of the next draft and the reasons the teams give. (PR #662)
+
+## 0.2.706 (25 Nov, shipped): get blitzes home: big-on-big protection, the blitzer's creep and the hot throw (realism audit item 3, the pass rush) (PR #659), NFL head coaches: a public hot seat before any in-season firing (PR #657)
+**TLDR:** 2 changes ship together. Blitzes now get home like real ones, and pass protection blocks the way real lines are taught. Your NFL owner no longer fires you out of the blue. If your seat gets hot he tells you first, and you get at least a week to turn it around.
+- Get blitzes home: big-on-big protection, the blitzer's creep and the hot throw (realism audit item 3, the pass rush) (PR #659): Blitzes now get home like real ones, and pass protection blocks the way real lines are taught.
+- Linebackers, corners and safeties who blitz creep up before the snap and get to the passer as often as real blitzers do. (PR #659)
+- Offensive lines pick up the rush man for man across the formation, so an edge rusher no longer runs free because a guard was sent out to him. (PR #659)
+- Quarterbacks throw hot right away when a blitzer they know is free is coming, and backs check for the blitz at the snap. (PR #659)
+- A pass rusher's pressures now count every hurry, hit and sack, and his rushes count once a play. (PR #659)
+- NFL head coaches: a public hot seat before any in-season firing (PR #657): Your NFL owner no longer fires you out of the blue. If your seat gets hot he tells you first, and you get at least a week to turn it around.
+- An owner now gives a new head coach real time: a bad first month in your first season is not a firing matter. (PR #657)
+- When your job is in doubt you hear it from the owner, and the news carries it. He can only make a change from the Monday after. (PR #657)
+- If the team steadies, the talk dies down and you are told so. (PR #657)
+- An owner who nearly fired you after the season says so: you start the next one on the hot seat. (PR #657)
+- Every other club's coach is on the same rules, so in-season firings around the league come at real times too. (PR #657)
+- Look at: a defense that blitzes a lot, and its linebackers' sack and pressure lines. (PR #659) the inbox and the news after a bad start with an NFL club. (PR #657)
+- Docs and tooling merged too, no game change: coach_check on the published seed 321 world: game day and the feats (PR #661).
+
+## 0.2.704 (25 Nov, shipped): NIL deals in later years: the paid set by standing, a deal's school part by standing, keep-him offers only to men a school pays (PR #658)
+**TLDR:** College pay stays realistic after the first year. Schools now pay players by where they stand on the team, not by who happened to hold a deal first.
+- A returning redshirt or young backup who has earned a place is paid by his school, even with no deal. (PR #658)
+- The lowest-paid players on a major roster get a real stipend again, not a token one. (PR #658)
+- Schools stop making keep-him offers to walk-ons and deep backups they would not pay anyway. (PR #658)
+- The very top quarterback checks come down into the real range. (PR #658)
+- Look at: your NIL desk's roster split in a second season, and what your backups and redshirts are paid in July. (PR #658)
+
+## 0.2.703 (25 Nov, shipped): coach_check: your coach's ratings measured (coach ratings lane RE0) (PR #652), read school budgets from the books and spread the Group of 5 by conference (realism audit item 10) (PR #653), bring defenders' season lines back to real (realism audit item 3: freak defenders) (PR #650), and 2 more
+**TLDR:** 5 changes ship together. coach_check: your coach's ratings measured (coach ratings lane RE0) Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books. Plus 3 more below.
+- coach_check: your coach's ratings measured (coach ratings lane RE0) (PR #652): no summary in the PR
+- Read school budgets from the books and spread the Group of 5 by conference (realism audit item 10) (PR #653): Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books.
+- A school's athletic budget on the people screens is read from its books, not guessed from its name. (PR #653)
+- American and Mountain West programs bring in more sponsor and ticket money than MAC and Conference USA ones. (PR #653)
+- The revenue share a Group of 5 school pays players follows what it earns, so richer conferences pay more. (PR #653)
+- Group of 5 head coaches' pay follows the new money. (PR #653)
+- Bring defenders' season lines back to real (realism audit item 3: freak defenders) (PR #650): Defensive stars now put up seasons you can believe. The best pass rushers finish with 14 to 20 sacks instead of 30 or 40, and a great one is still worth every snap.
+- The best rushers beat ordinary blockers on about four rushes in ten, down from six. Every rating point still helps, a little less the further ahead a man already is. (PR #650)
+- Tackles are counted the way real box scores count them: one tackler gets a solo, two share it as assists, nobody gets credit for landing on the pile, and a tackle for loss needs a real loss of half a yard or more. (PR #650)
+- Your starters stay off kickoff coverage. Backups cover kicks, so your best edge no longer pads his tackles there. (PR #650)
+- A player who came over from another sport can now be moved to the position his body fits, so no more 167-pound defensive tackles piling up sacks. (PR #650)
+- Record books in a world you already play keep their old numbers; games from here on use the new counts. (PR #650)
+- Refit the third party's NIL market: one market, the depth chart's roles, real starters' bars (PR #654): NIL money now follows the lineup. Schools pay the men their depth chart starts, each close to what real starters at his position make, and no quarterback runs away with the pot.
+- Collectives now pay each player up to his market price on top of what the school shares with him, instead of splitting their money by a separate formula. (PR #654)
+- Pay follows today's depth chart, so a player who wins a starting job is paid like a starter that summer. (PR #654)
+- The best-paid quarterbacks come down to what real stars make, and starters at the other positions come up. (PR #654)
+- The going rate on your NIL desk reads the same market, so it matches what rival schools pay. (PR #654)
+- High school careers run again (PR #656): High school careers run again. At most schools the game stopped in your first practice week; that is fixed.
+- A high school career no longer stops in its first week of practice. (PR #656)
+- A high school team's body plans and summer conditioning no longer borrow a college's dietitians and strength staff. (PR #656)
+- Look at: the Athletic budget line on a Group of 5 school's people screen. (PR #653) your sack and tackle leaders after a few games, and who lines up on your kickoff team. (PR #650) your NIL desk's roster split on July 1, and the top earners at the big programs. (PR #654)
+- Docs and tooling merged too, no game change: Docs: the NIL split by value measured (item 4's numbers, gaps and the audit list) (PR #651); Add the future read workflow (reads the future run's book into the log) (PR #655).
+
+## 0.2.697 (25 Nov, shipped): NIL pay by player value (PR #649)
+**TLDR:** College players are now paid by what each one is worth to his team, not a flat rate for his role. Your stars earn far more than your depth, and a deep backup's going rate is a small one.
+- A school's revenue share reads each player's own play against his level's starters, his class year and, for a newcomer, his stars. (PR #649)
+- Deep backups and low-rated signees get a small share, as at real programs, and the money that frees up goes to the players who carry the team. (PR #649)
+- Your starting quarterback's going rate sits well above every other player's. His backup's does not. (PR #649)
+- A two-star or three-star recruit no longer expects a starter's money from a power school because the depth chart is thin at his spot. (PR #649)
+- Look at: the roster split on your NIL desk before July 1, and what rival schools offer your three-star targets. (PR #649)
+
+## 0.2.696 (25 Nov, shipped): coach pay reads what the department earns (realism audit item 9) (PR #642), one store for your coach's ratings (coach ratings lane RE-bug) (PR #648)
+**TLDR:** 2 changes ship together. College coaching pay now follows each school's money, so a Group of 5 head coach earns about what his real counterpart does. Your coach's ratings now count everywhere the moment they change. Your read of people and your recruiting pitch follow the ratings on your profile.
+- Coach pay reads what the department earns (realism audit item 9) (PR #642): College coaching pay now follows each school's money, so a Group of 5 head coach earns about what his real counterpart does.
+- A MAC, Sun Belt or Conference USA head coach now makes around a million a year, not three or four. (PR #642)
+- Power 4 head coaches stay in the five to ten million range. (PR #642)
+- A small school can still give a hot coach a raise, but only so far before a bigger school's money wins. (PR #642)
+- One store for your coach's ratings (coach ratings lane RE-bug) (PR #648): Your coach's ratings now count everywhere the moment they change. Your read of people and your recruiting pitch follow the ratings on your profile.
+- Your one-on-ones, recruiting talks and hand-offs read your ratings as they are today, not as they were the day you started. (PR #648)
+- The job preview and job offers read today's ratings too. (PR #648)
+- A nickname you give a player can now fall flat. Before, nearly every one stuck. (PR #648)
+- Old saves load as they are and pick up the fix at once. (PR #648)
+- Look at: a Group of 5 head coach's contract on his staff page. (PR #642) your profile's Relationships and Recruiting, then a one-on-one or a recruit's call after a season or two. (PR #648)
+- Docs and tooling merged too, no game change: Coach ratings design, version 5: the archetype ladder (decided by proxy) (PR #647).
+
 ## 0.2.694 (25 Nov, shipped): add the program check page to the World Reader (lane P0) (PR #638), count a defender's body off a run block as the blocker's (realism audit item 1: FBS rushing) (PR #641), fix NFL GM tenure (realism audit item 12) (PR #645)
 **TLDR:** 3 changes ship together. Add the program check page to the World Reader (lane P0) College run games now play much closer to real football. Defenders hold up against run blocks the way their size and strength say they should, so backs no longer run wild. Plus 1 more below.
 - Add the program check page to the World Reader (lane P0) (PR #638): no summary in the PR

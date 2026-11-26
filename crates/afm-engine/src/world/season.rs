@@ -369,51 +369,58 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
 /// Depth charts at every college program. Young players must beat the
 /// upperclassmen ahead of them.
 pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
+    let order = w.seat_order();
+    w.programs.par_iter().map(|prog| program_chart(w, prog, &order)).flatten().collect()
+}
+
+/// One college program's depth chart as its staff would set it today
+/// (`college_roles` for one program; `order` is `World::seat_order`). Fall
+/// camp sets the season's roles from it; July 1's payday reads it ahead,
+/// so a school pays the lineup it expects to play
+/// (`recruiting::market_read`).
+pub(crate) fn program_chart(
+    w: &World,
+    prog: &super::program::Program,
+    order: &[(Position, Vec<u32>)],
+) -> Vec<(usize, PlayingTime)> {
     let year = w.year as u64;
     let seed = w.options.seed as u64;
     let people = &w.people;
-    let order = w.seat_order();
-    w.programs
-        .par_iter()
-        .map(|prog| {
-            let mut entries: Vec<(usize, Position, f64)> = prog
-                .roster
-                .iter()
-                .map(|&i| {
-                    let p = &people[i];
-                    let blocked = match p.college_seasons {
-                        0 => 4.0 + 6.0 * prog.prestige,
-                        1 => 2.0 + 3.0 * prog.prestige,
-                        _ => 0.0,
-                    };
-                    // An AI head coach rates a man he's close to a little
-                    // higher, inside his read's noise (coach and player
-                    // bonds, section 8: the coach's guy).
-                    let seen = p.player.overall() - 12.0 * p.pending_dip.unwrap_or(0.0) - blocked
-                        + 1.5 * key_normal(seed ^ year, p.player.id as u64)
-                        + super::folk::bonds::guy_bias(w, i);
-                    (i, p.player.position, seen)
-                })
-                .collect();
-            let mut chart = depth_chart(
-                &mut entries,
-                Some(travel_limit(prog, year as i32)),
-                &|i| {
-                    let p = &people[i];
-                    !p.redshirt_used && p.college_seasons <= 1
-                },
-                &|i| {
-                    let p = &people[i];
-                    p.academic_redshirt || p.cal.spring_ineligible || p.cal.transfer_sit
-                },
-            );
-            if w.seat_program(prog.id) {
-                your_order(&mut chart, &entries, &order, &|i| people[i].player.id);
-            }
-            chart
+    let mut entries: Vec<(usize, Position, f64)> = prog
+        .roster
+        .iter()
+        .map(|&i| {
+            let p = &people[i];
+            let blocked = match p.college_seasons {
+                0 => 4.0 + 6.0 * prog.prestige,
+                1 => 2.0 + 3.0 * prog.prestige,
+                _ => 0.0,
+            };
+            // An AI head coach rates a man he's close to a little
+            // higher, inside his read's noise (coach and player
+            // bonds, section 8: the coach's guy).
+            let seen = p.player.overall() - 12.0 * p.pending_dip.unwrap_or(0.0) - blocked
+                + 1.5 * key_normal(seed ^ year, p.player.id as u64)
+                + super::folk::bonds::guy_bias(w, i);
+            (i, p.player.position, seen)
         })
-        .flatten()
-        .collect()
+        .collect();
+    let mut chart = depth_chart(
+        &mut entries,
+        Some(travel_limit(prog, year as i32)),
+        &|i| {
+            let p = &people[i];
+            !p.redshirt_used && p.college_seasons <= 1
+        },
+        &|i| {
+            let p = &people[i];
+            p.academic_redshirt || p.cal.spring_ineligible || p.cal.transfer_sit
+        },
+    );
+    if w.seat_program(prog.id) {
+        your_order(&mut chart, &entries, order, &|i| people[i].player.id);
+    }
+    chart
 }
 
 /// Your depth chart on your own team (minor bug 247): the roles the
@@ -1849,9 +1856,13 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             shell: inst.shell(),
             playbook: 1.0,
             sportsmanship: head.map_or(10.0, |c| w.coaches[c].sportsmanship),
-            // His own habit, kept for his career (S8; spread proposed, not
-            // confirmed).
-            nickel: dc.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
+            // His own habits, kept for his career (S8; the nickel habit's
+            // spread and the dime's are sized on how far real NFL defenses
+            // differ, `calling::PACKAGE_HABIT`).
+            nickel: dc.map_or(crate::game::roster::NICKEL_TYPICAL, |c| {
+                crate::game::roster::nickel_habit(key_normal(0x41C8, c as u64))
+            }),
+            dime: dc.map_or(0.0, |c| key_normal(0x41C9, c as u64)),
             year: w.year,
             film_study,
             install,
@@ -1881,6 +1892,9 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::chemistry::apply(w, &mut team, super::chemistry::Unit::College);
     team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);
+    // His division's own typical men this season (realism audit, the run
+    // lean), once the season has worked them out.
+    team.league = w.college.as_ref().and_then(|c| super::college::league_of(w, c, prog.id));
     Some(team)
 }
 

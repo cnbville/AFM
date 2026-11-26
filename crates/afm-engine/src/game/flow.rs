@@ -117,6 +117,27 @@ const EDGE_ALLOW: f64 = 600.0;
 const DT_WAVE_SPREAD: f64 = 40.0;
 const DT_WAVE_STAY: f64 = 2.0;
 
+/// What a kickoff coverage man is picked on: Speed, Tackling and Block
+/// Shedding (realism audit item 3). It was 0.4, 0.35 and 0.25 with a
+/// starter counted 10 points less, and Block Shedding is a lineman's
+/// rating: on world seed 321's NFL clubs edges made 24% of the tackles on
+/// kicks and tackles 7%, 31% of them by men who start on defense, and the
+/// best edges and tackles added 10 to 16 tackles a season there. Real
+/// coverage units are linebackers, backs, receivers and tight ends off the
+/// bench. Now edges make 14% and tackles 3%, starters 17% (linebackers and
+/// corners: the punt team's, and the third linebacker and the nickel, who
+/// are bench men to the depth chart), and the best linemen none. Proposed,
+/// not confirmed.
+const KICK_COVER: [f64; 3] = [0.6, 0.3, 0.1];
+/// How many points worse at it a backup must be before a starter takes his
+/// place on a kickoff or kickoff return unit (10 before; the same audit
+/// item). At 20 a thin roster's best linebackers still covered kicks: on
+/// the NFL test league, whose backups fall off steeply, the best one added
+/// 16 tackles a season on kickoffs. At 30 a starter covers only when the
+/// bench runs out of men who can (40 and over play the same games).
+/// Proposed, not confirmed.
+const KICK_UNIT_STARTER: f64 = 30.0;
+
 /// The play clock after an administrative stoppage such as a penalty,
 /// from the ready signal (40 seconds otherwise, from the end of the play).
 const ADMIN_PLAY_CLOCK: f64 = 25.0;
@@ -309,11 +330,7 @@ pub struct GameSetup<'a> {
 
 impl<'a> GameSetup<'a> {
     pub fn new(home: &'a GameTeam, away: &'a GameTeam, level: Level, seed: u64) -> GameSetup<'a> {
-        // Two-way play: small high schools only (fix list 3.10, 3.11).
-        let margin = match level {
-            Level::HS => 4.0,
-            _ => 99.0,
-        };
+        let margin = two_way_margin(level);
         GameSetup {
             home,
             away,
@@ -332,6 +349,16 @@ impl<'a> GameSetup<'a> {
             kickoff: 0.0,
             indoor: false,
         }
+    }
+}
+
+/// Rating points a player from the other side of the ball must beat a
+/// starter by to play both ways at a level: small high schools only (fix
+/// list 3.10, 3.11).
+pub fn two_way_margin(level: Level) -> f64 {
+    match level {
+        Level::HS => 4.0,
+        _ => 99.0,
     }
 }
 
@@ -720,23 +747,24 @@ impl<'a> Side<'a> {
         let starters: Vec<usize> =
             [Position::QB].iter().flat_map(|p| self.depth.list(*p).iter().take(1).copied()).collect();
         pool.retain(|i| !starters.contains(i));
-        // A starter only beats a backup who is clearly worse (part C 3: real
-        // units are mostly backups and young players; proposed, not
-        // confirmed: a starter counts 10 points less).
+        // A starter only beats a backup who is far worse at it (part C 3:
+        // real units are backups and young players; `KICK_UNIT_STARTER`).
         // A return unit wants men who can block in space (tight ends,
         // linebackers, fullbacks; under the 2025 NFL kickoff, bigger bodies
-        // in the setup zone); a coverage unit wants speed, tackling and the
-        // hands to get off a block (proposed, not confirmed: both used to
-        // pick by speed, tackling and blocking alike).
+        // in the setup zone); a coverage unit wants men who run the kick
+        // down and tackle in space, with a little for the hands to get off
+        // a block (`KICK_COVER`).
         let score: Vec<f64> = (0..ps.len())
             .map(|i| {
                 let p = &ps[i];
                 let skill = if receiving {
                     0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::BlockingInSpace) + 0.3 * p.whole()
                 } else {
-                    0.4 * p.a(Attr::Speed) + 0.35 * p.a(Attr::Tackling) + 0.25 * p.a(Attr::BlockShedding)
+                    KICK_COVER[0] * p.a(Attr::Speed)
+                        + KICK_COVER[1] * p.a(Attr::Tackling)
+                        + KICK_COVER[2] * p.a(Attr::BlockShedding)
                 };
-                skill - if self.starts(i) { 10.0 } else { 0.0 }
+                skill - if self.starts(i) { KICK_UNIT_STARTER } else { 0.0 }
             })
             .collect();
         pool.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
@@ -781,26 +809,39 @@ impl<'a> Side<'a> {
             .filter(|&i| matches!(self.job[i], Some(Spot::FS | Spot::SS)) && !self.out[i])
             .map(|i| super::scrimmage::hitter(level, &self.team.players[i]))
             .collect();
-        // Read against the level's typical pair, so a typical FS and SS
-        // call the safeties' shells as before.
-        let typ = 0.5
-            * (super::synthetic::typical_hitter(level, Spot::FS) + super::synthetic::typical_hitter(level, Spot::SS));
+        // Read against the typical pair, so a typical FS and SS call the
+        // safeties' shells as before: his league's own when the world gave
+        // it one (realism audit, the run lean), since a league whose safeties
+        // are all faster than the test league's would read every pair as
+        // rangy, else the level's.
+        let league = |spot: Spot| self.team.league.as_deref().and_then(|l| l.hitter_at(spot));
+        let typ = match (league(Spot::FS), league(Spot::SS)) {
+            (Some(fs), Some(ss)) => 0.5 * (fs + ss),
+            _ => {
+                0.5 * (super::synthetic::typical_hitter(level, Spot::FS)
+                    + super::synthetic::typical_hitter(level, Spot::SS))
+            }
+        };
         if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 - typ }
     }
 
     /// The blitz lean from the weight of his named linebackers and corners
-    /// over his level's typical men (L1, C1), in blitz-rate points.
+    /// over the typical men at their positions (L1, C1), in blitz-rate
+    /// points: his league's own when the world gave it one (realism audit,
+    /// the run lean), else his level's.
     fn blitz_lean(&self, level: Level) -> f64 {
         let mean = |pos: Position| {
             let v: Vec<f64> = (0..self.team.players.len())
                 .filter(|&i| self.job[i].is_some_and(|s| s.position() == pos) && !self.out[i])
                 .map(|i| self.team.players[i].weight)
                 .collect();
-            if v.is_empty() {
-                0.0
-            } else {
-                (v.iter().sum::<f64>() / v.len() as f64 - super::synthetic::typical_body(level, pos).1) / 10.0
-            }
+            let typ = self
+                .team
+                .league
+                .as_deref()
+                .and_then(|l| l.weight_at(pos))
+                .unwrap_or_else(|| super::synthetic::typical_body(level, pos).1);
+            if v.is_empty() { 0.0 } else { (v.iter().sum::<f64>() / v.len() as f64 - typ) / 10.0 }
         };
         clamp(BLITZ_LEAN * (mean(Position::LB) + mean(Position::CB)), -0.06, 0.06)
     }
@@ -1241,6 +1282,35 @@ impl<'a> Side<'a> {
             }
         }
         m
+    }
+
+    /// The `n` who cover a kick best among these positions' men
+    /// (`KICK_COVER`, a starter only when the backups are far worse, as on
+    /// kickoffs), for a punt team's spot more than one position plays.
+    fn cover_best(&self, from: &[Position], n: usize, used: &mut Vec<usize>) -> Vec<usize> {
+        let score = |i: usize| {
+            let p = &self.team.players[i];
+            KICK_COVER[0] * p.a(Attr::Speed)
+                + KICK_COVER[1] * p.a(Attr::Tackling)
+                + KICK_COVER[2] * p.a(Attr::BlockShedding)
+                - if self.starts(i) { KICK_UNIT_STARTER } else { 0.0 }
+        };
+        let mut pool: Vec<usize> = from
+            .iter()
+            .flat_map(|&pos| self.depth.list(pos).iter().copied())
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i))
+            .collect();
+        pool.sort_by(|&a, &b| score(b).total_cmp(&score(a)));
+        pool.dedup();
+        let mut out: Vec<usize> = pool.into_iter().take(n).collect();
+        used.extend(out.iter().copied());
+        // A thin bench, or a decided game with the starters pulled: the
+        // next men up at the first of these positions, found as any other
+        // pick finds them, so the unit is never a man short.
+        if out.len() < n {
+            out.extend(self.pick(from[0], n - out.len(), used));
+        }
+        out
     }
 
     fn cover_pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
@@ -4581,9 +4651,19 @@ impl<'a> Game<'a> {
         let mut kick_on = vec![p];
         let mut used = vec![p, sn];
         kick_on.extend(side.gunners(&mut used));
+        // The shield and the coverage behind the gunners, as real punt
+        // teams are made up (realism audit item 3, who makes the tackle):
+        // three linebackers and a tight end, a safety as the personal
+        // protector, a back, and one more of a tight end, an edge or a
+        // safety, whoever covers best (`KICK_COVER`). Real NFL 2023-24 punt
+        // teams: 3.3 linebackers, 1.3 tight ends, 1.5 safeties, 0.9 backs,
+        // 0.3 ends and no offensive linemen; the unit used to carry two
+        // guards and no safety behind the gunners.
         kick_on.extend(side.cover_pick(Position::LB, 3, &mut used));
-        kick_on.extend(side.cover_pick(Position::TE, 2, &mut used));
-        kick_on.extend(side.cover_pick(Position::IOL, 2, &mut used));
+        kick_on.extend(side.cover_pick(Position::TE, 1, &mut used));
+        kick_on.extend(side.cover_pick(Position::S, 1, &mut used));
+        kick_on.extend(side.cover_pick(Position::RB, 1, &mut used));
+        kick_on.extend(side.cover_best(&[Position::TE, Position::EDGE, Position::S], 1, &mut used));
         // Your punt team (section 6b): your men around the punter.
         let mut kick_on: Vec<usize> = side.with_package(7, &[p], kick_on).into_iter().filter(|&i| i != sn).collect();
         kick_on.truncate(10);
@@ -5148,6 +5228,46 @@ impl<'a> Game<'a> {
             for (k, i) in order.into_iter().enumerate() {
                 if let Some(i) = i {
                     def.push((want[k], i));
+                }
+            }
+        }
+        // The fifth and sixth backs (realism audit item 3, who makes the
+        // tackle): a corner or the next safety his staff has taught the
+        // nickel (`spots::sub_safeties`), whoever plays the job better
+        // against these receivers (`flex_cover`): a slot corner's against
+        // three or four, more of a strong safety's against two or fewer
+        // (the big nickel), and the dime's underneath in the Will's place.
+        // A corner the safety takes the nickel from is the dime ahead of
+        // the corner behind him. Your package or your order at corner or
+        // safety decides it for you. They were always corners: a club's
+        // third safety played 9% of the NFL clubs' snaps (real 29%).
+        let ordered = d.team.order.iter().any(|(p, _)| matches!(p, Position::CB | Position::S));
+        let board = match dcall.personnel {
+            DefPersonnel::Nickel => Some(0),
+            DefPersonnel::Dime => Some(1),
+            _ => None,
+        };
+        if let Some(b) = board
+            && !ordered
+            && d.team.prep.package(b).is_none()
+        {
+            let wr = call.formation.personnel.wide_receivers();
+            let mut spare: Option<usize> = None;
+            for slot in [DSlot::NCB, DSlot::DCB] {
+                let Some(k) = def.iter().position(|x| x.0 == slot) else { continue };
+                let w = flex_cover(slot, wr);
+                let value =
+                    |i: usize| w * d.at_spot(i, Spot::NB) + (1.0 - w) * d.team.players[i].spot_r[Spot::SS.index()];
+                if let Some(c) = spare.take()
+                    && value(c) > value(def[k].1)
+                {
+                    def[k].1 = c;
+                }
+                let mut on: Vec<usize> = def.iter().map(|x| x.1).collect();
+                let Some(&s) = d.pick(Position::S, 1, &mut on).first() else { continue };
+                if d.new_to_job(s, Spot::NB) == 0.0 && value(s) > value(def[k].1) {
+                    spare = Some(def[k].1);
+                    def[k].1 = s;
                 }
             }
         }
@@ -7514,6 +7634,13 @@ pub(crate) fn kick_unit_men(team: &GameTeam, out: &[usize]) -> [usize; 3] {
     [side.fg_kicker(), side.punter(), side.snapper()]
 }
 
+/// Tests only: the men who start at their own position on a healthy team.
+#[cfg(test)]
+pub(crate) fn starters_of(team: &GameTeam) -> Vec<usize> {
+    let side = Side::new(team, 99.0, 3);
+    (0..team.players.len()).filter(|&i| side.starts(i)).collect()
+}
+
 /// A kick unit of `n` with some men hurt and some pulled in a decided game.
 #[cfg(test)]
 pub(crate) fn kick_unit_with(
@@ -7746,7 +7873,7 @@ impl<'a> Game<'a> {
         {
             return f;
         }
-        let f = roster_fit::OffFit::of(&side.team.players, &men, self.rules().level);
+        let f = roster_fit::OffFit::of(&side.team.players, &men, self.rules().level, side.team.league.as_deref());
         side.off_memo.set(Some((men, f)));
         f
     }
@@ -7760,7 +7887,7 @@ impl<'a> Game<'a> {
         {
             return f;
         }
-        let f = roster_fit::DefFit::of(&side.team.players, &men, self.rules().level);
+        let f = roster_fit::DefFit::of(&side.team.players, &men, self.rules().level, side.team.league.as_deref());
         side.def_memo.set(Some((men, f)));
         f
     }
@@ -7791,7 +7918,8 @@ impl<'a> Game<'a> {
         let th = if side.frozen { 0.0 } else { side.threshold(Position::RB) };
         let list = side.depth.list(Position::RB);
         let first = list.iter().copied().find(|&i| side.can_go(i))?;
-        let value = |i: usize| roster_fit::back_value(&side.team.players[i], level, short);
+        let league = side.team.league.as_deref();
+        let value = |i: usize| roster_fit::back_value(&side.team.players[i], level, league, short);
         let best = list
             .iter()
             .copied()
@@ -8401,6 +8529,53 @@ fn phi(x: f64) -> f64 {
     crate::athlete::phi(x)
 }
 
+/// A team's men at the roster lean's slots as its play caller reads them at
+/// kickoff with everyone dressed: the offense's by the depth chart
+/// (`Side::off_men`), the defense's by the jobs its staff names
+/// (`Side::def_men`).
+pub fn kickoff_men(team: &GameTeam, level: Level) -> roster_fit::Men {
+    let side = Side::new(team, two_way_margin(level), 3);
+    let mut m = side.off_men(None);
+    let d = side.def_men();
+    for s in roster_fit::Slot::ALL {
+        if !s.offense() {
+            m[s as usize] = d[s as usize];
+        }
+    }
+    m
+}
+
+/// A defense's two body reads at kickoff with everyone dressed: its
+/// safeties' hitter read and the blitz lean from its linebackers' and
+/// corners' weight (tests).
+#[cfg(test)]
+pub(crate) fn body_leans(team: &GameTeam, level: Level) -> (f64, f64) {
+    let side = Side::new(team, two_way_margin(level), 3);
+    (side.safety_hitter(level), side.blitz_lean(level))
+}
+
+/// A league's own typical men (realism audit, the run lean): each team's
+/// men at the roster lean's slots as its play caller reads them at kickoff
+/// with everyone dressed (`Side::off_men`, `Side::def_men`), averaged over
+/// the league's teams (`roster_fit::LeagueSum`). A team that can't
+/// dress a side counts for nothing.
+pub fn league_men(teams: &[&GameTeam], level: Level) -> roster_fit::LeagueMen {
+    let mut sum = roster_fit::LeagueSum::default();
+    league_add(&mut sum, teams, level);
+    sum.finish(level)
+}
+
+/// Adds a batch of a league's teams to its sum, in order: each read on all
+/// cores, then summed one by one.
+pub fn league_add(sum: &mut roster_fit::LeagueSum, teams: &[&GameTeam], level: Level) {
+    use rayon::prelude::*;
+    let dressed: Vec<&GameTeam> = teams.iter().copied().filter(|t| t.players.len() >= 22).collect();
+    let men: Vec<roster_fit::Men> = dressed.par_iter().map(|t| kickoff_men(t, level)).collect();
+    for (t, m) in dressed.iter().zip(&men) {
+        sum.add(&t.players, m, level);
+    }
+}
+
 /// Play a game on a fixed neutral field, mostly for tools and tests.
 pub fn quick_game(home: &GameTeam, away: &GameTeam, level: Level, seed: u64) -> GameResult {
     quick_game_with(home, away, level, seed, [garbage::Context::default(); 2])
@@ -8847,6 +9022,27 @@ fn dslot_spot(s: DSlot) -> Spot {
         DSlot::FS => Spot::FS,
         DSlot::SS => Spot::SS,
     }
+}
+
+/// How much of the fifth back's job is the slot corner's (the rest is the
+/// strong safety's: a tight end to cover and the run to fit) by the
+/// offense's receivers (one or none, two, three, four or more), for the
+/// staff's pick of a corner or a safety there (realism audit item 3, who
+/// makes the tackle), and of the sixth back's, who plays underneath in the
+/// Will's place (`FLEX_DIME`). Sized on how often the real NFL's fifth back
+/// is a third safety (nflverse participation 2023-24,
+/// `data/real-world/defenders.json`, `pbp.packages`): 0.45, 0.38, 0.20 and
+/// 0.21 of its five-back snaps against one to four receivers and 0.74 of
+/// its six-back snaps against two or more; world seed 321's NFL clubs give
+/// 0.48, 0.36, 0.24 and 0.18, and 0.73, 0.69 and 0.68 with six against two,
+/// three and four. With the job all a safety's against one receiver and
+/// three quarters his against two they gave 0.65 and 0.49. Proposed, not
+/// confirmed.
+const FLEX_COVER: [f64; 4] = [0.6, 0.6, 0.8, 0.85];
+const FLEX_DIME: f64 = 0.75;
+
+fn flex_cover(slot: DSlot, wr: usize) -> f64 {
+    if slot == DSlot::DCB { FLEX_DIME } else { FLEX_COVER[wr.clamp(1, 4) - 1] }
 }
 
 /// Whether a listed position may play a spot without it being an

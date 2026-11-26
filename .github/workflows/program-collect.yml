@@ -1,0 +1,51 @@
+name: Program fortunes check, collected
+# Prints the program check pages of earlier "Program fortunes check" runs
+# in one short log: a thread can read a job's log but can't download a
+# run's artifacts. Run by hand with the run ids.
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Run ids, space separated"
+        required: true
+      only:
+        description: "Print only artifacts whose name holds this text"
+        default: ""
+      full:
+        description: "1 prints whole pages, not their key lines"
+        default: ""
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: read
+    steps:
+      - name: Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUNS: ${{ inputs.runs }}
+          ONLY: ${{ inputs.only }}
+          FULL: ${{ inputs.full }}
+        run: |
+          cd /mnt 2>/dev/null && sudo mkdir -p c && sudo chown "$(id -u)" c && cd c || cd "$RUNNER_TEMP"
+          for run in $RUNS; do
+            gh api "repos/${{ github.repository }}/actions/runs/$run/artifacts" --paginate \
+              --jq '.artifacts[] | select(.name | startswith("program-check-")) | "\(.id) \(.name)"' > list.txt
+            while read -r id name; do
+              case "$name" in *"$ONLY"*) ;; *) continue;; esac
+              gh api "repos/${{ github.repository }}/actions/artifacts/$id/zip" > a.zip
+              echo "=== $name ($(unzip -p a.zip time.txt | tr '\n' ' '))"
+              # FULL=1 prints the whole page; else its key lines, squeezed.
+              if [ -n "$FULL" ]; then unzip -p a.zip program_check.txt; else
+                unzip -p a.zip program_check.txt | grep -E "^(1|5|10|20) +[0-9-]|best record|worst record|at \.300|longest run|unbeaten seasons \(|5-year block's|moved \.150|both the bottom|class hauls|Pass marks met|long-time programs" | tr -s ' '
+              fi
+              # The late page of a short history (`FROM` in program-check.yml).
+              if unzip -l a.zip | grep -q program_check_from.txt; then
+                echo "--- late page"
+                unzip -p a.zip program_check_from.txt | grep -E "FBS team seasons|^(1|5|10) +[0-9-]|5-year block's|both the bottom|class hauls|class-years" | tr -s ' '
+              fi
+              unzip -p a.zip star_mix.txt | grep -E "^titles|^by group|^most titles" | tr -s ' '
+              rm -f a.zip
+            done < list.txt
+          done

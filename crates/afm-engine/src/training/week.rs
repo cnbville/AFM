@@ -456,7 +456,9 @@ pub(crate) fn monday(w: &mut World, d: Date) {
                 }
                 let prog = &wr.programs[c];
                 let cached = wr.college.as_ref().and_then(|cs| cs.teams.get(c)).and_then(|t| t.clone());
-                let team = cached.or_else(|| crate::world::season::game_team(wr, prog))?;
+                let mut team = cached.or_else(|| crate::world::season::game_team(wr, prog))?;
+                // The division's own typical men (realism audit, the run lean).
+                team.league = wr.college.as_ref().and_then(|cs| crate::world::college::league_of(wr, cs, c));
                 let level = crate::world::division_level(prog.division);
                 Some((prog.roster.clone(), super::practice::AiTeam { team, level, snaps: tw.battle.clone(), cap }))
             })

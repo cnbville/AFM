@@ -1682,6 +1682,34 @@ pub(crate) fn reach_memo() -> [std::cell::Cell<Option<(f64, f64, f64)>>; MAX_AGE
     [const { std::cell::Cell::new(None) }; MAX_AGENTS]
 }
 
+/// The men a tackle is credited to at most (`Sim::tackled`).
+const TACKLE_CREDIT: usize = 2;
+
+/// How a block reads a rating gap (realism audit item 3, defenders' freak
+/// seasons): the edge bent on a log curve, sign × `BLOCK_BEND` × ln(1 +
+/// |edge| / `BLOCK_BEND`). On an even block it is the edge itself (its
+/// slope is 1 at zero) and it never stops rising, so every point still
+/// helps the better man, each a little less than the last: 5 points count
+/// 4.5, 10 count 8.1, 20 count 13.9 and 30 count 18.3. Nothing is capped.
+///
+/// A block's drift was straight in the edge (`update_blocks`), which fits
+/// the middle and runs away at the top. On world seed 321's FBS teams the
+/// 19 edges who stand 10 to 20 points over the typical blocker won 52% to
+/// 65% of their pass rushes inside 2.5 seconds, 73% to 87% of them against
+/// one man, and had 11.8 to 15.4 sacks in 13 games each: the 2nd and the
+/// 10th best sack seasons a year were 25.6 and 15.8 (real FBS 2024-25:
+/// 15.5 and 10.8). The best real rushers win about one rush in four. Bent,
+/// the same men win 38% to 48% and get 7.5 to 9.7 sacks, and the ladder
+/// reads 15.5 and 11.4. The pass rush, the run block and the shed's pull
+/// (`SHED_EDGE`) all read the bent edge: it is one block. Proposed, not
+/// confirmed.
+const BLOCK_BEND: f64 = 20.0;
+
+/// The edge as a block reads it (`BLOCK_BEND`).
+fn bend(edge: f64) -> f64 {
+    edge.signum() * BLOCK_BEND * (1.0 + edge.abs() / BLOCK_BEND).ln()
+}
+
 /// How much a run block's outcome leans on the strength gap per point.
 /// Fitted (dynasty item 1, 2026-10-15) so FBS team-season yards per carry
 /// spread like real FBS (offense and defense sd about 0.64, cfbfastR
@@ -1696,8 +1724,12 @@ const RUN_EDGE: f64 = 0.035;
 /// starting further ahead (`RUN_BLOCK_START`), so inside runs gain more
 /// (NFL test rosters inside the tackles 3.08 to 3.64 a carry, real 4.05)
 /// with linemen still making 40% of first tackles (real 43%; proposed, not
-/// confirmed).
-const SHED_RUNNER: f64 = 0.9;
+/// confirmed). Realism audit item 3: back to 1.0 with the block's bend
+/// (`BLOCK_BEND`), which takes sheds from the men far ahead on their
+/// blocks: at 0.9 world seed 321's FBS teams gained 5.45 a carry and its
+/// NFL clubs 4.57 on the bent edge (5.36 and 4.46 before it), at 1.0 5.36
+/// and 4.49.
+const SHED_RUNNER: f64 = 1.0;
 /// Where a run block starts, w (minor bug 253; -0.4 before): the blocker
 /// further ahead, so a lineman who makes the stop does it 2.3 yards on
 /// (real 2.5; 2.0 before). On the NFL test rosters with the force fit
@@ -1735,7 +1767,10 @@ const SHED_SECOND_RANGE: f64 = 3.5;
 /// Shedding), now 0.065 (0.058 at 12). On world seed 1's NFL clubs their
 /// lasting spread from one 204-carry block to the next is 0.37 a carry
 /// (0.32 before; real true spread 0.36 between backs' seasons, PFR
-/// 2018-25). Proposed, not confirmed.
+/// 2018-25). Proposed, not confirmed. Since realism audit item 3 the edge
+/// it reads is the bent one (`BLOCK_BEND`), so the pull is (1 + |edge| /
+/// 20)^(20 / 9) either way: 2.3 times at 9 points and 4.2 at 18, where
+/// the straight edge gave 2.7 and 7.4.
 const SHED_EDGE: f64 = 9.0;
 /// A man on a block he is winning gets an arm out for the runner with
 /// chance `ARM_OUT` × w a try, and one on a block he isn't winning (w at 0
@@ -2082,6 +2117,37 @@ pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool:
 /// out counts too. The play log's blocks can't tell this: a block on record
 /// may have been picked up after the hit.
 pub static FIRST_TACKLE_BLOCK: [std::sync::atomic::AtomicU64; 5] = [const { std::sync::atomic::AtomicU64::new(0) }; 5];
+
+/// Turns on the tackle debug counts (`FALL_NEAR`, `FIGHT_LEN`); `match_check`
+/// sets it with `AFM_DEFENDERS`. Off, nothing is counted.
+pub static TACKLE_DIAG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Debug counts for who makes the tackle (realism audit item 3): on a tackle
+/// by one man, the nearest other defender's closest approach to the carrier
+/// over the next `FALL_LOOK` seconds on today's speeds, in the bins of
+/// `FALL_BINS` (the last bin is farther or nobody), for [a designed run
+/// with a free man, a designed run with a man in a block, a catch with a
+/// free man, a catch with a man in a block]. Pure reads: nothing here draws
+/// or moves anyone.
+pub static FALL_NEAR: [[std::sync::atomic::AtomicU64; 8]; 4] =
+    [const { [const { std::sync::atomic::AtomicU64::new(0) }; 8] }; 4];
+/// The bins' upper edges for `FALL_NEAR`, in yards.
+pub const FALL_BINS: [f64; 7] = [0.8, 1.2, 1.6, 2.0, 2.5, 3.0, 4.0];
+/// The look ahead for `FALL_NEAR`, in seconds.
+pub const FALL_LOOK: f64 = 0.3;
+/// Debug counts of how long a tackle by one man held before the carrier went
+/// down (from the first hit), on [designed runs, catches], in bins up to 0.1,
+/// 0.2, 0.3, 0.5, 0.8 seconds and past it.
+pub static FIGHT_LEN: [[std::sync::atomic::AtomicU64; 6]; 2] =
+    [const { [const { std::sync::atomic::AtomicU64::new(0) }; 6] }; 2];
+
+/// How near the nearest free defender must be to a carrier who goes out of
+/// bounds for the scorer to credit him with forcing him out, in yards
+/// (realism audit item 3): sized so a tackler is credited as often as real.
+/// On world seed 321's NFL clubs 90.3% of the runs and catches that end out
+/// of bounds credited a tackler at 6 yards and 87.7% at 5 when it was sized,
+/// and 90.0% do with the rest of the lane built (real NFL 2023-24: 89.9%;
+/// 56.4% before the credit). Proposed, not confirmed.
+pub const OOB_CREDIT_REACH: f64 = 6.0;
 
 /// Normal draw.
 #[inline]
@@ -2631,7 +2697,13 @@ impl<'a> Sim<'a> {
         let heft = if pass && !edge_rusher {
             let (_, wt, _) = super::synthetic::typical_body(self.level, self.player(d).position);
             let two_gap = if self.player(d).position == crate::positions::Position::DT { TWO_GAP } else { 0.0 };
-            (0.64 + two_gap) * k_acc * (de.mass - wt)
+            // The two-gap read is what a tackle's weight says of the job he
+            // is given, fitted on real tackles (270 to 350 lb): it stops at
+            // his level's typical edge's weight, the lightest men that fit
+            // saw. Below it only the body's own first step counts (the 0.64).
+            let (_, ew, _) = super::synthetic::typical_body(self.level, crate::positions::Position::EDGE);
+            let over = de.mass - wt;
+            (0.64 * over + two_gap * over.max((ew - wt).min(0.0))) * k_acc
         } else {
             0.0
         };
@@ -3249,7 +3321,7 @@ impl<'a> Sim<'a> {
                     0.032
                 } else {
                     RUN_EDGE
-                } * edge;
+                } * bend(edge);
             // Re-fits his hands (individual practice): a pass rep that
             // started to go wrong, won back with the hands.
             if e.pass && e.w > 0.3 {
@@ -3309,7 +3381,7 @@ impl<'a> Sim<'a> {
                 if second {
                     pull += 2.0 * SHED_SECOND * (0.5 + e.w).max(0.2);
                 }
-                mu += pull * (edge / SHED_EDGE).exp();
+                mu += pull * (bend(edge) / SHED_EDGE).exp();
             }
             if TRACE.load(std::sync::atomic::Ordering::Relaxed) && (t - e.start) < DT * 1.5 {
                 println!(
@@ -4568,8 +4640,52 @@ impl<'a> Sim<'a> {
         false
     }
 
+    /// `FALL_NEAR` and `FIGHT_LEN` for a tackle by one man (debug counts,
+    /// only with `TACKLE_DIAG`: pure reads).
+    fn fall_diag(&self, c: usize) {
+        use std::sync::atomic::Ordering::Relaxed;
+        if !TACKLE_DIAG.load(Relaxed) || self.fight.len() != 1 || self.agents[c].side != 0 {
+            return;
+        }
+        let run = self.designed_run;
+        let catch = !run && self.caught > 0.0;
+        if !run && !catch {
+            return;
+        }
+        let t = self.t;
+        let (cp, cv) = (self.agents[c].pos, self.agents[c].vel);
+        let (mut free, mut held) = (f64::INFINITY, f64::INFINITY);
+        for (i, d) in self.agents.iter().enumerate() {
+            if d.side == 0 || !d.up(t) || self.fight.contains(&i) {
+                continue;
+            }
+            let rel = d.pos - cp;
+            let rv = (d.vel - cv).scale(FALL_LOOK);
+            let back = if rv.len() > 1e-6 { clamp(-rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
+            let dist = (rel + rv.scale(back)).len();
+            if d.engaged.is_some() {
+                held = held.min(dist);
+            } else {
+                free = free.min(dist);
+            }
+        }
+        let bin = |x: f64| FALL_BINS.iter().position(|&e| x < e).unwrap_or(FALL_BINS.len());
+        let k = if run { 0 } else { 2 };
+        FALL_NEAR[k][bin(free)].fetch_add(1, Relaxed);
+        FALL_NEAR[k + 1][bin(held)].fetch_add(1, Relaxed);
+        let held_for = t - self.fight_since;
+        let b = [0.1, 0.2, 0.3, 0.5, 0.8].iter().position(|&e| held_for < e).unwrap_or(5);
+        FIGHT_LEN[(!run) as usize][b].fetch_add(1, Relaxed);
+    }
+
     pub fn tackled(&mut self, c: usize) {
-        self.notes.tacklers = self.fight.iter().map(|&i| self.agents[i].id).collect();
+        self.fall_diag(c);
+        // The tackle goes in the book as scorers keep it: the first man and
+        // the first to help him, never a third (realism audit item 3; the
+        // NCAA's and the NFL's count credit two men at most). It named every
+        // man in the pile, three or more on 7% of FBS tackles, so a team's
+        // tackles ran 69.0 a game on world seed 321's FBS teams, real 65.9.
+        self.notes.tacklers = self.fight.iter().take(TACKLE_CREDIT).map(|&i| self.agents[i].id).collect();
         let x = self.agents[c].pos.x;
         if (x - self.progress) * self.goal > 0.0 {
             self.progress = x;
@@ -5239,6 +5355,26 @@ impl<'a> Sim<'a> {
             let side = a.side;
             self.notes.tend.stepped_out =
                 self.agents.iter().any(|d| d.side != side && d.up(self.t) && d.pos.dist(p) < 3.5);
+            // Forced out (realism audit item 3, who makes the tackle): the
+            // scorer credits the man who drove him out, as he does a tackle.
+            // The men already on him have it; else the nearest free man
+            // within `OOB_CREDIT_REACH`. Real NFL 2023-24 runs and catches
+            // that end out of bounds credit a tackler 90% of the time (the
+            // rest stepped out with nobody near); the engine credited 56%.
+            if self.notes.tacklers.is_empty() {
+                let near = self
+                    .agents
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, d)| d.side != side && d.up(self.t) && d.engaged.is_none())
+                    .map(|(i, d)| (d.pos.dist(p), i))
+                    .filter(|x| x.0 < OOB_CREDIT_REACH)
+                    .min_by(|a, b| a.0.total_cmp(&b.0));
+                if let Some((_, i)) = near {
+                    let id = self.agents[i].id;
+                    self.notes.tacklers.push(id);
+                }
+            }
             self.out_of_bounds = true;
             self.dead = true;
             let x = if (p.x - self.progress) * self.goal > 0.0 { p.x } else { self.progress };

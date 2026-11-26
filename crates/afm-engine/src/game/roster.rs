@@ -416,9 +416,10 @@ pub struct Staff {
     /// Head coach sportsmanship, 1-20 (hidden): how soon he takes his
     /// starters out of a decided game (dynasty item 3).
     pub sportsmanship: f64,
-    /// The defensive coordinator's personnel habit (S8): how often he meets
-    /// three receivers with nickel instead of staying in base. Real NFL
-    /// teams answered 11 personnel with nickel 88% of the time.
+    /// The defensive coordinator's personnel habit (S8): how readily he
+    /// plays five or more backs, `NICKEL_TYPICAL` for the typical one and
+    /// `NICKEL_SPREAD` a standard deviation (`nickel_habit`). The play
+    /// caller leans the real table of backs by it (`calling::PACKAGES`).
     pub nickel: f64,
     /// The season: what the era plays (RPOs, motion, the triple option).
     pub year: i32,
@@ -444,10 +445,29 @@ pub struct Staff {
     /// The head coach's temper, 1-20: a hot one leans to the fiery talk.
     #[serde(default = "ten")]
     pub temper: f64,
+    /// The defensive coordinator's own dime habit beside his nickel habit
+    /// (realism audit item 3): how readily he plays a sixth back, in
+    /// standard deviations about the typical coordinator (0). Real
+    /// defenses differ far more in their dime than in their nickel
+    /// (`calling::PACKAGE_DIME_OWN`).
+    #[serde(default)]
+    pub dime: f64,
 }
 
 fn ten() -> f64 {
     10.0
+}
+
+/// The typical coordinator's nickel habit (`Staff::nickel`), a standard
+/// deviation of it among coordinators and the range it stays in.
+pub const NICKEL_TYPICAL: f64 = 0.88;
+pub const NICKEL_SPREAD: f64 = 0.08;
+pub const NICKEL_RANGE: (f64, f64) = (0.55, 0.99);
+
+/// A coordinator's nickel habit from his own draw (a standard normal),
+/// kept for his career.
+pub fn nickel_habit(z: f64) -> f64 {
+    clamp(NICKEL_TYPICAL + NICKEL_SPREAD * z, NICKEL_RANGE.0, NICKEL_RANGE.1)
 }
 
 impl Staff {
@@ -464,12 +484,13 @@ impl Staff {
             sportsmanship: 10.0,
             install: INSTALL,
             style: Default::default(),
-            nickel: 0.88,
+            nickel: NICKEL_TYPICAL,
             year: 2026,
             film_study: 10.0,
             guide: Default::default(),
             motivation: 10.0,
             temper: 10.0,
+            dime: 0.0,
         }
     }
 }
@@ -513,6 +534,13 @@ pub struct GameTeam {
     /// a plain game.
     #[serde(default)]
     pub day: super::talk::Day,
+    /// His league's own typical men this season (realism audit, the run
+    /// lean): what his staff reads his men about when it leans its calls
+    /// to them (`roster_fit::LeagueMen`). None for a team with no league of
+    /// its own (the test leagues and the tools): the level's synthetic
+    /// typical men.
+    #[serde(default)]
+    pub league: Option<std::sync::Arc<super::roster_fit::LeagueMen>>,
 }
 
 /// A call sheet play: the formation's personnel, backfield and set, and the play.
@@ -824,6 +852,7 @@ impl GameTeam {
             ranked: Vec::new(),
             prep: Prep::default(),
             day: Default::default(),
+            league: None,
         }
     }
 

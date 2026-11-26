@@ -354,6 +354,15 @@ impl PlayRecord {
         self.epa > 0.0
     }
 
+    /// A loss as a box score reads it. Yards go in the book whole, so a play
+    /// that ends less than half a yard behind where it started is no gain.
+    /// A tackle for loss and the Data section's havoc read it (realism audit
+    /// item 3: any loss counted, even an inch, and three in ten of the
+    /// engine's losses on runs are under half a yard).
+    pub fn lost(&self) -> bool {
+        self.yards <= -0.5
+    }
+
     /// The tape's tags on flaws and tools in this play (individual
     /// practice topic 4.4): who, which, and whether he won the rep. A tag
     /// left undecided in the play (a hook outside the blocks) takes the
@@ -1215,8 +1224,13 @@ impl GameStats {
                     l.ints += 1;
                     grade(l, COVERAGE, 2.0);
                 }
-                for &id in &r.on_field[1] {
-                    if !r.pressures.contains(&id)
+                // A man who rushed (`rushed`) is not in coverage, blocked or
+                // not: a blitzer nobody blocked who didn't get there had a
+                // coverage snap (realism audit item 3, the pass rush).
+                for (k, &id) in r.on_field[1].iter().enumerate() {
+                    let rushed = k < 16 && (r.rushed >> k) & 1 == 1;
+                    if !rushed
+                        && !r.pressures.contains(&id)
                         && !r.sackers.contains(&id)
                         && !r.blocks.iter().any(|b| b.1 == id && b.2)
                     {
@@ -1265,8 +1279,13 @@ impl GameStats {
                 grade(l, PASS_RUSH, 0.6);
             }
         }
+        // A pressure is a hurry, a hit or a sack, as the NFL's charters keep
+        // it (realism audit item 3, the pass rush). Only the men first near
+        // the passer were counted, so a man who hit him or got home after
+        // them had no pressure on his line: on the world's NFL clubs four in
+        // ten of the edges' pressures were missing.
         let mut seen = Vec::new();
-        for &id in &r.pressures {
+        for &id in r.pressures.iter().chain(&r.hits).chain(r.sackers.iter().take(2)) {
             if seen.contains(&id) {
                 continue;
             }
@@ -1280,7 +1299,10 @@ impl GameStats {
             l.ttp_sum += r.time_to_throw;
         }
         // Blocks: wins, pressures and sacks allowed (the beaten blocker).
-        // On an interception return the defense blocks.
+        // On an interception return the defense blocks. A rusher's win is
+        // once a dropback, as his rush snap is: a man who beat both men of
+        // a double team won one rush.
+        let mut won_rush: Vec<u32> = Vec::new();
         for &(b, def, pass, won, secs, _) in &r.blocks {
             let gave_sack = !won && r.sackers.contains(&def);
             let gave_pressure = !won && (r.pressures.contains(&def) || gave_sack);
@@ -1316,17 +1338,36 @@ impl GameStats {
                 }
             }
             let l = self.line(side(def, d), def);
-            if pass {
-                l.rush_snaps += 1;
-            }
             if !won {
-                if pass && secs < 2.5 {
+                if pass && secs < 2.5 && !won_rush.contains(&def) {
+                    won_rush.push(def);
                     l.rush_wins += 1;
                 }
                 grade(l, if pass { PASS_RUSH } else { RUN_DEF }, 0.3);
             } else {
                 grade(l, if pass { PASS_RUSH } else { RUN_DEF }, -0.1);
             }
+        }
+        // A rush snap is each dropback he rushed, blocked or not, once
+        // (realism audit item 3, the pass rush): every man in
+        // `PlayRecord::rushed` and every man a pass block took (one who
+        // joined the rush late, and plays kept before `rushed`). It was one
+        // a pass block, so a blitzer nobody blocked had none and a man two
+        // blockers took in turn had two.
+        let mut rush_men: Vec<u32> = r.on_field[1]
+            .iter()
+            .take(16)
+            .enumerate()
+            .filter(|&(k, _)| (r.rushed >> k) & 1 == 1)
+            .map(|(_, &id)| id)
+            .collect();
+        for &(_, def, pass, ..) in &r.blocks {
+            if pass && !rush_men.contains(&def) {
+                rush_men.push(def);
+            }
+        }
+        for id in rush_men {
+            self.line(side(id, d), id).rush_snaps += 1;
         }
         for &(id, mv, _) in &r.rush_wins {
             let l = self.line(d, id);
@@ -1339,10 +1380,15 @@ impl GameStats {
         // Tackles.
         let ret_team = |kind: PlayType| if matches!(kind, PlayType::Punt | PlayType::Kickoff) { o } else { d };
         let tteam = if r.interception || (r.fumble_lost && r.yards != 0.0 && false) { o } else { ret_team(r.kind) };
+        // One man: a solo tackle. Two: an assist each and no solo, the way
+        // the NCAA's and the NFL's scorers keep it (it was a solo for the
+        // first man and an assist for every other man in the pile, so solo
+        // tackles ran 49.4 a team game on world seed 321's FBS teams, real
+        // 35.4).
         let n = r.tacklers.len();
-        for (k, &id) in r.tacklers.iter().enumerate() {
+        for &id in r.tacklers.iter() {
             let l = self.line(side(id, tteam), id);
-            if n == 1 || k == 0 {
+            if n == 1 {
                 l.tackles += 1;
             } else {
                 l.assists += 1;
@@ -1352,7 +1398,7 @@ impl GameStats {
             }
             // A solo tackle for loss is one; an assisted one is half to
             // each man in on it (the NCAA's and the NFL's count).
-            if scrimmage && r.yards < 0.0 && r.kind != PlayType::Sack {
+            if scrimmage && r.lost() && r.kind != PlayType::Sack {
                 l.tfl += if n > 1 { 0.5 } else { 1.0 };
             }
             // A stop is the run defense's or the coverage's; any other

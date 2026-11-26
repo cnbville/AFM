@@ -1552,6 +1552,18 @@ fn run_return(
                 .map(|i| sim.agents[i].pos.x),
         );
         let wave_x = if wave.is_empty() { sim.agents[0].pos.x } else { wave.iter().sum::<f64>() / wave.len() as f64 };
+        // The kicker stays the last man while a cover man is still free in
+        // front of the returner (realism audit item 3, who makes the
+        // tackle): he used to come up as soon as the returner was inside his
+        // depth and made 0.44 tackles a team game on world seed 321's NFL
+        // clubs, a tenth of all kickoff tackles (real NFL 2023-24: 0.03).
+        // Holding, he makes 0.07; returns of 40 yards or more go from 0.037
+        // a team game to 0.057 (real 0.050).
+        let rx = sim.agents[0].pos.x;
+        let front = (1..sim.agents.len()).any(|j| {
+            let a = &sim.agents[j];
+            a.side == 1 && a.label == "ST" && a.up(sim.t) && a.engaged.is_none() && a.pos.x > rx + 1.0
+        });
         for i in 1..sim.agents.len() {
             if !sim.agents[i].up(sim.t) || sim.agents[i].engaged.is_some() {
                 continue;
@@ -1569,7 +1581,10 @@ fn run_return(
                         let aim = v2(rp.x + 3.0, rp.y + contain[i] * 2.5);
                         let vm = sim.agents[i].vmax;
                         sim.steer(i, (aim - me).norm().scale(vm));
-                    } else if kickoff && (safety[i] || sim.agents[i].label == "K") && me.x - rp.x > deep(i) {
+                    } else if kickoff
+                        && (safety[i] || sim.agents[i].label == "K")
+                        && (me.x - rp.x > deep(i) || (front && sim.agents[i].label == "K" && me.x - rp.x > 5.0))
+                    {
                         // A safety or the kicker holds his level behind the
                         // wave, shaded to the ball, until the returner is on
                         // him; then he attacks with a deep angle.

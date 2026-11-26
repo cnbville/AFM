@@ -2796,7 +2796,9 @@ fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64
     };
     let money = (year_money - waiting - to_come).max(0.0);
     let bars = crate::world::nil_bid::share_bars(w);
-    let rows = rec::roster_split(w, j, &roster, money, s, two, &medians, &bars, year, |_, i| {
+    // The depth chart the split pays on (`rec::market_read`).
+    let chart = if two { crate::world::season::program_chart(w, prog, &w.seat_order()) } else { Vec::new() };
+    let rows = rec::roster_split(w, j, &roster, money, s, two, &medians, &bars, year, &chart, |_, i| {
         holds.get(&i).copied().unwrap_or(rec::NilHeld::None)
     });
     // Sandbox mode's NIL Go switch: nothing held back from your roster.
@@ -2811,7 +2813,7 @@ fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64
             // NIL Go clears the collective's part to the top of his range
             // and moves what it denies into the revenue share while the cap
             // has room, as on an AI school's July 1.
-            let top = rec::go_top_now(w, j, &w.people[row.i], &medians);
+            let top = crate::world::nil_bid::range_top(w, j, &w.people[row.i], row.role, row.edge);
             let r = crate::world::nil_bid::review(w.today, row.coll, top, room, free);
             room -= r.moved;
             (id, row.school + r.moved, r.cleared, (row.coll - r.cleared - r.moved).max(0.0))

@@ -8,7 +8,7 @@
 //! the battles it sets up on the field, never through a bonus.
 
 use super::playbook::*;
-use super::roster::{Caller, Front, OffScheme, Shell, Staff};
+use super::roster::{Caller, Front, NICKEL_RANGE, NICKEL_SPREAD, NICKEL_TYPICAL, OffScheme, Shell, Staff};
 use super::tables::{self, Clock};
 use crate::player::Level;
 use crate::rng::{Rng, clamp};
@@ -2255,31 +2255,39 @@ pub fn call_defense_memo(
     } else if answer.pkg > 0 && !(long && sit.down == 3) {
         // Your answer to this group this week (G16).
         [DefPersonnel::Base, DefPersonnel::Nickel, DefPersonnel::Dime][(answer.pkg as usize - 1).min(2)]
-    } else if wr >= 4 || (long && sit.down == 3 && wr >= 3 && rng.chance(0.5)) {
-        DefPersonnel::Dime
-    } else if wr == 3 {
-        // The base front the head coach asks for (update 2, G2) leans the
-        // habit: a nickel base nearly always, a 4-3 or 3-4 team a little
-        // less, but it still goes to nickel.
-        let p = match staff.guide.front.pull() {
-            Some((b, k)) if b.nickel_base() => staff.nickel + k * (0.98 - staff.nickel),
-            Some((_, k)) => staff.nickel * (1.0 - 0.12 * k),
-            None => staff.nickel,
+    } else {
+        // The backs on the field by their receivers and the down, as real
+        // staffs answer them (realism audit item 3, `PACKAGES`): the
+        // typical staff's shares (`package_centers`), leaned on the odds by
+        // the coordinator's own nickel habit and, for the sixth back, his
+        // dime habit (`PACKAGE_HABIT`), then by the base front the head
+        // coach asks for (update 2, G2): a nickel base front (4-2-5, 3-3-5)
+        // keeps its fifth back on nearly always, a 4-3 or 3-4 team a little
+        // less often.
+        let [light, dime] = package_centers()[(wr.max(1) - 1).min(3)][package_down(sit)];
+        let habit = (staff.nickel - NICKEL_TYPICAL) / NICKEL_SPREAD;
+        let front = match staff.guide.front.pull() {
+            Some((b, k)) if b.nickel_base() => PACKAGE_FRONT_NICKEL * k,
+            Some((_, k)) => -PACKAGE_FRONT_BASE * k,
+            None => 0.0,
         };
         // His own men (lane SF10, item 23): the nickel back against the
-        // third linebacker, as each group plays three receivers' runs and
-        // throws (real 2024 NFL: 11 personnel throws 65%), by the
-        // coordinator's creativity (`roster_fit`).
+        // third linebacker, as each group plays its receivers' runs and
+        // throws (real 2023-24 NFL, `PACKAGE_RUNS`), by the coordinator's
+        // creativity (`roster_fit`).
         let f = &ctx.fit.dpers;
-        let given = |k: usize| RUN_SHARE_11 * f[k][0] as f64 + (1.0 - RUN_SHARE_11) * f[k][1] as f64;
-        let p = lean_odds(p, trust(c.creativity) * (given(0) - given(1)));
-        if rng.chance(p) { DefPersonnel::Nickel } else { DefPersonnel::Base }
-    } else {
-        // A nickel base front (4-2-5, 3-3-5) keeps its fifth back on the
-        // field against two receivers too, less against heavy sets.
-        match staff.guide.front.pull() {
-            Some((b, k)) if b.nickel_base() && rng.chance(k * if wr <= 1 { 0.45 } else { 0.9 }) => DefPersonnel::Nickel,
-            _ => DefPersonnel::Base,
+        let runs = PACKAGE_RUNS[(wr.max(1) - 1).min(3)];
+        let given = |k: usize| runs * f[k][0] as f64 + (1.0 - runs) * f[k][1] as f64;
+        let fit = trust(c.creativity) * (given(0) - given(1));
+        let light = lean_odds(light, PACKAGE_HABIT * habit + front + fit);
+        let dime = lean_odds(dime, PACKAGE_DIME_WITH * habit + PACKAGE_DIME_OWN * staff.dime);
+        let u = rng.next();
+        if u < dime.min(light) {
+            DefPersonnel::Dime
+        } else if u < light {
+            DefPersonnel::Nickel
+        } else {
+            DefPersonnel::Base
         }
     };
     let sharp = c.adaptation / 20.0;
@@ -2617,6 +2625,135 @@ fn lean_odds(p: f64, x: f64) -> f64 {
 /// Real 2024 NFL: 11 personnel runs 35% of its snaps (the scheme-fit
 /// audit's table, `afm/scheme-fit/full-pass.md`).
 const RUN_SHARE_11: f64 = 0.35;
+
+/// The share of designed runs by the offense's receivers (one or none, two,
+/// three, four or more) for the roster's lean on the nickel: three keeps the
+/// scheme-fit audit's 11 personnel share, the others real NFL 2023-24 snaps
+/// (nflverse participation: 0.68, 0.52 and 0.21).
+const PACKAGE_RUNS: [f64; 4] = [0.68, 0.52, RUN_SHARE_11, 0.21];
+
+/// The backs a defense puts on the field (realism audit item 3, who makes
+/// the tackle): the real NFL's shares of four, five and six (or more)
+/// defensive backs on scrimmage snaps over all its defenses, 2023-24
+/// (nflverse participation,
+/// `data/real-world/defenders.json`, `pbp.packages`), by the offense's
+/// wide receivers (one or none, two, three, four or more) and the down:
+/// first and second, then third and fourth with 1-2, 3-6 and 7 or more to
+/// go. Snaps inside the 3 against two receivers or fewer are the goal-line
+/// package's. It used to be a base defense against two receivers (real: a
+/// nickel on 44% of early downs, more on third down), a dime against four
+/// always (real 10% on early downs) and against three on third and long
+/// half the time (real 45%).
+const PACKAGES: [[[f64; 3]; 4]; 4] = [
+    [[0.839, 0.154, 0.007], [0.897, 0.098, 0.005], [0.628, 0.327, 0.044], [0.725, 0.188, 0.087]],
+    [[0.544, 0.436, 0.019], [0.541, 0.423, 0.036], [0.161, 0.663, 0.176], [0.074, 0.537, 0.389]],
+    [[0.039, 0.882, 0.079], [0.058, 0.847, 0.095], [0.012, 0.707, 0.281], [0.007, 0.546, 0.448]],
+    [[0.016, 0.880, 0.103], [0.059, 0.824, 0.118], [0.0, 0.770, 0.230], [0.0, 0.476, 0.524]],
+];
+
+/// The column of `PACKAGES` for this down and distance.
+fn package_down(sit: &Situation) -> usize {
+    match (sit.down, sit.togo) {
+        (0..=2, _) => 0,
+        (_, t) if t <= 2.0 => 1,
+        (_, t) if t <= 6.0 => 2,
+        _ => 3,
+    }
+}
+
+/// How far a coordinator's own habits move the odds of `PACKAGES` (realism
+/// audit item 3): his nickel habit (`Staff::nickel`) the odds of five or
+/// more backs, by 1.2 for each standard deviation he sits from the typical
+/// coordinator, and the odds of a sixth by 0.6 with his own dime habit
+/// (`Staff::dime`) worth 1.2 a standard deviation beside it. Sized on how
+/// far real NFL defenses differ (nflverse participation, 64 team seasons
+/// 2023-24, `data/real-world/defenders.json`, `pbp.packages.teams`): the
+/// share of five or more backs against two receivers on early downs runs
+/// from 0.18 (the 10th percentile) to 0.78 (the 90th), a spread of 1.1 to
+/// 1.3 on the log odds in each cell and 0.64 over all snaps, which one habit
+/// gives at 1.4; a club's own share is only 0.45 alike from one season to
+/// the next, so the habit takes 1.2. The dime differs more (1.3 on the log
+/// odds over all snaps; on third and long against three receivers from
+/// 0.04 to 0.91), goes with the nickel habit only 0.37, and a club's own is
+/// 0.19 alike a season later: the part that goes with the nickel habit is
+/// 0.6, and his own takes 1.2 of the 1.6 that would give the whole spread.
+/// Proposed, not confirmed.
+const PACKAGE_HABIT: f64 = 1.2;
+const PACKAGE_DIME_WITH: f64 = 0.6;
+const PACKAGE_DIME_OWN: f64 = 1.2;
+
+/// The typical staff's chance of five or more backs and of six in each cell
+/// of `PACKAGES`: not the table's shares themselves, because staffs spread
+/// about the typical one on the odds and a rare choice gains more from the
+/// staffs who like it than it loses from the ones who don't (real: against
+/// three receivers on early downs the league stays in base on 3.9% of
+/// snaps, its median defense on 2.6%). Each is the chance that, leaned by
+/// every staff's habits (`PACKAGE_HABIT`; the nickel habit a normal's cut
+/// at `NICKEL_RANGE`, the two dime leans together one normal's), averages
+/// the table's share.
+fn package_centers() -> &'static [[[f64; 2]; 4]; 4] {
+    static C: std::sync::OnceLock<[[[f64; 2]; 4]; 4]> = std::sync::OnceLock::new();
+    C.get_or_init(|| {
+        let cut =
+            ((NICKEL_RANGE.0 - NICKEL_TYPICAL) / NICKEL_SPREAD, (NICKEL_RANGE.1 - NICKEL_TYPICAL) / NICKEL_SPREAD);
+        let dime = PACKAGE_DIME_WITH.hypot(PACKAGE_DIME_OWN);
+        let mut c = [[[0.0; 2]; 4]; 4];
+        for (w, rows) in PACKAGES.iter().enumerate() {
+            for (d, row) in rows.iter().enumerate() {
+                c[w][d] = [
+                    lean_center(row[1] + row[2], PACKAGE_HABIT, cut),
+                    lean_center(row[2], dime, (f64::NEG_INFINITY, f64::INFINITY)),
+                ];
+            }
+        }
+        c
+    })
+}
+
+/// The chance that averages `mean` over staffs who each lean it on the odds
+/// by `size` times a standard normal habit kept inside `cut`.
+fn lean_center(mean: f64, size: f64, cut: (f64, f64)) -> f64 {
+    if mean <= 0.0 || mean >= 1.0 || size == 0.0 {
+        return mean;
+    }
+    // The normal on a grid of tenths out to four and a half deviations.
+    let average = |l: f64| {
+        let (mut sum, mut all) = (0.0, 0.0);
+        for k in -45..=45 {
+            let z = k as f64 / 10.0;
+            let w = (-z * z / 2.0).exp();
+            sum += w / (1.0 + (-(l + size * clamp(z, cut.0, cut.1))).exp());
+            all += w;
+        }
+        sum / all
+    };
+    let (mut lo, mut hi) = (logit(mean) - 8.0, logit(mean) + 8.0);
+    for _ in 0..50 {
+        let mid = 0.5 * (lo + hi);
+        if average(mid) < mean {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let l = 0.5 * (lo + hi);
+    1.0 / (1.0 + (-l).exp())
+}
+
+/// How far the base front the head coach asks for (update 2, G2) moves the
+/// odds of five or more backs at full pull. It is the pull the old rule had
+/// (a 0.88 chance became 0.98 for a nickel base front and 0.77 for a 4-3 or
+/// 3-4 one), now on every cell of the table: against two receivers on early
+/// downs the typical staff's 0.45 becomes 0.85 and 0.28, against three its
+/// 0.98 nearly always and 0.96 (proposed, not confirmed).
+const PACKAGE_FRONT_NICKEL: f64 = 1.9;
+const PACKAGE_FRONT_BASE: f64 = 0.76;
+
+/// The log odds of a chance.
+fn logit(p: f64) -> f64 {
+    let p = clamp(p, 1e-6, 1.0 - 1e-6);
+    (p / (1.0 - p)).ln()
+}
 
 /// The front (topic 1): a 4-3 staff plays over, under and wide-nine looks,
 /// a 3-4 staff odd and tite fronts; both bear up against heavy personnel

@@ -228,3 +228,36 @@ fn an_edge_who_bends_runs_a_fast_3_cone() {
     assert!(edge(81.0) > 7.1 && edge(81.0) < 7.4, "the average edge: {}", edge(81.0));
     assert!(edge(70.0) > 7.4, "a stiff edge: {}", edge(70.0));
 }
+
+/// A man whose card says one spot and who plays another is still moved
+/// (realism audit item 3). A boy out of another sport got his sport's spot
+/// written over his position alone, so his card still read where he was
+/// made: the staff's move back to it changed nothing and he played out of
+/// position for life (a 6-0, 240 lb edge with 30 sacks a year). A move
+/// writes the card once, and a move to where he already is changes nothing.
+#[test]
+fn a_man_playing_off_his_card_is_still_moved() {
+    for mut p in at(Position::WR, 20, "off-card") {
+        assert_eq!(p.position_history.last().map(|h| h.1), Some(Position::WR));
+        let cards = p.position_history.len();
+        // The old write: his position alone.
+        p.position = Position::EDGE;
+        crate::athlete::set_position(&mut p, Position::WR);
+        assert_eq!(p.position, Position::WR);
+        assert!(crate::spots::spots_of(Position::WR).contains(&p.spot), "his spot: {:?}", p.spot);
+        assert_eq!(p.position_history.len(), cards, "his card already says receiver");
+        // A real move: on his card once, with a spot there and its weight.
+        let light = p.body.weight;
+        crate::athlete::set_position(&mut p, Position::EDGE);
+        assert_eq!(p.position, Position::EDGE);
+        assert_eq!(p.position_history.last(), Some(&(p.age, Position::EDGE)));
+        assert_eq!(p.position_history.len(), cards + 1);
+        assert!(crate::spots::spots_of(Position::EDGE).contains(&p.spot), "his spot: {:?}", p.spot);
+        assert!(p.body.weight >= light, "an edge is no lighter than a receiver: {} to {}", light, p.body.weight);
+        // Already there: nothing changes.
+        let (weight, spot) = (p.body.weight, p.spot);
+        crate::athlete::set_position(&mut p, Position::EDGE);
+        assert_eq!(p.position_history.len(), cards + 1);
+        assert_eq!((p.body.weight, p.spot), (weight, spot));
+    }
+}

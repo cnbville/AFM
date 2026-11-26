@@ -182,14 +182,18 @@ fn measure(key: &str, g: &afm_engine::world::seat::SeatGame, side: usize, pick: 
     }
 }
 
-/// The level's usual share of snaps in the base package and in nickel or
-/// dime (real 2023-25: NFL base about 25%, college about 35%, high school
-/// about half; proposed, not confirmed).
+/// The level's usual share of snaps in the base package, by the call, as
+/// defenses play it since the real table of backs (realism audit item 3,
+/// `calling::PACKAGES`; `match_check` with `AFM_DEFENDERS`, seed 1): 16% on
+/// world seed 321's NFL clubs, 21% on its FBS teams and 25% in the high
+/// school test league. The real NFL is at 23%: the world's offenses line up
+/// with three receivers more often. It was 25%, 35% and a half. Proposed,
+/// not confirmed.
 fn typical_base(level: Cal) -> f64 {
     match level {
-        Cal::Nfl | Cal::Other => 0.25,
-        Cal::HighSchool => 0.5,
-        _ => 0.35,
+        Cal::Nfl | Cal::Other => 0.16,
+        Cal::HighSchool => 0.25,
+        _ => 0.21,
     }
 }
 
@@ -297,8 +301,14 @@ pub(super) fn view(w: &World) -> Reply {
         let gj = games_json("front", &pick);
         let k = g.front.pull().map_or(0.0, |x| x.1);
         let base = typical_base(s.level);
-        let expect =
-            if front_pick.nickel_base() { (1.0 - base) + k * 0.6 * base } else { base * (1.0 + 0.12 * k * 0.5) };
+        // What the ask does to the share: the play caller leans the odds
+        // of five or more backs by it in every situation
+        // (`calling::PACKAGE_FRONT_NICKEL`, `PACKAGE_FRONT_BASE`). On the
+        // typical staff a nickel base front takes two thirds of the base
+        // snaps at full pull, and a 4-3 or 3-4 base adds a third to them
+        // (the real table's cells weighed by how often offenses line up
+        // with one, two, three and four receivers).
+        let expect = if front_pick.nickel_base() { (1.0 - base) + k * 0.67 * base } else { base * (1.0 + 0.33 * k) };
         let installed = if st.front == front_pick.front() { "installed" } else { "not installed" };
         let ov = systems::overlap(
             Kind::Front,

@@ -490,6 +490,10 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
         college::finals_week(w);
     }
     hs_year::dawn(w, d);
+    // Each league's own typical men for its play callers' lean (realism
+    // audit, the run lean): worked out before the first game that reads
+    // them, and kept with the season.
+    league_men(w, d);
     // The commitments lifting a brand exposure grade (GR44).
     super::following::day(w, d);
     // The week's rhythm, for the record and the future screens (T6), and
@@ -503,6 +507,19 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
         // Capital's donor slots (lane C4), all year.
         super::capital::week::dawn(w, d);
     }
+}
+
+/// Each league's own typical men this season (realism audit, the run lean,
+/// `roster_fit::LeagueMen`): a college division's at fall camp with the
+/// season's teams (`college::start`), a state's when its season starts
+/// (`hs_year::start_state`), the NFL's and the other leagues' the day before
+/// their first game. A save from before them works out a season under way
+/// on its first morning.
+fn league_men(w: &mut World, d: Date) {
+    college::ensure_men(w);
+    hs_year::ensure_men(w);
+    super::pro::games::ensure_league(w, d);
+    super::pro::other::ensure_men(w, d);
 }
 
 /// 7:00 AM: staffs in early, and on Mondays every team's training week
@@ -730,8 +747,11 @@ fn afternoon(w: &mut World, d: Date, y: &YearDates) {
     if d.weekday() == Weekday::Sun && (4..=10).any(|k| y.cfb_weeks.get(k).is_some_and(|s| d == s.add(1))) {
         staff::in_season_firings(w);
     }
-    // The NFL's (realism audit items 7 and 8): the Mondays after weeks 4-15.
-    if d.weekday() == Weekday::Mon && (3..=14).any(|k| y.nfl_weeks.get(k).is_some_and(|s| d == s.add(1))) {
+    // The NFL's (realism audit items 7 and 8): the Mondays after week 4
+    // through the next-to-last week (Kelly, Ryan and Hackett went with one
+    // or two games left).
+    let last = y.nfl_weeks.len().saturating_sub(2);
+    if d.weekday() == Weekday::Mon && (3..=last).any(|k| y.nfl_weeks.get(k).is_some_and(|s| d == s.add(1))) {
         staff::nfl_in_season(w);
     }
     // And the high schools' (item 8): fall Mondays from mid-September.

@@ -48,6 +48,13 @@ pub(crate) struct StateSeason {
     pub rounds: Vec<Date>,
     pub developed: bool,
     pub done: bool,
+    /// The state's own typical men this season (realism audit, the run
+    /// lean): its schools' teams as they dress for the first week, worked
+    /// out when its season starts (`state_men`), handed to the engine with
+    /// each team (`GameTeam::league`). A state's schools play each other,
+    /// so a Wyoming staff reads its back's speed about Wyoming's backs.
+    #[serde(default)]
+    pub men: Option<std::sync::Arc<crate::game::roster_fit::LeagueMen>>,
 }
 
 /// A classification inside a state: its schools play each other.
@@ -402,7 +409,7 @@ fn state_dates(w: &World, year: i32) -> Vec<StateSeason> {
             let span = ((playoffs.days_to(finals) + 3) / 7).max(1);
             let mut rounds: Vec<Date> = (0..span).map(|k| playoffs.add(7 * k)).collect();
             rounds.push(finals);
-            StateSeason { start, finals, weeks, rounds, developed: false, done: false }
+            StateSeason { start, finals, weeks, rounds, developed: false, done: false, men: None }
         })
         .collect()
 }
@@ -1025,6 +1032,44 @@ fn start_state(w: &mut World, s: usize) {
     hs.grade_weeks.extend(grade_weeks);
     hs.sat_weeks.extend(sat_weeks);
     hs.states[s].developed = true;
+    // The state's own typical men, once its rosters and grades are set.
+    if hs.on_engine {
+        let men = state_men(w, s);
+        w.hs_season.as_mut().unwrap().states[s].men = men;
+    }
+}
+
+/// A state's own typical men this season (realism audit, the run lean):
+/// the men its schools would dress for the first week at the roster lean's
+/// slots, averaged over the state (`game::league_men`). None for a state
+/// with no team.
+fn state_men(w: &World, s: usize) -> Option<std::sync::Arc<crate::game::roster_fit::LeagueMen>> {
+    let level = crate::player::Level::HS;
+    let mut sum = crate::game::roster_fit::LeagueSum::default();
+    // A batch of schools at a time, so a state of a thousand schools never
+    // holds every team at once.
+    for batch in w.states[s].schools.chunks(64) {
+        let teams: Vec<GameTeam> = batch.par_iter().filter_map(|&h| hs_team(w, h, 0).map(|t| t.0)).collect();
+        let refs: Vec<&GameTeam> = teams.iter().collect();
+        crate::game::flow::league_add(&mut sum, &refs, level);
+    }
+    (sum.teams() > 0).then(|| std::sync::Arc::new(sum.finish(level)))
+}
+
+/// A save from before the states' typical men (the run lean) works out
+/// each state's whose season is under way, the first morning it plays on.
+pub(crate) fn ensure_men(w: &mut World) {
+    let Some(hs) = w.hs_season.as_ref() else { return };
+    if !hs.on_engine {
+        return;
+    }
+    let todo: Vec<usize> = (0..hs.states.len())
+        .filter(|&s| hs.states[s].developed && !hs.states[s].done && hs.states[s].men.is_none())
+        .collect();
+    for s in todo {
+        let men = state_men(w, s);
+        w.hs_season.as_mut().unwrap().states[s].men = men;
+    }
 }
 
 /// Which weeks a player misses for grades (A29), as a bit per week (regular
@@ -1384,7 +1429,10 @@ pub(crate) fn squad_team(
             shell: inst.shell(),
             playbook: 1.0,
             sportsmanship: coach.map_or(10.0, |c| w.coaches[c].sportsmanship),
-            nickel: coach.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
+            nickel: coach.map_or(crate::game::roster::NICKEL_TYPICAL, |c| {
+                crate::game::roster::nickel_habit(key_normal(0x41C8, c as u64))
+            }),
+            dime: coach.map_or(0.0, |c| key_normal(0x41C9, c as u64)),
             year: w.year,
             // His eye and what the school's budget buys (proposed, not confirmed).
             // The film room around the typical one (Capital lane C6).
@@ -1420,6 +1468,8 @@ pub(crate) fn squad_team(
         .min(5);
     team.line_chem = 0.25 + 0.15 * line_vets as f64;
     super::chemistry::apply(w, &mut team, super::chemistry::Unit::HighSchool);
+    // The state's own typical men this season (realism audit, the run lean).
+    team.league = w.hs_season.as_ref().and_then(|hs| hs.states.get(school.state)?.men.clone());
     Some((team, ids))
 }
 

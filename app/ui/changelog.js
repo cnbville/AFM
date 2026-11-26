@@ -17,6 +17,90 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.710", date: "26 Nov", title: "Program fortunes measuring pass: size the recruiting bond's curve on four seeds",
+    notes: [
+      "A great recruiter now changes a program. Your head coach's and position coaches' recruiting ratings decide far more of the close battles for a recruit.",
+      "Each point of recruiting skill builds a recruit's bond with a coach faster than before.",
+      "A typical head coach recruits as he did; strong recruiters pull clear and weak ones fall behind.",
+      "Programs rise and fall more with who coaches them, so eras come and go over ten years.",
+      "Transfers weigh a strong recruiter's calls more too.",
+    ],
+  },
+  {
+    v: "0.2.709", date: "25 Nov", title: "The four-man rush: the tackle's vertical set and the spare man's eyes (realism audit item 3)",
+    notes: [
+      "Edge rushers play like edge rushers now: tackles kick back to meet them behind the line, so an end who wins is on the quarterback. Watch the best ends' pressures and sacks climb, while the spare lineman helps where the trouble is.",
+      "Tackles take a vertical set against a man rushing round the edge, and meet him two yards behind the line.",
+      "An end who beats his man now does it close to the quarterback, so it shows up as pressure.",
+      "The spare lineman in a four-man rush helps the block that is losing, not just the one nearest him.",
+      "Inside tackles no longer get a free single block on every snap, so edges out-sack them as in the real game.",
+    ],
+  },
+  {
+    v: "0.2.708", date: "25 Nov", title: "Give the class's best QB the one franchise chance on draft day (audit item 4) and 1 more",
+    notes: [
+      "Play callers now judge their players against the players in their own league, so college offenses stop running wide and throwing deep on every down.",
+      "A coordinator compares his backs, receivers and passers with the rest of his own league, not with a fixed yardstick, before he leans his calls toward them.",
+      "College offenses run outside about a sixth less often, and run games and deep throws land closer to real numbers.",
+      "Defenses weigh their linebackers, corners and safeties against their own league when they pick blitzes and coverages.",
+      "Saved games and replays keep the same reads.",
+      "The top quarterback in a draft class now goes where real ones do, usually first overall when the team picking needs one.",
+    ],
+  },
+  {
+    v: "0.2.706", date: "25 Nov", title: "NFL head coaches: a public hot seat before any in-season firing and 1 more",
+    notes: [
+      "Blitzes now get home like real ones, and pass protection blocks the way real lines are taught.",
+      "Linebackers, corners and safeties who blitz creep up before the snap and get to the passer as often as real blitzers do.",
+      "Offensive lines pick up the rush man for man across the formation, so an edge rusher no longer runs free because a guard was sent out to him.",
+      "Quarterbacks throw hot right away when a blitzer they know is free is coming, and backs check for the blitz at the snap.",
+      "A pass rusher's pressures now count every hurry, hit and sack, and his rushes count once a play.",
+      "Your NFL owner no longer fires you out of the blue. If your seat gets hot he tells you first, and you get at least a week to turn it around.",
+    ],
+  },
+  {
+    v: "0.2.704", date: "25 Nov", title: "NIL deals in later years: the paid set by standing, a deal's school part by standing, keep-him offers only to men a school pays",
+    notes: [
+      "College pay stays realistic after the first year. Schools now pay players by where they stand on the team, not by who happened to hold a deal first.",
+      "A returning redshirt or young backup who has earned a place is paid by his school, even with no deal.",
+      "The lowest-paid players on a major roster get a real stipend again, not a token one.",
+      "Schools stop making keep-him offers to walk-ons and deep backups they would not pay anyway.",
+      "The very top quarterback checks come down into the real range.",
+    ],
+  },
+  {
+    v: "0.2.703", date: "25 Nov", title: "High school careers run again and 3 more",
+    notes: [
+      "Group of 5 schools now differ by conference: American and Mountain West departments earn clearly more than MAC ones, and the money you read on the people screens matches the real books.",
+      "A school's athletic budget on the people screens is read from its books, not guessed from its name.",
+      "American and Mountain West programs bring in more sponsor and ticket money than MAC and Conference USA ones.",
+      "The revenue share a Group of 5 school pays players follows what it earns, so richer conferences pay more.",
+      "Group of 5 head coaches' pay follows the new money.",
+      "Defensive stars now put up seasons you can believe. The best pass rushers finish with 14 to 20 sacks instead of 30 or 40, and a great one is still worth every snap.",
+    ],
+  },
+  {
+    v: "0.2.697", date: "25 Nov", title: "NIL pay by player value",
+    notes: [
+      "College players are now paid by what each one is worth to his team, not a flat rate for his role. Your stars earn far more than your depth, and a deep backup's going rate is a small one.",
+      "A school's revenue share reads each player's own play against his level's starters, his class year and, for a newcomer, his stars.",
+      "Deep backups and low-rated signees get a small share, as at real programs, and the money that frees up goes to the players who carry the team.",
+      "Your starting quarterback's going rate sits well above every other player's. His backup's does not.",
+      "A two-star or three-star recruit no longer expects a starter's money from a power school because the depth chart is thin at his spot.",
+    ],
+  },
+  {
+    v: "0.2.696", date: "25 Nov", title: "One store for your coach's ratings (coach ratings lane RE-bug) and 1 more",
+    notes: [
+      "College coaching pay now follows each school's money, so a Group of 5 head coach earns about what his real counterpart does.",
+      "A MAC, Sun Belt or Conference USA head coach now makes around a million a year, not three or four.",
+      "Power 4 head coaches stay in the five to ten million range.",
+      "A small school can still give a hot coach a raise, but only so far before a bigger school's money wins.",
+      "Your coach's ratings now count everywhere the moment they change. Your read of people and your recruiting pitch follow the ratings on your profile.",
+      "Your one-on-ones, recruiting talks and hand-offs read your ratings as they are today, not as they were the day you started.",
+    ],
+  },
+  {
     v: "0.2.694", date: "25 Nov", title: "Fix NFL GM tenure (realism audit item 12) and 1 more",
     notes: [
       "College run games now play much closer to real football. Defenders hold up against run blocks the way their size and strength say they should, so backs no longer run wild.",

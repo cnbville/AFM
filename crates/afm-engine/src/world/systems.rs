@@ -708,11 +708,14 @@ pub(crate) fn set_spots(w: &mut World) {
         let ids: Vec<usize> = prog.roster.iter().copied().filter(|&i| w.people[i].stage == Stage::College).collect();
         let players: Vec<&Player> = ids.iter().map(|&i| &w.people[i].player).collect();
         let spots = crate::spots::choose_spots(&players);
+        let subs: Vec<usize> = crate::spots::sub_safeties(&players).into_iter().map(|j| ids[j]).collect();
         let mine = w.seat_program(k);
         moves.extend(ids.into_iter().zip(spots));
         if mine {
             named_jobs(w, &mut moves);
         }
+        // The next safeties learn the nickel too (`spots::sub_safeties`).
+        moves.extend(subs.into_iter().map(|i| (i, crate::spots::Spot::NB)));
     }
     apply_spots(w, moves);
 }
@@ -729,10 +732,13 @@ pub(crate) fn set_club_spots(w: &mut World) {
         }
         let players: Vec<&Player> = ids.iter().map(|&i| &w.people[i].player).collect();
         let spots = crate::spots::choose_spots(&players);
+        let subs: Vec<usize> = crate::spots::sub_safeties(&players).into_iter().map(|j| ids[j]).collect();
         moves.extend(ids.into_iter().zip(spots));
         if w.seat_club(k) {
             named_jobs(w, &mut moves);
         }
+        // The next safeties learn the nickel too (`spots::sub_safeties`).
+        moves.extend(subs.into_iter().map(|i| (i, crate::spots::Spot::NB)));
     }
     apply_spots(w, moves);
 }

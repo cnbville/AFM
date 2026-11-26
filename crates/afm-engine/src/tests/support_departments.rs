@@ -240,3 +240,20 @@ fn an_older_file_is_staffed_on_load_and_assistants_step_up() {
     assert!(after.year != before.year || after.stepped_up > before.stepped_up);
     assert!(after.stepped_up >= 15, "own assistants stepped up: {}", after.stepped_up);
 }
+
+/// A high school seat keeps its school in `program`: it has no departments,
+/// and its school's index is never read as a college's (most schools' is past
+/// the last college, so the read ended the game in the practice week).
+#[test]
+fn a_high_school_seat_has_no_departments() {
+    use crate::calendar::Level;
+    use crate::world::Seat;
+    let hs = Seat { level: Level::HighSchool, nfl_team: None, program: Some(1332), other: None };
+    assert_eq!(dp::seat_who(&hs), None);
+    let college = Seat { level: Level::College, nfl_team: None, program: Some(7), other: None };
+    assert_eq!(dp::seat_who(&college), Some(Who::Prog(7)));
+    let club = Seat { level: Level::Nfl, nfl_team: Some(3), program: None, other: None };
+    assert_eq!(dp::seat_who(&club), Some(Who::Club(3)));
+    let other = Seat { level: Level::Other, nfl_team: None, program: None, other: Some(2) };
+    assert_eq!(dp::seat_who(&other), None);
+}
