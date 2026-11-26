@@ -1,10 +1,18 @@
--- catalog: tables of interest
-select tbl, rows, substr(cols,1,1500) from catalog where tbl in ('log_games','log_games__box','log_team_situations','log_coaches','log_clubs','log_world','coaches') or tbl like 'log_coaches%' or tbl like '%trend%' or tbl like 'coaches%' or tbl like 'front_office%' or tbl like 'staff%'
--- all tables with coach or trend or play in their name
-select tbl, rows from catalog where tbl like '%coach%' or tbl like '%trend%' or tbl like '%family%' or tbl like '%playbook%' order by tbl limit 120
--- log_team_situations keys sample
-select key, count(*) from log_team_situations where season = 2030 group by key order by 2 desc limit 80
--- teams in situations by season
-select season, count(distinct team) teams, count(*) rows from log_team_situations group by season order by season
--- stream names in games
-select stream, min(season), max(season), count(*) from log_games group by stream
+-- NFL box by season: per team game
+select g.season, count(*) tg, round(avg(b.points),2) pts, round(avg(b.plays),1) plays, round(avg(b.att),1) att, round(avg(b.carries),1) car, round(1.0*sum(b.att)/sum(b.att+b.carries),4) pass_rate, round(1.0*sum(b.pass_yards)/sum(b.att),3) ypa_gross, round(1.0*sum(b.rush_yards)/sum(b.carries),3) ypc, round(avg(b.sacks),2) sacks, round(avg(b.ints),2) ints, round(avg(b.turnovers),2) tov, round(avg(b.drives),2) drives, round(1.0*sum(b.points)/sum(b.drives),3) pts_drive, round(avg(b.first_downs),2) fd, round(avg(b.penalties),2) pen, round(avg(b.time_of_possession),1) top from log_games__box b join log_games g on g._row = b._parent where g.stream = 'nfl' and coalesce(g.kind,'regular') = 'regular' and coalesce(g.standin,0)=0 group by g.season order by g.season
+-- NFL box part 2: scoring split
+select g.season, round(avg(b.pass_td),3) ptd, round(avg(b.rush_td),3) rtd, round(avg(b.fg_made),3) fgm, round(avg(b.fg_att),3) fga, round(avg(b.xp_made),3) xpm, round(avg(b.red_zone_trips),2) rz_trips, round(1.0*sum(b.red_zone_tds)/sum(b.red_zone_trips),4) rz_td_rate, round(1.0*sum(b.third_conv)/sum(b.third_att),4) third, round(1.0*sum(b.fourth_conv)/nullif(sum(b.fourth_att),0),4) fourth, round(avg(b.fourth_att),2) f4att, round(avg(b.explosive),2) explosive, round(avg(b.pressures),2) pressures, round(avg(b.qb_hits),2) qbhits, round(avg(b.epa),3) epa, round(1.0*sum(b.successes)/sum(b.plays),4) succ, round(avg(b.def_td),3) def_td, round(avg(b.kr_td+b.pr_td),3) ret_td from log_games__box b join log_games g on g._row = b._parent where g.stream = 'nfl' and coalesce(g.kind,'regular') = 'regular' and coalesce(g.standin,0)=0 group by g.season order by g.season
+-- distinct level values in team situations
+select level, count(*), count(distinct team) from log_team_situations group by level
+-- NFL pass/run split from team situations (offense)
+select season, sum(case when key='o|kind|pass' then plays end) pass_plays, sum(case when key='o|kind|run' then plays end) run_plays, round(1.0*sum(case when key='o|kind|pass' then yards end)/sum(case when key='o|kind|pass' then plays end),3) pass_ypp, round(1.0*sum(case when key='o|kind|run' then yards end)/sum(case when key='o|kind|run' then plays end),3) run_ypp, round(sum(case when key='o|kind|pass' then epa end)/sum(case when key='o|kind|pass' then plays end),4) pass_epa, round(sum(case when key='o|kind|run' then epa end)/sum(case when key='o|kind|run' then plays end),4) run_epa, round(1.0*sum(case when key='o|blitz|true' then plays end)/sum(case when key like 'o|blitz|%' then plays end),4) faced_blitz, round(1.0*sum(case when key='o|pressured|true' then plays end)/sum(case when key like 'o|pressured|%' then plays end),4) pressured from log_team_situations where level = 'nfl' group by season order by season
+-- NFL situations by down group: third down pass rate and conversion
+select season, round(1.0*sum(case when key like 'o|third|%|pass' then plays end)/sum(case when key like 'o|third|%' and (key like '%|pass' or key like '%|run') then plays end),4) third_pass_rate, round(1.0*sum(case when key like 'o|third|%' and (key like '%|pass' or key like '%|run') then firsts+tds end)/sum(case when key like 'o|third|%' and (key like '%|pass' or key like '%|run') then plays end),4) third_conv, round(1.0*sum(case when key in ('o|red zone|pass','o|red zone|run') then tds end)/sum(case when key in ('o|red zone|pass','o|red zone|run') then plays end),4) rz_td_per_play, round(1.0*sum(case when key='o|red zone|pass' then plays end)/sum(case when key in ('o|red zone|pass','o|red zone|run') then plays end),4) rz_pass_rate from log_team_situations where level = 'nfl' group by season order by season
+-- trends table for NFL (division names)
+select division, count(*), min(year), max(year) from trends group by division
+-- NFL trends by year: pass rate and families
+select year, round(pass_rate,4) pr, families from trends where division like '%Nfl%' or division like '%NFL%' order by year
+-- coaches: role and employer samples
+select coach__job__role, coach__job__role__PositionCoach, coach__job__employer__Nfl is not null nfl, count(*) from log_coaches where season = 2030 group by 1,2,3 order by 4 desc limit 40
+-- sample NFL coach row
+select season, id, coach__name, coach__age, coach__job__role, coach__job__employer__Nfl, coach__ability__scheme, coach__ability__game_management, coach__ability__teaching__0, coach__ability__teaching__2, coach__reputation from log_coaches where season = 2030 and coach__job__employer__Nfl is not null limit 8
