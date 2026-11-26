@@ -1,6 +1,6 @@
 # The rise and fall of programs (realism audit item 2)
 
-Design, 2026-11-24. Thread "Design rise and fall of programs". Lanes P0, P1 and P2 built 2026-11-24. The measuring pass ran 2026-11-25 ("The measuring pass" below): it sized the bond's curve, two marks are still not met, and question 11 is open.
+Design, 2026-11-24. Thread "Design rise and fall of programs". Lanes P0, P1 and P2 built 2026-11-24. The measuring pass ran 2026-11-25 ("The measuring pass" below): it sized the bond's curve and two marks are still not met. Cain said yes to question 11 on 2026-11-26: its own lane with a measuring pass (P3).
 
 ## Cain's answer (2026-11-24)
 
@@ -147,7 +147,7 @@ Two marks are still not met: strength 10 years on (0.69, the mark under 0.60) an
 
 The stronger arm (base 30 at four times the average bond) on the same four seeds: strength 10 years on 0.53 to 0.61 and the coach's share 11 to 22%, but the Group of 5 won 3 to 5 titles in 28 seasons on every seed, and the best long record in FBS was Middle Tennessee's on seed 351 (.775) and Troy's on seed 361 (.752). A bond that large is worth more than the whole step between a Group of 5 school and a national name, so it was not taken.
 
-### What is left (proposed, not confirmed)
+### What is left
 
 The rest is not a size. A top recruiter's bond can only grow until it outweighs the step between levels, and that step is small in a recruit's read: about 0.5 between a Group of 5 school and a national name (from the terms of `utility_fit`, not measured), where base 30 at four times gives a head coach at 19 a bond of 1.8 against a typical 0.55.
 
@@ -155,6 +155,7 @@ The rest is not a size. A top recruiter's bond can only grow until it outweighs 
 - Example: a Group of 5 head coach at 19 fights Alabama for a 4-star. Today, with a bond strong enough to make eras at the top, he wins him, and his school wins titles. After, he wins nearly every fight with other Group of 5 schools and the weaker Power 4 ones, and builds the best Group of 5 class, as real risers do.
 - In games: your recruiting rating decides the battles at your level; moving up a level takes wins, a name and a bigger job.
 - My pick: yes, as its own lane with a measuring pass on these four seeds. It would let the stronger bond be used (strength 10 years on 0.58, the coach's share 16%).
+- **Cain, 2026-11-26: "yes".** Agreed: its own lane, P3, with a measuring pass on seeds 341, 351, 361 and 371. Sizes proposed, not confirmed until measured.
 
 Also still open: lanes P1's other sizes and P2's sizes stay as proposed. The quarter-size arms that moved the grades, the name and the recent grade moved no mark; P2's sizes were not tested on their own.
 
