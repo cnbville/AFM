@@ -57,6 +57,16 @@ jobs:
                 "-- stop") ;;
                 --*) echo; echo "=== ${line#-- }" ;;
                 "page "*) echo; echo ">>> $line"; target/release/afm_read "$b" ${line#page } 2>&1 | head -c 40000 || true ;;
+                "years "*)
+                  # years <like pattern on the check id>: each check's own year series (its years_sql), cut to 2500 characters
+                  pat="${line#years }"
+                  echo; echo ">>> $line"
+                  for id in $(sqlite3 "$b" "select id from checks where years_sql is not null and years_sql <> '' and id like '$pat' order by id"); do
+                    echo "--- years $id"
+                    sqlite3 "$b" "select title || ' (' || coalesce(unit,'') || ') real=' || coalesce(real,'') || ' world=' || coalesce(world,'') from checks where id='$id'"
+                    ysql=$(sqlite3 "$b" "select years_sql from checks where id='$id'")
+                    sqlite3 -header -separator ' | ' "$b" "$ysql" 2>&1 | head -c 2500 || true
+                  done ;;
                 "panels "*)
                   # panels <max> <like pattern on the title>: each matching panel whole, cut to 3000 characters
                   read -r n pat <<< "${line#panels }"
