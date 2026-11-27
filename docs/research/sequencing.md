@@ -132,3 +132,42 @@ One Opus 5.5 pass over the library mapped each entry to the engine's plays and r
 13. Calibration: talent vs scheme, upsets and coaching effect (4 entries). Every new battle must leave the right share of upsets and only a modest coaching edge.
 
 Its warnings on the library, kept with the data: no source gives a rep count or a decay time for a set-up (every "2-4 reps then the answer" is a guess); a few entries still repeat the "run to set up play action" claim their own evidence contradicts; some numbers come from game sites, forums or AI-written pages and are not evidence; studies on screens against the blitz disagree.
+
+## 12. The scheme duel test: the baseline on main (lane GP0, 2026-11-27)
+
+The gate for every section 12 lane (`docs/design/game-planning.md`, item 16 and section 14). The tool is `duel_check` (`crates/afm-tools/src/bin/duel_check.rs`); it changes nothing in the engine.
+
+**How it measures.** A sharp caller plays a poor one on the same games. Both coordinators (offense and defense) of a team carry the rating: every call skill (play calling, reading, situational, adaptation, creativity) at 17 for the sharp team and 5 for the poor one, style at the middle; the head coach stays average. The rosters are the level's synthetic teams, the sharp caller's at quality 0 and the poor caller's `delta` rating points a player better (0, 0.5, 1, 1.5, 2, 3, 4, 6). Every delta plays 2,000 games in two arms on the same seeds: both callers average (the ratings alone, the control) and the duel. The sharp team is at home on even games, schemes come from the level's synthetic league. The coaching edge is the duel's margin less the control's on the same games. A game replays to the same margin (checked on 40 games every run). Run: `duel_check <nfl|fbs|hs> [games] [seed] [out.md]` (seed 701 here; `AFM_DUEL_SHARP`, `AFM_DUEL_POOR`, `AFM_DUEL_DELTAS` and `AFM_DUEL_HEAD=1` change the arms). On 4 cores: 394 s at the NFL, 409 s at FBS, 285 s at high school.
+
+**The switches for the lanes.** `AFM_DUEL_OFF=each` (or one name or a comma list) plays one more arm per mechanism with `AFM_GP_OFF` set to its name; the lane's own share is the edge with it on less the edge with it off. The names, in lane order: `direction`, `keys` (GP1), `series`, `selfscout` (GP2), `read_defenders`, `gap_blocking` (GP3), `disguise`, `match_rules` (GP4), `pressure`, `tempo` (GP5), `situations`, `adjustments` (GP6), `calibration` (GP7). A lane's engine code reads `AFM_GP_OFF` once at the start of each game (never cached across games) and skips its mechanism when its name is listed. An arm that plays exactly like the full duel is marked "not read": that is every one of them today (checked with `direction`).
+
+**Gate for a lane (proposed, not confirmed):** the NFL's mean edge for the 17 against 5 gap inside 3 to 7 points once all lanes are in; each lane raises it, with its own share shown by its switch; the favorite's win rate stays near the real column below and the margin spread stays at 12.5; no delta's sharp team wins every game.
+
+### What main gives today
+
+| Level | Mean edge, 17 against 5 | Per point of gap | Range over the deltas | Inside 3 to 7? |
+|---|---|---|---|---|
+| NFL | +2.07 | +0.17 | +1.32 to +2.68 (each ± 0.34) | no, in every delta |
+| FBS | +1.62 | +0.14 | +1.22 to +2.09 (± 0.40) | no, in every delta |
+| High school | +0.73 | +0.06 | +0.36 to +1.16 (± 0.39) | no, in every delta |
+
+The engine pays a 12-point gap in callers 2.1 points a game at the NFL, 1.6 at FBS and 0.7 in high school, under the real band of 3 to 7 for the whole range of coaches. The sharp team's win rate rises by 1 to 9 points over the control at the NFL, most where the rosters are close. The edge does not grow with the roster gap and sits inside the noise of each row, so read a lane on the mean over the eight deltas (about ± 0.12). High school pays least.
+
+**The upsets, NFL (the control is the ratings alone):**
+
+| Roster spread (points) | Real bin | Real favorite wins | Control | Duel (17 against 5) |
+|---|---|---|---|---|
+| 2.2 | 0 to 3.1 | 58.3% | 56.9% | 48.0% |
+| 4.0 | 3.1 to 6.6 | 71.8% | 63.1% | 57.4% |
+| 5.5 | 3.1 to 6.6 | 71.8% | 68.4% | 61.7% |
+| 7.1 | 6.6 to 9.6 | 72.7% | 72.8% | 68.4% |
+| 11.0 | 9.6 to 13.6 | 83.1% | 82.8% | 75.7% |
+| 15.0 | 13.6 and up | 96.4% | 89.7% | 85.7% |
+| 21.7 | 13.6 and up | 96.4% | 95.9% | 94.6% |
+
+- **The margin spread is at real.** With average callers the margin sits 12.55 points around the roster's mean at the NFL (12.73 on even rosters), against the real 12.48 around the line. FBS reads 14.7 and high school 14.0; the real file has no figure for them.
+- **The control tracks real in the middle and runs low at the ends.** At 4 points a favorite wins 63.1% (real 71.8%, 291 real games, about 2.4 standard errors off) and at 15 points 89.7% (real 96.4%, but only 28 real games, and a normal curve of 12.5 points gives 88 to 91% there). So the engine's upsets are not too many by the spread's own size; the real small-spread bins are the odd ones, and the lanes should not chase them.
+- **The duel takes 4 to 9 points off the favorite's win rate in the bins up to 11 points**, so a sharp coach beats a better roster sometimes and never always (the sharp team wins 5.4% of the games where the poor caller's roster is 6 points better a player, 21.7 points on the field). That is the shape the spec asks for; its size follows the edge, so it will grow with the lanes.
+- FBS and high school (same table, `fbs` and `hs` runs): the control's favorites win 56.5, 61.0, 68.0, 73.2, 83.0, 89.5 and 96.5% at FBS roster spreads of 2.3, 4.3, 6.9, 8.9, 13.6, 17.6 and 24.9 points; at high school 54.9, 59.6, 63.4, 69.7, 77.5, 84.5 and 93.5% at 1.6, 3.3, 4.8, 7.0, 10.3, 13.8 and 20.0 points. The duel takes 0 to 5 points off at FBS and 0 to 4 at high school. Each level's own real margins are not in the repo, so these are measures only.
+
+**Why it is this size (not measured, for the lanes).** The callers act through the call table and the leans, the sharp team calls more of what beats the shell it sees, and nothing on the field answers a set-up (no direction memory, no keys, no series, no disguise): the rest of the ladder is the lanes' work, as the engine map's topics 1 to 12 say. This run sets the number they have to lift.
