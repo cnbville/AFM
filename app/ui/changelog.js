@@ -17,6 +17,15 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.722", date: "27 Nov", title: "Talks: a player sees his own game, so a coach's word about his play is judged by it",
+    notes: [
+      "Players now know their own game. Tell a player something about his play and he answers from how he really plays, so a man who is weak at something doesn't act surprised to hear it.",
+      "A player's reply to your comment about his play now reflects his real strengths and weak spots.",
+      "A player who is weak at something knows it and may have heard it before.",
+      "A proud player reads himself a little high, and a player with a low Football IQ reads himself less clearly.",
+    ],
+  },
+  {
     v: "0.2.720", date: "27 Nov", title: "College quarterback runs: his legs against his league, his runs in every college book, the zone read's read key (realism audit item 3)",
     notes: [
       "College quarterbacks now run like real ones: a quick passer gets his zone reads and his power calls in any offense, and the zone read itself works the way it does on Saturdays.",
