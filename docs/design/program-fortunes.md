@@ -182,6 +182,23 @@ Built 2026-11-26 (thread "Make recruiter pull win at its level"). How it works: 
 - **A transfer's bond is unchanged** (the measuring pass's base 100 and sizes, `PORTAL_BASE`): the portal has no field of schools at the time a bond is built; a level rule there needs the suitors known first (`GAPS.md`).
 - **Marks to read** (the pass's): strength 10 years on under 0.60 (real 0.49), the head coach's share of class swings 20 to 35% (real 29%), programs in both quarters 15 or more (real 27), and no Group of 5 champion run (the stronger arm: 3 to 5 titles in 28 seasons).
 
+### Measured 2026-11-27 (one arm, seeds 341, 351, 361 and 371, 28 years, stand-in games, read over 2006-2025)
+
+The sizes above (`LEVEL_STEP` 0.25, standing 0.6 level + 0.4 name, field of five). Run 46000622749.
+
+| Seed | Strength 1, 5, 10 years on | Win share 10 years on | Coach's share of class swings | Programs in both quarters | Group of 5 titles in 28 seasons | Marks met |
+|---|---|---|---|---|---|---|
+| 341 | 0.88, 0.75, 0.69 | 0.24 | 10% | 23 | 1 | 6 of 9 |
+| 351 | 0.87, 0.75, 0.70 | 0.26 | 10% | 20 | 1 | 5 of 9 |
+| 361 | 0.88, 0.77, 0.72 | 0.27 | 8% | 26 | 0 | 4 of 9 |
+| 371 | 0.88, 0.76, 0.72 | 0.24 | 18% | 26 | 0 | 6 of 9 |
+| Real | 0.74, 0.55, 0.49 | 0.21 | 29% | 27 | | |
+
+- **The Group of 5 title runs are gone** (0 or 1 title in 28 seasons on every seed, against 3 to 5 on the stronger arm without the rule).
+- **The strength and share marks did not move.** Strength 10 years on 0.69 to 0.72 (the fitted base-100 arm: 0.67 to 0.71; the stronger arm without the rule: 0.53 to 0.61; the mark under 0.60) and the coach's share 8 to 18%, mean 11.5% (fitted arm: 9 to 16%, mean 13%; the mark 20 to 35%).
+- **Cause, from the rule's own terms**: a recruit's five favourites hold a national name (standing 0.94) for almost every 4-star and 5-star, so a great recruiter at a middling Power 4 school (standing about 0.80, a gap of 0.14 of the 0.25) keeps under half of his bond above the typical. The rule held the Group of 5, and it also held the Power 4 risers, who are the schools that make eras in real life (Utah, TCU, Baylor under Briles). The name term (0.4 of the standing) makes that gap large inside the Power 4.
+- Not merged on these numbers: the rule adds a mechanism and no gain on the fitted arm. Next arm proposed in the thread (not confirmed): standing 0.9 level + 0.1 name, so Power 4 schools fight each other with the whole bond and only the Group of 5 and FCS are held against the level above.
+
 ## Questions
 
 **1. Should the name a recruit reads come from the results he has lived through?** Tradition becomes half a slow all-time part (the titles and history it holds today) and half the program's results over about the last 20 seasons, recent ones weighing more (a season's weight halves in about seven years). Today tradition keeps 99.5% of itself a year and only titles add to it. This keeps the confirmed rule that tradition is a steady grade.
