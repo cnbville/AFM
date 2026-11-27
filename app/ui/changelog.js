@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.717", date: "27 Nov", title: "Names in live talks are links to the person's page",
+    notes: [
+      "Names in your talks are now links, so you can jump straight to a player's or coach's page without going through the squad page.",
+      "A name a player, recruit or coach says in a live talk opens that person's page",
+      "Names in your own typed lines link too",
+      "People in a room (a home visit, a position room) link from the list",
+      "A quiet dotted line shows which names are links",
+    ],
+  },
+  {
     v: "0.2.715", date: "26 Nov", title: "The NFL cap after 2026 follows league revenue",
     notes: [
       "NFL salary caps in the years ahead now grow with the league's money, so club finances stay realistic in long careers.",

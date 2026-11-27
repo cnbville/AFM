@@ -3393,5 +3393,37 @@
   "players": true,
   "title": "The NFL cap after 2026 follows league revenue",
   "tldr": "NFL salary caps in the years ahead now grow with the league's money, so club finances stay realistic in long careers."
+ },
+ "670": {
+  "auto": false,
+  "bullets": [],
+  "h": "59928a969007",
+  "look": "",
+  "players": false,
+  "title": "The college side of the tackle fight traced, not built (realism audit item 3)",
+  "tldr": ""
+ },
+ "671": {
+  "auto": false,
+  "bullets": [
+   "A name a player, recruit or coach says in a live talk opens that person's page",
+   "Names in your own typed lines link too",
+   "People in a room (a home visit, a position room) link from the list",
+   "A quiet dotted line shows which names are links"
+  ],
+  "h": "199653fb3b3d",
+  "look": "a live talk where someone names a teammate or a coach.",
+  "players": true,
+  "title": "Names in live talks are links to the person's page",
+  "tldr": "Names in your talks are now links, so you can jump straight to a player's or coach's page without going through the squad page."
+ },
+ "673": {
+  "auto": false,
+  "bullets": [],
+  "h": "1e5a7b77f2a8",
+  "look": "",
+  "players": false,
+  "title": "NFL scoring creep measured on the future run: it is the running game (audit item 25)",
+  "tldr": ""
  }
 }

@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.717 (27 Nov, shipped): names in live talks are links to the person's page (PR #671)
+**TLDR:** Names in your talks are now links, so you can jump straight to a player's or coach's page without going through the squad page.
+- A name a player, recruit or coach says in a live talk opens that person's page (PR #671)
+- Names in your own typed lines link too (PR #671)
+- People in a room (a home visit, a position room) link from the list (PR #671)
+- A quiet dotted line shows which names are links (PR #671)
+- Look at: a live talk where someone names a teammate or a coach. (PR #671)
+- Docs and tooling merged too, no game change: The college side of the tackle fight traced, not built (realism audit item 3) (PR #670); NFL scoring creep measured on the future run: it is the running game (audit item 25) (PR #673).
+
 ## 0.2.715 (26 Nov, shipped): the NFL cap after 2026 follows league revenue (PR #669)
 **TLDR:** NFL salary caps in the years ahead now grow with the league's money, so club finances stay realistic in long careers.
 - From 2027 the salary cap is set from league revenue each year, one cap for every club. (PR #669)
