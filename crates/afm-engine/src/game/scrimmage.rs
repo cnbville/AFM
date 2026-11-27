@@ -8009,21 +8009,29 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                     // bug 306). On third and fourth down short he fills and
                     // flows short of the sticks (`lb_fill`).
                     let (fill, hold) = lb_fill(s);
+                    // A misfit fills the wrong gap and sits in it until the
+                    // runner is through the line (`misfit_gap`).
+                    if sim.agents[i].misfit {
+                        let gap = misfit_gap(sim, i, s, cp);
+                        sim.go_to(i, gap, 1.0);
+                        return;
+                    }
                     let cv = sim.agents[c].vel;
                     let wide = (cp.y - me.y).abs() > 3.0;
                     if wide && cv.y * (cp.y - me.y).signum() > 1.5 {
                         sim.pursue_cap(i, c, 1.0, Some(s.los + sim.goal * hold.min(2.0)));
                         return;
                     }
-                    let mut aim = v2(s.los + sim.goal * fill, me.y + clamp(cp.y - me.y, -2.5, 2.5));
-                    // A misfit: he flows a gap too far, or the false way on
-                    // misdirection, and the runner cuts back behind him.
-                    if sim.agents[i].misfit && t < sim.agents[i].read_at + 0.8 {
-                        let dir = if misdirection(s) { -s.call.dir } else { s.call.dir };
-                        aim.y += 2.5 * dir;
-                    }
+                    let aim = v2(s.los + sim.goal * fill, me.y + clamp(cp.y - me.y, -2.5, 2.5));
                     sim.go_to(i, aim, 1.0);
                 } else if sim.agents[i].label == "LB" && (s.los - cp.x) * sim.goal > 0.0 {
+                    // A misfit stays in the gap he took, even with the runner
+                    // near him (he isn't where the runner goes).
+                    if sim.agents[i].misfit && sim.agents[i].gap_y != 0.0 {
+                        let gap = misfit_gap(sim, i, s, cp);
+                        sim.go_to(i, gap, 1.0);
+                        return;
+                    }
                     // Nearly on him with the runner still behind the line:
                     // he takes his angle but holds 2.1 yards past the line
                     // and lets the runner come (he chased him into the
@@ -8093,6 +8101,27 @@ fn lb_fill(s: &Snap) -> (f64, f64) {
     let sticks = (s.togo - LB_STICKS).max(0.0);
     (LB_FILL.min(sticks), LB_HOLD.min(sticks))
 }
+/// Where a linebacker who misread his fit fills (realism audit item 3, the
+/// second level): half a yard past the line in the gap `MISFIT_GAP` past
+/// the runner on his first look at the run, or the false way on
+/// misdirection, kept until the runner is through the line. He slid 2.5
+/// yards for 0.8 s with his eyes on the runner and his fill kept, so the
+/// gap he left closed behind him and a misread fit cost nothing: on world
+/// seed 321's NFL clubs a back's run against a linebacker's misfit gained
+/// 4.31 a carry and a clean one 4.39 (with the climber beaten and the
+/// shed's floor, `sim.rs`, `LB_SLIP`, `SHED_FLOOR`). Committed, 4.50 and
+/// 4.40, 10 or more on 10.7% and 9.5% of carries. Proposed, not confirmed.
+fn misfit_gap(sim: &mut Sim, i: usize, s: &Snap, cp: V2) -> V2 {
+    if sim.agents[i].gap_y == 0.0 {
+        let dir = if misdirection(s) { -s.call.dir } else { s.call.dir };
+        sim.agents[i].gap_y = cp.y + MISFIT_GAP * dir;
+    }
+    v2(s.los + sim.goal * 0.5, sim.agents[i].gap_y)
+}
+/// How far past the runner a misfit linebacker fills: a gap (proposed, not
+/// confirmed).
+const MISFIT_GAP: f64 = 2.5;
+
 /// A linebacker's fill and hold past the line (minor bug 164, bug 305).
 const LB_FILL: f64 = 2.6;
 const LB_HOLD: f64 = 2.1;

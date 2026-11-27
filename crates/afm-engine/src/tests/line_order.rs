@@ -151,7 +151,12 @@ fn the_seating_read_is_the_first_snap() {
             // theirs is hurt on, or the snap a named man who has played
             // comes off for a breather, since the next man up takes his
             // spot (FBS team 3's MIKE plays its first three defensive snaps
-            // and sits the fourth, its first in base).
+            // and sits the fourth, its first in base). Read in three games a
+            // team, against the teams three, five and seven places on: most
+            // defenses sit in nickel early and spell a named man before they
+            // show base, so one game a team left the count to chance (one
+            // FBS game in eight had a snap to read after the second level,
+            // realism audit item 3; six in 24 with three).
             let jobs = [
                 (DSlot::Sam, "SAM"),
                 (DSlot::Mike, "MIKE"),
@@ -161,38 +166,43 @@ fn the_seating_read_is_the_first_snap() {
             ];
             let in_base = |r: &&PlayRecord| jobs.iter().all(|j| dat(r, j.0).is_some()) && dat(r, DSlot::NCB).is_none();
             let theirs: Vec<u32> = teams[t].players.iter().map(|p| p.id).collect();
-            let hurt = res
-                .stats
-                .plays
-                .iter()
-                .find(|r| r.injuries.iter().any(|i| theirs.contains(&i.id)))
-                .map_or(u32::MAX, |r| r.n);
             let named: Vec<u32> = jobs
                 .iter()
                 .filter_map(|j| seats.at(j.1, 0))
                 .chain([seats.at("CB", 0), seats.at("CB", 1)].into_iter().flatten())
                 .collect();
-            let mut played: Vec<u32> = Vec::new();
-            let mut spelled = u32::MAX;
-            for r in snaps(&res.stats, 1) {
-                if named.iter().any(|id| played.contains(id) && !r.on_field[1].contains(id)) {
-                    spelled = r.n;
-                    break;
+            let more = [5u64, 7]
+                .map(|k| quick_game(&teams[t], &teams[(t + k as usize) % 8], level, 31_000 + 100 * k + t as u64));
+            for (k, res) in std::iter::once(&res).chain(&more).enumerate() {
+                let hurt = res
+                    .stats
+                    .plays
+                    .iter()
+                    .find(|r| r.injuries.iter().any(|i| theirs.contains(&i.id)))
+                    .map_or(u32::MAX, |r| r.n);
+                let mut played: Vec<u32> = Vec::new();
+                let mut spelled = u32::MAX;
+                for r in snaps(&res.stats, 1) {
+                    if named.iter().any(|id| played.contains(id) && !r.on_field[1].contains(id)) {
+                        spelled = r.n;
+                        break;
+                    }
+                    played.extend(r.on_field[1].iter().filter(|id| named.contains(id)));
                 }
-                played.extend(r.on_field[1].iter().filter(|id| named.contains(id)));
+                let Some(r) = snaps(&res.stats, 1).take(6).filter(|r| r.n <= hurt && r.n < spelled).find(in_base)
+                else {
+                    continue;
+                };
+                base += 1;
+                for (slot, name) in jobs {
+                    assert_eq!(dat(r, slot), seats.at(name, 0), "{level:?} team {t} game {k} {name}");
+                }
+                let mut on = [dat(r, DSlot::CBL), dat(r, DSlot::CBR)];
+                let mut want = [seats.at("CB", 0), seats.at("CB", 1)];
+                on.sort();
+                want.sort();
+                assert_eq!(on, want, "{level:?} team {t} game {k} corners");
             }
-            let Some(r) = snaps(&res.stats, 1).take(6).filter(|r| r.n <= hurt && r.n < spelled).find(in_base) else {
-                continue;
-            };
-            base += 1;
-            for (slot, name) in jobs {
-                assert_eq!(dat(r, slot), seats.at(name, 0), "{level:?} team {t} {name}");
-            }
-            let mut on = [dat(r, DSlot::CBL), dat(r, DSlot::CBR)];
-            let mut want = [seats.at("CB", 0), seats.at("CB", 1)];
-            on.sort();
-            want.sort();
-            assert_eq!(on, want, "{level:?} team {t} corners");
         }
         // High school fronts are often not a 4-3 base early on.
         assert!(level == Level::HS || base >= 2, "{level:?}: {base} early snaps in base");
