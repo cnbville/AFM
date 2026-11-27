@@ -8,6 +8,10 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.718 (27 Nov, shipped): FBS portal entrants traced: the pool shrinks, the rate holds (PR #672)
+**TLDR:** FBS portal entrants traced: the pool shrinks, the rate holds
+- Docs and tooling merged too, no game change: Program fortunes: Cain's yes to question 11 (lane P3) (PR #674); Two men at the catch traced, not built (realism audit item 3, the catch lane) (PR #676).
+
 ## 0.2.717 (27 Nov, shipped): names in live talks are links to the person's page (PR #671)
 **TLDR:** Names in your talks are now links, so you can jump straight to a player's or coach's page without going through the squad page.
 - A name a player, recruit or coach says in a live talk opens that person's page (PR #671)
