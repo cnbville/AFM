@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.719", date: "27 Nov", title: "The second level: the climber a linebacker beat, the shed that reads the block, the misread fit (realism audit item 3)",
+    notes: [
+      "Linebackers now make their share of the tackles on running plays, and a defender who guesses his gap wrong opens a lane for the back.",
+      "A lineman a linebacker slips is out of the play until he gets his feet back, so quick linebackers who beat blocks show up on the stat sheet.",
+      "A defensive lineman getting driven off the ball no longer peels off it to make the tackle as if he were winning.",
+      "A linebacker who misreads the run fills the wrong gap and stays there, so a back with vision can find the hole he left.",
+      "The running game keeps its real yards a carry in the NFL and college.",
+    ],
+  },
+  {
     v: "0.2.717", date: "27 Nov", title: "Names in live talks are links to the person's page",
     notes: [
       "Names in your talks are now links, so you can jump straight to a player's or coach's page without going through the squad page.",

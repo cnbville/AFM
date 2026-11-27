@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.719 (27 Nov, shipped): the second level: the climber a linebacker beat, the shed that reads the block, the misread fit (realism audit item 3) (PR #677)
+**TLDR:** Linebackers now make their share of the tackles on running plays, and a defender who guesses his gap wrong opens a lane for the back.
+- A lineman a linebacker slips is out of the play until he gets his feet back, so quick linebackers who beat blocks show up on the stat sheet. (PR #677)
+- A defensive lineman getting driven off the ball no longer peels off it to make the tackle as if he were winning. (PR #677)
+- A linebacker who misreads the run fills the wrong gap and stays there, so a back with vision can find the hole he left. (PR #677)
+- The running game keeps its real yards a carry in the NFL and college. (PR #677)
+- Look at: your linebackers' tackle counts and the box score's run defense after a few games. (PR #677)
+
 ## 0.2.718 (27 Nov, shipped): FBS portal entrants traced: the pool shrinks, the rate holds (PR #672)
 **TLDR:** FBS portal entrants traced: the pool shrinks, the rate holds
 - Docs and tooling merged too, no game change: Program fortunes: Cain's yes to question 11 (lane P3) (PR #674); Two men at the catch traced, not built (realism audit item 3, the catch lane) (PR #676).
