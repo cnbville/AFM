@@ -1646,6 +1646,14 @@ pub struct Sim<'a> {
     /// A play fake this snap (scheme-fit item 3): the back carrying out the
     /// fake, the runner for every defender still fooled by it.
     pub fake: Option<usize>,
+    /// On a zone read or a triple option (realism audit item 3, 2026-11-27):
+    /// the read key, the backside man on the line the blocking leaves alone
+    /// for the quarterback to read (`scrimmage::read_key`); whether his plan
+    /// is to sit on the quarterback rather than crash on the back; and when
+    /// the quarterback gave or kept the ball (0 before the read).
+    pub read_key: Option<usize>,
+    pub read_sit: bool,
+    pub read_at: f64,
     /// The level being played: trait-like ratings are read against it.
     pub level: Level,
     /// What the game does to habits this snap (tendencies).

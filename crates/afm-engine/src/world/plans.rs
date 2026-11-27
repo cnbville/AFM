@@ -969,6 +969,9 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
     // first quarterback).
     let qb_run = qb.and_then(|id| team.players.iter().find(|p| p.id == id)).map_or(0.0, crate::game::flow::qb_run);
     let level = level_of(next.level);
+    let qb_legs = qb
+        .and_then(|id| team.players.iter().find(|p| p.id == id))
+        .map_or(0.0, |p| crate::game::flow::qb_legs(p, level, team.league.as_deref()));
     // The rule book the game is played under: another league's own (the
     // CFL's 12 a side, arena football's 8), as its games set it up.
     let rules = match seat_book(w).filter(|_| next.level == Level::Other) {
@@ -980,6 +983,7 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
         level,
         two_from: rules.two_point_from,
         qb_run,
+        qb_legs,
         seed: key_of(w, next.date, next.opp, round),
         favs: favourites(w, qb).into_iter().map(|x| x.0).collect(),
         tells: tells(w, false),
@@ -1012,6 +1016,8 @@ pub struct DraftIn {
     pub level: crate::player::Level,
     pub two_from: f64,
     pub qb_run: f64,
+    /// His legs against his league's typical starter (`flow::qb_legs`).
+    pub qb_legs: f64,
     pub seed: u32,
     pub favs: Vec<usize>,
     pub tells: Vec<Tell>,
@@ -1035,6 +1041,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         has_fb: fb,
         te_count: te.min(3),
         qb_run: inp.qb_run,
+        qb_legs: inp.qb_legs,
         level: inp.level,
         plan: team.plan().0,
         designs: [None; 8],

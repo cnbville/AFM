@@ -40,6 +40,7 @@ fn ctx() -> OffCtx {
         has_fb: true,
         te_count: 2,
         qb_run: 0.3,
+        qb_legs: 0.0,
         level: Level::NFL,
         plan: 1.0,
         designs: [None; 8],

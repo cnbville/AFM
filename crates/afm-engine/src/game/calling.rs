@@ -542,6 +542,10 @@ pub struct OffCtx {
     pub te_count: usize,
     /// How much of a runner the quarterback is, 0-1.
     pub qb_run: f64,
+    /// His legs against his league's typical starter, in points
+    /// (`flow::qb_legs`): below the NFL his runs are called on it.
+    #[serde(default)]
+    pub qb_legs: f64,
     pub level: Level,
     /// This week's game plan as a share of the playbook (calendar T6.2).
     pub plan: f64,
@@ -1446,6 +1450,26 @@ fn pick_run(
     rc
 }
 
+/// College quarterbacks' runs (realism audit item 3, 2026-11-27): how far a
+/// staff below the NFL leans to the runs its quarterback can keep, a point
+/// of his legs against his league's typical starter (`flow::qb_legs`). The
+/// lean is `exp(QB_LEGS_LEAN * legs)`: 3.3 times the calls for a man 10
+/// points quicker than the typical starter, 0.3 times for one 10 points
+/// slower. Sized on world seed 321's FBS teams, whose designed quarterback
+/// runs went from 1.20 to 4.45 a team game with the sneaks (real about 4.3,
+/// cfbfastR 2024 less an estimate of the scrambles). Proposed, not confirmed.
+const QB_LEGS_LEAN: f64 = 0.12;
+/// The share of a college staff's inside zone from the gun it runs as a
+/// zone read with a typical runner at quarterback, times his lean: all of
+/// it for a man about 9 points quicker than the typical starter. Proposed,
+/// not confirmed.
+const ZONE_READ_SHARE: f64 = 0.35;
+/// The quarterback's power from the gun below the NFL, times his lean: the
+/// spread option builds its runs on it (`QB_POWER_SPREAD`), every other
+/// college system has it in its book. Proposed, not confirmed.
+const QB_POWER_SPREAD: f64 = 3.5;
+const QB_POWER_BOOK: f64 = 1.5;
+
 /// Each run concept's weight on this snap, before `weigh` draws from them.
 /// It draws nothing and reads only the staff, memory, context, `short` and
 /// the formation's gun, personnel and motion.
@@ -1512,6 +1536,36 @@ fn run_weights(staff: &Staff, mem: &Memory, f: &Formation, ctx: &OffCtx, short: 
             (QbPower, if gun { 1.0 * qb } else { 0.0 }),
         ],
     };
+    // College quarterbacks' runs (realism audit item 3, 2026-11-27): below
+    // the NFL every system has the quarterback's runs in its book from the
+    // gun, and calls them by his legs against his league's typical starter,
+    // where the table above gave them only to the spread option and the air
+    // raid on the pros' scale (`flow::qb_run`). Part of the inside zone from
+    // the gun is read at the mesh, more of it the more he can hurt an end who
+    // crashes on the back, and every run he can keep leans by his legs. The
+    // NFL keeps its own book.
+    if below_nfl {
+        let lean = (QB_LEGS_LEAN * ctx.qb_legs).exp();
+        for x in w.iter_mut() {
+            match x.0 {
+                ZoneRead | SpeedOption | TripleOption => x.1 *= lean,
+                QbPower => x.1 = 0.0,
+                _ => {}
+            }
+        }
+        if gun {
+            let share = (ZONE_READ_SHARE * lean).min(1.0);
+            let iz: f64 = w.iter().filter(|x| x.0 == InsideZone).map(|x| x.1).sum();
+            for x in w.iter_mut() {
+                if x.0 == InsideZone {
+                    x.1 *= 1.0 - share;
+                }
+            }
+            w.push((ZoneRead, iz * share));
+            let power = if scheme == OffScheme::SpreadOption { QB_POWER_SPREAD } else { QB_POWER_BOOK };
+            w.push((QbPower, power * lean));
+        }
+    }
     if fb {
         w.push((Power, 1.5));
         w.push((Iso, 1.0));

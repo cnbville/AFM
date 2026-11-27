@@ -1714,11 +1714,19 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             .copied()
             .find(|&i| !side.out[i])
             .map_or(0.0, |i| qb_run(&side.team.players[i]));
+        let qb_legs = side
+            .depth
+            .list(Position::QB)
+            .iter()
+            .copied()
+            .find(|&i| !side.out[i])
+            .map_or(0.0, |i| qb_legs(&side.team.players[i], setup.rules.level, side.team.league.as_deref()));
         let inp = crate::world::plans::DraftIn {
             film: opp.film.clone(),
             level: setup.rules.level,
             two_from: setup.rules.two_point_from,
             qb_run,
+            qb_legs,
             seed: ((setup.seed >> 29) as u32) ^ (setup.seed as u32).rotate_left(11) ^ 0x51EE_7000 ^ k as u32,
             favs: Vec::new(),
             tells: crate::world::plans::film_tells(&own.film),
@@ -5637,10 +5645,14 @@ impl<'a> Game<'a> {
         let te_count = self.sides[o].depth.list(Position::TE).iter().filter(|&&i| !self.sides[o].out[i]).count();
         let qb = self.sides[o].depth.list(Position::QB).iter().copied().find(|&i| !self.sides[o].out[i]);
         let qb_threat = qb.map_or(0.0, |i| qb_run(&self.sides[o].team.players[i]));
+        let level = self.s.rules.level;
+        let league = self.sides[o].team.league.as_deref();
+        let legs = qb.map_or(0.0, |i| qb_legs(&self.sides[o].team.players[i], level, league));
         let ctx = calling::OffCtx {
             has_fb,
             te_count,
             qb_run: qb_threat,
+            qb_legs: legs,
             level: self.s.rules.level,
             plan: self.sides[o].team.plan().0,
             designs: calling::sheet_designs(&self.sides[o].team.prep),
@@ -6119,6 +6131,7 @@ impl<'a> Game<'a> {
                 }
                 k
             },
+            qb_legs: qb_legs(&self.sides[o].team.players[qb], self.s.rules.level, self.sides[o].team.league.as_deref()),
         };
         let snap = Snap {
             teams: [&self.sides[o].team.players, &self.sides[d].team.players],
@@ -7850,10 +7863,14 @@ impl<'a> Game<'a> {
         let te_count = self.sides[o].depth.list(Position::TE).iter().filter(|&&i| !self.sides[o].out[i]).count();
         let qb = self.sides[o].depth.list(Position::QB).iter().copied().find(|&i| !self.sides[o].out[i]);
         let qb_threat = qb.map_or(0.0, |i| qb_run(&self.sides[o].team.players[i]));
+        let level = self.s.rules.level;
+        let legs =
+            qb.map_or(0.0, |i| qb_legs(&self.sides[o].team.players[i], level, self.sides[o].team.league.as_deref()));
         let ctx = calling::OffCtx {
             has_fb,
             te_count,
             qb_run: qb_threat,
+            qb_legs: legs,
             level: self.s.rules.level,
             plan: self.sides[o].team.plan().0,
             designs: calling::sheet_designs(&self.sides[o].team.prep),
@@ -9106,6 +9123,24 @@ fn passing_down(sit: &Situation) -> bool {
 pub fn qb_run(p: &GamePlayer) -> f64 {
     let moves = 0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - super::sim::size_cost(p.weight, 222.0);
     clamp((moves - 68.0) / 20.0, 0.0, 1.0)
+}
+
+/// A quarterback's legs against his league's typical starter, in points
+/// (realism audit item 3, college quarterback runs, 2026-11-27): the moves
+/// `qb_run` reads (0.6 of his Speed and 0.4 of his Elusiveness, less his
+/// size's cost) less the same of the typical starter in his own league
+/// (`roster_fit::reference_in`), or at his level when he has none. Read on
+/// his league's scale, a college runner counts as one against the men he
+/// plays, where `qb_run`'s pro scale left most college starters at zero.
+/// College staffs call his runs on it (`calling::run_weights`) and the zone
+/// read's read key plays him on it (`scrimmage`, `READ_CRASH`).
+pub fn qb_legs(p: &GamePlayer, level: Level, league: Option<&super::roster_fit::LeagueMen>) -> f64 {
+    use super::roster_fit::{Slot, WEIGHT, reference_in};
+    let typ = |a: Attr| reference_in(level, league, Slot::Qb, a.index() as u8);
+    let moves = 0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - super::sim::size_cost(p.weight, 222.0);
+    let typical = 0.6 * typ(Attr::Speed) + 0.4 * typ(Attr::Elusiveness)
+        - super::sim::size_cost(reference_in(level, league, Slot::Qb, WEIGHT), 222.0);
+    moves - typical
 }
 
 /// The running threat a defense spies (minor bug 289): his speed and
