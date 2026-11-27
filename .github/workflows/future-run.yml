@@ -14,6 +14,14 @@ name: Future run
 # prints its pages in the run's summary, and puts it on the worlds page in a
 # release of its own (tag future-...). No world file goes up, so the game's
 # library never lists it. Needs the WORLDS_TOKEN secret.
+#
+# The run also keeps the world file of each date it passes (1 January of the
+# start year, the middle and the end; `AFM_KEEP`, as artifacts) and the
+# `creep` jobs play each date's 32 NFL clubs on one engine with
+# `match_check` (`AFM_AB_WORLD`), with one unit at a time moved to the
+# league's typical starter (`AFM_TYPICAL`), so the scoring creep (audit item
+# 25 finding 2, `docs/trials/nfl-scoring-creep.md`) is told apart: the men,
+# or how the world feeds the engine. The same run is audit item 5's re-run.
 on:
   workflow_dispatch:
     inputs:
@@ -26,6 +34,18 @@ on:
       second:
         description: "Seasons the second job plays"
         default: "5"
+      start_year:
+        description: "The start world's year (its file ends -janYYYY)"
+        default: "2026"
+      middle_year:
+        description: "The year after the first job (start_year + first)"
+        default: "2031"
+      end_year:
+        description: "The year after the second job (middle_year + second)"
+        default: "2036"
+      creep_games:
+        description: "Games an arm in the creep jobs"
+        default: "1500"
 jobs:
   tools:
     runs-on: ubuntu-latest
@@ -74,8 +94,12 @@ jobs:
           done
           ls -la && du -sh ./* && df -h / /mnt
       - name: Play the first seasons
+        env:
+          AFM_KEEP: out/keep
         run: |
           f=$(realpath "$(ls out/*.afmworld | head -1)")
+          # The start world is the first date kept (a hard link: no more disk).
+          mkdir -p out/keep && ln "$f" out/keep/
           tools/afm_future "$f" "${{ inputs.first }}" 2>&1 | tee future-first.txt
           ls -la out/ && du -sh out/* && df -h / /mnt
           { echo '### First job'; echo '```'; cat future-first.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
@@ -87,6 +111,21 @@ jobs:
             out/*.afmdata/
             out/*.afmlog/
           retention-days: 3
+          compression-level: 0
+          if-no-files-found: error
+      # One artifact a kept date (`-janYYYY` names), for the creep jobs.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: future-keep-start
+          path: out/keep/*-jan${{ inputs.start_year }}.afmworld
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: future-keep-middle
+          path: out/keep/*-jan${{ inputs.middle_year }}.afmworld
+          retention-days: 7
           compression-level: 0
           if-no-files-found: error
   second:
@@ -107,12 +146,21 @@ jobs:
           name: future-half
           path: out
       - name: Play the rest
+        env:
+          AFM_KEEP: out/keep
         run: |
           ls -la out/ && du -sh out/* && df -h / /mnt
           f=$(realpath "$(ls out/*.afmworld | head -1)")
           tools/afm_future "$f" "${{ inputs.second }}" 2>&1 | tee future-second.txt
           ls -la out/ && du -sh out/* && df -h / /mnt
           { echo '### Second job'; echo '```'; cat future-second.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: future-keep-end
+          path: out/keep/*-jan${{ inputs.end_year }}.afmworld
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
       # The book needs the world and the log only (as the published worlds'
       # book job reads them); the tallies stay behind.
       - uses: actions/upload-artifact@v4
@@ -124,6 +172,72 @@ jobs:
           retention-days: 3
           compression-level: 0
           if-no-files-found: error
+  creep:
+    # The scoring creep told apart (docs/trials/nfl-scoring-creep.md): each
+    # kept date's 32 NFL clubs on this commit's engine, same seed and games
+    # in every arm. Arms: the clubs as they are, every position at the
+    # league's typical starter (what the engine and the feed give alone), and
+    # one unit at a time moved to the typical starter.
+    needs: second
+    strategy:
+      fail-fast: false
+      matrix:
+        date: [start, middle, end]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: future-keep-${{ matrix.date }}
+          path: out
+      - name: Compile match_check
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+          CARGO_PROFILE_RELEASE_LTO: "false"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+        run: cargo build --release -p afm-tools --bin match_check
+      - name: Play the clubs
+        env:
+          GAMES: ${{ inputs.creep_games }}
+        run: |
+          set -u
+          f=$(realpath "$(ls out/*.afmworld | head -1)")
+          echo "world: $f"
+          show() {
+            # The rows the creep is read from, with the unit moved.
+            grep -E '^ *(points|plays|pass attempts|carries|rush yards|yards per carry|yards per attempt|pass rate|explosive run rate|run EPA|EPA per play|sacks|sack rate|completion %|int rate|third down conv)( |$)' "$1" | cut -c1-110
+          }
+          run_arm() {
+            name="$1"; typical="$2"
+            if [ -n "$typical" ]; then export AFM_TYPICAL="$typical"; else unset AFM_TYPICAL; fi
+            AFM_AB_WORLD="$f" AFM_STARTERS=1.5 target/release/match_check nfl "$GAMES" 7 > "arm-$name.txt" 2>&1 || echo "arm $name failed"
+            { echo "=== ${{ matrix.date }} arm $name (typical: ${typical:-none})"; show "arm-$name.txt"; echo; } | tee -a creep.txt
+          }
+          run_arm plain ""
+          run_arm all "ALL"
+          run_arm ol "OT,IOL"
+          run_arm dl "EDGE,DT"
+          run_arm lb "LB"
+          run_arm db "CB,S"
+          run_arm rb "RB"
+          run_arm passers "QB,WR,TE"
+          # The starters against the typical man, once (the plain arm's list).
+          { echo '=== starters against the level (plain arm)'; grep '^starters' arm-plain.txt | cut -c1-400; } | tee -a creep.txt
+          { echo '### Creep: ${{ matrix.date }}'; echo '```'; cat creep.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: creep-${{ matrix.date }}
+          path: |
+            creep.txt
+            arm-*.txt
+          retention-days: 14
+          if-no-files-found: warn
   book:
     needs: second
     runs-on: ubuntu-latest

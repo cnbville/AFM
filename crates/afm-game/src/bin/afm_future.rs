@@ -9,7 +9,12 @@
 //! run on (the log carries on after its last segment), on this machine or
 //! another that has the three together: a GitHub job may run six hours.
 //! Nothing of the world's own code is changed; it is the game's play-on.
-//! `AFM_WORLD_LOG=off` plays without a log.
+//! `AFM_WORLD_LOG=off` plays without a log. `AFM_KEEP=<folder>` also puts
+//! the new world file in that folder (a hard link, a copy where the disk
+//! can't link), so the files of each date a run passes survive the next
+//! segment deleting its input: `match_check` with `AFM_AB_WORLD` then plays
+//! each date's clubs on one engine (the scoring-creep read,
+//! `docs/trials/nfl-scoring-creep.md`).
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -104,6 +109,17 @@ fn main() {
         .and_then(|_| std::fs::rename(&part, &to))
         .unwrap_or_else(|e| panic!("write: {e}"));
     println!("{} written in {:.0} s", to.display(), t.elapsed().as_secs_f64());
+    if let Some(keep) = std::env::var_os("AFM_KEEP").map(PathBuf::from) {
+        std::fs::create_dir_all(&keep).unwrap_or_else(|e| panic!("keep folder: {e}"));
+        let name = to.file_name().expect("a file name");
+        let at = keep.join(name);
+        let _ = std::fs::remove_file(&at);
+        if let Err(e) = std::fs::hard_link(&to, &at) {
+            eprintln!("no hard link ({e}): copying");
+            std::fs::copy(&to, &at).unwrap_or_else(|e| panic!("keep {}: {e}", at.display()));
+        }
+        println!("kept {}", at.display());
+    }
     // The tallies and the log go beside the new world; the old world file goes.
     for (from, to_dir) in [(data, afm_game::tallies::beside(&to)), (log_dir, afm_game::world_log::beside(&to))] {
         if from.is_dir() && from != to_dir {
