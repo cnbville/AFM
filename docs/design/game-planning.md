@@ -134,7 +134,7 @@ Each lane is its own thread. Calm mode (Cain, 2026-11-20) allows one engine lane
 
 | Lane | What | Topics |
 |---|---|---|
-| GP0 | The scheme duel test (tool, no engine change) | 14 |
+| GP0 | The scheme duel test (tool, no engine change): built 2026-11-27, `duel_check`, baseline in `docs/research/sequencing.md` section 12 | 14 |
 | GP-fix | The clock between snaps, throws past the end line (small fixes) | 11 |
 | GP1 | Direction memory; keys and false steps | 1, 2 |
 | GP2 | Series links; self-scouting and chosen breakers | 3, 6 |
