@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.720 (27 Nov, shipped): college quarterback runs: his legs against his league, his runs in every college book, the zone read's read key (realism audit item 3) (PR #678)
+**TLDR:** College quarterbacks now run like real ones: a quick passer gets his zone reads and his power calls in any offense, and the zone read itself works the way it does on Saturdays.
+- College staffs of every system call their quarterback's runs, more of them the quicker he is against the men in his league. (PR #678)
+- On the zone read the backside end is left unblocked for the quarterback to read, and he crashes or waits on him like a real end. (PR #678)
+- A quarterback who keeps it now runs at full speed around the end instead of jogging behind his back. (PR #678)
+- Dual-threat college quarterbacks now put up real rushing lines. (PR #678)
+- Look at: a college team with a quick quarterback, his carries and yards in the box score and on his season page. (PR #678)
+
 ## 0.2.719 (27 Nov, shipped): the second level: the climber a linebacker beat, the shed that reads the block, the misread fit (realism audit item 3) (PR #677)
 **TLDR:** Linebackers now make their share of the tackles on running plays, and a defender who guesses his gap wrong opens a lane for the back.
 - A lineman a linebacker slips is out of the play until he gets his feet back, so quick linebackers who beat blocks show up on the stat sheet. (PR #677)

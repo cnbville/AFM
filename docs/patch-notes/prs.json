@@ -3466,5 +3466,19 @@
   "players": true,
   "title": "The second level: the climber a linebacker beat, the shed that reads the block, the misread fit (realism audit item 3)",
   "tldr": "Linebackers now make their share of the tackles on running plays, and a defender who guesses his gap wrong opens a lane for the back."
+ },
+ "678": {
+  "auto": false,
+  "bullets": [
+   "College staffs of every system call their quarterback's runs, more of them the quicker he is against the men in his league.",
+   "On the zone read the backside end is left unblocked for the quarterback to read, and he crashes or waits on him like a real end.",
+   "A quarterback who keeps it now runs at full speed around the end instead of jogging behind his back.",
+   "Dual-threat college quarterbacks now put up real rushing lines."
+  ],
+  "h": "8a7a519c2206",
+  "look": "a college team with a quick quarterback, his carries and yards in the box score and on his season page.",
+  "players": true,
+  "title": "College quarterback runs: his legs against his league, his runs in every college book, the zone read's read key (realism audit item 3)",
+  "tldr": "College quarterbacks now run like real ones: a quick passer gets his zone reads and his power calls in any offense, and the zone read itself works the way it does on Saturdays."
  }
 }

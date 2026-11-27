@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.720", date: "27 Nov", title: "College quarterback runs: his legs against his league, his runs in every college book, the zone read's read key (realism audit item 3)",
+    notes: [
+      "College quarterbacks now run like real ones: a quick passer gets his zone reads and his power calls in any offense, and the zone read itself works the way it does on Saturdays.",
+      "College staffs of every system call their quarterback's runs, more of them the quicker he is against the men in his league.",
+      "On the zone read the backside end is left unblocked for the quarterback to read, and he crashes or waits on him like a real end.",
+      "A quarterback who keeps it now runs at full speed around the end instead of jogging behind his back.",
+      "Dual-threat college quarterbacks now put up real rushing lines.",
+    ],
+  },
+  {
     v: "0.2.719", date: "27 Nov", title: "The second level: the climber a linebacker beat, the shed that reads the block, the misread fit (realism audit item 3)",
     notes: [
       "Linebackers now make their share of the tackles on running plays, and a defender who guesses his gap wrong opens a lane for the back.",
