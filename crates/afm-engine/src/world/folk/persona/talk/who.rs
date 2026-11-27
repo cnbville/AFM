@@ -22,6 +22,8 @@ pub struct Who {
     pub personality: Vec<String>,
     pub mood: String,
     pub football: String,
+    /// How he sees his own game (`own_game`): a player's own read.
+    pub own_game: Vec<String>,
     pub known_you: String,
     pub swears: bool,
 }
@@ -106,7 +108,8 @@ pub fn who(w: &World, him: Them, room: &Room) -> Who {
     // with his elders: a high schooler keeps it clean with his coach.
     let loose = age >= 18 && super::super::manner::loosens(w, him);
     let swears = setting && (tr.z(Trait::Temper) > 0.3 || (age >= 21 && tr.z(Trait::Professionalism) < 0.0) || loose);
-    Who { background, personality, mood, football, known_you, swears }
+    let own_game = super::own_game::words(w, him);
+    Who { background, personality, mood, football, own_game, known_you, swears }
 }
 
 /// A band of a 1-20 makeup trait (lane N1's scale). Proposed, not
@@ -204,6 +207,7 @@ fn coach(w: &World, c: usize, him: Them, room: &Room) -> Who {
         personality: makeup_words(&m),
         mood: String::new(),
         football,
+        own_game: Vec::new(),
         known_you: known(w, him),
         swears: swears_with(w, him, room, &m),
     }

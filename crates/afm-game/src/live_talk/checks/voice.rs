@@ -100,6 +100,7 @@ impl SetVoice {
             personality: self.personality.clone(),
             mood: self.mood.clone(),
             football: self.football.clone(),
+            own_game: Vec::new(),
             known_you: self.known_you.clone(),
             standing: Vec::new(),
             stakes: self.stakes.clone(),

@@ -28,6 +28,7 @@ pub mod channels;
 pub mod feel;
 pub mod hits;
 pub mod items;
+pub mod own_game;
 pub mod stakes;
 pub mod standing;
 pub mod store;

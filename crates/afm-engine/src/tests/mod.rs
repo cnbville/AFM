@@ -102,6 +102,7 @@ mod persona_evaluate;
 mod persona_home;
 mod persona_negotiate;
 mod persona_office;
+mod persona_own_game;
 mod persona_people;
 mod persona_standing;
 mod persona_year;

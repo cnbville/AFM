@@ -396,7 +396,7 @@ fn openers(s: &Scene) -> Vec<String> {
 /// The voice's card from the game's turn.
 pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &str, keys: &EarKeys) -> VoiceCard {
     let Some(him) = answering(room, t) else { return VoiceCard::default() };
-    let who::Who { background, personality, mood, football, known_you, swears } = who::who(w, him, room);
+    let who::Who { background, personality, mood, football, own_game, known_you, swears } = who::who(w, him, room);
     let (say, asks) = talk::say_of(t);
     let wants_all = parts.wanting.wants(w, him);
     let care = match him {
@@ -528,6 +528,9 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         personality,
         mood,
         football,
+        // In front of the room he answers for the group, not about his own
+        // game.
+        own_game: if group { Vec::new() } else { own_game },
         known_you,
         // In front of the room he answers for the group, never his own
         // situation: no "Where you stand" of the man who speaks.
@@ -686,6 +689,10 @@ impl VoiceCard {
         put("Who you are", &self.personality.join("; "));
         put("Your mood", &self.mood);
         put("Your football", &self.football);
+        put(
+            "Your own game, as you see it (true, and you know all of it already; when the coach says something about how you play, judge it by this and answer as this man would, never as a number)",
+            &self.own_game.join("; "),
+        );
         put(
             "You and the coach (true, and you know all of it already: this is all the history you have with him, so never invent more)",
             &self.known_you,

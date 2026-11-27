@@ -169,3 +169,19 @@ fn the_same_man_talks_the_same_way_every_time() {
     assert_eq!(a, speech::habits(w, Them::Player(him), "Test Coach"));
     assert!(a.len() >= 3, "{a:?}");
 }
+
+#[test]
+fn the_card_carries_his_own_read_of_his_game_and_a_voice_rule_to_judge_by_it() {
+    // Talk audit 2026-11-27: a tackle with Communication 8 told his
+    // communication was weak answered "I've been calling the protections".
+    // His card now holds how he sees his own game, in words, never numbers.
+    let (mut g, f, him) = game("replies-own-game", true);
+    let f = f.unwrap();
+    let id = talk(&mut g, him, "role");
+    line(&mut g, &f, id, ear(vec![act("question", "", "Mood", "")], vec![], false), "Fine.", "How's school?");
+    let card = last_voice(&f);
+    assert!(card.contains("Your own game, as you see it"), "{card}");
+    assert!(card.contains("everything else you'd call about average"), "{card}");
+    let rules = super::super::voice::VOICE_RULES;
+    assert!(rules.contains("Your own game is how you see your own play"), "the rule that judges by it");
+}
