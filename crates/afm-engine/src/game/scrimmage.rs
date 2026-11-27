@@ -263,6 +263,11 @@ pub struct Tactics {
     /// (`roster::Keep`): empty for every AI team.
     #[serde(default)]
     pub keep: KeepSnap,
+    /// The offense's quarterback's legs against his league's typical
+    /// starter, in points (`flow::qb_legs`): the zone read's read key plays
+    /// him on it (`READ_CRASH`).
+    #[serde(default)]
+    pub qb_legs: f64,
 }
 
 /// The men a plan keeps a usage promise to on one snap, by player index:
@@ -303,6 +308,7 @@ impl Default for Tactics {
             double_moves: 0.0,
             learn: [0.0; 2],
             keep: KeepSnap::default(),
+            qb_legs: 0.0,
         }
     }
 }
@@ -643,6 +649,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         chip: None,
         gap_run: None,
         fake: None,
+        read_key: None,
+        read_sit: false,
+        read_at: 0.0,
         stunt: None,
         level: s.rules.level,
         mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
@@ -1327,6 +1336,15 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 | RunConcept::Iso => Some(true),
                 _ => None,
             };
+            // The zone read and the triple option (realism audit item 3,
+            // 2026-11-27): the line leaves the read key alone, and his plan
+            // is to crash on the back or sit on the quarterback, sitting more
+            // often the more the quarterback can hurt him.
+            if matches!(rc, RunConcept::ZoneRead | RunConcept::TripleOption) {
+                sim.read_key = read_key(&sim, off_n, &role_of, dir);
+                let crash = clamp(READ_CRASH - READ_CRASH_LEGS * s.tac.qb_legs, 0.05, 0.95);
+                sim.read_sit = !sim.rng.chance(crash);
+            }
             run_blocking(&mut sim, off_n, &role_of, rc, dir, pulls);
             if let Some(look) = s.fake_punt {
                 return_jobs(&mut sim, s, off_n, &slot_of, &role_of, look);
@@ -1763,13 +1781,29 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                 option_live = true;
                             }
                         }
+                        if sim.read_key.is_some() {
+                            sim.read_at = t;
+                        }
                         if zone_read_keep {
                             sim.agents[qb].job = Job::Carrier;
                             sim.ball = Ball::Held(qb);
                             sim.progress = sim.agents[qb].pos.x;
                             sim.agents[i].job = Job::RunBlock { target: None, pull: false };
                             res.carrier = Some(sim.agents[qb].id);
-                            aim = Some(v2(los + 1.0, by - 6.0 * s.call.dir));
+                            // He keeps it at his own speed (the back's press
+                            // to the line was his pace too, so a keep ran at
+                            // 4.1 yards a second), bending outside the read
+                            // key when the key is wider than his aim.
+                            sim.press = 0.0;
+                            let d = s.call.dir;
+                            let mut y = by - 6.0 * d;
+                            if let Some(e) = sim.read_key {
+                                let ey = sim.agents[e].pos.y - KEEP_OUTSIDE * d;
+                                if ey * d < y * d {
+                                    y = ey;
+                                }
+                            }
+                            aim = Some(v2(los + 1.0, y));
                         } else {
                             sim.agents[i].job = Job::Carrier;
                             sim.ball = Ball::Held(i);
@@ -2019,7 +2053,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                 for d in off_n..sim.agents.len() {
                                     let a = &sim.agents[d];
                                     let inside = !(rpo_hold && is_line(sim.agents[i].label)) || a.pos.x < edge + 1.5;
-                                    if a.up(t) && a.engaged.is_none() && a.pos.x > ballx - 1.0 && inside {
+                                    if a.up(t)
+                                        && a.engaged.is_none()
+                                        && a.pos.x > ballx - 1.0
+                                        && inside
+                                        && Some(d) != sim.read_key
+                                    {
                                         let sq = a.pos.dist_sq(me);
                                         if sq_lt(sq, 6.0) {
                                             near.offer(d, sq);
@@ -4310,7 +4349,8 @@ fn run_blocking(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], rc: RunCon
         .collect();
     // Play side first.
     line.sort_by(|&a, &b| (sim.agents[b].pos.y * dir).total_cmp(&(sim.agents[a].pos.y * dir)));
-    let front: Vec<usize> = (off_n..n).filter(|&i| sim.agents[i].pos.x < sim.los + 2.5).collect();
+    let front: Vec<usize> =
+        (off_n..n).filter(|&i| sim.agents[i].pos.x < sim.los + 2.5 && Some(i) != sim.read_key).collect();
     let second: Vec<usize> = (off_n..n)
         .filter(|&i| {
             sim.agents[i].pos.x >= sim.los + 2.5
@@ -5255,16 +5295,65 @@ fn late_on_slide(sim: &mut Sim, c: usize) {
     }
 }
 
-/// The zone read: keep it if the backside end crashes on the back.
+/// The zone read's read key (realism audit item 3, college quarterback runs,
+/// 2026-11-27): how often he crashes on the back with a typical runner at
+/// quarterback, and how much less often a point of the quarterback's legs
+/// against his league's typical starter (`flow::qb_legs`), since a staff
+/// tells its end to squeeze and play the quarterback when he can hurt them
+/// and to take the back when he can't. Proposed, not confirmed.
+const READ_CRASH: f64 = 0.3;
+const READ_CRASH_LEGS: f64 = 0.008;
+/// Seconds after the snap the read key shows his plan, crash or sit: his
+/// first step is the quarterback's read at the mesh. Proposed, not
+/// confirmed.
+const READ_SHOW: f64 = 0.1;
+/// Yards behind the line he crashes to, flat down it on the back's path: a
+/// deeper crash put him in the quarterback's path, so a keep against a
+/// crash lost ground on one carry in five. Proposed, not confirmed.
+const READ_CRASH_DEPTH: f64 = 0.5;
+/// Yards outside the read key the quarterback aims when he keeps it, when
+/// the key is wider than his own aim.
+const KEEP_OUTSIDE: f64 = 2.5;
+/// Seconds the mesh ride holds the read key on his plan after the ball
+/// goes, for the typical starter's ball handling (the fake's sell,
+/// `SELL_PER_POINT`, a point either way): a man who crashed keeps on his
+/// course after a keep, a man who sat stays home after a handoff, until he
+/// sees who has it. Proposed, not confirmed.
+const MESH_HOLD: f64 = 0.35;
+
+/// The zone read's read key: the first man on the line outside the last
+/// blocker on the backside (the backside tackle, or a tight end beyond
+/// him), whom the line leaves alone for the quarterback to read. Before the
+/// read key the line blocked whoever was there and the quarterback read
+/// the nearest free man, so the end was most often blocked and a keep was
+/// read off a man who wasn't playing it.
+fn read_key(sim: &Sim, off_n: usize, roles: &[Option<ORole>], dir: f64) -> Option<usize> {
+    let edge = (0..off_n)
+        .filter(|&i| roles[i].is_some_and(|r| r.is_line() || matches!(r, ORole::TE | ORole::TE2 | ORole::TE3)))
+        .min_by(|&a, &b| (sim.agents[a].pos.y * dir).total_cmp(&(sim.agents[b].pos.y * dir)))?;
+    let ey = sim.agents[edge].pos.y;
+    (off_n..sim.agents.len())
+        .filter(|&d| {
+            let a = &sim.agents[d];
+            a.pos.x < sim.los + 2.5 && (a.pos.y - ey) * dir < -0.6 && (a.pos.y - ey).abs() < 5.0
+        })
+        .min_by(|&a, &b| (sim.agents[a].pos.y - ey).abs().total_cmp(&(sim.agents[b].pos.y - ey).abs()))
+}
+
+/// The zone read: keep it if the backside end crashes on the back. The
+/// quarterback reads the read key while nobody has blocked him, else the
+/// nearest free man on the backside; a sharp one reads him right more often.
 fn read_option(sim: &mut Sim, qb: usize, dir: f64, off_n: usize) -> bool {
     let q = sim.agents[qb].pos;
-    let end = (off_n..sim.agents.len())
-        .filter(|&d| {
-            sim.agents[d].engaged.is_none()
-                && (sim.agents[d].pos.y - q.y) * dir < -1.5
-                && sim.agents[d].pos.x < sim.los + 3.0
-        })
-        .min_by(|&a, &b| sim.agents[a].pos.dist(q).total_cmp(&sim.agents[b].pos.dist(q)));
+    let end = sim.read_key.filter(|&e| sim.agents[e].engaged.is_none()).or_else(|| {
+        (off_n..sim.agents.len())
+            .filter(|&d| {
+                sim.agents[d].engaged.is_none()
+                    && (sim.agents[d].pos.y - q.y) * dir < -1.5
+                    && sim.agents[d].pos.x < sim.los + 3.0
+            })
+            .min_by(|&a, &b| sim.agents[a].pos.dist(q).total_cmp(&sim.agents[b].pos.dist(q)))
+    });
     let Some(e) = end else { return false };
     let crash = sim.agents[e].vel.y * dir > 1.0 || (sim.agents[e].pos.y - q.y).abs() < 2.5;
     let iq = sim.agents[qb].a(Attr::Decisions);
@@ -7817,6 +7906,49 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                 let me = sim.agents[i].pos;
                 sim.go_to(i, v2(s.los + 0.4, me.y + clamp(lane - me.y, -1.0, 1.0)), 0.35);
                 return;
+            }
+            // The zone read's read key (realism audit item 3, 2026-11-27):
+            // from his first step until the ball is handed off or kept he
+            // crashes flat down the line on the back's path or sits at the
+            // edge and squeezes on the quarterback, his plan from the snap.
+            if Some(i) == sim.read_key && !pass_play && t >= READ_SHOW {
+                let me = sim.agents[i].pos;
+                let q = sim.agents[qb].pos;
+                let mesh = carrier == Some(qb) && matches!(sim.agents[qb].job, Job::Fake { .. });
+                // The mesh ride holds him a beat after the ball goes: a man
+                // who crashed keeps on his course after a keep, a man who sat
+                // stays home after a handoff, until he sees who has it. A
+                // man who crashed takes the back he crashed on; a man who sat
+                // takes the quarterback who kept.
+                let typ = super::synthetic::typical_starter(sim.level, Position::QB, Attr::BallHandling);
+                let sell = (SELL_PER_POINT * (sim.agents[qb].a(Attr::BallHandling) - typ)).exp();
+                let held = sim.read_at > 0.0 && t < sim.read_at + MESH_HOLD * sell;
+                let kept = !mesh && carrier == Some(qb);
+                let given = carrier.is_some_and(|c| c != qb);
+                let sit_aim = v2(s.los - sim.goal * 0.5, me.y + clamp(q.y - me.y, -0.3, 0.3));
+                let crash_aim = v2(s.los - sim.goal * READ_CRASH_DEPTH, s.ball_y + 0.5 * s.call.dir);
+                if mesh {
+                    if sim.read_sit {
+                        sim.go_to(i, sit_aim, 0.35);
+                    } else {
+                        sim.go_to(i, crash_aim, 1.0);
+                    }
+                    return;
+                }
+                if let Some(c) = carrier
+                    && (kept && sim.read_sit || given && !sim.read_sit)
+                {
+                    sim.pursue(i, c);
+                    return;
+                }
+                if held && kept {
+                    sim.go_to(i, crash_aim, 1.0);
+                    return;
+                }
+                if held && given {
+                    sim.go_to(i, sit_aim, 0.35);
+                    return;
+                }
             }
             let q = match carrier {
                 Some(c) => sim.agents[c].pos,

@@ -455,6 +455,7 @@ fn main() {
                 level,
                 two_from: rules.two_point_from,
                 qb_run: 0.3,
+                qb_legs: 0.0,
                 seed: seed ^ k as u32,
                 favs: Vec::new(),
                 tells: film_tells(&teams[h].film),
@@ -676,6 +677,12 @@ fn main() {
     if std::env::var("AFM_BLITZ").is_ok() {
         let pairs: Vec<(usize, usize)> = (0..results.len()).map(&pair).collect();
         blitz_read(&results, &teams, &pairs);
+    }
+    // AFM_QBRUN=1: who carries the ball, the quarterbacks' runs and
+    // scrambles above all, by team and by scheme.
+    if std::env::var("AFM_QBRUN").is_ok() {
+        let pairs: Vec<(usize, usize)> = (0..results.len()).map(&pair).collect();
+        qb_runs_read(&results, &teams, &pairs, level);
     }
     // Snap shares (topic: depth and rotation): starters' share of their
     // side's snaps by position, and the lead back's share of the backs'
@@ -4261,6 +4268,317 @@ fn defenders_plays(
             m.runs as f64 / g,
         );
     }
+}
+
+/// AFM_QBRUN=1: who carries the ball (realism audit item 3, the college
+/// quarterbacks' runs): every carry a team game by who carried it, the
+/// quarterback's designed runs, sneaks, scrambles and kneels apart; his runs
+/// and scrambles together a carry, by down and distance and a 100 plays, as
+/// a college book keeps them; by team, by each staff's scheme and by the
+/// starter's legs against his league's typical starter (`flow::qb_legs`);
+/// and each run call a team game with the quarterback's share of its
+/// carries, his yards a carry and everyone's. Real: FBS 2024 from cfbfastR
+/// (FBS against FBS, the regular season; sacks out, scrambles in, as its
+/// book keeps them), the NFL 2024 from nflverse (a quarterback is a man with
+/// 20 or more throws; the sneaks are designed runs up the middle on 2 or
+/// less to go); the scripts are in the project folder at `afm/item3-qb-runs/`.
+fn qb_runs_read(
+    results: &[afm_engine::game::GameResult],
+    teams: &[afm_engine::game::GameTeam],
+    pairs: &[(usize, usize)],
+    level: Level,
+) {
+    use afm_engine::game::playbook::{RUN_CONCEPTS, RunConcept};
+    use afm_engine::game::stats::PlayType;
+    use afm_engine::positions::Position as P;
+    use std::collections::HashMap;
+    let who: Vec<HashMap<u32, P>> =
+        teams.iter().map(|t| t.players.iter().map(|p| (p.id, p.position)).collect()).collect();
+    let tg = 2.0 * results.len() as f64;
+    // The run concept of a call: the longest run name the call's run part
+    // ends with (an option's handoff reads its run part, as `run_gap` does).
+    let concept = |call: &str| -> Option<RunConcept> {
+        let c = call.trim_end_matches(" (audible)");
+        let c = c.split(" with ").next().unwrap_or(c);
+        let c = c.trim_end_matches(" left").trim_end_matches(" right");
+        RUN_CONCEPTS.into_iter().filter(|rc| c.ends_with(rc.name())).max_by_key(|rc| rc.name().len())
+    };
+    // Carries by who carried: the quarterback's designed runs (sneaks out),
+    // sneaks, scrambles, kneels; backs, receivers, tight ends, anyone else.
+    const BY: [&str; 8] = ["QB designed", "QB sneaks", "QB scrambles", "kneels", "RB", "WR", "TE", "others"];
+    let mut by = [[0.0f64; 2]; 8];
+    // The quarterback's runs and scrambles together (kneels out): carries,
+    // yards, 10+, 20+, losses; and designed alone, scrambles alone.
+    let mut all = [0.0f64; 5];
+    let mut des = [0.0f64; 5];
+    let mut scr = [0.0f64; 5];
+    let add = |v: &mut [f64; 5], y: f64| {
+        v[0] += 1.0;
+        v[1] += y;
+        v[2] += (y >= 10.0) as u8 as f64;
+        v[3] += (y >= 20.0) as u8 as f64;
+        v[4] += (y < 0.0) as u8 as f64;
+    };
+    // By down and distance: his runs and scrambles, designed among them, yards.
+    const DD: [&str; 7] =
+        ["1st down", "2nd, 1-3", "2nd, 4-6", "2nd, 7+", "3rd/4th, 1-2", "3rd/4th, 3-6", "3rd/4th, 7+"];
+    const REAL_DD: [(f64, f64); 7] =
+        [(2.65, 5.78), (0.33, 4.87), (0.51, 5.78), (1.41, 5.92), (0.70, 3.87), (0.67, 6.03), (0.76, 7.85)];
+    let mut dd = [[0.0f64; 3]; 7];
+    // Each team: his runs and scrambles, designed, scrambles, team games,
+    // plays (runs and dropbacks) and dropbacks.
+    let mut team = vec![[0.0f64; 6]; teams.len()];
+    // Each run call: called, the quarterback carried, his yards.
+    let mut calls: HashMap<&'static str, [f64; 4]> = HashMap::new();
+    for (g, r) in results.iter().enumerate() {
+        let (h, a) = pairs[g];
+        let ti = [h, a];
+        for &t in &ti {
+            team[t][3] += 1.0;
+        }
+        for p in &r.stats.plays {
+            if p.nullified {
+                continue;
+            }
+            let t = ti[p.offense];
+            let pos = |id: Option<u32>| id.and_then(|i| who[t].get(&i).copied());
+            match p.kind {
+                PlayType::Kneel => {
+                    by[3][0] += 1.0;
+                    by[3][1] += p.yards;
+                    continue;
+                }
+                PlayType::Pass | PlayType::Sack => {
+                    team[t][4] += 1.0;
+                    team[t][5] += 1.0;
+                    continue;
+                }
+                PlayType::Scramble => {
+                    team[t][4] += 1.0;
+                    team[t][5] += 1.0;
+                    by[2][0] += 1.0;
+                    by[2][1] += p.yards;
+                    add(&mut all, p.yards);
+                    add(&mut scr, p.yards);
+                    team[t][0] += 1.0;
+                    team[t][2] += 1.0;
+                }
+                PlayType::Run => {
+                    team[t][4] += 1.0;
+                    let rc = concept(&p.call);
+                    let qb = pos(p.carrier) == Some(P::QB);
+                    if let Some(rc) = rc {
+                        let e = calls.entry(rc.name()).or_default();
+                        e[0] += 1.0;
+                        e[3] += p.yards;
+                        if qb {
+                            e[1] += 1.0;
+                            e[2] += p.yards;
+                        }
+                    }
+                    let k = match pos(p.carrier) {
+                        Some(P::QB) if rc == Some(RunConcept::Sneak) => 1,
+                        Some(P::QB) => 0,
+                        Some(P::RB) => 4,
+                        Some(P::WR) => 5,
+                        Some(P::TE) => 6,
+                        _ => 7,
+                    };
+                    by[k][0] += 1.0;
+                    by[k][1] += p.yards;
+                    if !qb {
+                        continue;
+                    }
+                    add(&mut all, p.yards);
+                    add(&mut des, p.yards);
+                    team[t][0] += 1.0;
+                    team[t][1] += 1.0;
+                }
+                _ => continue,
+            }
+            let togo = p.togo.round().max(1.0);
+            let b = match p.down {
+                1 => 0,
+                2 if togo <= 3.0 => 1,
+                2 if togo <= 6.0 => 2,
+                2 => 3,
+                _ if togo <= 2.0 => 4,
+                _ if togo <= 6.0 => 5,
+                _ => 6,
+            };
+            dd[b][0] += 1.0;
+            dd[b][1] += (p.kind == PlayType::Run) as u8 as f64;
+            dd[b][2] += p.yards;
+        }
+    }
+    let fbs = level == Level::FBS;
+    let nfl = level == Level::NFL;
+    println!("\n=== Who carries the ball (AFM_QBRUN) {tg:.0} team games ===");
+    let real_by: [Option<f64>; 8] = if fbs {
+        [None, None, None, None, Some(23.67), Some(1.13), Some(0.18), None]
+    } else if nfl {
+        [Some(1.27), Some(0.35), Some(1.95), Some(0.74), None, None, None, None]
+    } else {
+        [None; 8]
+    };
+    let mut line = String::from("carries a team game by who carried (yards a carry; real a team game)");
+    for (k, name) in BY.iter().enumerate() {
+        line.push_str(&format!(
+            " | {name} {:.2} ({:.2}{})",
+            by[k][0] / tg,
+            by[k][1] / by[k][0].max(1.0),
+            real_by[k].map_or(String::new(), |r| format!("; {r:.2}"))
+        ));
+    }
+    println!("{line}");
+    let ln = |v: &[f64; 5]| {
+        format!(
+            "{:.2} a team game, {:.2} a carry, 10+ {:.3}, 20+ {:.3}, losses {:.3}",
+            v[0] / tg,
+            v[1] / v[0].max(1.0),
+            v[2] / v[0].max(1.0),
+            v[3] / v[0].max(1.0),
+            v[4] / v[0].max(1.0)
+        )
+    };
+    let plays: f64 = team.iter().map(|t| t[4]).sum();
+    let drops: f64 = team.iter().map(|t| t[5]).sum();
+    let real_all = if fbs {
+        " | real FBS 2024: 7.03 a team game, 5.82 a carry, 10+ 0.193, 20+ 0.045, losses 0.075; 10.66 a 100 plays"
+    } else if nfl {
+        " | real NFL 2024: 3.55 a team game, 5.91 a carry, 10+ 0.205, 20+ 0.042; 5.80 a 100 plays"
+    } else {
+        ""
+    };
+    println!(
+        "the quarterbacks' runs and scrambles: {}; {:.2} a 100 plays (runs and dropbacks){real_all}",
+        ln(&all),
+        100.0 * all[0] / plays.max(1.0)
+    );
+    println!(
+        "  designed (sneaks in): {} | scrambles: {}, {:.4} of dropbacks{}",
+        ln(&des),
+        ln(&scr),
+        scr[0] / drops.max(1.0),
+        if nfl {
+            " (real NFL 2024: designed 1.62 at 3.56 a carry; scrambles 1.95 at 7.85, 0.0528 of dropbacks)"
+        } else {
+            ""
+        }
+    );
+    let mut line = String::from("  by down and distance, a team game (designed among them), yards a carry");
+    for (b, name) in DD.iter().enumerate() {
+        line.push_str(&format!(
+            " | {name} {:.2} ({:.2}) {:.2}{}",
+            dd[b][0] / tg,
+            dd[b][1] / tg,
+            dd[b][2] / dd[b][0].max(1.0),
+            if fbs { format!(" [real {:.2} {:.2}]", REAL_DD[b].0, REAL_DD[b].1) } else { String::new() }
+        ));
+    }
+    println!("{line}");
+    // By team: each team's runs and scrambles a game.
+    let pct = |mut v: Vec<f64>, q: f64| {
+        v.sort_by(|a, b| a.total_cmp(b));
+        if v.is_empty() { 0.0 } else { v[((v.len() - 1) as f64 * q).round() as usize] }
+    };
+    let per: Vec<f64> = team.iter().filter(|t| t[3] > 0.0).map(|t| t[0] / t[3]).collect();
+    let qs = [0.1, 0.25, 0.5, 0.75, 0.9];
+    println!(
+        "  by team, a game, the 10th/25th/50th/75th/90th: {}{}",
+        qs.iter().map(|&q| format!("{:.2}", pct(per.clone(), q))).collect::<Vec<_>>().join(" "),
+        if fbs {
+            " (real FBS 2024 2.85 4.32 6.48 8.95 12.31)"
+        } else if nfl {
+            " (real NFL 2024 1.24 2.28 2.79 4.46 5.78)"
+        } else {
+            ""
+        }
+    );
+    // By scheme, and by the starter's legs against his league's typical
+    // starter (`flow::qb_legs`), in points.
+    const THREAT_AT: [f64; 4] = [-10.0, -3.0, 3.0, 10.0];
+    let mut schemes: Vec<(String, [f64; 5])> = Vec::new();
+    let mut threat = [[0.0f64; 5]; 5];
+    let mut legs_all: Vec<f64> = Vec::new();
+    for (i, t) in teams.iter().enumerate() {
+        let v = &team[i];
+        if v[3] == 0.0 {
+            continue;
+        }
+        let name = format!("{:?}", t.staff.off_scheme);
+        let k = match schemes.iter().position(|s| s.0 == name) {
+            Some(k) => k,
+            None => {
+                schemes.push((name, [0.0; 5]));
+                schemes.len() - 1
+            }
+        };
+        let s = &mut schemes[k].1;
+        s[0] += 1.0;
+        s[1] += v[0];
+        s[2] += v[1];
+        s[3] += v[2];
+        s[4] += v[3];
+        let chart = afm_engine::game::roster::depth_chart(t, 99.0);
+        let q = chart
+            .list(P::QB)
+            .first()
+            .map_or(0.0, |&j| afm_engine::game::flow::qb_legs(&t.players[j], level, t.league.as_deref()));
+        legs_all.push(q);
+        let b = THREAT_AT.iter().filter(|&&x| q >= x).count();
+        let e = &mut threat[b];
+        e[0] += 1.0;
+        e[1] += v[0];
+        e[2] += v[1];
+        e[3] += v[2];
+        e[4] += v[3];
+    }
+    schemes.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut line = String::from("  by scheme: teams, a game all (designed, scrambles)");
+    for (name, s) in &schemes {
+        line.push_str(&format!(
+            " | {name} {:.0}, {:.2} ({:.2}, {:.2})",
+            s[0],
+            s[1] / s[4].max(1.0),
+            s[2] / s[4].max(1.0),
+            s[3] / s[4].max(1.0)
+        ));
+    }
+    println!("{line}");
+    const THREAT: [&str; 5] = ["under -10", "-10 to -3", "-3 to 3", "3 to 10", "10 and up"];
+    let mut line = format!(
+        "  by the starter's legs against his league's typical starter (10th/50th/90th {:.1} {:.1} {:.1}): teams, a game all (designed, scrambles)",
+        pct(legs_all.clone(), 0.1),
+        pct(legs_all.clone(), 0.5),
+        pct(legs_all.clone(), 0.9)
+    );
+    for (b, name) in THREAT.iter().enumerate() {
+        let e = &threat[b];
+        line.push_str(&format!(
+            " | {name} {:.0}, {:.2} ({:.2}, {:.2})",
+            e[0],
+            e[1] / e[4].max(1.0),
+            e[2] / e[4].max(1.0),
+            e[3] / e[4].max(1.0)
+        ));
+    }
+    println!("{line}");
+    let mut cs: Vec<(&&str, &[f64; 4])> = calls.iter().collect();
+    cs.sort_by(|a, b| b.1[0].total_cmp(&a.1[0]));
+    let mut line = String::from(
+        "  the run calls a team game (the quarterback's share of the carries, his yards a carry; everyone's yards a carry)",
+    );
+    for (name, v) in cs {
+        line.push_str(&format!(
+            " | {name} {:.2} ({:.2}, {:.2}; {:.2})",
+            v[0] / tg,
+            v[1] / v[0].max(1.0),
+            v[2] / v[1].max(1.0),
+            v[3] / v[0].max(1.0)
+        ));
+    }
+    println!("{line}");
 }
 
 /// AFM_BLITZ=1: the blitz, by how many came, who came and who picked him up

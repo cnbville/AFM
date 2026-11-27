@@ -175,6 +175,25 @@ Under the same permission. Each is proposed, not confirmed, and his to change. T
 9. **The order after it**: college quarterback runs, then the fight read with the helper's credit at college and high school, then the small lane on men out of position, then the linebackers' fill and the edges on inside runs (`GAPS.md`), then items 6, 7, 8, 16 and 19, then the tables once.
 10. **No world run.** Everything was measured with `match_check` on the seed 321 world file (2,720 NFL games an arm, 12,000 FBS) and the three test leagues.
 
+### Decisions taken for Cain under his proxy (college quarterback runs, 2026-11-27)
+
+Under the same permission. Each is proposed, not confirmed, and his to change. The numbers are in `docs/match-engine.md`, "College quarterback runs and the zone read", and what is left in `GAPS.md`.
+
+1. **His legs are read against his own league's typical starter** (`flow::qb_legs`), not on the pros' scale. On the old scale most college starters read as no runner at all, so their staffs called his runs like a pocket passer's.
+2. **Every college system has his runs in its book**, from the gun: a share of the inside zone becomes a zone read (0.35 with a typical runner, all of it for a man about 9 points quicker) and his power comes on top (1.5, or 3.5 in the spread option), each leaning by e^(0.12 × legs). College staffs of every system read the backside end and call the quarterback's power when he can run; before, only the spread option and the air raid did.
+3. **The NFL keeps its own book.** Its designed runs are near real in count (1.35 a team game, real 1.62) and the lean was sized on college men. That the NFL's book follows the system, not the man, is in `GAPS.md` for a lane of its own.
+4. **The zone read is fixed at every level, the NFL's too.** It was broken in the engine, not a college matter: the line leaves the read key alone, he shows his plan from his first step, crashes flat, and the quarterback keeps at his own speed.
+5. **The read key's plan reads the quarterback's legs**: he crashes on 30% of reads against a typical runner, 0.8 points fewer a point of legs. No real count of crash rates was found; the size gives keeps on 30% of FBS zone reads and the zone read half a yard over plain inside zone a call (5.04 against 4.51; 4.63 against 4.55 on main).
+6. **The share was picked between two arms**: 0.5 gave 4.56 designed runs a team game and 0.35 gave 4.45, against the estimate of about 4.3. The estimate splits cfbfastR's quarterback runs by the yards each kind gains, since its book doesn't mark scrambles. 0.35 is nearer and leaves more plain inside zone to staffs whose man can't run.
+7. **His power gets the same base in every system but the spread option** (1.5, the spread option 3.5). The air raid's own table had 1.0, the others none; a real staff's power call follows the man more than the system, and the lean does that.
+8. **The scrambles are left to their own entry.** The world's FBS quarterbacks scramble 0.69 times a team game (real about 2.7) and its NFL clubs' 0.41 (1.95). The cause is in the pocket, not the calls (`GAPS.md`, "Few passers get out of the pocket, and few scramble").
+9. **The backs' extra carries are left**: 29.84 to 27.05 a team game (real 23.67). The carries in all are near real, so the rest likely waits on the scrambles: real dropbacks end as the quarterback's runs about two more times a team game.
+10. **The NFL clubs' points rose 0.4 a team game** (25.8 to 26.2, real 22.5), with the zone read's gain (3.86 to 5.18 a call) and a new draw on every zone read. It is left: NFL scoring is its own lane.
+11. **The kneels and the college spy are logged, not changed**: 1.42 kneels a team game at FBS and 1.33 on the NFL clubs (real about 0.7), and the spy still reads the quarterback on the pros' scale.
+12. **The trial code is kept, not merged**: the switches, their read-outs, the scripts and the arms are in the project folder at `afm/item3-qb-runs/` (`qb-runs-trials.patch`, `README.md`).
+13. **The order after it**: the fight read with the helper's credit at college and high school, then the small lane on men out of position, then the linebackers' fill and the edges on inside runs (`GAPS.md`), then items 6, 7, 8, 16 and 19, then the tables once.
+14. **No world run.** Everything was measured with `match_check` on the seed 321 world file (12,000 FBS games an arm, 2,720 NFL) and the three test leagues.
+
 ## What was read
 
 - The world: seed 321, 30 seasons of history (1996-2025), stopped on 1 January 2026, built 2026-11-22 on main `094635f` (after every scheme-fit and engine-gaps lane). Release `world-2026-seed321-jan2026-094635f` on the worlds page.
