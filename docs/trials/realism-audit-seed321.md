@@ -160,6 +160,21 @@ Under the same permission. Each is proposed, not confirmed, and his to change. T
 6. **The order after it is unchanged**: the second level, then college quarterback runs, then the fight read with the helper's credit at college and high school, then the small lane on men out of position, then items 6, 7, 8, 16 and 19, then the tables once.
 7. **No world run.** Everything was measured with `match_check` on the seed 321 world file, 2,720 games an arm.
 
+### Decisions taken for Cain under his proxy (the second level, 2026-11-27)
+
+Under the same permission. Each is proposed, not confirmed, and his to change. The numbers are in `docs/match-engine.md`, "The second level", and what is left in `GAPS.md`.
+
+1. **The climber a linebacker beat is built.** A climber who whiffs on a linebacker past the phone booth needs his feet back (0.35 to 1.3 s by his Agility and Blocking in Space) and has to get between him and the ball before he can land on him again, the check a beaten pass blocker already has. A real climber the linebacker beat is out of the play.
+2. **The linebacker's extra slip goes from 0.4 to 0.2.** Now that a slip counts, 0.4 put linebackers at 27.6% of the first tackles on the backs' runs (real 23.3%) and took yards a carry to 3.83 (real 4.50); 0.2 puts them at 23.3% with the rest built.
+3. **The shed's floor holds the yards, not the downhill fill.** Decision 4 of the block above planned to win the yards with linebackers who fill downhill and a back who presses the hole. Neither held them (a nearer fill took the inside runs to 3.46-3.78 a carry, real 4.26; the press moved nothing). The floor was a cause of its own: the shed's pull read the block only past a half-won one, so a man driven off the ball came off his block for the runner as hard as one halfway to shedding his man, and interior linemen made 23.2% of the first tackles (real 18.5%). With the pull reading the block from an even one up (`SHED_FLOOR` 0.5, half the pull for a man even or losing) the backs gain 4.53 a carry (real 4.50); 0.25 gave 4.65 and main's 1.0 4.21 with the climber beaten.
+4. **No flat cut to the interior linemen's sheds.** The floor reads the block for every man and puts no rule on a position.
+5. **A misread fit commits.** A misfit linebacker fills a gap 2.5 yards past the runner's first spot (the old slide's distance), half a yard past the line, and stays in it until the runner is through the line. It costs the defense 0.10 a carry on the NFL clubs and 0.16 at FBS. The deep backs' misfits stay as they are (`GAPS.md`, "College runs rarely break long").
+6. **The nearer fill, the fill timed by his read and the back's press are logged, not built.** The linebackers' stuffs (11.4% of the first tackles on runs for a loss or none, real 23.3%) and their 1-4 yard tackles (31.2%, real 23.9%) wait on why a nearer linebacker costs the inside runs that much, traced first.
+7. **The costs are kept and logged.** The tackle leaders go further over (the NFL clubs' best season a year 208.7 to 214.1, real 183.0; FBS 202.8 to 212.2, real 159.5), since the linebackers' new tackles go to the same men, and the edges further short (17.7% to 15.9% of the first tackles, real 25.2%). Each has its own cause in `GAPS.md` ("The tackle leaders are still over real, and the front seven is short"; "Edges make too few tackles on inside runs").
+8. **The trial code is kept, not merged**: the switches, their read-outs, the scripts and the arms are in the project folder at `afm/item3-second-level/` (`second-level-trials.patch`, `README.md`).
+9. **The order after it**: college quarterback runs, then the fight read with the helper's credit at college and high school, then the small lane on men out of position, then the linebackers' fill and the edges on inside runs (`GAPS.md`), then items 6, 7, 8, 16 and 19, then the tables once.
+10. **No world run.** Everything was measured with `match_check` on the seed 321 world file (2,720 NFL games an arm, 12,000 FBS) and the three test leagues.
+
 ## What was read
 
 - The world: seed 321, 30 seasons of history (1996-2025), stopped on 1 January 2026, built 2026-11-22 on main `094635f` (after every scheme-fit and engine-gaps lane). Release `world-2026-seed321-jan2026-094635f` on the worlds page.

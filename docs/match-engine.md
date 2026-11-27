@@ -3535,6 +3535,70 @@ The beaten climber puts linebackers at the real share, but the back meets the wa
 
 What had to hold. Every game plays the same at every level: on the NFL clubs (seed 1) 4.456 yards a carry, 7.80 an attempt, 5.20 after the catch, 61.73 tackles and 25.65 points a team game, as main.
 
+## The second level: the climber a linebacker beat, the shed that reads the block and the misread fit (realism audit item 3, the second level, 2026-11-27)
+
+The target: the lane the section above asked for, linebackers' first tackles on runs with yards a carry held at real and no longer tackle fight. Built over main 5941f9c. The choices were taken for Cain under his proxy (the audit doc's list). Every size is proposed, not confirmed.
+
+How it was measured. `match_check` with `AFM_RUNDIAG=1` and `AFM_DEFENDERS=17` on world seed 321's 32 NFL clubs (2,720 games, seed 1), and the pick on its FBS teams (12,000 games), each try behind a temporary switch that is not kept; the switches and their read-outs are saved in the project folder at `afm/item3-second-level/`. The real side: the first listed tackler on the backs' designed runs by listed group (interior linemen, edges, linebackers, corners, safeties) and the run's yards, nflverse 2024, inside or outside the tackles by nflverse's run gap.
+
+What was wrong. Three things, each measured on the NFL clubs:
+
+- **A climber's whiff cost him nothing** (the section above): a lineman a linebacker slipped tried again 0.15 or 0.3 s later.
+- **A man losing his block came off it at full strength.** The shed's pull reads the block, 2 × (0.5 + w) a second, but it was never less than 2 a second (minor bug 164: any block not sealed), so it read the block only past a half-won one, and a tackle driven two yards off the ball came off for the runner as hard as one halfway to shedding his man. Interior linemen were the first tackler on 23.2% of the runs (real 18.5%) and on 39.3% of the 1-4 yard runs inside the tackles (real 25.6%), 41% of those right off a shed. The second level's own pull already read the block down to 0.2.
+- **A misread fit cost nothing.** A misfit linebacker slid 2.5 yards for 0.8 s with his eyes on the runner and his fill kept, so the gap he left closed behind him: a run against one gained 4.36 a carry, a clean one 4.36.
+
+What's built:
+
+- **The climber a linebacker beat** (`game/sim.rs`, `lands_block`, `CLIMB_RECOVER`, `LB_SLIP`). A climber who whiffs on a linebacker 1.5 or more yards past the line can't land on him again until he has his feet back, clamp(0.8 - 0.010 × (Agility - 60) - 0.006 × (Blocking in Space - 60), 0.35, 1.3) seconds, and is half a yard nearer the ball than him: the check a beaten pass blocker already has (`can_square`). The linebacker's extra slip goes from 0.4 to 0.2, since a slip now counts.
+- **The shed that reads the block** (`SHED_FLOOR` 0.5). The runner's pull on a man in a block is at least 2 × 0.5 a second, so it reads the block from an even one up: a man even or losing in his block comes off it at half the pull he had, one winning it by less than half at between half and all of it, and past that nothing changes. It reads the block for every man, with no rule by position.
+- **The misread fit** (`game/scrimmage.rs`, `misfit_gap`, `MISFIT_GAP` 2.5). A misfit linebacker fills the wrong gap: half a yard past the line, 2.5 yards past where the runner was on his first look at the run (the false way on misdirection), and he stays in it until the runner is through the line. A misfit deep back is still 2 yards late to his fit.
+
+| NFL clubs (2,720 games) | main | the beaten climber | the shed's floor | both | built (both and the misfit) | real |
+|---|---|---|---|---|---|---|
+| yards a carry, backs' designed runs | 4.46 | 4.21 | 4.80 | 4.51 | 4.53 | 4.50 |
+| inside / outside the tackles | 3.92 / 5.93 | 3.65 / 5.57 | 4.31 / 6.17 | 3.98 / 5.83 | 4.01 / 5.86 | 4.26 / 4.72 |
+| runs outside the tackles | 0.250 | 0.259 | 0.252 | 0.261 | 0.259 | 0.231 |
+| first tackler: interior linemen | 0.232 | 0.224 | 0.209 | 0.202 | 0.200 | 0.185 |
+| edges | 0.177 | 0.176 | 0.159 | 0.159 | 0.159 | 0.252 |
+| linebackers | 0.192 | 0.228 | 0.192 | 0.234 | 0.233 | 0.233 |
+| corners | 0.130 | 0.125 | 0.139 | 0.132 | 0.134 | 0.116 |
+| safeties | 0.225 | 0.205 | 0.252 | 0.229 | 0.229 | 0.178 |
+| two men on a tackled run / catch | 0.353 / 0.239 | 0.366 / 0.243 | 0.348 / 0.240 | 0.361 / 0.240 | 0.363 / 0.240 | 0.431 / 0.197 |
+| tackles, points a team game | 61.7, 25.6 | 62.2, 25.0 | 61.7, 26.5 | 62.1, 25.7 | 62.0, 25.8 | 62.0, 22.5 |
+
+The beaten climber alone takes 0.25 yards a carry, as in the section above (the back meets the linebacker who got free and bounces into the line); the shed's floor alone gives 0.34 back; together they hold yards a carry at real with linebackers at the real share and interior linemen nearer it. Interior linemen make 33.7% of the first tackles on the 1-4 yard runs inside the tackles (39.3% on main, real 25.6%). A misread fit now costs the defense: a run against a misfit linebacker gains 4.50 a carry and goes 10 yards or more 10.7% of the time, a clean one 4.40 and 9.5%.
+
+Where the linebackers' first tackles land:
+
+| NFL clubs, linebackers' share of the first tackles by the run's yards | a loss or none | 1-4 | 5-9 | 10-19 | 20+ |
+|---|---|---|---|---|---|
+| main | 0.107 | 0.251 | 0.187 | 0.084 | 0.126 |
+| built | 0.114 | 0.312 | 0.227 | 0.104 | 0.152 |
+| real | 0.233 | 0.239 | 0.262 | 0.158 | 0.072 |
+
+So the share is real but the runs are not: a linebacker still meets the runner a yard or two past the line, where he fills (2.6 yards past it), and rarely in the backfield. In `GAPS.md` ("Safeties and linebackers end the wrong runs").
+
+On world seed 321's FBS teams (12,000 games) the pick holds the run game: 5.21 yards a carry to 5.23 (real 5.12), 26.4 points a team game to 26.7, linebackers the first tackler on 23.2% of the backs' runs to 27.5%, interior linemen 16.1% to 13.9% and edges 20.9% to 19.0% (no real split by group at FBS). A run against a misfit linebacker gains 5.19 a carry, a clean one 5.03 (5.09 and 5.07 on main), and the backs' runs of 20 or more stay at 2.4% (real 3.9%).
+
+On the test leagues (each level's typical men, 1,000 games, seed 1) linebackers go past real: the NFL's from 21.4% of the first tackles to 27.1%, FBS 22.2% to 28.2% and high school 22.1% to 28.8%, with the NFL's interior linemen 18.7% to 16.4% (real 18.5%). The NFL test league's backs gain 4.38 a carry (main 4.49, real 4.50), FBS 4.85 (4.86) and high school 5.65 (5.77). There the beaten climber alone costs 0.35 a carry (the world's clubs 0.25) and lifts linebackers 5.0 points (3.6), and the floor alone gives back the same 0.33. The likely why is the gap between the typical men and the world's (`GAPS.md`, "The typical starter isn't the world's"): the world's NFL offensive linemen carry 15 to 18 more Agility than the typical starter and 3 to 6 more Blocking in Space, so its climbers whiff less and get their feet back sooner. The sizes are set on the world's clubs, the men the game plays.
+
+What it costs. The linebackers' new tackles go to the same men, so the tackle leaders go further over real: the NFL clubs' 1st, 10th and 50th tackle seasons a year 208.7, 160.8 and 124.7 to 214.1, 168.3 and 130.9 (real 183.0 and 145.2 for the 1st and 10th), FBS 202.8, 158.5 and 130.8 to 212.2, 165.4 and 137.7 (real 159.5, 126.0 and 102.0). And the edges, already short, lose a little more with the shed's floor (17.7% to 15.9%, real 25.2%): on inside runs they are in a block with a tight end, a back or a receiver most of the time, and the free ones are behind the runner. Both are in `GAPS.md` ("The tackle leaders are still over real, and the front seven is short"; "Edges make too few tackles on inside runs").
+
+Tried and not built (NFL clubs, each with the climber beaten and the shed's floor):
+
+| | yards a carry (inside) | linebackers first | of the stuffs | of the 1-4 yard runs |
+|---|---|---|---|---|
+| built | 4.53 (4.01) | 0.233 | 0.114 | 0.312 |
+| the fill 2.0 yards past the line, the hold 1.5 | 4.33 (3.69) | 0.279 | 0.120 | 0.402 |
+| the fill 1.5, the hold 1.0 | 4.19 (3.46) | 0.309 | 0.198 | 0.453 |
+| the fill 1.0, the hold 0.5, no extra slip | 4.47 (3.78) | 0.270 | 0.277 | 0.388 |
+| the fill timed by his read (the sooner he read the run, the nearer he fills) | 4.38 (3.72) | 0.271 | 0.167 | 0.386 |
+| real | 4.50 (4.26) | 0.233 | 0.233 | 0.239 |
+
+A nearer fill gives linebackers the real stuffs only with far too many of the 1-4 yard runs and the inside run game short by half a yard a carry or more, and why a nearer linebacker costs the inside runs that much is not traced yet. A back who presses the hole at a free linebacker to make him commit (his hole read counting a free man past the line at a quarter or half of his weight) moved nothing (4.64 against 4.65 a carry, linebackers 23.6% against 23.8%, on the floor at 0.25). The double team's length before the climb and the linebackers' hold and scrape depths moved nothing either. The floor at 0.25 gave 4.65 a carry and interior linemen 19.0%; at 1.0 (main's) with the climber beaten 4.21 and 22.4%. A flat cut to the interior linemen's sheds alone was dropped for the floor, which reads the block for every man.
+
+What had to hold. Passing barely moves: 7.79 yards an attempt on the NFL clubs (main 7.80), 7.78 at FBS (7.77). The backs' runs on the charting's count: 2.39 yards before contact and 2.10 after on the NFL clubs (main 2.32 and 2.11, real 2.30 and 2.08).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages; `usfl` is the 2022 USFL); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, a college division (FBS by default) or NFL; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs, or at `fbs` its FBS programs as its season played them on its own schedule (`AFM_CONF=1`: conference games; `AFM_TEAMS=<file>` keeps the teams, a world file takes a minute to read), `AFM_STARTERS=<points>` prints the teams' starters against the level's typical starter in every rating that far apart, `AFM_TYPICAL="OT,IOL;RB:Speed,weight"` moves those positions' men so their starters average him (`ALL` for every position), `AFM_SEASONS=13` reads the games as seasons of that many (thousand-yard backs and receivers, the leaders, the Heisman voters' read), `AFM_DEFENDERS=13` the defenders' season lines against `data/real-world/defenders.json` (realism audit item 3: the nth best sack, tackle-for-loss and tackle season a year, the men over each mark, team leaders' shares, the top men with their rush lines, the rush and the run defense by a man's lead on the typical blocker, a team's tackles by rank, snap shares and who covers kicks; and for who makes the tackle: tackle credits by play and by how far it went, plays that end out of bounds and who is credited, credits a 100 snaps by position on runs and on dropbacks, a team game's tackles by the final margin, the kick units' men and tackles, and the defense's backs on the field by the offense's receivers and the down, by the call and by listed position, by team, with the pass rush by the call's backs, who fills each back's slot and each receiver's place, the staffs' nickel and dime habits and who is named to the corner jobs; and for the front seven's share: on designed runs by their yards and catches by the yards after them, who makes a tackle alone and who shares one by listed position, how the book writes the tackled plays, credits a 100 runs and the pairs on a shared run tackle, each with the real NFL line, and the debug counts of the candidate rules for a second man and of the front at a run's first contact), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), `AFM_GAPS=1` the engine gaps audit's counts (lane EG1: injuries by position, cause and body part against nflverse, the sideline and concussion checks; lane EG2: fumbles by how the ball came out, by nflverse's kinds with who came up with them, and each kind's rate by position) and the rule books and flags (lane EG5: each foul kind flagged, accepted, declined, its yards and first downs against real; safeties on the offense's foul; pass interference by air yards; ineligible downfield by call and where the lineman stood; kickoffs; free plays; throwaways and grounding; pre-snap fouls a snap by down; delays on fourth down; fouls before a kick's snap; the hard count; the defense's hit fouls by where), and `AFM_RECDIAG=1` the receivers' (lane SF4: wide receivers', tight ends' and backs' contested share, contested catch rate and drops against real, their true spreads between men, an inch of height against contested balls, separation's spread and its slope on Speed, drops' slope on Catching with the spread Catching alone gives them, and the forty's slopes of aDOT and of targets 20+ yards downfield).

@@ -292,7 +292,8 @@ pub struct Agent {
     pub hold_until: f64,
     /// His run fit (plays and tactics topic 1): 0 none, 1 force (contain
     /// and turn it in), 2 fill his gap, 3 the alley from depth; the gap he
-    /// owns at the line; and whether he misfits this snap.
+    /// fills at the line when he misread his fit (0 until he takes it,
+    /// `scrimmage.rs`, `misfit_gap`); and whether he misfits this snap.
     pub fit: u8,
     pub gap_y: f64,
     pub misfit: bool,
@@ -1775,6 +1776,22 @@ const CARRIER_SPREAD: f64 = 0.45;
 /// tackles against 28% real; proposed, not confirmed).
 const SHED_SECOND: f64 = 1.0;
 const SHED_SECOND_RANGE: f64 = 3.5;
+/// The least of the shed's pull: it reads how the block stands, 2 × (0.5 +
+/// w) a second (w at -1 sealed, 1 off), but never less than 2 ×
+/// `SHED_FLOOR`, so it reads the block from an even one up (realism audit
+/// item 3, the second level). It was 1.0 (minor bug 164: a full 2 a second
+/// on any block not sealed), so it read the block only past a half-won one,
+/// and a man driven off the ball came off it for the runner as hard as one
+/// halfway to shedding his man, and interior linemen made 23.2% of
+/// the first tackles on world seed 321's NFL clubs' designed runs by backs
+/// (real 18.5% by listed group, nflverse 2024), 39.3% of those of 1-4 yards
+/// inside the tackles (real 25.6%), nearly all of them off a block or from
+/// one. With the climber beaten (`LB_SLIP`):
+/// at 1.0 they made 22.4% and the backs gained 4.21 a carry (real 4.50,
+/// inside the tackles 3.65, real 4.26); at 0.5 20.2%, 4.51 and 3.98; at
+/// 0.25 19.0%, 4.65 and 4.13. The second level's own pull already read the
+/// block this way, down to 0.2. Proposed, not confirmed.
+const SHED_FLOOR: f64 = 0.5;
 /// How much that shed reads the block (lane SF3, scheme-fit item 7): the
 /// pull (`SHED_RUNNER`, `SHED_SECOND`) is scaled by e^(edge / SHED_EDGE),
 /// the edge being the defender's lead in rating points (his shed power
@@ -1994,9 +2011,23 @@ const TWO_GAP: f64 = 2.7;
 
 /// The chance a linebacker past the line of scrimmage slips a climbing
 /// blocker, added to the whiff (bug 305: linebackers made 21% of first
-/// run tackles, real 28%; with the fills below 24.5%). Proposed, not
+/// run tackles, real 28%; with the fills below 24.5%). Realism audit item
+/// 3, the second level: 0.2, since a slip now beats the climber
+/// (`CLIMB_RECOVER`); at 0.4 the climber tried again 0.15 or 0.3 s later.
+/// With him beaten, at 0.4 linebackers made 27.6%
+/// of the first tackles on world seed 321's NFL clubs' designed runs by
+/// backs (real 23.3% by listed group, nflverse 2024, the first listed
+/// tackler) and the backs gained 3.83 a carry (real 4.50); at 0.2 22.8%
+/// and 4.21, and 23.3% and 4.53 with the shed's floor (`SHED_FLOOR`) and
+/// the committed misfit (`scrimmage.rs`, `misfit_gap`). Proposed, not
 /// confirmed.
-const LB_SLIP: f64 = 0.4;
+const LB_SLIP: f64 = 0.2;
+/// How long a climber a linebacker slipped needs to get his feet back, in
+/// seconds: (at a 60 in Agility and Blocking In Space, the least, the
+/// most), 0.010 s less a point of Agility and 0.006 a point of Blocking In
+/// Space (realism audit item 3, the second level; the times a beaten pass
+/// blocker needs, `update_blocks`). Proposed, not confirmed.
+const CLIMB_RECOVER: (f64, f64, f64) = (0.8, 0.35, 1.3);
 
 /// The chance a tick a linebacker in a block works off it to a runner who
 /// is past the line and going by to his side (bug 305, as `LB_SLIP`; he
@@ -2661,6 +2692,17 @@ impl<'a> Sim<'a> {
         if t - self.agents[b].last_try < wait {
             return false;
         }
+        // A man who beat him (a climber a linebacker slipped, a pass blocker
+        // a rusher got by) has to be squared up from in front again: the
+        // blocker needs his feet back and has to be between him and the
+        // ball (`can_square` for the passer).
+        if self.agents[b].beat_by == Some(d) {
+            let q = self.ball_pos();
+            let back = t >= self.agents[b].recover_at && self.agents[b].pos.dist(q) + 0.5 < self.agents[d].pos.dist(q);
+            if !back {
+                return false;
+            }
+        }
         let speed = self.agents[d].vel.len();
         if matches!(self.agents[d].label, "DE" | "DT" | "NT") && speed < 3.0 {
             return true;
@@ -2696,16 +2738,32 @@ impl<'a> Sim<'a> {
         };
         // A linebacker at the second level plays the climbing blocker with
         // his hands and leverage, and slips him more often.
-        let p_miss = if da.label == "LB" && (da.pos.x - self.los) * self.goal > PHONE_BOOTH {
-            (p_miss + LB_SLIP).min(0.7)
-        } else {
-            p_miss
-        };
+        let second = da.label == "LB" && (da.pos.x - self.los) * self.goal > PHONE_BOOTH;
+        let p_miss = if second { (p_miss + LB_SLIP).min(0.7) } else { p_miss };
         if self.rng.chance(p_miss) {
             self.agents[b].last_try = t;
             // Slipping a block costs him his momentum: he has to dip or
             // side-step to get by.
             self.agents[d].vel = self.agents[d].vel.scale(0.6);
+            // The climber he slipped is beaten (realism audit item 3, the
+            // second level): he lunged and missed, so he needs his feet back
+            // (`CLIMB_RECOVER`, by his Agility and Blocking In Space) and has
+            // to get back between the linebacker and the ball before he can
+            // land on him. He tried again 0.15 or 0.3 s later, and 41% of
+            // the linebackers a block let go were in one again within half a
+            // second.
+            if second {
+                let bb = &self.agents[b];
+                let rec = clamp(
+                    CLIMB_RECOVER.0
+                        - 0.010 * (bb.a(Attr::Agility) - 60.0)
+                        - 0.006 * (bb.a(Attr::BlockingInSpace) - 60.0),
+                    CLIMB_RECOVER.1,
+                    CLIMB_RECOVER.2,
+                );
+                self.agents[b].beat_by = Some(d);
+                self.agents[b].recover_at = t + rec;
+            }
             return false;
         }
         true
@@ -3428,7 +3486,7 @@ impl<'a> Sim<'a> {
                 && e.w > -1.0
                 && self.agents[c].pos.dist(self.agents[d].pos) < if second { SHED_SECOND_RANGE } else { 2.2 }
             {
-                let mut pull = 2.0 * SHED_RUNNER * (0.5 + e.w).max(1.0);
+                let mut pull = 2.0 * SHED_RUNNER * (0.5 + e.w).max(SHED_FLOOR);
                 if second {
                     pull += 2.0 * SHED_SECOND * (0.5 + e.w).max(0.2);
                 }
