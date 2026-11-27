@@ -356,6 +356,10 @@ pub struct VoiceCard {
     /// His football: his Football IQ in words and his years in the game
     /// (section 9).
     pub football: String,
+    /// How he sees his own game (`talk::own_game`, talk audit 2026-11-27):
+    /// what he knows he does well and what he knows he doesn't. A coach's
+    /// word about his play is judged by it.
+    pub own_game: Vec<String>,
     /// How long he's known you, and how it's gone.
     pub known_you: String,
     /// Where he stands (`talk::standing`): the facts of his own situation he
