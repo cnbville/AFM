@@ -1,0 +1,199 @@
+name: Future run, resume
+# Carries on a Future run (future-run.yml) whose second job's last artifact
+# upload failed ("The server is busy", run 46010118001, 2026-11-27): the
+# creep jobs read the kept worlds that run already uploaded, and the second
+# job plays again from the first job's world (future-half), then the book job
+# builds the book as the first workflow's does. The engine is the source
+# run's (only workflow files changed since). Needs the WORLDS_TOKEN secret.
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: "The Future run's id to take its artifacts from"
+        default: "46010118001"
+      second:
+        description: "Seasons the second job plays"
+        default: "5"
+      end_year:
+        description: "The year after the second job"
+        default: "2036"
+      creep_games:
+        description: "Games an arm in the creep jobs"
+        default: "1500"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  second:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: future-tools
+          path: tools
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - run: chmod +x tools/*
+      - uses: actions/download-artifact@v4
+        with:
+          name: future-half
+          path: out
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - name: Play the rest
+        env:
+          AFM_KEEP: out/keep
+        run: |
+          ls -la out/ && du -sh out/* && df -h / /mnt
+          f=$(realpath "$(ls out/*.afmworld | head -1)")
+          tools/afm_future "$f" "${{ inputs.second }}" 2>&1 | tee future-second.txt
+          ls -la out/ && du -sh out/* && df -h / /mnt
+          { echo '### Second job'; echo '```'; cat future-second.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: future-keep-end
+          path: out/keep/*-jan${{ inputs.end_year }}.afmworld
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+      # The book needs the world and the log only (as the published worlds'
+      # book job reads them); the tallies stay behind.
+      - uses: actions/upload-artifact@v4
+        id: final1
+        continue-on-error: true
+        with:
+          name: future-final
+          path: |
+            out/*.afmworld
+            out/*.afmlog/
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: steps.final1.outcome == 'failure'
+        with:
+          name: future-final-retry
+          path: |
+            out/*.afmworld
+            out/*.afmlog/
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: error
+  creep:
+    # The scoring creep told apart (docs/trials/nfl-scoring-creep.md): each
+    # kept date's 32 NFL clubs on this commit's engine, same seed and games
+    # in every arm. Arms: the clubs as they are, every position at the
+    # league's typical starter (what the engine and the feed give alone), and
+    # one unit at a time moved to the typical starter.
+    strategy:
+      fail-fast: false
+      matrix:
+        date: [start, middle, end]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: future-keep-${{ matrix.date }}
+          path: out
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - name: Compile match_check
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+          CARGO_PROFILE_RELEASE_LTO: "false"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+        run: cargo build --release -p afm-tools --bin match_check
+      - name: Play the clubs
+        env:
+          GAMES: ${{ inputs.creep_games }}
+        run: |
+          set -u
+          f=$(realpath "$(ls out/*.afmworld | head -1)")
+          echo "world: $f"
+          show() {
+            # The rows the creep is read from, with the unit moved.
+            grep -E '^ *(points|plays|pass attempts|carries|rush yards|yards per carry|yards per attempt|pass rate|explosive run rate|run EPA|EPA per play|sacks|sack rate|completion %|int rate|third down conv)( |$)' "$1" | cut -c1-110
+          }
+          run_arm() {
+            name="$1"; typical="$2"
+            if [ -n "$typical" ]; then export AFM_TYPICAL="$typical"; else unset AFM_TYPICAL; fi
+            AFM_AB_WORLD="$f" AFM_STARTERS=1.5 target/release/match_check nfl "$GAMES" 7 > "arm-$name.txt" 2>&1 || echo "arm $name failed"
+            { echo "=== ${{ matrix.date }} arm $name (typical: ${typical:-none})"; show "arm-$name.txt"; echo; } | tee -a creep.txt
+          }
+          run_arm plain ""
+          run_arm all "ALL"
+          run_arm ol "OT,IOL"
+          run_arm dl "EDGE,DT"
+          run_arm lb "LB"
+          run_arm db "CB,S"
+          run_arm rb "RB"
+          run_arm passers "QB,WR,TE"
+          # The starters against the typical man, once (the plain arm's list).
+          { echo '=== starters against the level (plain arm)'; grep '^starters' arm-plain.txt | cut -c1-400; } | tee -a creep.txt
+          { echo '### Creep: ${{ matrix.date }}'; echo '```'; cat creep.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: creep-${{ matrix.date }}
+          path: |
+            creep.txt
+            arm-*.txt
+          retention-days: 14
+          if-no-files-found: warn
+  book:
+    needs: second
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: .github/scripts/make-room.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: future-final*
+          merge-multiple: true
+          path: out
+      - name: Build the book
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+          AFM_BOOK_PAGES: future-pages.txt
+        run: |
+          ls -la out/ && du -sh out/* && df -h / /mnt
+          .github/scripts/build-book.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: future-pages
+          path: future-pages.txt
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Publish the book
+        env:
+          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+          SHA: ${{ github.sha }}
+        run: |
+          cd out
+          tag="future-seed321-$(date -u +%Y%m%d)-$(echo "$SHA" | cut -c1-7)"
+          gh release create "$tag" --repo cnbville/afm-worlds --prerelease \
+            --title "Future run: seed 321 played on (book only)" \
+            --notes "The world reader's book for the seed 321 world played on from 1 January 2026 (realism audit item 25), commit $SHA. Book only: no world file, so the game does not list it. Unzstd it, joining parts first."
+          for b in *.afmbook.zst; do
+            [ -f "$b" ] || continue
+            if [ "$(stat -c %s "$b")" -gt 2000000000 ]; then
+              split -b 1900M -d -a 3 --numeric-suffixes=1 "$b" "$b."
+              rm "$b"
+            fi
+            gh release upload "$tag" ./"$b"* --repo cnbville/afm-worlds
+          done
