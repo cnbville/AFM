@@ -8,6 +8,10 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.723 (28 Nov, shipped): no game change
+**TLDR:** Nothing new in the game in this version, so there is no need to update for the game's sake.
+- Docs and tooling merged too, no game change: Scheme duel test (section 12, lane GP0): duel_check and its baseline (PR #683); Future run, resume: creep jobs on the kept worlds, second job again after an upload… (PR #684).
+
 ## 0.2.722 (27 Nov, shipped): talks: a player sees his own game, so a coach's word about his play is judged by it (PR #682)
 **TLDR:** Players now know their own game. Tell a player something about his play and he answers from how he really plays, so a man who is weak at something doesn't act surprised to hear it.
 - A player's reply to your comment about his play now reflects his real strengths and weak spots. (PR #682)
