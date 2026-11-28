@@ -180,9 +180,9 @@ fn a_coach_who_recruited_him_out_of_high_school_starts_ahead_in_the_portal() {
 }
 
 /// Lane P3 (question 11): a school's standing for a coach's bond is its
-/// level and its name, so a Group of 5 school with the biggest name in its
-/// league stands below a Power 4 school with a middling one, and a name
-/// that grows with wins closes the gap.
+/// level and, a little, its name, so a Group of 5 school with the biggest
+/// name in its league stands below a Power 4 school with a middling one,
+/// and a name that grows with wins closes the gap.
 #[test]
 fn a_school_stands_by_its_level_and_its_name() {
     use crate::world::recruiting::bond_standing;
@@ -205,16 +205,21 @@ fn a_school_stands_by_its_level_and_its_name() {
     assert!(bond_standing(&group_five, year) < bond_standing(&power, year));
     assert!(bond_standing(&fcs, year) < bond_standing(&group_five, year));
     // The national names stand alike, and the gap a great Group of 5
-    // recruiter faces against one takes nearly all of his bond above the
+    // recruiter faces against one takes over half of his bond above the
     // typical coach's.
     power.prestige_rel = 0.9;
     let mut other = power.clone();
     other.prestige_rel = 1.0;
     assert_eq!(bond_standing(&power, year), bond_standing(&other, year));
-    let before = bond_standing(&group_five, year);
-    assert!(fortunes::held_bond(bond_standing(&power, year) - before) < 0.25);
-    // A bigger name moves it up, and the gap closes with it.
+    let held = fortunes::held_bond(bond_standing(&power, year) - bond_standing(&group_five, year));
+    assert!(held < 0.5);
+    // A bigger name closes the gap.
     group_five.prestige_rel = 0.85;
-    assert!(bond_standing(&group_five, year) > before);
-    assert!(fortunes::held_bond(bond_standing(&power, year) - bond_standing(&group_five, year)) > 0.4);
+    let later = fortunes::held_bond(bond_standing(&power, year) - bond_standing(&group_five, year));
+    assert!(later > held);
+    // Power 4 schools fight each other with nearly the whole bond, whatever
+    // their names.
+    let mut small_name = power.clone();
+    small_name.prestige_rel = 0.3;
+    assert!(fortunes::held_bond(bond_standing(&power, year) - bond_standing(&small_name, year)) > 0.75);
 }

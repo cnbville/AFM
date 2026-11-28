@@ -3680,16 +3680,22 @@ const GROUP_OF_FIVE_LEVEL: f64 = 0.85;
 
 /// Where a school stands against the others a recruit is choosing between,
 /// for how much of a coach's bond counts (program fortunes lane P3,
-/// question 11, Cain 2026-11-26): its level times its name, 0.6 for the
-/// level alone and 0.4 more for a national name (a name stops growing at
-/// `NAME_TIE`, so every blue blood stands the same). A Group of 5 school
-/// with the biggest name in its league reads about 0.71 and the best
-/// Power 4 names 0.94, so the first has to win its way up through its name
-/// before a great recruiter's bond counts against the second. Proposed, not
-/// confirmed.
+/// question 11, Cain 2026-11-26): its level times its name, 0.9 for the
+/// level alone and 0.1 more for a national name (a name stops growing at
+/// `NAME_TIE`, so every blue blood stands the same). A Power 4 school reads
+/// 0.92 to 0.98 whatever its name, the best Group of 5 name 0.80, so
+/// Power 4 schools fight each other with the whole bond and a Group of 5
+/// school has to win its way up through its name before a great
+/// recruiter's bond counts against them. Proposed, not confirmed.
 pub(crate) fn bond_standing(prog: &Program, year: i32) -> f64 {
-    recruit_level(prog, year) * (0.6 + 0.4 * prog.prestige_rel.min(NAME_TIE))
+    recruit_level(prog, year) * (1.0 - BOND_NAME + BOND_NAME * prog.prestige_rel.min(NAME_TIE))
 }
+
+/// How much of a school's standing is its name (lane P3, second arm: the
+/// first, 0.4, held a Power 4 riser against the national names in nearly
+/// every recruit's field and left strength where the fitted bond had it).
+/// Proposed, not confirmed.
+const BOND_NAME: f64 = 0.1;
 
 /// How many of a recruit's favourite schools (his official visits) are the
 /// field a bond is read against.

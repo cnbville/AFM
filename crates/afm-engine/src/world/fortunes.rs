@@ -49,8 +49,8 @@ pub const TYPICAL_SKILL: f64 = 15.5;
 /// field has to stand for a coach's bond above the typical one to count for
 /// nothing. A great recruiter at a Group of 5 school keeps all of it
 /// against the Group of 5 and the weaker Power 4 schools; against a
-/// national name (about 0.23 above the best Group of 5 school) it is
-/// almost gone, and it comes back as the school's name grows with its wins.
+/// national name (about 0.17 above the best Group of 5 school) it is
+/// mostly gone, and it comes back as the school's name grows with its wins.
 /// Proposed, not confirmed.
 pub const LEVEL_STEP: f64 = 0.25;
 /// Item 4: a transfer's bond keeps the sizes of the measuring pass (a
