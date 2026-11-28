@@ -41,3 +41,36 @@ The book can't separate rosters from the engine: it has the games, not the roste
 Item 1 is built: `afm_future` takes `AFM_KEEP=<folder>` and hard-links each date's world file there, and `future-run.yml` keeps three dates (1 Jan 2026 start world, 2031 after the first job, 2036 after the second, one artifact each) and has three `creep` jobs, one a date. Each plays that date's 32 NFL clubs with `match_check` (`AFM_AB_WORLD`, seed 7, 1,500 games an arm, this commit's engine) in eight arms: the clubs as they are, every position moved to the league's typical starter (`AFM_TYPICAL=ALL`: the engine and the feed alone), and one unit moved at a time (OL, DL, LB, DB, RB, QB/WR/TE). The run is also audit item 5's re-run on a rebuilt main, so its book is read for the other drifts too.
 
 How to read it (proposed, not confirmed): if 2036's plain arm runs more yards a carry than 2026's and the typical-everywhere arms run the same at every date, it is the men, and the unit arm that closes the gap names the unit. If the plain arms match across dates, the creep is not in the rosters but in how the world feeds the game (staffs, the call lean, injuries), and the book's play-by-play reads decide.
+
+## Result: the January rosters do not creep (2026-11-28, run 46080381856)
+
+The three kept worlds (1 Jan 2026, 2031, 2036, the 10-season run 46010118001 on main `f84145c`) were each played by main `b3c90da`'s engine: the 32 NFL clubs, `match_check nfl 1500 7` with `AFM_AB_WORLD`, the same seed at every date, healthy depth charts. Standard error on points a team game is about 0.18 (sd 10 over 3,000 team games), on yards a carry about 0.03.
+
+| arm (moved to the typical starter) | points 2026 / 2031 / 2036 | yards a carry 2026 / 2031 / 2036 |
+|---|---|---|
+| none (the clubs as they are) | 26.09 / 25.71 / 25.35 | 4.573 / 4.534 / 4.538 |
+| every position (`ALL`) | 25.26 / 25.38 / 24.99 | 4.141 / 4.223 / 4.124 |
+| OL | 24.58 / 24.12 / 23.99 | 4.248 / 4.273 / 4.239 |
+| DL (edge and tackle) | 27.82 / 27.40 / 26.17 | 4.637 / 4.570 / 4.483 |
+| LB | 25.94 / 25.97 / 25.54 | 4.556 / 4.568 / 4.591 |
+| DB (corner and safety) | 25.02 / 24.14 / 24.17 | 4.632 / 4.524 / 4.576 |
+| RB | 26.25 / 26.23 / 25.53 | 4.677 / 4.667 / 4.759 |
+| QB, WR, TE | 26.01 / 25.92 / 25.55 | 4.399 / 4.312 / 4.312 |
+
+Plain arm, the other rows: yards an attempt 7.80 / 7.74 / 7.59, explosive run rate 0.095 / 0.096 / 0.096, run EPA -0.046 / -0.049 / -0.042, pass rate 0.553 / 0.581 / 0.555.
+
+What it says:
+
+- **The same engine plays the 2036 clubs no better than the 2026 ones.** Points fall a little (26.1 to 25.3, about two errors), yards a carry are flat (4.57, 4.53, 4.54). The future run's creep (24.1 to 26.7 points, 4.52 to 4.91 a carry) is not in the January rosters. The men are not the cause, so item 2 (fix growth and draft for DL and LB strength and anchor) has nothing to fix, and I have not touched growth.
+- **The starters' ratings are flat too.** Overall against the level's typical starter at 2026 / 2031 / 2036: edge 79.6 / 79.5 / 79.5, tackle 80.8 / 80.4 / 79.9, linebacker 78.5 / 80.1 / 79.9, tackle (OT) 82.5 / 81.8 / 82.2, guard and center 80.1 / 80.5 / 80.5, running back 77.6 / 77.3 / 76.8, quarterback 83.6 / 82.9 / 82.8. Linebackers' strength is up (79.3 / 83.8 / 84.9), not down. The earlier read (defenders' strength, anchor and shed down 1 to 2 points) came from the men on the field in the played games, not from the January depth chart.
+- **Moving everyone to the typical man costs the clubs 0.6 to 0.9 points and 0.4 yards a carry at every date**, the same at each, so the world's men are a little better than the typical ones all through and not more so later.
+- **The engine on healthy full-strength clubs scores 25 to 26 at every date, above real (22.5)** and above the 2025 played season (24.1). That is a separate, flat gap (passing 7.6 to 7.8 a throw against real 7.05, third downs 0.43 to 0.45 against 0.40); it is where the engine's passing sits on world rosters (audit item 4 and `GAPS.md`), not the creep.
+
+So the creep is in what the season does to the men or who plays, not the 1 January depth chart: something between the January starters and the players on the field in a played season gets weaker for the defense or better for the offense as the years pass. The candidates, all in the book of the replay (run 46080381856, release `future-seed321-<date>-b3c90da`, read with `future-read.yml`):
+
+1. Who plays: the share of defensive snaps by depth order (starter, second, third string) by season, and the overall, strength, anchor and shed of the men on the field by season against the January starters.
+2. Injuries: games missed by starters by season and position, and how long they last, since the engine's in-season games carry injuries that `match_check` does not.
+3. Roster size and depth by position in week 1 and week 18 by season (cap-to-revenue, #669, may thin depth as the cap outruns revenue).
+4. Rest, weather and the schedule's mix by season.
+
+Next: read the book when the replay finishes (about 03:00 UTC on 28 November and after) and name which of the four moves.
