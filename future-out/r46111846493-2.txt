@@ -1,0 +1,139 @@
+######## ROUND 2 06:10
+
+=== log_games__players columns
+
+>>> select 'log_games__players', group_concat(name, ', ') from pragma_table_info('log_games__players')
+'log_games__players' | group_concat(name, ', ')
+log_games__players | _row, _parent, _i, _j, busts, facets, fg_att, fg_made, games, grade_sum, graded, id, pb_snaps, pb_wins, pos, pressures_allowed, rb_snaps, rb_wins, routes, rush, rush_epa, rush_first, rush_long, rush_success, rush_yds, snaps_off, stuffs, yaco, ybc, assists, explosive_runs, snaps_st, st_tackles, stops, top_speed, air_yds_att, att, big_time, blitz_att, blitz_yds, cmp, deep_att, deep_cmp, dropbacks, forced_missed, int, pa_att, pa_yds, pass_epa, pass_success, pass_td, pass_yds, pressured, sack_yds, sacked, scramble_epa, scramble_yds, scrambles, ttt, turnover_worthy, x_cmp, cov_snaps, rush_snaps, snaps_def, tackles, rush_wins, rec, rec_epa, rec_long, rec_yds, sep_sum, targets, tgt_air, yac, finesse_wins, sacks_allowed, cmp_allowed, sep_allowed, td_allowed, tgt_allowed, yds_allowed, missed, pressures, sacks, tfl, ttp_sum, punt_in20, punt_net, punt_yds, punts, contested_rec, contested_tgt, fumbles, fumbles_lost, rec_first, power_wins, pbus, fg_long, kickoffs, xp_att, xp_made, kr, kr_yds, hurries, speed_wins, penalties, penalty_yds, rec_td, ints, pr, pr_yds, rush_td, fumble_rec, qb_hits, drops, forced_fumbles, ko_tb, freelance, kr_td, punt_tb, throw_aways, freelance_won, clutch_att, clutch_made, pr_td
+
+=== log_games__injuries columns
+
+>>> select 'log_games__injuries', group_concat(name, ', ') from pragma_table_info('log_games__injuries')
+'log_games__injuries' | group_concat(name, ', ')
+log_games__injuries | _row, _parent, _i, cause, kind, n, player, q, team, weeks, back, plays_on
+
+=== defense: snaps by starters (8+ starts) and others, with overall of each, by unit and season (people and alumni)
+
+>>> with ps as (select s.year, p.player__position pos, s.starts, s.stats__snaps_def sd, h.overall from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where h.level = 'NFL' union all select s.year, a.player__position, s.starts, s.stats__snaps_def, h.overall from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where h.level = 'NFL') select case when pos in ('DT','EDGE') then 'DL' else pos end u, year, count(*) n, sum(sd) snaps, round(1.0*sum(sd*overall)/sum(sd),2) snap_wtd_overall, round(100.0*sum(case when starts < 8 then sd else 0 end)/sum(sd),1) pct_snaps_subs, round(avg(case when starts >= 8 then overall end),2) starters_overall, round(avg(case when starts < 8 then overall end),2) subs_overall from ps where year between 2025 and 2035 and pos in ('DT','EDGE','LB','CB','S') and sd > 0 group by u, year order by u, year
+u | year | n | snaps | snap_wtd_overall | pct_snaps_subs | starters_overall | subs_overall
+CB | 2025 | 198 | 88420 | 78.04 | 44.8 | 80.46 | 73.22
+CB | 2026 | 194 | 93055 | 78.77 | 34.8 | 80.73 | 72.98
+CB | 2027 | 204 | 99225 | 78.67 | 39.4 | 80.79 | 73.19
+CB | 2028 | 207 | 102390 | 78.16 | 41.8 | 80.1 | 73.56
+CB | 2029 | 203 | 101325 | 77.96 | 38.3 | 79.83 | 73.19
+CB | 2030 | 217 | 104434 | 77.96 | 39.6 | 79.54 | 73.02
+CB | 2031 | 243 | 100476 | 78.05 | 41.8 | 79.74 | 73.09
+CB | 2032 | 239 | 105594 | 78.13 | 40.7 | 80.12 | 72.96
+CB | 2033 | 243 | 112049 | 77.79 | 38.6 | 79.67 | 73.02
+CB | 2034 | 247 | 106675 | 77.37 | 40.7 | 79.18 | 73.05
+CB | 2035 | 196 | 82283 | 77.67 | 36.8 | 80.1 | 72.23
+DL | 2025 | 351 | 145392 | 78.26 | 39.5 | 80.53 | 72.85
+DL | 2026 | 348 | 145998 | 78.04 | 40.8 | 80.4 | 73.17
+DL | 2027 | 361 | 146324 | 78.12 | 38.7 | 80.24 | 72.81
+DL | 2028 | 346 | 149159 | 78.29 | 39.8 | 80.26 | 73.1
+DL | 2029 | 370 | 152007 | 78.27 | 42.7 | 80.75 | 73.31
+DL | 2030 | 350 | 150265 | 78.18 | 41.4 | 80.12 | 73.55
+DL | 2031 | 362 | 152099 | 78.07 | 40.3 | 79.98 | 73.41
+DL | 2032 | 378 | 149234 | 78.22 | 41.0 | 80.04 | 73.57
+DL | 2033 | 393 | 155926 | 78.0 | 43.3 | 80.15 | 73.25
+DL | 2034 | 399 | 156453 | 77.7 | 42.9 | 79.89 | 73.0
+DL | 2035 | 335 | 129934 | 77.91 | 41.6 | 79.89 | 73.54
+LB | 2025 | 175 | 76236 | 77.58 | 37.3 | 79.82 | 72.63
+LB | 2026 | 176 | 72406 | 77.85 | 37.5 | 79.77 | 73.0
+LB | 2027 | 184 | 72634 | 77.48 | 40.9 | 80.11 | 72.3
+LB | 2028 | 183 | 72844 | 77.99 | 42.6 | 80.7 | 72.08
+LB | 2029 | 197 | 74959 | 77.55 | 42.6 | 80.42 | 72.04
+LB | 2030 | 177 | 76608 | 77.86 | 40.2 | 80.82 | 72.58
+LB | 2031 | 184 | 75235 | 77.42 | 47.2 | 80.71 | 72.09
+LB | 2032 | 186 | 73100 | 77.25 | 37.4 | 80.11 | 71.86
+LB | 2033 | 200 | 77711 | 76.88 | 46.6 | 80.03 | 72.22
+LB | 2034 | 197 | 75397 | 77.55 | 45.6 | 80.5 | 72.59
+LB | 2035 | 170 | 63938 | 77.21 | 45.0 | 80.61 | 71.84
+S | 2025 | 138 | 69476 | 78.79 | 21.2 | 79.47 | 73.06
+S | 2026 | 145 | 77085 | 78.92 | 24.1 | 79.83 | 73.33
+S | 2027 | 146 | 75732 | 78.94 | 20.5 | 79.69 | 72.86
+S | 2028 | 142 | 76856 | 79.02 | 22.1 | 79.77 | 73.44
+S | 2029 | 147 | 79027 | 78.87 | 27.3 | 79.72 | 73.47
+S | 2030 | 157 | 77581 | 78.41 | 26.5 | 79.53 | 72.84
+S | 2031 | 150 | 80919 | 78.59 | 24.2 | 79.35 | 72.86
+S | 2032 | 160 | 79543 | 78.4 | 18.8 | 78.81 | 72.27
+S | 2033 | 170 | 83481 | 77.65 | 27.3 | 78.89 | 72.22
+S | 2034 | 150 | 86499 | 77.77 | 23.9 | 78.96 | 72.67
+S | 2035 | 139 | 64455 | 77.69 | 27.4 | 78.88 | 72.35
+
+=== offense: the same on offensive snaps
+
+>>> with ps as (select s.year, p.player__position pos, s.starts, s.stats__snaps_off sd, h.overall from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where h.level = 'NFL' union all select s.year, a.player__position, s.starts, s.stats__snaps_off, h.overall from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where h.level = 'NFL') select case when pos in ('OT','IOL') then 'OL' else pos end u, year, count(*) n, sum(sd) snaps, round(1.0*sum(sd*overall)/sum(sd),2) snap_wtd_overall, round(100.0*sum(case when starts < 8 then sd else 0 end)/sum(sd),1) pct_snaps_subs, round(avg(case when starts >= 8 then overall end),2) starters_overall, round(avg(case when starts < 8 then overall end),2) subs_overall from ps where year between 2025 and 2035 and pos in ('OT','IOL','RB','TE','QB','WR') and sd > 0 group by u, year order by u, year
+u | year | n | snaps | snap_wtd_overall | pct_snaps_subs | starters_overall | subs_overall
+OL | 2025 | 285 | 179502 | 81.46 | 17.2 | 81.6 | 75.77
+OL | 2026 | 291 | 182459 | 81.81 | 15.4 | 82.26 | 75.89
+OL | 2027 | 294 | 181921 | 81.66 | 15.8 | 81.9 | 75.87
+OL | 2028 | 297 | 190615 | 81.8 | 15.1 | 82.06 | 76.05
+OL | 2029 | 303 | 194315 | 81.73 | 15.4 | 82.1 | 75.82
+OL | 2030 | 322 | 191426 | 81.55 | 15.4 | 81.87 | 75.86
+OL | 2031 | 321 | 195020 | 81.63 | 17.7 | 82.23 | 75.63
+OL | 2032 | 329 | 192858 | 81.56 | 17.3 | 81.92 | 75.92
+OL | 2033 | 320 | 196547 | 81.72 | 19.4 | 82.09 | 76.67
+OL | 2034 | 338 | 196575 | 81.53 | 18.4 | 81.89 | 75.93
+OL | 2035 | 279 | 158093 | 81.69 | 14.2 | 81.88 | 75.3
+QB | 2025 | 88 | 39340 | 84.14 | 23.7 | 84.57 | 77.91
+QB | 2026 | 80 | 40848 | 83.54 | 19.3 | 84.22 | 78.89
+QB | 2027 | 87 | 42353 | 82.76 | 20.4 | 83.83 | 76.94
+QB | 2028 | 86 | 41775 | 82.9 | 21.9 | 83.61 | 77.41
+QB | 2029 | 85 | 41074 | 82.83 | 25.1 | 83.34 | 77.82
+QB | 2030 | 86 | 39929 | 83.45 | 23.7 | 83.83 | 77.62
+QB | 2031 | 90 | 41741 | 82.78 | 25.4 | 83.57 | 77.05
+QB | 2032 | 86 | 43612 | 83.06 | 24.1 | 83.64 | 77.23
+QB | 2033 | 95 | 41772 | 82.77 | 37.1 | 83.98 | 77.77
+QB | 2034 | 96 | 40268 | 82.7 | 19.4 | 83.26 | 77.14
+QB | 2035 | 73 | 31682 | 82.34 | 22.3 | 82.91 | 76.13
+RB | 2025 | 136 | 35124 | 76.62 | 46.8 | 78.64 | 72.44
+RB | 2026 | 142 | 34967 | 76.58 | 42.9 | 78.17 | 72.45
+RB | 2027 | 151 | 36496 | 76.4 | 45.5 | 77.89 | 71.94
+RB | 2028 | 154 | 37199 | 75.82 | 43.9 | 77.61 | 71.81
+RB | 2029 | 136 | 38330 | 76.57 | 43.9 | 77.73 | 72.97
+RB | 2030 | 147 | 39198 | 76.37 | 45.2 | 77.51 | 72.8
+RB | 2031 | 153 | 40197 | 75.81 | 49.9 | 77.05 | 72.37
+RB | 2032 | 152 | 42626 | 76.13 | 46.6 | 77.51 | 72.36
+RB | 2033 | 165 | 41198 | 76.07 | 46.1 | 78.36 | 71.79
+RB | 2034 | 158 | 40293 | 77.02 | 42.2 | 79.13 | 72.23
+RB | 2035 | 134 | 32133 | 76.87 | 45.0 | 79.05 | 71.97
+TE | 2025 | 119 | 42783 | 78.25 | 38.3 | 79.94 | 73.38
+TE | 2026 | 125 | 45012 | 78.17 | 39.8 | 79.75 | 73.17
+TE | 2027 | 135 | 45534 | 78.23 | 39.5 | 80.96 | 72.29
+TE | 2028 | 126 | 45358 | 78.62 | 41.9 | 80.27 | 73.8
+TE | 2029 | 134 | 46192 | 78.49 | 38.5 | 80.18 | 73.34
+TE | 2030 | 137 | 46391 | 79.2 | 41.3 | 81.19 | 73.86
+TE | 2031 | 136 | 47490 | 79.26 | 37.5 | 81.27 | 73.81
+TE | 2032 | 141 | 45141 | 79.56 | 42.2 | 81.2 | 73.97
+TE | 2033 | 147 | 48953 | 78.72 | 41.0 | 80.37 | 73.79
+TE | 2034 | 136 | 48462 | 79.23 | 41.2 | 81.38 | 73.43
+TE | 2035 | 123 | 41965 | 80.27 | 39.3 | 82.38 | 74.39
+WR | 2025 | 251 | 95606 | 79.81 | 20.3 | 79.87 | 74.49
+WR | 2026 | 235 | 93534 | 80.2 | 17.2 | 80.69 | 74.34
+WR | 2027 | 255 | 97784 | 80.42 | 15.3 | 80.77 | 74.16
+WR | 2028 | 252 | 103803 | 80.59 | 21.1 | 80.94 | 74.39
+WR | 2029 | 255 | 101747 | 80.57 | 15.7 | 81.05 | 73.81
+WR | 2030 | 268 | 101093 | 80.5 | 15.9 | 80.67 | 74.18
+WR | 2031 | 266 | 104147 | 80.57 | 18.1 | 80.74 | 74.2
+WR | 2032 | 286 | 102108 | 80.4 | 19.8 | 81.06 | 74.2
+WR | 2033 | 284 | 100024 | 80.0 | 18.1 | 80.5 | 73.86
+WR | 2034 | 290 | 99470 | 79.72 | 19.5 | 80.12 | 73.68
+WR | 2035 | 240 | 80448 | 79.59 | 20.7 | 79.72 | 73.58
+
+=== NFL player seasons per club (players with a game) and games missed by starters, by year
+
+>>> with ps as (select s.year, s.team, s.games, s.starts, s.ir_weeks, h.games_missed from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where h.level = 'NFL' union all select s.year, s.team, s.games, s.starts, s.ir_weeks, h.games_missed from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where h.level = 'NFL') select year, count(*) player_seasons, round(1.0*count(*)/32,1) per_club, round(avg(case when starts >= 8 then games_missed end),3) starter_games_missed, round(avg(ir_weeks),3) ir_weeks, round(avg(games),2) games from ps where year between 2025 and 2035 group by year order by year
+year | player_seasons | per_club | starter_games_missed | ir_weeks | games
+2025 | 3589 | 112.2 | 0.448 | 0.784 | 6.56
+2026 | 3649 | 114.0 | 0.471 | 0.9 | 6.63
+2027 | 3564 | 111.4 | 0.519 | 0.783 | 6.86
+2028 | 3630 | 113.4 | 0.509 | 0.675 | 6.89
+2029 | 3791 | 118.5 | 0.498 | 0.745 | 6.65
+2030 | 3865 | 120.8 | 0.5 | 0.786 | 6.62
+2031 | 4010 | 125.3 | 0.501 | 0.719 | 6.45
+2032 | 4052 | 126.6 | 0.559 | 0.746 | 6.49
+2033 | 4071 | 127.2 | 0.475 | 0.868 | 6.57
+2034 | 4298 | 134.3 | 0.559 | 0.697 | 6.15
+2035 | 4483 | 140.1 | 0.481 | 0.407 | 4.79
+######## END ROUND 2
