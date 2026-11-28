@@ -1,0 +1,124 @@
+######## ROUND 1 05:54
+
+=== log tables
+
+>>> select name from sqlite_master where type = 'table' and name like 'log_%' order by 1
+name
+log__declared_by_day
+log__entry_by_round
+log__portal_by_day
+log__signed_after
+log__signed_by_division
+log_clubs
+log_coaches
+log_dropped
+log_events
+log_events__event__refs
+log_exits
+log_games
+log_games__between
+log_games__box
+log_games__decisions
+log_games__drives
+log_games__injuries
+log_games__officiating__calls
+log_games__penalties
+log_games__players
+log_games__quarters
+log_games__scoring
+log_games__timeouts_left
+log_games__trust
+log_growth
+log_history
+log_history__declared_by_day
+log_history__entry_by_round
+log_history__huge_by_team
+log_history__portal_by_day
+log_history__signed_after
+log_history__signed_by_division
+log_history__withdrew_by_day
+log_news
+log_news__news__refs
+log_people
+log_players
+log_plays
+log_programs
+log_schools
+log_situations
+log_snapshots
+log_team_situations
+log_whys
+log_whys__alumnus__college_staff
+log_whys__alumnus__player__craft__items
+log_whys__alumnus__player__history
+log_whys__alumnus__player__position_history
+log_whys__alumnus__pro__seasons
+log_whys__why__Choice__top
+log_whys__why__Choice__top__reasons
+log_whys__why__Market__offers
+log_whys__why__PortalEntry__events
+log_whys__why__Search__called
+log_whys__why__Transaction__contract__years
+log_world
+
+=== log_players columns
+
+>>> select 'log_players', group_concat(name, ', ') from pragma_table_info('log_players')
+'log_players' | group_concat(name, ', ')
+log_players | _row, season, date, id, level, overall, potential, person__stage, person__stars, person__hs, person__class_of, person__player__position, person__player__age, _more, person__college, segment
+
+=== log_games columns
+
+>>> select 'log_games', group_concat(name, ', ') from pragma_table_info('log_games')
+'log_games' | group_concat(name, ', ')
+log_games | _row, season, stream, home, away, home_pts, away_pts, attendance, conditions__altitude, conditions__crowd, conditions__temperature, conditions__turf, conditions__wind_along, date, divisions, huge_for, kickoff, kind, level, line, loud, name, neutral, officiating__booth_reviews, officiating__challenges, officiating__challenges_won, officiating__close_calls, officiating__crew__holding, officiating__crew__pass_interference, officiating__crew__personal, officiating__crew__pre_snap, officiating__overturned, officiating__wrong, paid__dollars, paid__kind, round, score, site__indoor, site__state, site__town, snaps, tags, teams, toss__choice, toss__winner, weather__indoor, weather__score, weather__temperature, week, why, conditions__wind, weather__wind, weather__home_won, officiating__wrong_left_standing, conditions__rain, weather__rain, weather__delay, cross, conference_game, ot, rivalry, homecoming, senior_day, conditions__snow, weather__snow, segment, state, weather__dew_point, forfeit, standin, home_won, weather__lightning, weather__severe, officiating__assists, tv, indoor, hall_of_fame_game, site, league, names
+
+=== log_games__box columns
+
+>>> select 'log_games__box', group_concat(name, ', ') from pragma_table_info('log_games__box')
+'log_games__box' | group_concat(name, ', ')
+log_games__box | _row, _parent, _i, att, carries, clock_possession, cmp, drives, dropbacks, epa, explosive, fg_att, fg_att_30s, fg_att_40s, fg_att_50, fg_att_u30, fg_made, fg_made_30s, fg_made_40s, fg_made_50, fg_made_u30, first_downs, forced_fumbles, fourth_att, fourth_conv, fumble_rec, fumbles_lost, ints, kickoffs, ko_tb, kr, kr_td, kr_yds, pass_td, pass_yards, pbus, penalties, penalty_yds, plays, points, pr, pr_td, pr_yds, pressures, punt_in20, punt_net, punt_tb, punt_yds, punts, qb_hits, rec_td, red_zone_tds, red_zone_trips, rush_td, rush_yards, sack_yds, sacks, start_sum, successes, tfl, third_att, third_conv, time_of_possession, turnovers, xp_att, xp_made, yards, two_point, two_point_good, kicks_blocked, emergency_snaps, def_td
+
+=== log_games child tables
+
+>>> select name from sqlite_master where type = 'table' and name like 'log_games__%' order by 1
+name
+log_games__between
+log_games__box
+log_games__decisions
+log_games__drives
+log_games__injuries
+log_games__officiating__calls
+log_games__penalties
+log_games__players
+log_games__quarters
+log_games__scoring
+log_games__timeouts_left
+log_games__trust
+
+=== log_clubs columns
+
+>>> select 'log_clubs', group_concat(name, ', ') from pragma_table_info('log_clubs')
+'log_clubs' | group_concat(name, ', ')
+log_clubs | _row, season, date, team, name, _more, segment
+
+=== people__pro__seasons columns
+
+>>> select 'people__pro__seasons', group_concat(name, ', ') from pragma_table_info('people__pro__seasons')
+'people__pro__seasons' | group_concat(name, ', ')
+people__pro__seasons | _row, _parent, _i, year, team, games, starts, snaps, opp, ps_weeks, ir_weeks, full_pay_weeks, pay, pro_bowl, all_pro, elevations, stats__games, stats__snaps_off, stats__snaps_def, stats__snaps_st, stats__att, stats__cmp, stats__pass_yds, stats__pass_td, stats__int, stats__sacked, stats__sack_yds, stats__dropbacks, stats__pressured, stats__air_yds_att, stats__ttt, stats__pass_epa, stats__pass_success, stats__x_cmp, stats__big_time, stats__turnover_worthy, stats__pa_att, stats__pa_yds, stats__blitz_att, stats__blitz_yds, stats__deep_att, stats__deep_cmp, stats__throw_aways, stats__rush, stats__rush_yds, stats__rush_td, stats__rush_long, stats__ybc, stats__yaco, stats__forced_missed, stats__explosive_runs, stats__stuffs, stats__rush_success, stats__rush_first, stats__rush_epa, stats__scrambles, stats__scramble_yds, stats__scramble_epa, stats__fumbles, stats__fumbles_lost, stats__targets, stats__rec, stats__rec_yds, stats__rec_td, stats__rec_long, stats__drops, stats__tgt_air, stats__yac, stats__sep_sum, stats__routes, stats__contested_tgt, stats__contested_rec, stats__rec_first, stats__rec_epa, stats__pb_snaps, stats__pb_wins, stats__pressures_allowed, stats__sacks_allowed, stats__rb_snaps, stats__rb_wins, stats__rush_snaps, stats__rush_wins, stats__sacks, stats__qb_hits, stats__hurries, stats__pressures, stats__speed_wins, stats__power_wins, stats__finesse_wins, stats__ttp_sum, stats__tackles, stats__assists, stats__tfl, stats__stops, stats__missed, stats__forced_fumbles, stats__fumble_rec, stats__cov_snaps, stats__tgt_allowed, stats__cmp_allowed, stats__yds_allowed, stats__td_allowed, stats__ints, stats__pbus, stats__sep_allowed, stats__freelance, stats__freelance_won, stats__fg_att, stats__fg_made, stats__fg_long, stats__clutch_att, stats__clutch_made, stats__xp_att, stats__xp_made, stats__punts, stats__punt_yds, stats__punt_net, stats__punt_in20, stats__punt_tb, stats__hang_sum, stats__kickoffs, stats__ko_tb, stats__kr, stats__kr_yds, stats__kr_td, stats__pr, stats__pr_yds, stats__pr_td, stats__st_tackles, stats__penalties, stats__penalty_yds, stats__busts, stats__grade_sum, stats__graded, stats__top_speed, playoff_starts, field_starts, playoffs__games, playoffs__snaps_off, playoffs__snaps_def, playoffs__snaps_st, playoffs__att, playoffs__cmp, playoffs__pass_yds, playoffs__pass_td, playoffs__int, playoffs__sacked, playoffs__sack_yds, playoffs__dropbacks, playoffs__pressured, playoffs__air_yds_att, playoffs__ttt, playoffs__pass_epa, playoffs__pass_success, playoffs__x_cmp, playoffs__big_time, playoffs__turnover_worthy, playoffs__pa_att, playoffs__pa_yds, playoffs__blitz_att, playoffs__blitz_yds, playoffs__deep_att, playoffs__deep_cmp, playoffs__throw_aways, playoffs__rush, playoffs__rush_yds, playoffs__rush_td, playoffs__rush_long, playoffs__ybc, playoffs__yaco, playoffs__forced_missed, playoffs__explosive_runs, playoffs__stuffs, playoffs__rush_success, playoffs__rush_first, playoffs__rush_epa, playoffs__scrambles, playoffs__scramble_yds, playoffs__scramble_epa, playoffs__fumbles, playoffs__fumbles_lost, playoffs__targets, playoffs__rec, playoffs__rec_yds, playoffs__rec_td, playoffs__rec_long, playoffs__drops, playoffs__tgt_air, playoffs__yac, playoffs__sep_sum, playoffs__routes, playoffs__contested_tgt, playoffs__contested_rec, playoffs__rec_first, playoffs__rec_epa, playoffs__pb_snaps, playoffs__pb_wins, playoffs__pressures_allowed, playoffs__sacks_allowed, playoffs__rb_snaps, playoffs__rb_wins, playoffs__rush_snaps, playoffs__rush_wins, playoffs__sacks, playoffs__qb_hits, playoffs__hurries, playoffs__pressures, playoffs__speed_wins, playoffs__power_wins, playoffs__finesse_wins, playoffs__ttp_sum, playoffs__tackles, playoffs__assists, playoffs__tfl, playoffs__stops, playoffs__missed, playoffs__forced_fumbles, playoffs__fumble_rec, playoffs__cov_snaps, playoffs__tgt_allowed, playoffs__cmp_allowed, playoffs__yds_allowed, playoffs__td_allowed, playoffs__ints, playoffs__pbus, playoffs__sep_allowed, playoffs__freelance, playoffs__freelance_won, playoffs__fg_att, playoffs__fg_made, playoffs__fg_long, playoffs__clutch_att, playoffs__clutch_made, playoffs__xp_att, playoffs__xp_made, playoffs__punts, playoffs__punt_yds, playoffs__punt_net, playoffs__punt_in20, playoffs__punt_tb, playoffs__hang_sum, playoffs__kickoffs, playoffs__ko_tb, playoffs__kr, playoffs__kr_yds, playoffs__kr_td, playoffs__pr, playoffs__pr_yds, playoffs__pr_td, playoffs__st_tackles, playoffs__penalties, playoffs__penalty_yds, playoffs__busts, playoffs__grade_sum, playoffs__graded, playoffs__top_speed, awards
+
+=== people__player__history columns
+
+>>> select 'people__player__history', group_concat(name, ', ') from pragma_table_info('people__player__history')
+'people__player__history' | group_concat(name, ', ')
+people__player__history | _row, _parent, _i, age, level, position, playing_time, overall_start, overall, potential, performance, level_rating, level_rating_end, coaching, events, games_missed, adjustment, spring_gain, results, team, depth, spring_open
+
+=== one log_players row
+
+>>> rsql select season, level, team, overall, person__player__position, substr(more('log_players', _more), 1, 1800) m from log_players where level = 'NFL' and season = 2030 limit 1
+# SQL
+
+## select season, level, team, overall, person__player__position, substr(more('log_players', _more), 1, 1800) m from log_players where level = 'NFL' and season = 2030 limit 1
+not in this book (no such column: team in select season, level, team, overall, person__player__position, substr(more('log_players', _more), 1, 1800) m from log_players where level = 'NFL' and season = 2030 limit 1 at offset 22)
+######## END ROUND 1
