@@ -1,6 +1,1 @@
--- NFL box by season, per team game, regular season (does this book creep?)
-select g.season, count(*) tg, round(avg(b.points),2) pts, round(avg(b.plays),1) plays, round(avg(b.att),1) att, round(avg(b.carries),1) car, round(1.0*sum(b.att)/sum(b.att+b.carries),4) pass_rate, round(1.0*sum(b.pass_yards)/sum(b.att),3) ypa_gross, round(1.0*sum(b.rush_yards)/sum(b.carries),3) ypc, round(avg(b.sacks),2) sacks, round(avg(b.turnovers),2) tov, round(1.0*sum(b.points)/sum(b.drives),3) pts_drive, round(avg(b.explosive),2) expl from log_games__box b join log_games g on g._row = b._parent where g.stream = 'nfl' and coalesce(g.kind,'regular') = 'regular' group by g.season order by g.season
--- NFL runs by season: count, yards, before contact, box count
-rsql select lp.season, count(*) runs, round(avg(json_extract(j.value,'$.yards')),3) yards, round(avg(json_extract(j.value,'$.before_contact')),3) ybc, round(avg(json_extract(j.value,'$.box_count')),3) box from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run' group by lp.season order by lp.season
--- injuries per NFL game by season (log_games__injuries rows)
-select g.season, count(distinct g._row) games, count(*) rows, round(1.0*count(*)/count(distinct g._row),3) per_game, round(avg(i.weeks),2) avg_weeks from log_games__injuries i join log_games g on g._row = i._parent where g.stream = 'nfl' and coalesce(g.kind,'regular') = 'regular' group by g.season order by g.season
+-- stop
