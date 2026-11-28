@@ -1,0 +1,53 @@
+######## ROUND 3 06:20
+
+=== NFL box by season, per team game, regular season (does this book creep?)
+
+>>> select g.season, count(*) tg, round(avg(b.points),2) pts, round(avg(b.plays),1) plays, round(avg(b.att),1) att, round(avg(b.carries),1) car, round(1.0*sum(b.att)/sum(b.att+b.carries),4) pass_rate, round(1.0*sum(b.pass_yards)/sum(b.att),3) ypa_gross, round(1.0*sum(b.rush_yards)/sum(b.carries),3) ypc, round(avg(b.sacks),2) sacks, round(avg(b.turnovers),2) tov, round(1.0*sum(b.points)/sum(b.drives),3) pts_drive, round(avg(b.explosive),2) expl from log_games__box b join log_games g on g._row = b._parent where g.stream = 'nfl' and coalesce(g.kind,'regular') = 'regular' group by g.season order by g.season
+season | tg | pts | plays | att | car | pass_rate | ypa_gross | ypc | sacks | tov | pts_drive | expl
+2025 | 32 | 24.19 | 60.9 | 31.8 | 27.1 | 0.5393 | 7.135 | 5.078 | 2.0 | 1.09 | 2.098 | 5.78
+2026 | 544 | 25.38 | 62.2 | 32.8 | 27.8 | 0.5414 | 7.141 | 4.659 | 1.67 | 1.08 | 2.262 | 5.6
+2027 | 544 | 25.56 | 62.6 | 33.4 | 27.1 | 0.552 | 7.104 | 4.661 | 2.1 | 1.15 | 2.231 | 5.54
+2028 | 544 | 25.91 | 62.7 | 33.8 | 27.1 | 0.5549 | 7.344 | 4.476 | 1.84 | 1.22 | 2.264 | 5.63
+2029 | 544 | 25.66 | 62.5 | 33.2 | 27.5 | 0.5471 | 7.312 | 4.625 | 1.76 | 1.09 | 2.272 | 5.83
+2030 | 544 | 24.9 | 61.8 | 33.0 | 26.9 | 0.5503 | 7.228 | 4.569 | 1.91 | 1.15 | 2.219 | 5.65
+2031 | 544 | 24.91 | 62.0 | 33.1 | 27.1 | 0.55 | 7.019 | 4.552 | 1.9 | 1.07 | 2.212 | 5.46
+2032 | 544 | 25.29 | 61.9 | 32.7 | 27.3 | 0.5446 | 7.197 | 4.574 | 1.88 | 1.12 | 2.273 | 5.62
+2033 | 544 | 27.23 | 62.5 | 33.2 | 27.4 | 0.5477 | 7.367 | 4.546 | 1.79 | 1.12 | 2.402 | 5.87
+2034 | 544 | 26.17 | 62.6 | 33.3 | 27.5 | 0.5477 | 7.203 | 4.614 | 1.79 | 1.02 | 2.329 | 5.56
+2035 | 512 | 25.25 | 61.6 | 32.0 | 27.7 | 0.5362 | 7.129 | 4.695 | 1.87 | 1.08 | 2.258 | 5.61
+
+=== NFL runs by season: count, yards, before contact, box count
+
+>>> rsql select lp.season, count(*) runs, round(avg(json_extract(j.value,'$.yards')),3) yards, round(avg(json_extract(j.value,'$.before_contact')),3) ybc, round(avg(json_extract(j.value,'$.box_count')),3) box from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run' group by lp.season order by lp.season
+# SQL
+
+## select lp.season, count(*) runs, round(avg(json_extract(j.value,'$.yards')),3) yards, round(avg(json_extract(j.value,'$.before_contact')),3) ybc, round(avg(json_extract(j.value,'$.box_count')),3) box from log_plays lp, json_each(more('log_plays', lp._more), '$.plays') j where lp.stream = 'nfl' and json_extract(j.value,'$.kind') = 'Run' group by lp.season order by lp.season
+season  runs   yards  ybc   box
+2025    1585   4.9    2.77  6.53
+2026    18750  4.75   2.64  6.55
+2027    18091  4.71   2.56  6.53
+2028    18202  4.55   2.51  6.52
+2029    18456  4.65   2.57  6.56
+2030    18190  4.63   2.57  6.57
+2031    18191  4.6    2.53  6.54
+2032    18358  4.63   2.57  6.52
+2033    18455  4.61   2.55  6.55
+2034    18431  4.63   2.57  6.57
+2035    17026  4.77   2.65  6.61
+
+=== injuries per NFL game by season (log_games__injuries rows)
+
+>>> select g.season, count(distinct g._row) games, count(*) rows, round(1.0*count(*)/count(distinct g._row),3) per_game, round(avg(i.weeks),2) avg_weeks from log_games__injuries i join log_games g on g._row = i._parent where g.stream = 'nfl' and coalesce(g.kind,'regular') = 'regular' group by g.season order by g.season
+season | games | rows | per_game | avg_weeks
+2025 | 15 | 56 | 3.733 | 2.03
+2026 | 267 | 1078 | 4.037 | 2.67
+2027 | 261 | 1088 | 4.169 | 3.11
+2028 | 265 | 1081 | 4.079 | 2.99
+2029 | 264 | 1089 | 4.125 | 3.36
+2030 | 268 | 1036 | 3.866 | 3.23
+2031 | 267 | 1045 | 3.914 | 3.0
+2032 | 266 | 1081 | 4.064 | 3.14
+2033 | 268 | 1091 | 4.071 | 3.56
+2034 | 261 | 1113 | 4.264 | 2.88
+2035 | 253 | 1052 | 4.158 | 3.09
+######## END ROUND 3
