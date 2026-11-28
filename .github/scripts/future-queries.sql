@@ -1,18 +1,10 @@
--- log tables
-select name from sqlite_master where type = 'table' and name like 'log_%' order by 1
--- log_players columns
-select 'log_players', group_concat(name, ', ') from pragma_table_info('log_players')
--- log_games columns
-select 'log_games', group_concat(name, ', ') from pragma_table_info('log_games')
--- log_games__box columns
-select 'log_games__box', group_concat(name, ', ') from pragma_table_info('log_games__box')
--- log_games child tables
-select name from sqlite_master where type = 'table' and name like 'log_games__%' order by 1
--- log_clubs columns
-select 'log_clubs', group_concat(name, ', ') from pragma_table_info('log_clubs')
--- people__pro__seasons columns
-select 'people__pro__seasons', group_concat(name, ', ') from pragma_table_info('people__pro__seasons')
--- people__player__history columns
-select 'people__player__history', group_concat(name, ', ') from pragma_table_info('people__player__history')
--- one log_players row
-rsql select season, level, team, overall, person__player__position, substr(more('log_players', _more), 1, 1800) m from log_players where level = 'NFL' and season = 2030 limit 1
+-- log_games__players columns
+select 'log_games__players', group_concat(name, ', ') from pragma_table_info('log_games__players')
+-- log_games__injuries columns
+select 'log_games__injuries', group_concat(name, ', ') from pragma_table_info('log_games__injuries')
+-- defense: snaps by starters (8+ starts) and others, with overall of each, by unit and season (people and alumni)
+with ps as (select s.year, p.player__position pos, s.starts, s.stats__snaps_def sd, h.overall from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where h.level = 'NFL' union all select s.year, a.player__position, s.starts, s.stats__snaps_def, h.overall from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where h.level = 'NFL') select case when pos in ('DT','EDGE') then 'DL' else pos end u, year, count(*) n, sum(sd) snaps, round(1.0*sum(sd*overall)/sum(sd),2) snap_wtd_overall, round(100.0*sum(case when starts < 8 then sd else 0 end)/sum(sd),1) pct_snaps_subs, round(avg(case when starts >= 8 then overall end),2) starters_overall, round(avg(case when starts < 8 then overall end),2) subs_overall from ps where year between 2025 and 2035 and pos in ('DT','EDGE','LB','CB','S') and sd > 0 group by u, year order by u, year
+-- offense: the same on offensive snaps
+with ps as (select s.year, p.player__position pos, s.starts, s.stats__snaps_off sd, h.overall from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where h.level = 'NFL' union all select s.year, a.player__position, s.starts, s.stats__snaps_off, h.overall from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where h.level = 'NFL') select case when pos in ('OT','IOL') then 'OL' else pos end u, year, count(*) n, sum(sd) snaps, round(1.0*sum(sd*overall)/sum(sd),2) snap_wtd_overall, round(100.0*sum(case when starts < 8 then sd else 0 end)/sum(sd),1) pct_snaps_subs, round(avg(case when starts >= 8 then overall end),2) starters_overall, round(avg(case when starts < 8 then overall end),2) subs_overall from ps where year between 2025 and 2035 and pos in ('OT','IOL','RB','TE','QB','WR') and sd > 0 group by u, year order by u, year
+-- NFL player seasons per club (players with a game) and games missed by starters, by year
+with ps as (select s.year, s.team, s.games, s.starts, s.ir_weeks, h.games_missed from people__pro__seasons s join people p on p._row = s._parent join people__player__history h on h._parent = s._parent and h.age = s.year - p.class_of + 18 where h.level = 'NFL' union all select s.year, s.team, s.games, s.starts, s.ir_weeks, h.games_missed from alumni__pro__seasons s join alumni a on a._row = s._parent join alumni__player__history h on h._parent = s._parent and h.age = s.year - a.class_of + 18 where h.level = 'NFL') select year, count(*) player_seasons, round(1.0*count(*)/32,1) per_club, round(avg(case when starts >= 8 then games_missed end),3) starter_games_missed, round(avg(ir_weeks),3) ir_weeks, round(avg(games),2) games from ps where year between 2025 and 2035 group by year order by year
